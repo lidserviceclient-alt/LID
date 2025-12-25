@@ -2,9 +2,9 @@
 Life Event Distribution Api repository
 
 
-# Conception : Modèle de données JPA pour le site de e-commerce LID.
+## Modèle de données JPA pour le site de e-commerce LID.
 
-## Modèle UML :
+### Modèle UML :
 
 ```mermaid
 classDiagram
@@ -80,7 +80,7 @@ Product  -->  Article
 StatusHistory "1" *--> "status 1" Status 
 ```
 
-## Modèle physique de base de donnée :
+### Modèle physique de base de donnée :
 
 ```mermaid
 classDiagram
@@ -172,8 +172,8 @@ classDiagram
 
 * Les identifiants sont numériques (int), et auto-générés.
 * Article
-  * Le champ `ean13` est le code-barre de l'article, codé sur 13 caractères.
-  * `vat` est le taux de tva. (0.20 = 20%).
+  * Le champ `ean13` est le code-barre de l'article.
+  * `vat` est le taux de tva. (0.18 = 18% en CIV).
 * Category
   * `orderIdx` est un entier qui permettra de trier les produits selon un ordre donné par l'administrateur.  
 * Perishable
