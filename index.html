@@ -1,13 +1,230 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
+    <!-- BASE -->
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>lid</title>
+
+    <!-- TITLE & SEO -->
+    <title>Lid | Achat & Vente en Ligne Simplifiés</title>
+
+    <meta name="description" content="Découvrez Lid App, la marketplace e-commerce nouvelle génération. Achetez et vendez en ligne en toute sécurité avec des paiements rapides, une interface intuitive et des milliers de produits. Rejoignez la communauté Lid aujourd'hui !" />
+
+    <meta name="keywords" content="marketplace en ligne, e-commerce Côte d'Ivoire, acheter en ligne CI, vendre produits ligne, boutique digitale Afrique, paiement sécurisé mobile money, lid app marketplace, commerce électronique moderne, plateforme vente achat" />
+
+    <meta name="author" content="Life Distribution" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
+    <meta name="bingbot" content="index, follow" />
+
+    <!-- CANONICAL -->
+    <link rel="canonical" href="https://www.lid-app.com/" />
+
+    <!-- ALTERNATE LANGUAGES -->
+    <link rel="alternate" hreflang="fr" href="https://www.lid-app.com/" />
+    <link rel="alternate" hreflang="fr-CI" href="https://www.lid-app.com/" />
+    <link rel="alternate" hreflang="x-default" href="https://www.lid-app.com/" />
+
+    <!-- FAVICON & ICONS -->
+    <link rel="icon" type="image/svg+xml" href="/imgs/logo.png" />
+    <link rel="shortcut icon" href="/imgs/logo.png" />
+
+    <!-- OPEN GRAPH (Facebook, WhatsApp, LinkedIn) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Lid App – La Marketplace qui Révolutionne le E-commerce" />
+    <meta property="og:description" content="Achetez et vendez facilement. ⚡ Paiements instantanés. 100% sécurisé. Rejoignez des milliers d'utilisateurs sur Lid App, la plateforme e-commerce intelligente." />
+    <meta property="og:url" content="https://www.lid-app.com/" />
+    <meta property="og:image" content="https://www.lid-app.com/imgs/og-share.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Lid App - Marketplace e-commerce moderne" />
+    <meta property="og:site_name" content="Lid App" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:locale:alternate" content="fr_CI" />
+
+    <!-- TWITTER CARD -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Lid – Marketplace E-commerce Nouvelle Génération" />
+    <meta name="twitter:description" content="Achetez, vendez, prospérez. La plateforme e-commerce qui simplifie le commerce en ligne avec sécurité et rapidité." />
+    <meta name="twitter:image" content="https://www.lid-app.com/imgs/twitter-card.png" />
+    <meta name="twitter:image:alt" content="Interface moderne de Lid App montrant des produits et fonctionnalités" />
+    <meta name="twitter:site" content="@lidapp" />
+    <meta name="twitter:creator" content="@lidapp" />
+
+    <!-- PERFORMANCE & SEO TECH -->
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="x-dns-prefetch-control" content="on" />
+    
+    <!-- DNS PREFETCH & PRECONNECT -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- STRUCTURED DATA (JSON-LD) - WebApplication -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Lid App",
+        "alternateName": "Life Distribution",
+        "url": "https://www.lid-app.com/",
+        "applicationCategory": "ECommerceApplication",
+        "operatingSystem": "Web, iOS, Android",
+        "description": "Marketplace e-commerce innovante permettant l'achat et la vente de produits en ligne avec paiements sécurisés et interface moderne.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "XOF"
+        },
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": "4.7",
+          "ratingCount": "2847",
+          "bestRating": "5",
+          "worstRating": "1"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "Life Distribution",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://www.lid-app.com/imgs/logo.png",
+            "width": "600",
+            "height": "60"
+          }
+        },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://www.lid-app.com/search?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        },
+        "screenshot": "https://www.lid-app.com/imgs/app-screenshot.png",
+        "featureList": [
+          "Achat et vente en ligne",
+          "Paiements sécurisés",
+          "Interface intuitive",
+          "Gestion de boutique",
+          "Support multilingue",
+          "Mobile Money intégré"
+        ]
+      }
+    </script>
+
+    <!-- STRUCTURED DATA (JSON-LD) - Organization -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Life Distribution",
+        "alternateName": "Lid App",
+        "url": "https://www.lid-app.com/",
+        "logo": "https://www.lid-app.com/imgs/logo.png",
+        "description": "Plateforme e-commerce qui connecte acheteurs et vendeurs en Afrique avec des solutions de paiement sécurisées",
+        "foundingDate": "2023",
+        "areaServed": {
+          "@type": "Country",
+          "name": "Côte d'Ivoire"
+        },
+        "sameAs": [
+          "https://www.facebook.com/",
+          "https://twitter.com/",
+          "https://www.instagram.com/",
+          "https://www.linkedin.com/",
+          "https://www.youtube.com/"
+        ],
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "Customer Service",
+          "availableLanguage": ["French"],
+          "email": ""
+        }
+      }
+    </script>
+
+    <!-- STRUCTURED DATA (JSON-LD) - BreadcrumbList -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Accueil",
+            "item": "https://www.lid-app.com/"
+          }
+        ]
+      }
+    </script>
+
+    <!-- STRUCTURED DATA (JSON-LD) - FAQ -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Comment fonctionne Lid App ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Lid est une marketplace e-commerce qui permet aux utilisateurs d'acheter et de vendre des produits en ligne facilement. Créez votre compte, parcourez des milliers de produits ou ouvrez votre boutique en quelques clics."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Les paiements sont-ils sécurisés ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Oui, tous les paiements sur Lid sont 100% sécurisés. Nous utilisons des protocoles de sécurité avancés et supportons Mobile Money, cartes bancaires et autres méthodes de paiement fiables."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Comment vendre sur Lid App ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Pour vendre sur Lid, inscrivez-vous gratuitement, créez votre boutique, ajoutez vos produits avec photos et descriptions, puis commencez à recevoir des commandes. Notre interface intuitive facilite la gestion de votre activité."
+            }
+          }
+        ]
+      }
+    </script>
+
+    <!-- GOOGLE SITE VERIFICATION (À activer une fois le code obtenu) -->
+    <!-- <meta name="google-site-verification" content="YOUR_GOOGLE_VERIFICATION_CODE" /> -->
+    
+    <!-- BING SITE VERIFICATION (À activer une fois le code obtenu) -->
+    <!-- <meta name="msvalidate.01" content="YOUR_BING_VERIFICATION_CODE" /> -->
+
+    <!-- YANDEX VERIFICATION (À activer une fois le code obtenu) -->
+    <!-- <meta name="yandex-verification" content="YOUR_YANDEX_VERIFICATION_CODE" /> -->
+
+    <!-- SECURITY HEADERS -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="SAMEORIGIN" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+
+    <!-- CONTENT SECURITY POLICY -->
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+
   </head>
   <body>
+    <noscript>
+      <div style="padding: 20px; text-align: center; font-family: Arial, sans-serif;">
+        <h1>JavaScript requis</h1>
+        <p>Lid nécessite JavaScript pour fonctionner correctement.</p>
+        <p>Veuillez activer JavaScript dans les paramètres de votre navigateur pour profiter de toutes les fonctionnalités.</p>
+      </div>
+    </noscript>
+
+    <!-- MAIN APP CONTAINER -->
     <div id="root"></div>
+
+    <!-- MAIN SCRIPT -->
     <script type="module" src="/src/main.jsx"></script>
+
   </body>
 </html>
