@@ -1,0 +1,88 @@
+spring:
+  application:
+    name: lid
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password: password
+  profiles:
+    active: local
+  h2:
+    console:
+      enabled: true
+  
+  # Configuration Spring Batch
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-database: always # à changer en prod
+
+
+server:
+  port: 9000
+
+
+# Configuration PayDunya
+paydunya:
+  # Mode test ou production
+  mode: test
+  
+  # Clés API (À remplacer par vos vraies clés de paydunya.com)
+  masterKey: ${PAYDUNYA_MASTER_KEY}
+  privateKey: ${PAYDUNYA_PRIVATE_KEY}
+  publicKey: ${PAYDUNYA_PUBLIC_KEY}
+  token: ${PAYDUNYA_TOKEN}
+  
+  # Configuration du magasin
+  storeName: LID E-commerce
+  storeTagline: Plateforme de vente en ligne
+  storePhoneNumber: +225XXXXXXXXXX
+  storePostalAddress: Abidjan, Côte d'Ivoire
+  storeWebsiteUrl: https://lid-ecommerce.com
+  storeLogoUrl: https://lid-ecommerce.com/logo.png
+  
+  # URLs de redirection
+  callbackUrl: https://api.lid-ecommerce.com/api/v1/webhooks/paydunya
+  returnUrl: https://lid-ecommerce.com/payment/success
+  cancelUrl: https://lid-ecommerce.com/payment/cancel
+  
+  # Pays supportés (codes ISO 2)
+  supportedCountries: CI,SN,BJ,BF,CM,CG,GA,GW,ML
+
+# Endpoints Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  info:
+    env:
+      enabled: true
+  health:
+    readiness-state:
+      enabled: true
+    liveness-state:
+      enabled: true
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  # Micrometer
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+info:
+  app:
+    name: "lid"
+    description : "LID Application"
+    version : "1.0.0"
+
+logging:
+  level:
+    com.lifeevent.lid: INFO
