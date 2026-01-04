@@ -2,6 +2,8 @@ package com.lifeevent.lid.article.dto;
 
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @NoArgsConstructor

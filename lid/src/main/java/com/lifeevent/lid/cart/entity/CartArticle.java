@@ -2,12 +2,8 @@ package com.lifeevent.lid.cart.entity;
 
 import com.lifeevent.lid.article.entity.Article;
 import com.lifeevent.lid.common.entity.BaseEntity;
-import com.lifeevent.lid.customer.entity.Customer;
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.sql.Date;
-import java.util.List;
 
 @Entity
 @Data
@@ -16,14 +12,16 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Cart extends BaseEntity {
-    @ManyToOne
-    private Customer customer;
-
-    @OneToMany(mappedBy = "cart")
-    private List<CartArticle> articles;
+public class CartArticle extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
+
+    @ManyToOne
+    private Cart cart;
+    @ManyToOne
+    private Article article;
+
+    private Integer quantity;
 }

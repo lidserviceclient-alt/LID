@@ -24,7 +24,7 @@ public class Article extends BaseEntity {
     private String ean;
     @ManyToMany
     private List<Category> categories;
-    private Integer price;
+    private Double price;
     private Float vat;
     private String name;
 

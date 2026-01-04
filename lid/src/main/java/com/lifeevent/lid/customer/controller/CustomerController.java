@@ -1,7 +1,9 @@
 package com.lifeevent.lid.customer.controller;
 
+import com.lifeevent.lid.cart.service.CartService;
 import com.lifeevent.lid.customer.dto.CustomerDto;
 import com.lifeevent.lid.customer.service.CustomerService;
+import com.lifeevent.lid.common.util.ResponseUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,62 +15,43 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/customers")
 @RequiredArgsConstructor
-public class CustomerController {
+public class CustomerController implements ICustomerController {
     
     private final CustomerService customerService;
+    private final CartService cartService;
     
-    /**
-     * Créer un client
-     */
-    @PostMapping
+    @Override
     public ResponseEntity<CustomerDto> createCustomer(@RequestBody CustomerDto dto) {
         CustomerDto created = customerService.createCustomer(dto);
+        cartService.createCart(created.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
     
-    /**
-     * Récupérer un client par ID
-     */
-    @GetMapping("/{id}")
+    @Override
     public ResponseEntity<CustomerDto> getCustomer(@PathVariable Integer id) {
         Optional<CustomerDto> customer = customerService.getCustomerById(id);
-        return customer.map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+        return ResponseUtils.getOrNotFound(customer, "Customer", id.toString());
     }
     
-    /**
-     * Lister tous les clients
-     */
-    @GetMapping
+    @Override
     public ResponseEntity<List<CustomerDto>> getAllCustomers() {
         List<CustomerDto> customers = customerService.getAllCustomers();
         return ResponseEntity.ok(customers);
     }
     
-    /**
-     * Recherche par email
-     */
-    @GetMapping("/email/{email}")
+    @Override
     public ResponseEntity<CustomerDto> getCustomerByEmail(@PathVariable String email) {
         Optional<CustomerDto> customer = customerService.getCustomerByEmail(email);
-        return customer.map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+        return ResponseUtils.getOrNotFound(customer, "Customer", "email", email);
     }
     
-    /**
-     * Recherche par login
-     */
-    @GetMapping("/login/{login}")
+    @Override
     public ResponseEntity<CustomerDto> getCustomerByLogin(@PathVariable String login) {
         Optional<CustomerDto> customer = customerService.getCustomerByLogin(login);
-        return customer.map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+        return ResponseUtils.getOrNotFound(customer, "Customer", "login", login);
     }
     
-    /**
-     * Mettre à jour un client
-     */
-    @PutMapping("/{id}")
+    @Override
     public ResponseEntity<CustomerDto> updateCustomer(
             @PathVariable Integer id,
             @RequestBody CustomerDto dto) {
@@ -76,27 +59,18 @@ public class CustomerController {
         return ResponseEntity.ok(updated);
     }
     
-    /**
-     * Supprimer un client
-     */
-    @DeleteMapping("/{id}")
+    @Override
     public ResponseEntity<Void> deleteCustomer(@PathVariable Integer id) {
         customerService.deleteCustomer(id);
         return ResponseEntity.noContent().build();
     }
     
-    /**
-     * Vérifier si un email existe
-     */
-    @GetMapping("/check-email/{email}")
+    @Override
     public ResponseEntity<Boolean> emailExists(@PathVariable String email) {
         return ResponseEntity.ok(customerService.emailExists(email));
     }
     
-    /**
-     * Vérifier si un login existe
-     */
-    @GetMapping("/check-login/{login}")
+    @Override
     public ResponseEntity<Boolean> loginExists(@PathVariable String login) {
         return ResponseEntity.ok(customerService.loginExists(login));
     }

@@ -11,6 +11,7 @@ import com.lifeevent.lid.payment.dto.PaymentStatusResponseDto;
 import com.lifeevent.lid.payment.entity.Payment;
 import com.lifeevent.lid.payment.entity.PaymentTransaction;
 import com.lifeevent.lid.payment.enums.PaymentStatus;
+import com.lifeevent.lid.payment.mapper.PaymentMapper;
 import com.lifeevent.lid.payment.repository.PaymentRepository;
 import com.lifeevent.lid.payment.repository.PaymentTransactionRepository;
 import com.lifeevent.lid.payment.service.PaymentService;
@@ -41,6 +42,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaydunyaProperties properties;
     private final PaydunyaSetup paydunyaSetup;
     private final PaydunyaCheckoutStore paydunyaStore;
+    private final PaymentMapper paymentMapper;
     
     @Override
     public PaymentResponseDto createPayment(CreatePaymentRequestDto request) {
@@ -179,23 +181,17 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponseDto getPaymentById(Long paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
             .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId.toString()));
-        return mapToDto(payment);
+        return paymentMapper.toDto(payment);
     }
     
     @Override
     public List<PaymentResponseDto> getPaymentsByOrderId(Long orderId) {
-        return paymentRepository.findByOrderId(orderId)
-            .stream()
-            .map(this::mapToDto)
-            .collect(Collectors.toList());
+        return paymentMapper.toDtoList(paymentRepository.findByOrderId(orderId));
     }
     
     @Override
     public List<PaymentResponseDto> getPaymentsByCustomerEmail(String customerEmail) {
-        return paymentRepository.findByCustomerEmail(customerEmail)
-            .stream()
-            .map(this::mapToDto)
-            .collect(Collectors.toList());
+        return paymentMapper.toDtoList(paymentRepository.findByCustomerEmail(customerEmail));
     }
     
     @Override
@@ -258,28 +254,6 @@ public class PaymentServiceImpl implements PaymentService {
             .map(com.lifeevent.lid.payment.enums.PaymentOperator::getOperatorCode)
             .distinct()
             .collect(Collectors.toList());
-    }
-    
-    private PaymentResponseDto mapToDto(Payment payment) {
-        return PaymentResponseDto.builder()
-            .id(payment.getId())
-            .orderId(payment.getOrderId())
-            .invoiceToken(payment.getInvoiceToken())
-            .amount(payment.getAmount())
-            .currency(payment.getCurrency())
-            .description(payment.getDescription())
-            .operator(payment.getOperator())
-            .status(payment.getStatus())
-            .customerName(payment.getCustomerName())
-            .customerEmail(payment.getCustomerEmail())
-            .customerPhone(payment.getCustomerPhone())
-            .receiptUrl(payment.getReceiptUrl())
-            .returnUrl(payment.getReturnUrl())
-            .paymentDate(payment.getPaymentDate())
-            .failureReason(payment.getFailureReason())
-            .createdAt(payment.getCreatedAt())
-            .updatedAt(payment.getUpdatedAt())
-            .build();
     }
     
     private void saveTransaction(Payment payment, String type, String statusAtTime, 

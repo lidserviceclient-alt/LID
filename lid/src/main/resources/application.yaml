@@ -2,6 +2,12 @@ spring:
   application:
     name: lid
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: "https://www.googleapis.com/oauth2/v3/certs"
+
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
   datasource:
@@ -86,3 +92,15 @@ info:
 logging:
   level:
     com.lifeevent.lid: INFO
+
+# Configuration Swagger/OpenAPI
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    tryItOutEnabled: true
+  api-docs:
+    path: /v3/api-docs
+  show-actuator: true

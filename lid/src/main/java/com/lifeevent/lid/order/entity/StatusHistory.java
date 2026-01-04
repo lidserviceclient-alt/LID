@@ -1,15 +1,15 @@
-package com.lifeevent.lid.order;
+package com.lifeevent.lid.order.entity;
 
 import com.lifeevent.lid.common.entity.BaseEntity;
+import com.lifeevent.lid.order.enumeration.Status;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
-import java.sql.Date;
 import java.time.LocalDateTime;
 
-//@Entity
+@Entity
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
@@ -19,6 +19,5 @@ public class StatusHistory extends BaseEntity {
     private Long id;
     @Enumerated(EnumType.STRING)
     private Status status;
-
     private LocalDateTime statusDate;
 }

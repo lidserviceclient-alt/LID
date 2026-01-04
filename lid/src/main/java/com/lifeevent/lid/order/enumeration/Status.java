@@ -1,4 +1,4 @@
-package com.lifeevent.lid.order;
+package com.lifeevent.lid.order.enumeration;
 
 public enum Status {
     READY_TO_DELIVER,

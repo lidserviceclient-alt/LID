@@ -1,4 +1,4 @@
-package com.lifeevent.lid.auth.config;
+package com.lifeevent.lid.auth.config.converter;
 
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.core.GrantedAuthority;

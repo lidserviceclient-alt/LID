@@ -15,13 +15,13 @@ public class ArticleItemProcessor implements ItemProcessor<ArticleCsvDto, Articl
     public Article process(ArticleCsvDto item) throws Exception {
         if(this.isEmpty(item)) return null;
         final String title = item.getTitle().toUpperCase();
-        final Integer price = item.getPrice().intValue();
+        final Double price = item.getPrice().doubleValue();
         final Article transformedArticle = Article.builder()
                 .name(title)
                 .price(price)
                 .img(item.getImageUrl())
                 .ean(item.getReferenceProduitPartenaire())
-                .vat(0.0f)
+                .vat(0.18f)
                 .build();
 
         log.info("[transformedArticle] : ( {} ) ", transformedArticle);

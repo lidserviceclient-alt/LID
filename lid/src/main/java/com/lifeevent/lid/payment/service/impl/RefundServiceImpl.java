@@ -7,6 +7,7 @@ import com.lifeevent.lid.payment.entity.Payment;
 import com.lifeevent.lid.payment.entity.PaymentTransaction;
 import com.lifeevent.lid.payment.entity.Refund;
 import com.lifeevent.lid.payment.enums.PaymentStatus;
+import com.lifeevent.lid.payment.mapper.RefundMapper;
 import com.lifeevent.lid.payment.repository.PaymentRepository;
 import com.lifeevent.lid.payment.repository.PaymentTransactionRepository;
 import com.lifeevent.lid.payment.repository.RefundRepository;
@@ -34,6 +35,7 @@ public class RefundServiceImpl implements RefundService {
     private final RefundRepository refundRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentTransactionRepository transactionRepository;
+    private final RefundMapper refundMapper;
     
     @Override
     public RefundResponseDto requestRefund(RefundRequestDto request) {
@@ -69,30 +71,24 @@ public class RefundServiceImpl implements RefundService {
         
         log.info("Demande de remboursement créée: {}", savedRefund.getId());
         
-        return mapToDto(savedRefund);
+        return refundMapper.toDto(savedRefund);
     }
     
     @Override
     public List<RefundResponseDto> getRefundsByPaymentId(Long paymentId) {
-        return refundRepository.findByPaymentId(paymentId)
-            .stream()
-            .map(this::mapToDto)
-            .collect(Collectors.toList());
+        return refundMapper.toDtoList(refundRepository.findByPaymentId(paymentId));
     }
     
     @Override
     public RefundResponseDto getRefundById(Long refundId) {
         Refund refund = refundRepository.findById(refundId)
             .orElseThrow(() -> new ResourceNotFoundException("Refund", "id", refundId.toString()));
-        return mapToDto(refund);
+        return refundMapper.toDto(refund);
     }
     
     @Override
     public List<RefundResponseDto> getPendingRefunds() {
-        return refundRepository.findByStatus("PENDING")
-            .stream()
-            .map(this::mapToDto)
-            .collect(Collectors.toList());
+        return refundMapper.toDtoList(refundRepository.findByStatus("PENDING"));
     }
     
     @Override
@@ -144,19 +140,6 @@ public class RefundServiceImpl implements RefundService {
             "Remboursement annulé", "API");
         
         log.info("Remboursement annulé: {}", refundId);
-    }
-    
-    private RefundResponseDto mapToDto(Refund refund) {
-        return RefundResponseDto.builder()
-            .id(refund.getId())
-            .paymentId(refund.getPayment().getId())
-            .amount(refund.getAmount())
-            .reason(refund.getReason())
-            .status(refund.getStatus())
-            .processedDate(refund.getProcessedDate())
-            .refundId(refund.getRefundId())
-            .createdAt(refund.getCreatedAt())
-            .build();
     }
     
     private void saveTransaction(Payment payment, String type, String statusAtTime,

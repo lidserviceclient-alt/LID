@@ -1,8 +1,8 @@
-package com.lifeevent.lid.order;
+package com.lifeevent.lid.order.entity;
 
-import com.lifeevent.lid.article.entity.Article;
 import com.lifeevent.lid.common.entity.BaseEntity;
 import com.lifeevent.lid.customer.entity.Customer;
+import com.lifeevent.lid.order.enumeration.Status;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -11,7 +11,7 @@ import java.util.List;
 
 import java.time.LocalDateTime;
 
-//@Entity
+@Entity
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
@@ -19,10 +19,10 @@ public class Order extends BaseEntity {
 
     private LocalDateTime deliveryDate;
 
-    private Integer amount;
+    private Double amount;
 
-    @ManyToMany
-    private List<Article> articles;
+    @OneToMany(mappedBy = "order")
+    private List<OrderArticle> articles;
 
     @ManyToOne
     private Customer customer;

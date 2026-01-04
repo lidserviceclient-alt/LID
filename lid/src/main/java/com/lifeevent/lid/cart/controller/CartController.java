@@ -12,33 +12,24 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/carts")
 @RequiredArgsConstructor
-public class CartController {
+public class CartController implements ICartController {
     
     private final CartService cartService;
     
-    /**
-     * Créer un panier
-     */
-    @PostMapping("/customer/{customerId}")
-    public ResponseEntity<CartDto> createCart(@PathVariable Integer customerId) {
-        CartDto created = cartService.createCart(customerId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
-    }
+//    @Override
+//    public ResponseEntity<CartDto> createCart(@PathVariable Integer customerId) {
+//        CartDto created = cartService.createCart(customerId);
+//        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+//    }
     
-    /**
-     * Récupérer le panier d'un client
-     */
-    @GetMapping("/customer/{customerId}")
+    @Override
     public ResponseEntity<CartDto> getCart(@PathVariable Integer customerId) {
         Optional<CartDto> cart = cartService.getCartByCustomerId(customerId);
         return cart.map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
     
-    /**
-     * Ajouter un article au panier
-     */
-    @PostMapping("/{customerId}/articles/{articleId}")
+    @Override
     public ResponseEntity<CartDto> addArticle(
             @PathVariable Integer customerId,
             @PathVariable Long articleId) {
@@ -46,10 +37,7 @@ public class CartController {
         return ResponseEntity.ok(updated);
     }
     
-    /**
-     * Retirer un article du panier
-     */
-    @DeleteMapping("/{customerId}/articles/{articleId}")
+    @Override
     public ResponseEntity<CartDto> removeArticle(
             @PathVariable Integer customerId,
             @PathVariable Long articleId) {
@@ -57,19 +45,13 @@ public class CartController {
         return ResponseEntity.ok(updated);
     }
     
-    /**
-     * Vider le panier
-     */
-    @DeleteMapping("/customer/{customerId}/clear")
+    @Override
     public ResponseEntity<Void> clearCart(@PathVariable Integer customerId) {
         cartService.clearCart(customerId);
         return ResponseEntity.noContent().build();
     }
     
-    /**
-     * Supprimer un panier
-     */
-    @DeleteMapping("/{cartId}")
+    @Override
     public ResponseEntity<Void> deleteCart(@PathVariable Integer cartId) {
         cartService.deleteCart(cartId);
         return ResponseEntity.noContent().build();
