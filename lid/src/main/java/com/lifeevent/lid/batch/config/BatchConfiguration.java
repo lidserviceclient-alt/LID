@@ -1,7 +1,8 @@
 package com.lifeevent.lid.batch.config;
 
-import com.lifeevent.lid.article.entity.Article;
+
 import com.lifeevent.lid.batch.dto.ArticleCsvDto;
+import com.lifeevent.lid.batch.dto.ArticleImportAggregate;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
@@ -65,12 +66,16 @@ public class BatchConfiguration {
     }
 
 
+
     @Bean
-    public JpaItemWriter<Article> writer(EntityManagerFactory entityManagerFactory) {
-        return new JpaItemWriterBuilder<Article>()
+    public JpaItemWriter<ArticleImportAggregate> writer(EntityManagerFactory entityManagerFactory) {
+        return new JpaItemWriterBuilder<ArticleImportAggregate>()
                 .entityManagerFactory(entityManagerFactory)
                 .build();
     }
+
+
+
 
 
 

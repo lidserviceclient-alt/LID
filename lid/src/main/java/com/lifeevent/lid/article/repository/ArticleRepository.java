@@ -47,17 +47,25 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     List<Article> findByNameAndPriceRange(@Param("name") String name, 
                                           @Param("minPrice") Integer minPrice, 
                                           @Param("maxPrice") Integer maxPrice);
-    
+
     /**
      * Recherche complète : nom + catégorie + plage de prix
      */
-    @Query("SELECT DISTINCT a FROM Article a JOIN a.categories c " +
-           "WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :name, '%')) " +
-           "AND c.id = :categoryId " +
-           "AND a.price BETWEEN :minPrice AND :maxPrice " +
-           "ORDER BY a.price ASC")
-    List<Article> searchArticles(@Param("name") String name,
-                                @Param("categoryId") Integer categoryId,
-                                @Param("minPrice") Integer minPrice,
-                                @Param("maxPrice") Integer maxPrice);
+    @Query("""
+        SELECT DISTINCT a
+              FROM Article a
+              JOIN a.categories c
+        WHERE (:name IS NULL OR LOWER(a.name) LIKE LOWER(CONCAT('%', :name, '%')))
+              AND (:categoryId IS NULL OR c.id = :categoryId)
+              AND (:minPrice IS NULL OR a.price >= :minPrice)
+              AND (:maxPrice IS NULL OR a.price <= :maxPrice)
+        ORDER BY a.price ASC
+    """)
+    List<Article> searchArticles(
+            @Param("name") String name,
+            @Param("categoryId") Integer categoryId,
+            @Param("minPrice") Integer minPrice,
+            @Param("maxPrice") Integer maxPrice
+    );
+
 }

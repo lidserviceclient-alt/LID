@@ -1,14 +1,16 @@
 package com.lifeevent.lid.batch.config;
 
-import com.lifeevent.lid.article.entity.Article;
+import com.lifeevent.lid.batch.config.listener.JobCompletionNotificationListener;
+import com.lifeevent.lid.batch.config.processor.ArticleItemProcessor;
+import com.lifeevent.lid.batch.config.writer.ArticleImportWriter;
 import com.lifeevent.lid.batch.dto.ArticleCsvDto;
+import com.lifeevent.lid.batch.dto.ArticleImportAggregate;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
-import org.springframework.batch.item.database.JpaItemWriter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -25,16 +27,16 @@ public class JobConfiguration {
     }
 
     @Bean
-    public Step step1(JobRepository jobRepository, 
+    public Step step1(JobRepository jobRepository,
                       PlatformTransactionManager transactionManager,
                       FlatFileItemReader<ArticleCsvDto> reader,
                       ArticleItemProcessor processor,
-                      JpaItemWriter<Article> writer) {
+                      ArticleImportWriter writerV2) {
         return new StepBuilder("step1", jobRepository)
-                .<ArticleCsvDto, Article>chunk(10, transactionManager)
+                .<ArticleCsvDto, ArticleImportAggregate>chunk(10, transactionManager)
                 .reader(reader)
                 .processor(processor)
-                .writer(writer)
+                .writer(writerV2)
                 .build();
     }
 

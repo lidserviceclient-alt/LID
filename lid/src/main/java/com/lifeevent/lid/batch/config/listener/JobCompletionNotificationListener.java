@@ -1,4 +1,4 @@
-package com.lifeevent.lid.batch.config;
+package com.lifeevent.lid.batch.config.listener;
 
 import com.lifeevent.lid.article.entity.Article;
 import lombok.RequiredArgsConstructor;

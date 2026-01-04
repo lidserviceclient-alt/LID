@@ -47,7 +47,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional(readOnly = true)
     public Optional<CategoryDto> getCategoryByName(String name) {
-        return Optional.ofNullable(categoryRepository.findByName(name))
+        return categoryRepository.findByName(name)
             .map(categoryMapper::toDto);
     }
     
