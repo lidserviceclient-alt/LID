@@ -7,11 +7,21 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "npm run build && firebase deploy"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.15",
+    "clsx": "^2.1.1",
+    "firebase": "^12.7.0",
+    "framer-motion": "^12.23.26",
+    "lucide-react": "^0.562.0",
+    "motion": "^12.23.26",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.11.0",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

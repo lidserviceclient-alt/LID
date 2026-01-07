@@ -19,12 +19,12 @@
     <meta name="bingbot" content="index, follow" />
 
     <!-- CANONICAL -->
-    <link rel="canonical" href="https://www.lid-app.com/" />
+    <link rel="canonical" href="https://life-distribution.web.app/" />
 
     <!-- ALTERNATE LANGUAGES -->
-    <link rel="alternate" hreflang="fr" href="https://www.lid-app.com/" />
-    <link rel="alternate" hreflang="fr-CI" href="https://www.lid-app.com/" />
-    <link rel="alternate" hreflang="x-default" href="https://www.lid-app.com/" />
+    <link rel="alternate" hreflang="fr" href="https://life-distribution.web.app/" />
+    <link rel="alternate" hreflang="fr-CI" href="https://life-distribution.web.app/" />
+    <link rel="alternate" hreflang="x-default" href="https://life-distribution.web.app/" />
 
     <!-- FAVICON & ICONS -->
     <link rel="icon" type="image/svg+xml" href="/imgs/logo.png" />
@@ -34,8 +34,8 @@
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Lid App – La Marketplace qui Révolutionne le E-commerce" />
     <meta property="og:description" content="Achetez et vendez facilement. ⚡ Paiements instantanés. 100% sécurisé. Rejoignez des milliers d'utilisateurs sur Lid App, la plateforme e-commerce intelligente." />
-    <meta property="og:url" content="https://www.lid-app.com/" />
-    <meta property="og:image" content="https://www.lid-app.com/imgs/og-share.png" />
+    <meta property="og:url" content="https://life-distribution.web.app/" />
+    <meta property="og:image" content="https://life-distribution.web.app/imgs/og-share.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Lid App - Marketplace e-commerce moderne" />
@@ -69,7 +69,7 @@
         "@type": "WebApplication",
         "name": "Lid App",
         "alternateName": "Life Distribution",
-        "url": "https://www.lid-app.com/",
+        "url": "https://life-distribution.web.app",
         "applicationCategory": "ECommerceApplication",
         "operatingSystem": "Web, iOS, Android",
         "description": "Marketplace e-commerce innovante permettant l'achat et la vente de produits en ligne avec paiements sécurisés et interface moderne.",
@@ -90,7 +90,7 @@
           "name": "Life Distribution",
           "logo": {
             "@type": "ImageObject",
-            "url": "https://www.lid-app.com/imgs/logo.png",
+            "url": "https://life-distribution.web.app/imgs/logo.png",
             "width": "600",
             "height": "60"
           }
@@ -100,7 +100,7 @@
           "target": "https://www.lid-app.com/search?q={search_term_string}",
           "query-input": "required name=search_term_string"
         },
-        "screenshot": "https://www.lid-app.com/imgs/app-screenshot.png",
+        "screenshot": "https://life-distribution.web.app/imgs/og-share.png",
         "featureList": [
           "Achat et vente en ligne",
           "Paiements sécurisés",
@@ -119,8 +119,8 @@
         "@type": "Organization",
         "name": "Life Distribution",
         "alternateName": "Lid App",
-        "url": "https://www.lid-app.com/",
-        "logo": "https://www.lid-app.com/imgs/logo.png",
+        "url": "https://life-distribution.web.app",
+        "logo": "https://life-distribution.web.app/imgs/logo.png",
         "description": "Plateforme e-commerce qui connecte acheteurs et vendeurs en Afrique avec des solutions de paiement sécurisées",
         "foundingDate": "2023",
         "areaServed": {
@@ -204,12 +204,11 @@
 
     <!-- SECURITY HEADERS -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
-    <meta http-equiv="X-Frame-Options" content="SAMEORIGIN" />
     <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
 
-    <!-- CONTENT SECURITY POLICY -->
+    <!-- CONTENT SECURITY POLICY 
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
-
+    -->
   </head>
   <body>
     <noscript>
@@ -221,7 +220,84 @@
     </noscript>
 
     <!-- MAIN APP CONTAINER -->
-    <div id="root"></div>
+    <div id="root">
+      <style>
+        .loader-container {
+          position: fixed;
+          inset: 0;
+          background-color: #ffffff;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          z-index: 9999;
+          font-family: system-ui, -apple-system, sans-serif;
+        }
+        .cart-box {
+          position: relative;
+          width: 80px;
+          height: 80px;
+          animation: bump 0.5s ease-in-out infinite alternate;
+        }
+        .cart-icon {
+          width: 100%;
+          height: 100%;
+          color: #171717;
+        }
+        .wheel-front, .wheel-back {
+          transform-origin: center;
+          animation: spin 0.8s linear infinite;
+        }
+        /* Wheels specific origins need careful handling in SVG, usually defined by cx/cy. 
+           CSS transform-origin on SVG circles works if box is correct. 
+        */
+        .wheel-front { transform-origin: 20px 21px; }
+        .wheel-back { transform-origin: 9px 21px; }
+        
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes bump {
+          from { transform: translateY(0); }
+          to { transform: translateY(-3px); }
+        }
+        .track-line {
+          width: 120px;
+          height: 2px;
+          background: #e5e5e5;
+          margin-top: 10px;
+          border-radius: 4px;
+          position: relative;
+          overflow: hidden;
+        }
+        .track-line::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          height: 100%;
+          width: 30%;
+          background: #171717;
+          border-radius: 4px;
+          animation: dash 1s ease-in-out infinite;
+        }
+        @keyframes dash {
+          0% { left: -30%; }
+          50% { left: 100%; }
+          100% { left: 100%; }
+        }
+      </style>
+      <div class="loader-container">
+        <div class="cart-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cart-icon">
+            <circle cx="9" cy="21" r="1" style="transform-origin: 9px 21px; animation: spin 0.6s linear infinite;" />
+            <circle cx="20" cy="21" r="1" style="transform-origin: 20px 21px; animation: spin 0.6s linear infinite;" />
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+          </svg>
+        </div>
+        <div class="track-line"></div>
+      </div>
+    </div>
 
     <!-- MAIN SCRIPT -->
     <script type="module" src="/src/main.jsx"></script>

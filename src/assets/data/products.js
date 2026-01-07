@@ -1,0 +1,153 @@
+export const categories = ["Sneakers", "Vêtements", "Accessoires", "Exclusif", "Sport", "Maison"];
+export const brands = ["Nike", "Adidas", "LID Originals", "Puma", "New Balance", "Asics"];
+export const colors = [
+  { name: "Blanc", hex: "#ffffff", border: true },
+  { name: "Noir", hex: "#171717", border: false },
+  { name: "Gris", hex: "#737373", border: false },
+  { name: "Rouge", hex: "#ef4444", border: false },
+  { name: "Bleu", hex: "#3b82f6", border: false },
+  { name: "Vert", hex: "#22c55e", border: false },
+  { name: "Beige", hex: "#d6d3d1", border: false },
+];
+export const priceRanges = [
+  { label: "Moins de 35 000 FCFA", min: 0, max: 35000 },
+  { label: "35 000 - 65 000 FCFA", min: 35000, max: 65000 },
+  { label: "65 000 - 130 000 FCFA", min: 65000, max: 130000 },
+  { label: "Plus de 130 000 FCFA", min: 130000, max: 2000000 },
+];
+
+export const products = [
+  {
+    id: 1,
+    name: "Nike Air Max Pulse",
+    brand: "Nike",
+    category: "Sneakers",
+    price: 105000,
+    rating: 4.5,
+    reviews: 1289,
+    image: "https://static.nike.com/a/images/t_PDP_1728_v1/f_auto,q_auto:eco/d73b0636-2244-4866-8805-4c01740b27b1/air-max-pulse-shoes-2bZLZV.png",
+    tag: "Meilleure vente",
+    isPrime: true,
+    deliveryDate: "demain 4 janv.",
+    color: "Gris",
+    sizes: ["40", "41", "42", "43"]
+  },
+  {
+    id: 2,
+    name: "Tech Fleece Hoodie",
+    brand: "Nike",
+    category: "Vêtements",
+    price: 78500,
+    rating: 4.8,
+    reviews: 842,
+    image: "https://static.nike.com/a/images/t_PDP_1728_v1/f_auto,q_auto:eco/a542ec67-287a-42b7-94d0-405423871407/sportswear-tech-fleece-windrunner-full-zip-hoodie-Rlz09d.png",
+    tag: "LID Choice",
+    isPrime: true,
+    deliveryDate: "demain 4 janv.",
+    color: "Noir",
+    sizes: ["S", "M", "L", "XL"]
+  },
+  {
+    id: 3,
+    name: "Air Jordan 1 Low",
+    brand: "Jordan",
+    category: "Sneakers",
+    price: 85000,
+    rating: 4.7,
+    reviews: 2453,
+    image: "https://static.nike.com/a/images/t_PDP_1728_v1/f_auto,q_auto:eco/b1bcbca4-e853-4df7-b329-5b06247bd88d/air-jordan-1-low-shoes-6Q1tFM.png",
+    isPrime: false,
+    deliveryDate: "lun. 8 janv.",
+    color: "Rouge",
+    sizes: ["38", "39", "40", "41", "42"]
+  },
+  {
+    id: 4,
+    name: "Heritage Waistpack",
+    brand: "Nike",
+    category: "Accessoires",
+    price: 16500,
+    originalPrice: 23000,
+    rating: 4.3,
+    reviews: 561,
+    image: "https://static.nike.com/a/images/t_PDP_1728_v1/f_auto,q_auto:eco/9e000f57-36e6-424b-b0b3-f6671a5b822d/heritage-waistpack-3l-hP8k4w.png",
+    tag: "-29%",
+    isPrime: true,
+    deliveryDate: "demain 4 janv.",
+    color: "Noir",
+    sizes: []
+  },
+  {
+    id: 5,
+    name: "Dunk Low Retro",
+    brand: "Nike",
+    category: "Sneakers",
+    price: 78500,
+    rating: 4.9,
+    reviews: 3120,
+    image: "https://static.nike.com/a/images/t_PDP_1728_v1/f_auto,q_auto:eco/18524458-154a-4467-9c60-4960d7096d2e/dunk-low-retro-shoe-66RGqF.png",
+    tag: "Stock limité",
+    isPrime: true,
+    deliveryDate: "ven. 5 janv.",
+    color: "Blanc",
+    sizes: ["40", "41", "42"]
+  },
+  {
+    id: 6,
+    name: "Sportswear Club",
+    brand: "Nike",
+    category: "Vêtements",
+    price: 32500,
+    rating: 4.6,
+    reviews: 1102,
+    image: "https://static.nike.com/a/images/t_PDP_1728_v1/f_auto,q_auto:eco/1d138676-068d-4e20-8012-70b09435b6c0/sportswear-club-fleece-pullover-hoodie-Gw4Nwq.png",
+    isPrime: true,
+    deliveryDate: "demain 4 janv.",
+    color: "Gris",
+    sizes: ["XS", "S", "M", "L"]
+  },
+  {
+    id: 7,
+    name: "Everyday Plus Cushioned",
+    brand: "Nike",
+    category: "Accessoires",
+    price: 9800,
+    rating: 4.8,
+    reviews: 4501,
+    image: "https://static.nike.com/a/images/t_PDP_1728_v1/f_auto,q_auto:eco/e6616428-3011-477a-a664-97217594916e/everyday-plus-cushioned-training-crew-socks-6-pairs-vlRw5Q.png",
+    tag: "Lot de 6",
+    isPrime: true,
+    deliveryDate: "demain 4 janv.",
+    color: "Blanc",
+    sizes: ["S", "M", "L"]
+  },
+  {
+    id: 8,
+    name: "Air Max 97",
+    brand: "Nike",
+    category: "Sneakers",
+    price: 125000,
+    rating: 4.7,
+    reviews: 892,
+    image: "https://static.nike.com/a/images/t_PDP_1728_v1/f_auto,q_auto:eco/e3d720d8-5542-49e0-949c-850d536034c1/air-max-97-shoes-EBZrb8.png",
+    isPrime: false,
+    deliveryDate: "lun. 8 janv.",
+    color: "Noir",
+    sizes: ["41", "42", "43"]
+  },
+  {
+    id: 9,
+    name: "LID Basic Tee",
+    brand: "LID Originals",
+    category: "Vêtements",
+    price: 19500,
+    rating: 4.2,
+    reviews: 120,
+    image: "https://static.nike.com/a/images/t_PDP_1728_v1/f_auto,q_auto:eco/d73b0636-2244-4866-8805-4c01740b27b1/air-max-pulse-shoes-2bZLZV.png", // Placeholder
+    tag: "Exclusif",
+    isPrime: true,
+    deliveryDate: "demain 4 janv.",
+    color: "Blanc",
+    sizes: ["S", "M", "L", "XL"]
+  }
+];
