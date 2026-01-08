@@ -4,16 +4,19 @@ import com.lifeevent.lid.cart.dto.CartDto;
 import com.lifeevent.lid.cart.entity.Cart;
 import com.lifeevent.lid.customer.mapper.CustomerMapper;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring", uses = {CustomerMapper.class, CartArticleMapper.class})
+@Mapper(componentModel = "spring", uses = {CustomerMapper.class, CartArticleMapper.class}, unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE)
 public interface CartMapper {
 
     /**
      * Convertir une entité Cart en CartDto
      */
+    @Mapping(target = "totalPrice", ignore = true)
+    @Mapping(target = "totalQuantity", ignore = true)
     CartDto toDto(Cart cart);
 
     /**

@@ -36,6 +36,7 @@ public class BatchConfiguration {
         tokenizer.setNames(
                 "referencePartenaire",
                 "referenceProduitPartenaire",
+                "ean",
                 "title",
                 "description",
                 "category",
@@ -45,8 +46,12 @@ public class BatchConfiguration {
                 "stock",
                 "weightKg",
                 "imageUrl",
-                "status"
+                "status",
+                "isFeatured",
+                "isBestSeller",
+                "isFlashSale"
         );
+
 
         BeanWrapperFieldSetMapper<ArticleCsvDto> fieldSetMapper =
                 new BeanWrapperFieldSetMapper<>();

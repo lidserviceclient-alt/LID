@@ -4,9 +4,7 @@ import com.lifeevent.lid.common.entity.BaseEntity;
 import com.lifeevent.lid.customer.entity.Customer;
 import com.lifeevent.lid.order.enumeration.Status;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import lombok.*;
 import java.util.List;
 
 import java.time.LocalDateTime;
@@ -15,25 +13,58 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "orders")
 public class Order extends BaseEntity {
-
-    private LocalDateTime deliveryDate;
-
-    private Double amount;
-
-    @OneToMany(mappedBy = "order")
-    private List<OrderArticle> articles;
-
-    @ManyToOne
-    private Customer customer;
-
-    @Enumerated(EnumType.STRING)
-    private Status currentStatus;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToMany
-    private List<StatusHistory> history;
+    @ManyToOne(optional = false)
+    private Customer customer;
+
+    /**
+     * Montant total de la commande (TTC)
+     */
+    @Column(nullable = false)
+    private Double amount;
+
+    /**
+     * Statut courant de la commande
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Status currentStatus;
+
+    /**
+     * Historique des changements de statut
+     */
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<StatusHistory> statusHistory;
+
+    /**
+     * Lignes de commande
+     */
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OrderArticle> articles;
+
+    /**
+     * Date de livraison estimée/réelle
+     */
+    private LocalDateTime deliveryDate;
+
+    /**
+     * Numéro de suivi externe
+     */
+    private String trackingNumber;
+
+    /**
+     * Devise utilisée (ex: FCFA, EUR)
+     */
+    @Column(length = 3)
+    private String currency;
+
 }

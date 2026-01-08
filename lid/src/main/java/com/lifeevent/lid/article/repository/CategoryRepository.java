@@ -13,8 +13,9 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
     /**
      * Recherche par nom
      */
-    Optional<Category> findByName(String name);
-    
+    Optional<Category> findByNameIgnoreCase(String name);
+
+
     /**
      * Lister toutes les catégories ordonnées
      */

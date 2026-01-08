@@ -3,14 +3,15 @@ package com.lifeevent.lid.order.entity;
 import com.lifeevent.lid.article.entity.Article;
 import com.lifeevent.lid.common.entity.BaseEntity;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import lombok.*;
 
 @Entity
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class OrderArticle extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

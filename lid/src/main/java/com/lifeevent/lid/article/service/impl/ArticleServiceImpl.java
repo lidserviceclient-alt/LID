@@ -3,6 +3,7 @@ package com.lifeevent.lid.article.service.impl;
 import com.lifeevent.lid.article.dto.ArticleDto;
 import com.lifeevent.lid.article.entity.Article;
 import com.lifeevent.lid.article.entity.Category;
+import com.lifeevent.lid.article.enumeration.ArticleStatus;
 import com.lifeevent.lid.article.mapper.ArticleMapper;
 import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.article.repository.CategoryRepository;
@@ -10,12 +11,12 @@ import com.lifeevent.lid.article.service.ArticleService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -31,6 +32,7 @@ public class ArticleServiceImpl implements ArticleService {
     public ArticleDto createArticle(ArticleDto dto) {
         log.info("Création d'un nouvel article: {}", dto.getName());
         Article article = articleMapper.toEntity(dto);
+        article.setStatus(ArticleStatus.ACTIVE);
         Article saved = articleRepository.save(article);
         return articleMapper.toDto(saved);
     }
@@ -43,50 +45,59 @@ public class ArticleServiceImpl implements ArticleService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<ArticleDto> getAllArticles() {
-        return articleMapper.toDtoList(articleRepository.findAll());
+    public Page<ArticleDto> getAllArticles(Pageable pageable) {
+        log.info("Récupération de tous les articles - Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
+        Page<Article> articles = articleRepository.findByStatus(ArticleStatus.ACTIVE, pageable);
+        return articles.map(articleMapper::toDto);
     }
     
     @Override
     @Transactional(readOnly = true)
-    public List<ArticleDto> searchByName(String name) {
-        log.info("Recherche d'articles par nom: {}", name);
-        return articleMapper.toDtoList(articleRepository.findByNameContainingIgnoreCase(name));
+    public Page<ArticleDto> searchByName(String name, Pageable pageable) {
+        log.info("Recherche d'articles par nom: {} - Page: {}, Size: {}", name, pageable.getPageNumber(), pageable.getPageSize());
+        Page<Article> articles = articleRepository.findByNameContainingIgnoreCaseAndStatus(name, ArticleStatus.ACTIVE, pageable);
+        return articles.map(articleMapper::toDto);
     }
     
     @Override
     @Transactional(readOnly = true)
-    public List<ArticleDto> getByCategory(Integer categoryId) {
-        log.info("Récupération des articles de la catégorie: {}", categoryId);
-        return articleMapper.toDtoList(articleRepository.findByCategory(categoryId));
+    public Page<ArticleDto> getByCategory(Integer categoryId, Pageable pageable) {
+        log.info("Récupération des articles de la catégorie: {} - Page: {}, Size: {}", categoryId, pageable.getPageNumber(), pageable.getPageSize());
+        Page<Article> articles = articleRepository.findByCategoryAndStatus(categoryId, ArticleStatus.ACTIVE, pageable);
+        return articles.map(articleMapper::toDto);
     }
     
     @Override
     @Transactional(readOnly = true)
-    public List<ArticleDto> getByPriceRange(Integer minPrice, Integer maxPrice) {
-        log.info("Recherche d'articles par prix: {} - {}", minPrice, maxPrice);
-        return articleMapper.toDtoList(articleRepository.findByPriceRange(minPrice, maxPrice));
+    public Page<ArticleDto> getByPriceRange(Double minPrice, Double maxPrice, Pageable pageable) {
+        log.info("Recherche d'articles par prix: {} - {} - Page: {}, Size: {}", minPrice, maxPrice, pageable.getPageNumber(), pageable.getPageSize());
+        Page<Article> articles = articleRepository.findByPriceRangeAndStatus(minPrice, maxPrice, ArticleStatus.ACTIVE, pageable);
+        return articles.map(articleMapper::toDto);
     }
     
     @Override
     @Transactional(readOnly = true)
-    public List<ArticleDto> searchByNameAndCategory(String name, Integer categoryId) {
-        log.info("Recherche par nom et catégorie: {} - {}", name, categoryId);
-        return articleMapper.toDtoList(articleRepository.findByNameAndCategory(name, categoryId));
+    public Page<ArticleDto> searchByNameAndCategory(String name, Integer categoryId, Pageable pageable) {
+        log.info("Recherche par nom et catégorie: {} - {} - Page: {}, Size: {}", name, categoryId, pageable.getPageNumber(), pageable.getPageSize());
+        Page<Article> articles = articleRepository.findByNameAndCategoryAndStatus(name, categoryId, ArticleStatus.ACTIVE, pageable);
+        return articles.map(articleMapper::toDto);
     }
     
     @Override
     @Transactional(readOnly = true)
-    public List<ArticleDto> searchByNameAndPrice(String name, Integer minPrice, Integer maxPrice) {
-        log.info("Recherche par nom et prix: {} - {} à {}", name, minPrice, maxPrice);
-        return articleMapper.toDtoList(articleRepository.findByNameAndPriceRange(name, minPrice, maxPrice));
+    public Page<ArticleDto> searchByNameAndPrice(String name, Double minPrice, Double maxPrice, Pageable pageable) {
+        log.info("Recherche par nom et prix: {} - {} à {} - Page: {}, Size: {}", name, minPrice, maxPrice, pageable.getPageNumber(), pageable.getPageSize());
+        Page<Article> articles = articleRepository.findByNameAndPriceRangeAndStatus(name, minPrice, maxPrice, ArticleStatus.ACTIVE, pageable);
+        return articles.map(articleMapper::toDto);
     }
     
     @Override
     @Transactional(readOnly = true)
-    public List<ArticleDto> advancedSearch(String name, Integer categoryId, Integer minPrice, Integer maxPrice) {
-        log.info("Recherche avancée: {} - Catégorie: {} - Prix: {} à {}", name, categoryId, minPrice, maxPrice);
-        return articleMapper.toDtoList(articleRepository.searchArticles(name, categoryId, minPrice, maxPrice));
+    public Page<ArticleDto> advancedSearch(String name, Integer categoryId, Double minPrice, Double maxPrice, Pageable pageable) {
+        log.info("Recherche avancée: {} - Catégorie: {} - Prix: {} à {} - Page: {}, Size: {}", 
+                 name, categoryId, minPrice, maxPrice, pageable.getPageNumber(), pageable.getPageSize());
+        Page<Article> articles = articleRepository.findByAdvancedSearchAndStatus(name, categoryId, minPrice, maxPrice, ArticleStatus.ACTIVE, pageable);
+        return articles.map(articleMapper::toDto);
     }
     
     @Override
@@ -102,11 +113,18 @@ public class ArticleServiceImpl implements ArticleService {
     
     @Override
     public void deleteArticle(Long id) {
-        log.info("Suppression de l'article: {}", id);
-        if (!articleRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Article","articleId",id.toString());
-        }
-        articleRepository.deleteById(id);
+        log.info("Soft delete de l'article: {}", id);
+        Article article = articleRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Article","articleId",id.toString()));
+        // Soft delete: changer le statut au lieu de supprimer physiquement
+        article.setStatus(ArticleStatus.INACTIVE);
+        articleRepository.save(article);
+    }
+
+    @Override
+    public void deactivateArticle(Long id) {
+        log.info("Désactivation de l'article: {}", id);
+        deleteArticle(id);  // Utilise la même logique que deleteArticle
     }
     
     @Override

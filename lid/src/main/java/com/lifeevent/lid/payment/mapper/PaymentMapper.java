@@ -1,13 +1,16 @@
 package com.lifeevent.lid.payment.mapper;
 
+
+
 import com.lifeevent.lid.payment.dto.PaymentResponseDto;
 import com.lifeevent.lid.payment.entity.Payment;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE)
 public interface PaymentMapper {
 
     /**
@@ -18,6 +21,9 @@ public interface PaymentMapper {
     /**
      * Convertir un PaymentResponseDto en entité Payment
      */
+    @Mapping(target = "cancelUrl", ignore = true)
+    @Mapping(target = "paydunyaHash", ignore = true)
+    @Mapping(target = "transactionId", ignore = true)
     Payment toEntity(PaymentResponseDto dto);
 
     /**
@@ -33,5 +39,8 @@ public interface PaymentMapper {
     /**
      * Mettre à jour une entité Payment à partir d'un PaymentResponseDto
      */
+    @Mapping(target = "cancelUrl", ignore = true)
+    @Mapping(target = "paydunyaHash", ignore = true)
+    @Mapping(target = "transactionId", ignore = true)
     void updateEntityFromDto(PaymentResponseDto dto, @MappingTarget Payment payment);
 }

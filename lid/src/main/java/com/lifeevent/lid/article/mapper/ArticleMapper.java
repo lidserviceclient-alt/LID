@@ -3,11 +3,13 @@ package com.lifeevent.lid.article.mapper;
 import com.lifeevent.lid.article.dto.ArticleDto;
 import com.lifeevent.lid.article.entity.Article;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring", uses = CategoryMapper.class)
+@Mapper(componentModel = "spring", uses = CategoryMapper.class, unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE)
 public interface ArticleMapper {
 
     /**

@@ -8,19 +8,20 @@ import org.mapstruct.MappingTarget;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE)
 public interface StockMapper {
 
     /**
      * Convertir une entité Stock en StockDto
-     * Mappe l'article à son ID
      */
     @Mapping(source = "article.id", target = "articleId")
+    @Mapping(target = "totalQuantity", expression = "java(stock.getQuantityAvailable() + stock.getQuantityReserved())")
     StockDto toDto(Stock stock);
 
     /**
      * Convertir un StockDto en entité Stock
      */
+    @Mapping(target = "article", ignore = true)
     Stock toEntity(StockDto dto);
 
     /**
@@ -36,5 +37,6 @@ public interface StockMapper {
     /**
      * Mettre à jour une entité Stock à partir d'un StockDto
      */
+    @Mapping(target = "article", ignore = true)
     void updateEntityFromDto(StockDto dto, @MappingTarget Stock stock);
 }

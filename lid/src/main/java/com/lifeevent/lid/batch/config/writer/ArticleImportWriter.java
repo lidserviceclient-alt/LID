@@ -9,6 +9,7 @@ import com.lifeevent.lid.stock.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,8 +46,18 @@ public class ArticleImportWriter implements ItemWriter<ArticleImportAggregate> {
         }
     }
 
-    public Category saveCategory(Category category){
-        return categoryRepository.findByName(category.getName())
-                .orElse(categoryRepository.save(category));
+    @Transactional
+    public Category saveCategory(Category category) {
+        return categoryRepository.findByNameIgnoreCase(category.getName())
+                .orElseGet(() -> {
+                    try {
+                        return categoryRepository.save(category);
+                    } catch (DataIntegrityViolationException e) {
+                        // quelqu’un (ou un autre chunk) l’a créée entre temps
+                        return categoryRepository.findByNameIgnoreCase(category.getName())
+                                .orElseThrow();
+                    }
+                });
     }
+
 }

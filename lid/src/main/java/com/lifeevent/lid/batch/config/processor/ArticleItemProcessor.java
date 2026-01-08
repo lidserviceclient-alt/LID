@@ -2,6 +2,7 @@ package com.lifeevent.lid.batch.config.processor;
 
 import com.lifeevent.lid.article.entity.Article;
 import com.lifeevent.lid.article.entity.Category;
+import com.lifeevent.lid.article.enumeration.ArticleStatus;
 import com.lifeevent.lid.batch.dto.ArticleCsvDto;
 import com.lifeevent.lid.batch.dto.ArticleImportAggregate;
 import com.lifeevent.lid.stock.entity.Stock;
@@ -32,11 +33,18 @@ public class ArticleItemProcessor implements ItemProcessor<ArticleCsvDto, Articl
         final String title = item.getTitle().toUpperCase();
         final Double price = item.getPrice().doubleValue();
         final Article transformedArticle = Article.builder()
+                .referenceProduitPartenaire(item.getReferenceProduitPartenaire())
                 .name(title)
+                .description(item.getDescription())
                 .price(price)
                 .img(item.getImageUrl())
-                .ean(item.getReferenceProduitPartenaire())
+                .brand(item.getBrand())
                 .vat(0.18f)
+                .status(item.getStatus())
+                .isFeatured(Boolean.TRUE.equals(item.getIsFeatured()))
+                .isBestSeller(Boolean.TRUE.equals(item.getIsBestSeller()))
+                .isFlashSale(Boolean.TRUE.equals(item.getIsFlashSale()))
+                .ean(item.getEan())
                 .build();
 
         log.info("[transformedArticle] : ( {} ) ", transformedArticle);
@@ -71,6 +79,7 @@ public class ArticleItemProcessor implements ItemProcessor<ArticleCsvDto, Articl
     private boolean isEmpty(ArticleCsvDto item) {
         return isBlank(item.getReferencePartenaire())
                 && isBlank(item.getReferenceProduitPartenaire())
+                && isBlank(item.getEan())
                 && isBlank(item.getTitle())
                 && isBlank(item.getDescription())
                 && isBlank(item.getCategory())
@@ -80,8 +89,12 @@ public class ArticleItemProcessor implements ItemProcessor<ArticleCsvDto, Articl
                 && item.getStock() == null
                 && item.getWeightKg() == null
                 && isBlank(item.getImageUrl())
-                && isBlank(item.getStatus());
+                && item.getStatus() == null
+                && item.getIsFeatured() == null
+                && item.getIsBestSeller() == null
+                && item.getIsFlashSale() == null;
     }
+
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();

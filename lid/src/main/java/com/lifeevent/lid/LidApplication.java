@@ -14,7 +14,9 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 		"com.lifeevent.lid.order",
 		"com.lifeevent.lid.auth",
 		"com.lifeevent.lid.batch",
-		"com.lifeevent.lid.common"
+		"com.lifeevent.lid.common",
+		"com.lifeevent.lid.stock",
+		"com.lifeevent.lid.wishlist"
 })
 public class LidApplication {
 

@@ -3,11 +3,12 @@ package com.lifeevent.lid.article.mapper;
 import com.lifeevent.lid.article.dto.CategoryDto;
 import com.lifeevent.lid.article.entity.Category;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE)
 public interface CategoryMapper {
 
     /**

@@ -9,18 +9,19 @@ import org.mapstruct.MappingTarget;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring", uses = ArticleMapper.class)
+@Mapper(componentModel = "spring", unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE)
 public interface CartArticleMapper {
 
     /**
      * Convertir une entité CartArticle en CartArticleDto
      */
-    @Mapping(source = "article", target = "article")
     CartArticleDto toDto(CartArticle cartArticle);
 
     /**
      * Convertir un CartArticleDto en entité CartArticle
      */
+    @Mapping(target = "cart", ignore = true)
+    @Mapping(target = "priceAtAddedTime", ignore = true)
     CartArticle toEntity(CartArticleDto dto);
 
     /**
@@ -36,5 +37,11 @@ public interface CartArticleMapper {
     /**
      * Mettre à jour une entité CartArticle à partir d'un CartArticleDto
      */
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
+    @Mapping(target = "cart", ignore = true)
+    @Mapping(target = "priceAtAddedTime", ignore = true)
     void updateEntityFromDto(CartArticleDto dto, @MappingTarget CartArticle cartArticle);
 }

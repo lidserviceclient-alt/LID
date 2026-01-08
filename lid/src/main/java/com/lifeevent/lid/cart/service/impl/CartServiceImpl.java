@@ -1,6 +1,7 @@
 package com.lifeevent.lid.cart.service.impl;
 
 import com.lifeevent.lid.article.entity.Article;
+import com.lifeevent.lid.article.enumeration.ArticleStatus;
 import com.lifeevent.lid.article.mapper.ArticleMapper;
 import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.cart.dto.CartDto;
@@ -72,6 +73,9 @@ public class CartServiceImpl implements CartService {
         
         Article article = articleRepository.findById(articleId)
             .orElseThrow(() -> new ResourceNotFoundException("Article", "articleId", articleId.toString()));
+
+        if(ArticleStatus.INACTIVE.equals(article.getStatus()))
+                throw new RuntimeException("Article is not available");
         
 
         CartArticle existingCartArticle = cartArticleRepository.findByCartAndArticle(cart, article)

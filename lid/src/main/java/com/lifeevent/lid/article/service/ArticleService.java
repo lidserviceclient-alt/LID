@@ -1,8 +1,8 @@
 package com.lifeevent.lid.article.service;
 
 import com.lifeevent.lid.article.dto.ArticleDto;
-import com.lifeevent.lid.article.dto.CategoryDto;
-import com.lifeevent.lid.article.entity.Article;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -20,39 +20,39 @@ public interface ArticleService {
     Optional<ArticleDto> getArticleById(Long id);
     
     /**
-     * Lister tous les articles
+     * Lister tous les articles (pagination)
      */
-    List<ArticleDto> getAllArticles();
+    Page<ArticleDto> getAllArticles(Pageable pageable);
     
     /**
-     * Recherche par nom
+     * Recherche par nom (pagination)
      */
-    List<ArticleDto> searchByName(String name);
+    Page<ArticleDto> searchByName(String name, Pageable pageable);
     
     /**
-     * Recherche par catégorie
+     * Recherche par catégorie (pagination)
      */
-    List<ArticleDto> getByCategory(Integer categoryId);
+    Page<ArticleDto> getByCategory(Integer categoryId, Pageable pageable);
     
     /**
-     * Recherche par plage de prix
+     * Recherche par plage de prix (pagination)
      */
-    List<ArticleDto> getByPriceRange(Integer minPrice, Integer maxPrice);
+    Page<ArticleDto> getByPriceRange(Double minPrice, Double maxPrice, Pageable pageable);
     
     /**
-     * Recherche combinée : nom + catégorie
+     * Recherche combinée : nom + catégorie (pagination)
      */
-    List<ArticleDto> searchByNameAndCategory(String name, Integer categoryId);
+    Page<ArticleDto> searchByNameAndCategory(String name, Integer categoryId, Pageable pageable);
     
     /**
-     * Recherche combinée : nom + plage de prix
+     * Recherche combinée : nom + plage de prix (pagination)
      */
-    List<ArticleDto> searchByNameAndPrice(String name, Integer minPrice, Integer maxPrice);
+    Page<ArticleDto> searchByNameAndPrice(String name, Double minPrice, Double maxPrice, Pageable pageable);
     
     /**
-     * Recherche complète
+     * Recherche complète (pagination)
      */
-    List<ArticleDto> advancedSearch(String name, Integer categoryId, Integer minPrice, Integer maxPrice);
+    Page<ArticleDto> advancedSearch(String name, Integer categoryId, Double minPrice, Double maxPrice, Pageable pageable);
     
     /**
      * Mettre à jour un article
@@ -63,6 +63,11 @@ public interface ArticleService {
      * Supprimer un article
      */
     void deleteArticle(Long id);
+    
+    /**
+     * Désactiver un article (soft delete)
+     */
+    void deactivateArticle(Long id);
     
     /**
      * Ajouter une catégorie à un article

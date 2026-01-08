@@ -30,9 +30,7 @@ public interface IArticleController {
     })
     ResponseEntity<ArticleDto> createArticle(@RequestBody ArticleDto dto);
 
-    // =========================
-    // IMPORT CSV (FIX SWAGGER)
-    // =========================
+
     @PostMapping(
             value = "/import",
             consumes = "multipart/form-data"
@@ -71,118 +69,108 @@ public interface IArticleController {
 
     @GetMapping
     @Operation(summary = "Lister tous les articles",
-            description = "Récupère la liste complète de tous les articles")
+            description = "Récupère la liste paginée de tous les articles")
     @ApiResponse(
             responseCode = "200",
-            description = "Liste des articles",
-            content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(type = "array", implementation = ArticleDto.class)
-            )
+            description = "Liste paginée des articles"
     )
-    ResponseEntity<List<ArticleDto>> getAllArticles();
+    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> getAllArticles(
+            @Parameter(description = "Numéro de page (commençant à 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Nombre d'articles par page", example = "20")
+            @RequestParam(defaultValue = "20") int size
+    );
 
     @GetMapping("/search/name")
     @Operation(summary = "Rechercher des articles par nom",
-            description = "Effectue une recherche des articles par nom")
-    @ApiResponse(
-            responseCode = "200",
-            description = "Résultats de la recherche",
-            content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(type = "array", implementation = ArticleDto.class)
-            )
-    )
-    ResponseEntity<List<ArticleDto>> searchByName(
+            description = "Effectue une recherche paginée des articles par nom")
+    @ApiResponse(responseCode = "200", description = "Résultats de la recherche paginés")
+    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> searchByName(
             @Parameter(description = "Nom de l'article à rechercher", required = true)
-            @RequestParam String name
+            @RequestParam String name,
+            @Parameter(description = "Numéro de page (commençant à 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Nombre d'articles par page", example = "20")
+            @RequestParam(defaultValue = "20") int size
     );
 
     @GetMapping("/category/{categoryId}")
     @Operation(summary = "Récupérer les articles d'une catégorie",
-            description = "Récupère tous les articles d'une catégorie spécifique")
-    @ApiResponse(
-            responseCode = "200",
-            description = "Articles de la catégorie",
-            content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(type = "array", implementation = ArticleDto.class)
-            )
-    )
-    ResponseEntity<List<ArticleDto>> getByCategory(
+            description = "Récupère les articles paginés d'une catégorie spécifique")
+    @ApiResponse(responseCode = "200", description = "Articles de la catégorie paginés")
+    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> getByCategory(
             @Parameter(description = "ID de la catégorie", required = true)
-            @PathVariable Integer categoryId
+            @PathVariable Integer categoryId,
+            @Parameter(description = "Numéro de page (commençant à 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Nombre d'articles par page", example = "20")
+            @RequestParam(defaultValue = "20") int size
     );
 
     @GetMapping("/search/price")
     @Operation(summary = "Rechercher des articles par prix",
-            description = "Effectue une recherche des articles dans une plage de prix")
-    @ApiResponse(
-            responseCode = "200",
-            description = "Articles correspondant au critère de prix",
-            content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(type = "array", implementation = ArticleDto.class)
-            )
-    )
-    ResponseEntity<List<ArticleDto>> getByPriceRange(
+            description = "Effectue une recherche paginée des articles dans une plage de prix")
+    @ApiResponse(responseCode = "200", description = "Articles correspondant au critère paginés")
+    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> getByPriceRange(
             @Parameter(description = "Prix minimum", required = true)
-            @RequestParam Integer minPrice,
+            @RequestParam Double minPrice,
             @Parameter(description = "Prix maximum", required = true)
-            @RequestParam Integer maxPrice
+            @RequestParam Double maxPrice,
+            @Parameter(description = "Numéro de page (commençant à 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Nombre d'articles par page", example = "20")
+            @RequestParam(defaultValue = "20") int size
     );
 
     @GetMapping("/search/name-category")
     @Operation(summary = "Rechercher par nom et catégorie",
-            description = "Effectue une recherche des articles par nom et catégorie")
-    @ApiResponse(
-            responseCode = "200",
-            description = "Articles correspondant aux critères",
-            content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(type = "array", implementation = ArticleDto.class)
-            )
-    )
-    ResponseEntity<List<ArticleDto>> searchByNameAndCategory(
+            description = "Effectue une recherche paginée des articles par nom et catégorie")
+    @ApiResponse(responseCode = "200", description = "Articles correspondant aux critères paginés")
+    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> searchByNameAndCategory(
             @Parameter(description = "Nom de l'article", required = true)
             @RequestParam String name,
             @Parameter(description = "ID de la catégorie", required = true)
-            @RequestParam Integer categoryId
+            @RequestParam Integer categoryId,
+            @Parameter(description = "Numéro de page (commençant à 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Nombre d'articles par page", example = "20")
+            @RequestParam(defaultValue = "20") int size
     );
 
     @GetMapping("/search/name-price")
     @Operation(summary = "Rechercher par nom et prix",
-            description = "Effectue une recherche des articles par nom et plage de prix")
-    @ApiResponse(
-            responseCode = "200",
-            description = "Articles correspondant aux critères",
-            content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(type = "array", implementation = ArticleDto.class)
-            )
-    )
-    ResponseEntity<List<ArticleDto>> searchByNameAndPrice(
+            description = "Effectue une recherche paginée des articles par nom et plage de prix")
+    @ApiResponse(responseCode = "200", description = "Articles correspondant aux critères paginés")
+    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> searchByNameAndPrice(
+            @Parameter(description = "Nom de l'article", required = true)
             @RequestParam String name,
-            @RequestParam Integer minPrice,
-            @RequestParam Integer maxPrice
+            @Parameter(description = "Prix minimum", required = true)
+            @RequestParam Double minPrice,
+            @Parameter(description = "Prix maximum", required = true)
+            @RequestParam Double maxPrice,
+            @Parameter(description = "Numéro de page (commençant à 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Nombre d'articles par page", example = "20")
+            @RequestParam(defaultValue = "20") int size
     );
 
     @GetMapping("/search/advanced")
     @Operation(summary = "Recherche avancée d'articles",
-            description = "Effectue une recherche avancée avec filtres optionnels")
-    @ApiResponse(
-            responseCode = "200",
-            description = "Articles correspondant aux critères",
-            content = @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(type = "array", implementation = ArticleDto.class)
-            )
-    )
-    ResponseEntity<List<ArticleDto>> advancedSearch(
+            description = "Effectue une recherche paginée avancée avec filtres optionnels")
+    @ApiResponse(responseCode = "200", description = "Articles correspondant aux critères paginés")
+    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> advancedSearch(
+            @Parameter(description = "Nom de l'article (optionnel)")
             @RequestParam(required = false) String name,
+            @Parameter(description = "ID de la catégorie (optionnel)")
             @RequestParam(required = false) Integer categoryId,
-            @RequestParam(required = false) Integer minPrice,
-            @RequestParam(required = false) Integer maxPrice
+            @Parameter(description = "Prix minimum (optionnel)")
+            @RequestParam(required = false) Double minPrice,
+            @Parameter(description = "Prix maximum (optionnel)")
+            @RequestParam(required = false) Double maxPrice,
+            @Parameter(description = "Numéro de page (commençant à 0)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Nombre d'articles par page", example = "20")
+            @RequestParam(defaultValue = "20") int size
     );
 
     @PutMapping("/{id}")
@@ -206,6 +194,15 @@ public interface IArticleController {
             @ApiResponse(responseCode = "404", description = "Article non trouvé")
     })
     ResponseEntity<Void> deleteArticle(@PathVariable Long id);
+
+    @PutMapping("/{id}/deactivate")
+    @Operation(summary = "Désactiver un article",
+            description = "Marque un article comme inactif (soft delete)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Article désactivé avec succès"),
+            @ApiResponse(responseCode = "404", description = "Article non trouvé")
+    })
+    ResponseEntity<Void> deactivateArticle(@PathVariable Long id);
 
     @PostMapping("/{articleId}/categories/{categoryId}")
     @Operation(summary = "Ajouter une catégorie à un article",

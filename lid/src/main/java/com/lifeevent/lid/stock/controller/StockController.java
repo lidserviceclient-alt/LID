@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/stocks")
+@RequestMapping("/api/v1/stocks")
 public class StockController implements IStockController {
     private final StockRepository stockRepository;
 

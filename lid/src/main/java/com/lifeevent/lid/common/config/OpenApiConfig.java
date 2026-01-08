@@ -33,7 +33,7 @@ import org.springframework.context.annotation.Configuration;
             description = "Development Server"
         ),
         @Server(
-            url = "https://api.lid.com",
+            url = "https://new.jean-emmanuel-diap.com/lid",
             description = "Production Server"
         )
     }

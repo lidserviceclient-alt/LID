@@ -3,9 +3,7 @@ package com.lifeevent.lid.order.entity;
 import com.lifeevent.lid.common.entity.BaseEntity;
 import com.lifeevent.lid.order.enumeration.Status;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
@@ -13,11 +11,24 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class StatusHistory extends BaseEntity {
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    
+    @ManyToOne(optional = false)
+    private Order order;
+    
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private Status status;
-    private LocalDateTime statusDate;
+    
+    private String comment;
+    
+    @Column(nullable = false)
+    private LocalDateTime changedAt;
 }

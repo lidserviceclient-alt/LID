@@ -12,16 +12,27 @@ import lombok.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "cart_article")
 public class CartArticle extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @ManyToOne
+    @ManyToOne(optional = false)
     private Cart cart;
-    @ManyToOne
+
+    @ManyToOne(optional = false)
     private Article article;
 
+    /**
+     * Quantité de cet article dans le panier
+     */
+    @Column(nullable = false)
     private Integer quantity;
+
+    /**
+     * Prix au moment de l'ajout au panier (pour tracer les changements de prix)
+     */
+    private Double priceAtAddedTime;
 }
