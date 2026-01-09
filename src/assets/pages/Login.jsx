@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { BackgroundLines } from "../components/textAnimat.jsx";
 import ResetPasswordForm from "../components/ResetPasswordForm.jsx";
 import { useNavigate } from "react-router-dom";
+import { userManager } from "../../Config/auth.js"; // Import userManager
 
 const avatars = [
   "https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=100&auto=format&fit=crop",
@@ -142,9 +143,6 @@ const MotionLink = motion(Link);
 
 export default function Login() {
   const navigate = useNavigate();
-  const [isLogin, setIsLogin] = useState(false); // Default to Sign Up to match image
-  const [showPassword, setShowPassword] = useState(false);
-  const [isResetPassword, setIsResetPassword] = useState(false);
 
   return (
     <div className="relative h-screen w-screen bg-neutral-950 text-white flex lg:flex-row overflow-hidden font-sans selection:bg-purple-500/30">
@@ -255,143 +253,44 @@ export default function Login() {
         <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-[#E3B576]/10 blur-[100px] rounded-full pointer-events-none lg:hidden" />
 
         <div className="w-full max-w-md space-y-6 lg:space-y-8 relative z-10 scale-100 origin-center">
-          <AnimatePresence mode="wait">
-            {isResetPassword ? (
-              <ResetPasswordForm key="reset" onBack={() => setIsResetPassword(false)} />
-            ) : (
-              <motion.div 
-                key="login"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="space-y-6 lg:space-y-8"
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="space-y-6 lg:space-y-8"
+          >
+            <div className="text-center ">
+              <h2 className="text-2xl md:text-3xl font-bold mb-2 text-white">
+                Bienvenue
+              </h2>
+              <p className="text-neutral-400 text-sm md:text-base">
+                Connectez-vous ou inscrivez-vous pour continuer.
+              </p>
+            </div>
+
+            {/* Social Buttons */}
+            <div className="">
+              <button 
+                type="button"
+                onClick={() => userManager.signinRedirect()}
+                className="flex w-full items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl py-3 px-4 transition-all shadow-sm group"
               >
-                <div className="text-center lg:text-left">
-                  <h2 className="text-2xl md:text-3xl font-bold mb-2 text-white">
-                    {isLogin ? "Bon retour parmi nous" : "Créer un compte"}
-                  </h2>
-                  <p className="text-neutral-400 text-sm md:text-base">
-                    {isLogin ? "Entrez vos identifiants pour accéder à votre compte." : "Entrez vos informations personnelles pour commencer."}
-                  </p>
-                </div>
+                <GoogleIcon />
+                <span className="text-neutral-300 text-sm font-medium group-hover:text-white transition-colors">Continuer avec Google</span>
+              </button>
+            </div>
 
-                {/* Social Buttons */}
-                <div className="">
-                  <button className="flex w-full items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl py-3 px-4 transition-all shadow-sm group">
-                    <GoogleIcon />
-                    <span className="text-neutral-300 text-sm font-medium group-hover:text-white transition-colors">Google</span>
-                  </button>
-                </div>
-
-                <div className="relative flex items-center justify-center">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-neutral-800"></div>
-                  </div>
-                  <span className="relative bg-neutral-950 px-4 text-sm text-neutral-500">Ou</span>
-                </div>
-
-                {/* Form */}
-                <form className="space-y-4">
-                  <AnimatePresence mode="popLayout">
-                    {!isLogin && (
-                      <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="grid grid-cols-2 gap-4 overflow-hidden"
-                      >
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-neutral-300">Prénom</label>
-                          <input 
-                            type="text" 
-                            placeholder="ex. Jean" 
-                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-[#E3B576] focus:border-transparent transition-all"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium text-neutral-300">Nom</label>
-                          <input 
-                            type="text" 
-                            placeholder="ex. Dupont" 
-                            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-[#E3B576] focus:border-transparent transition-all"
-                          />
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-neutral-300">Email</label>
-                    <input 
-                      type="email" 
-                      placeholder="ex. jean.dupont@gmail.com" 
-                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-[#E3B576] focus:border-transparent transition-all"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-sm font-medium text-neutral-300">Mot de passe</label>
-                      {isLogin && (
-                        <button 
-                          type="button" 
-                          onClick={() => setIsResetPassword(true)}
-                          className="text-xs text-[#E3B576] hover:text-[#cda36b] transition-colors"
-                        >
-                          Mot de passe oublié ?
-                        </button>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <input 
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Entrez votre mot de passe" 
-                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-[#E3B576] focus:border-transparent transition-all pr-12"
-                      />
-                      <button 
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition-colors"
-                      >
-                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                      </button>
-                    </div>
-                    {!isLogin && <p className="text-xs text-neutral-500">Doit contenir au moins 8 caractères.</p>}
-                  </div>
-
-                  <motion.button 
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full bg-[#E3B576] text-black font-bold rounded-xl py-3.5 mt-6 hover:shadow-lg hover:shadow-orange-500/20 transition-all shadow-md shadow-orange-500/5"
-                  >
-                    {isLogin ? "Se connecter" : "S'inscrire"}
-                  </motion.button>
-                </form>
-
-                <div className="text-center text-sm">
-                  <span className="text-neutral-500">
-                    {isLogin ? "Pas encore de compte ? " : "Vous avez déjà un compte ? "}
-                  </span>
-                  <button 
-                    onClick={() => setIsLogin(!isLogin)}
-                    className="text-[#E3B576] font-medium hover:underline"
-                  >
-                    {isLogin ? "S'inscrire" : "Se connecter."}
-                  </button>
-                  {" "}
-                  <span className="lg:hidden text-neutral-500">
-                    {isLogin ? "" : "ou devenez  "}
-                  </span>
-                  <button 
-                    onClick={() => navigate("/seller-join")}
-                    className=" lg:hidden gold-text text-[#E3B576] font-medium hover:underline"
-                  >
-                    {isLogin ? "" : "partenaire de LID"}
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            <div className="text-center text-sm">
+              <span className="text-neutral-500">
+                Vous souhaitez vendre sur LID ?{" "}
+              </span>
+              <button 
+                onClick={() => navigate("/seller-join")}
+                className="gold-text text-[#E3B576] font-medium hover:underline"
+              >
+                Devenez partenaire
+              </button>
+            </div>
+          </motion.div>
         </div>
           
           <div className="mt-8 text-center">
