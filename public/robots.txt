@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://lid-shop.web.app/sitemap.xml
