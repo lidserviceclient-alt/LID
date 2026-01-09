@@ -52,7 +52,7 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
             {/* Auth Section */}
             <div className="p-6 bg-neutral-50 dark:bg-neutral-900/50 border-b border-neutral-100 dark:border-neutral-800">
               <Link to="/login" onClick={onClose} className="flex items-center gap-4 group">
-                <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
+                <div className="w-12 h-12 rounded-full bg-[#6aa200]/10 dark:bg-[#6aa200]/20 flex items-center justify-center text-[#6aa200] group-hover:bg-[#6aa200] group-hover:text-white transition-all">
                   <User size={24} />
                 </div>
                 <div>
@@ -67,9 +67,9 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
               <div className="p-4 pb-0">
                 <button 
                   onClick={onOpenOffer}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-200 bg-[length:200%_auto] animate-shine text-amber-900 rounded-xl font-bold shadow-[0_4px_15px_rgba(251,191,36,0.3)] hover:shadow-[0_6px_20px_rgba(251,191,36,0.4)] transition-all active:scale-95"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#6aa200] via-[#8bc34a] to-[#6aa200] bg-[length:200%_auto] animate-shine text-white rounded-xl font-bold shadow-[0_4px_15px_rgba(106,162,0,0.3)] hover:shadow-[0_6px_20px_rgba(106,162,0,0.4)] transition-all transform hover:-translate-y-1"
                 >
-                  <Zap size={20} className="fill-amber-900" />
+                  <Zap size={20} className="fill-white" />
                   <span>OFFRE SPÉCIALE</span>
                 </button>
               </div>
@@ -107,7 +107,7 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
                       onClick={() => toggleCategory(cat.id)}
                       className={`w-full flex items-center justify-between px-4 py-3 transition-colors ${
                         expandedCategory === cat.id 
-                          ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-500' 
+                          ? 'bg-[#6aa200]/10 dark:bg-[#6aa200]/20 text-[#6aa200]' 
                           : 'hover:bg-neutral-50 dark:hover:bg-neutral-900 text-neutral-700 dark:text-neutral-300'
                       }`}
                     >
@@ -133,7 +133,7 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
                             {cat.subcategories.map((sub, idx) => (
                               <div key={idx}>
                                 <h4 className="font-bold text-sm text-neutral-900 dark:text-white mb-2 flex items-center gap-2">
-                                  <span className="w-1 h-3 bg-orange-500 rounded-full"></span>
+                                  <span className="w-1 h-3 bg-[#6aa200] rounded-full"></span>
                                   {sub.title}
                                 </h4>
                                 <ul className="pl-3 space-y-2 border-l border-neutral-200 dark:border-neutral-700 ml-0.5">
@@ -142,7 +142,7 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
                                       <Link 
                                         to={`/shop?search=${item}`}
                                         onClick={onClose}
-                                        className="block text-sm text-neutral-500 dark:text-neutral-400 hover:text-orange-600 pl-3 py-0.5"
+                                        className="block text-sm text-neutral-500 dark:text-neutral-400 hover:text-[#6aa200] pl-3 py-0.5"
                                       >
                                         {item}
                                       </Link>
@@ -162,11 +162,11 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
 
             {/* Bottom Actions */}
             <div className="p-6 border-t border-neutral-100 dark:border-neutral-800 mt-4 space-y-4 pb-24">
-              <Link to="/wishlist" onClick={onClose} className="flex items-center gap-3 text-neutral-600 dark:text-neutral-400 hover:text-orange-600">
+              <Link to="/wishlist" onClick={onClose} className="flex items-center gap-3 text-neutral-600 dark:text-neutral-400 hover:text-[#6aa200]">
                 <Heart size={20} />
                 <span>Mes souhaits</span>
               </Link>
-              <Link to="/orders" onClick={onClose} className="flex items-center gap-3 text-neutral-600 dark:text-neutral-400 hover:text-orange-600">
+              <Link to="/orders" onClick={onClose} className="flex items-center gap-3 text-neutral-600 dark:text-neutral-400 hover:text-[#6aa200]">
                 <ShoppingBag size={20} />
                 <span>Mes commandes</span>
               </Link>

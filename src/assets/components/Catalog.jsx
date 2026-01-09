@@ -328,7 +328,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
             <button 
                onClick={() => { 
                  addToCart({ ...product, size: product.sizes[0] || 'Unique' });
-                 navigate('/cart');
+                 toast.success("Ajouté au panier");
                }}
                className="py-2.5 px-6 bg-[#FFD814] hover:bg-[#F7CA00] text-black font-medium text-sm rounded-full shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 active:scale-95 whitespace-nowrap"
              >
@@ -349,12 +349,12 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
       {/* Image Area */}
       <motion.div 
         layoutId={`product-bg-${product.id}`}
-        className="relative aspect-[4/5] bg-neutral-100 dark:bg-neutral-800 p-4 overflow-hidden"
+        className="relative aspect-[4/5] bg-neutral-100 dark:bg-neutral-800 p-3 sm:p-4 overflow-hidden"
       >
         {/* Badges */}
         <div className="absolute top-0 left-0 p-2 z-10 flex flex-col gap-1 items-start">
            {product.tag && (
-            <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide rounded-md shadow-sm ${product.tag.includes('Best') || product.tag.includes('Meilleure') ? 'bg-[#FFD814] text-black' : product.tag.includes('LID') ? 'bg-orange-600 text-white' : 'bg-red-600 text-white'}`}>
+            <span className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide rounded-md shadow-sm ${product.tag.includes('Best') || product.tag.includes('Meilleure') ? 'bg-[#FFD814] text-black' : product.tag.includes('LID') ? 'bg-orange-600 text-white' : 'bg-red-600 text-white'}`}>
               {product.tag}
             </span>
           )}
@@ -364,14 +364,14 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
         <div className="absolute top-2 right-2 z-20 flex flex-col gap-2">
           <button 
             onClick={handleWishlist}
-            className="p-2 bg-white/80 dark:bg-black/40 hover:bg-white dark:hover:bg-neutral-700 backdrop-blur-sm rounded-full text-neutral-600 dark:text-neutral-300 transition-colors shadow-sm"
+            className="p-1.5 sm:p-2 bg-white/80 dark:bg-black/40 hover:bg-white dark:hover:bg-neutral-700 backdrop-blur-sm rounded-full text-neutral-600 dark:text-neutral-300 transition-colors shadow-sm"
           >
-            <Heart className={`w-4 h-4 ${isWishlisted ? "fill-orange-500 text-orange-500" : ""}`} />
+            <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isWishlisted ? "fill-orange-500 text-orange-500" : ""}`} />
           </button>
           
           <button 
             onClick={handleShare}
-            className="p-2 bg-white/80 dark:bg-black/40 hover:bg-white dark:hover:bg-neutral-700 backdrop-blur-sm rounded-full text-neutral-600 dark:text-neutral-300 transition-colors shadow-sm translate-x-10 group-hover:translate-x-0 opacity-0 group-hover:opacity-100 duration-300"
+            className="hidden sm:block p-2 bg-white/80 dark:bg-black/40 hover:bg-white dark:hover:bg-neutral-700 backdrop-blur-sm rounded-full text-neutral-600 dark:text-neutral-300 transition-colors shadow-sm translate-x-10 group-hover:translate-x-0 opacity-0 group-hover:opacity-100 duration-300"
           >
             <Share2 className="w-4 h-4" />
           </button>
@@ -389,43 +389,43 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
       </motion.div>
 
       {/* Product Details - Amazon Modern Style */}
-      <div className="flex-1 flex flex-col p-4 gap-2">
+      <div className="flex-1 flex flex-col p-3 sm:p-4 gap-1.5 sm:gap-2">
         {/* Title */}
         <Link to={`/product/${product.id}`}>
-          <h3 className="font-medium text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors line-clamp-2 leading-snug text-[15px]">
+          <h3 className="font-medium text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors line-clamp-2 leading-snug text-sm sm:text-[15px]">
             {product.name}
           </h3>
         </Link>
 
         {/* Rating */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <div className="flex text-[#FFA41C]">
             {[...Array(5)].map((_, i) => (
               <Star 
                 key={i} 
-                size={14} 
+                size={12} 
                 fill={i < Math.floor(product.rating) ? "currentColor" : "none"} 
                 className={i < Math.floor(product.rating) ? "text-[#FFA41C]" : "text-neutral-300 dark:text-neutral-600"}
               />
             ))}
           </div>
-          <span className="text-xs text-cyan-700 dark:text-cyan-400 hover:underline cursor-pointer font-medium">{product.reviews.toLocaleString()}</span>
+          <span className="text-[10px] sm:text-xs text-cyan-700 dark:text-cyan-400 hover:underline cursor-pointer font-medium">({product.reviews})</span>
         </div>
 
         {/* Price Block */}
-        <div className="flex items-baseline gap-2 mt-1">
-           <span className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white">
-             {product.price.toLocaleString()} <span className="text-sm">FCFA</span>
+        <div className="flex items-baseline gap-1.5 mt-0.5">
+           <span className="text-lg sm:text-2xl font-bold text-neutral-900 dark:text-white">
+             {product.price.toLocaleString()} <span className="text-xs sm:text-sm">FCFA</span>
            </span>
            {product.originalPrice && (
-             <span className="text-xs text-neutral-500 line-through">
-               {product.originalPrice.toLocaleString()} FCFA
+             <span className="text-[10px] sm:text-xs text-neutral-500 line-through">
+               {product.originalPrice.toLocaleString()}
              </span>
            )}
         </div>
 
-        {/* Delivery Info */}
-        <div className="space-y-1 mb-3">
+        {/* Delivery Info - Hidden on very small screens if needed, or simplified */}
+        <div className="space-y-0.5 mb-2 hidden sm:block">
            {product.isPrime && (
              <div className="flex items-center gap-1.5 text-xs text-neutral-900 dark:text-white">
                <span className="font-bold italic text-cyan-600 flex items-center">
@@ -434,7 +434,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
                </span>
              </div>
            )}
-           <div className="text-xs text-neutral-600 dark:text-neutral-400">
+           <div className="text-[10px] sm:text-xs text-neutral-600 dark:text-neutral-400">
              Livraison <span className="font-bold text-neutral-900 dark:text-white">GRATUITE</span> {product.deliveryDate}
            </div>
         </div>
@@ -442,14 +442,16 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
         {/* Add to Cart Button - Always Visible */}
         <div className="mt-auto">
           <button 
-             onClick={() => {
+             onClick={(e) => {
+               e.preventDefault();
                addToCart({ ...product, size: product.sizes[0] || 'Unique' });
-               navigate('/cart');
+               toast.success("Ajouté au panier");
              }}
-             className="w-full py-2.5 bg-[#FFD814] hover:bg-[#F7CA00] text-black font-medium text-sm rounded-full shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 active:scale-95"
+             className="w-full py-2 sm:py-2.5 bg-[#FFD814] hover:bg-[#F7CA00] text-black font-medium text-xs sm:text-sm rounded-full shadow-sm hover:shadow transition-all flex items-center justify-center gap-1.5 sm:gap-2 active:scale-95"
            >
-             <ShoppingBag size={16} />
-             Ajouter au panier
+             <ShoppingBag size={14} className="sm:w-4 sm:h-4" />
+             <span className="hidden sm:inline">Ajouter au panier</span>
+             <span className="inline sm:hidden">Ajouter</span>
            </button>
         </div>
       </div>
@@ -525,71 +527,107 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
   return (
     <div className="bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white font-sans">
       
-      {/* Header Bar */}
+      {/* Header Bar - Responsive & Glassmorphism */}
       {showHeader && (
-        <div className="shadow-sm border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 sticky top-0 z-40">
-          <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center justify-between">
-             <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-               <span className="font-bold text-neutral-900 dark:text-white">{filteredProducts.length}</span> résultats
-             </div>
+        <div className="sticky top-0 mt-5 lg:mt-0 z-40 w-full transition-all duration-300">
+          <div className="absolute inset-0 bg-white/80 dark:bg-neutral-950/80 backdrop-blur-md border-b border-neutral-200/50 dark:border-neutral-800/50 shadow-sm supports-[backdrop-filter]:bg-white/60" />
+          
+          <div className="relative max-w-[1600px] mx-auto px-4 py-3">
+            <div className="flex items-center justify-between gap-3 overflow-x-auto no-scrollbar pb-1">
+              
+              {/* Left: Results Count & Mobile Filter Trigger */}
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex items-baseline gap-1.5 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">
+                  <span className="text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
+                    {filteredProducts.length}
+                  </span>
+                  <span className="font-medium hidden sm:inline">résultats</span>
+                  <span className="font-medium sm:hidden">res.</span>
+                </div>
 
-             <div className="flex items-center gap-4">
-               {/* Mobile Filter Trigger */}
-               <button 
-                 onClick={() => setIsMobileFiltersOpen(true)}
-                 className="lg:hidden flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors"
-               >
-                 <Filter size={16} />
-                 <span className="hidden sm:inline">Filtres</span>
-               </button>
+                {/* Mobile Filter Button (Visible only on lg and below) */}
+                <button 
+                  onClick={() => setIsMobileFiltersOpen(true)}
+                  className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-full text-xs font-bold shadow-lg shadow-neutral-200 dark:shadow-neutral-900/50 active:scale-95 transition-all whitespace-nowrap"
+                >
+                  <Filter size={12} strokeWidth={2.5} />
+                  Filtres
+                </button>
+              </div>
 
-               <div className="relative group">
-                 <button className="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors">
-                   Trier par: <span className="font-bold">{sortBy === 'featured' ? 'Pertinence' : sortBy === 'price-asc' ? 'Prix croissant' : sortBy === 'price-desc' ? 'Prix décroissant' : sortBy === 'newest' ? 'Nouveautés' : 'Avis clients'}</span>
-                   <ChevronDown size={14} />
-                 </button>
-                 <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-neutral-900 rounded-lg shadow-xl border border-neutral-100 dark:border-neutral-800 hidden group-hover:block p-1">
-                   {[
-                      { label: 'Pertinence', value: 'featured' },
-                      { label: 'Nouveautés', value: 'newest' },
-                      { label: 'Prix croissant', value: 'price-asc' },
-                      { label: 'Prix décroissant', value: 'price-desc' },
-                      { label: 'Avis clients', value: 'reviews' },
-                   ].map(opt => (
-                     <button 
-                       key={opt.value}
-                       onClick={() => setSortBy(opt.value)}
-                       className={`w-full text-left px-3 py-2 text-sm rounded ${sortBy === opt.value ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600' : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'}`}
-                     >
-                       {opt.label}
-                     </button>
-                   ))}
-                 </div>
-               </div>
+              {/* Right: Sort & View Options */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                
+                {/* Sort Dropdown */}
+                <div className="relative group">
+                  <button className="flex items-center gap-2 text-xs sm:text-sm px-3 py-2 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-sm transition-all whitespace-nowrap">
+                    <span className="text-neutral-500 dark:text-neutral-400 hidden sm:inline">Trier par:</span>
+                    <span className="font-bold text-neutral-900 dark:text-white">
+                      {sortBy === 'featured' ? 'Pertinence' : sortBy === 'price-asc' ? 'Prix croissant' : sortBy === 'price-desc' ? 'Prix décroissant' : sortBy === 'newest' ? 'Nouveautés' : 'Avis'}
+                    </span>
+                    <ChevronDown size={14} className="text-neutral-400" />
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  <div className="absolute right-0 top-[calc(100%+0.5rem)] w-56 bg-white dark:bg-neutral-900 rounded-2xl shadow-xl shadow-neutral-200/50 dark:shadow-black/50 border border-neutral-100 dark:border-neutral-800 hidden group-hover:block p-1.5 z-50 transform origin-top-right transition-all">
+                    {[
+                       { label: 'Pertinence', value: 'featured' },
+                       { label: 'Nouveautés', value: 'newest' },
+                       { label: 'Prix croissant', value: 'price-asc' },
+                       { label: 'Prix décroissant', value: 'price-desc' },
+                       { label: 'Avis clients', value: 'reviews' },
+                    ].map(opt => (
+                      <button 
+                        key={opt.value}
+                        onClick={() => setSortBy(opt.value)}
+                        className={`w-full text-left px-3 py-2.5 text-sm rounded-xl transition-colors flex items-center justify-between group/item ${
+                          sortBy === opt.value 
+                            ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-bold' 
+                            : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-white'
+                        }`}
+                      >
+                        {opt.label}
+                        {sortBy === opt.value && <Check size={14} className="text-neutral-900 dark:text-white" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-               {/* View Toggle */}
-               <div className="flex items-center gap-1 p-1 bg-neutral-100 dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800">
-                 <button 
-                   onClick={() => setViewMode('grid')}
-                   className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-neutral-800 text-orange-600 shadow-sm' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'}`}
-                   title="Vue Grille"
-                 >
-                   <LayoutGrid size={16} />
-                 </button>
-                 <button 
-                   onClick={() => setViewMode('list')}
-                   className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-neutral-800 text-orange-600 shadow-sm' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'}`}
-                   title="Vue Liste (En ligne)"
-                 >
-                   <List size={16} />
-                 </button>
-               </div>
-             </div>
+                <div className="w-px h-6 bg-neutral-200 dark:bg-neutral-800 mx-1 hidden sm:block"></div>
+
+                {/* View Toggle */}
+                <div className="flex items-center p-1 bg-neutral-100 dark:bg-neutral-900 rounded-full border border-neutral-200 dark:border-neutral-800">
+                  <button 
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 rounded-full transition-all duration-300 ${
+                      viewMode === 'grid' 
+                        ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10' 
+                        : 'text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300'
+                    }`}
+                    title="Vue Grille"
+                  >
+                    <LayoutGrid size={16} />
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 rounded-full transition-all duration-300 ${
+                      viewMode === 'list' 
+                        ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10' 
+                        : 'text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300'
+                    }`}
+                    title="Vue Liste"
+                  >
+                    <List size={16} />
+                  </button>
+                </div>
+
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      <div className={`max-w-[1400px] mx-auto px-4 py-6 flex gap-8 pb-24 ${!showHeader ? 'pt-0' : ''}`}>
+      <div className={`max-w-[1400px] mx-auto px-1 py-6 flex gap-8 pb-24 ${!showHeader ? 'pt-0' : ''}`}>
         
         {/* Left Sidebar */}
         {showFilters && (
@@ -614,7 +652,7 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
         <main className="flex-1">
            {filteredProducts.length > 0 ? (
              <div className={viewMode === 'grid' 
-               ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6"
+               ? "grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-6"
                : "flex flex-col gap-4"
              }>
               {filteredProducts.slice(0, limit || filteredProducts.length).map(product => (

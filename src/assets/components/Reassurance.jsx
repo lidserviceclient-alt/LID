@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 
 const features = [
   {
-    image: "https://images.unsplash.com/photo-1695513476839-44585d88572b?w=400&q=80&auto=format&fit=crop", // Delivery box
+    image: "https://i.pinimg.com/736x/45/75/a0/4575a043bedbb332559b3ffef0b7771c.jpg", // Delivery box
     title: "Livraison Express",
     description: "Expédition en 24/48h. Gratuite dès 130 000 FCFA d'achat."
   },
@@ -16,7 +16,7 @@ const features = [
     description: "Transactions cryptées SSL. Visa, Mastercard, Paypal."
   },
   {
-    image: "https://images.unsplash.com/photo-1556742102-fab03f366761?w=400&q=80&auto=format&fit=crop", // Return/Box
+    image: "https://i.pinimg.com/736x/d9/38/31/d938311c78e6423fa5027aa29c7da6fc.jpg", // Return/Box
     title: "Retours Gratuits",
     description: "Satisfait ou remboursé. 30 jours pour changer d'avis."
   },

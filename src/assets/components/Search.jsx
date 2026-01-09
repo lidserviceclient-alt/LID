@@ -52,7 +52,7 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
         <form 
           onSubmit={handleSearch}
           className={`flex border border-neutral-200 dark:border-neutral-700 items-center h-12 bg-white dark:bg-neutral-900 rounded-full shadow-lg transition-all duration-300 ${
-          searchFocused ? 'ring-2 ring-orange-500 shadow-xl' : 'shadow-md'
+          searchFocused ? 'ring-2 ring-[#6aa200] shadow-xl' : 'shadow-md'
         }`}>
           {/* Categories  */}
           <div className="relative hidden md:block">
@@ -60,7 +60,7 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
               type="button"
               onClick={() => setCategoryOpen(!categoryOpen)}
               onBlur={() => setTimeout(() => setCategoryOpen(false), 200)}
-              className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:text-orange-600 transition-colors border-r border-neutral-200 dark:border-neutral-700"
+              className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:text-[#6aa200] transition-colors border-r border-neutral-200 dark:border-neutral-700"
             >
               <span className="max-w-[120px] truncate">{selectedCategory}</span>
               <ChevronDown size={16} className={`transition-transform ${categoryOpen ? 'rotate-180' : ''}`} />
@@ -80,7 +80,7 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
                       }}
                       className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
                         selectedCategory === category
-                          ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 font-medium'
+                          ? 'bg-[#6aa200]/10 dark:bg-[#6aa200]/20 text-[#6aa200] font-medium'
                           : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800'
                       }`}
                     >
@@ -105,7 +105,7 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
           />
           
           {/* Search Button */}
-          <button type="submit" className="flex items-center justify-center w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 rounded-full text-white transition-all hover:scale-105">
+          <button type="submit" className="flex items-center justify-center w-12 h-12 bg-gradient-to-r from-[#6aa200] to-[#6aa200] hover:from-[#6aa200] hover:to-[#6aa200] rounded-full text-white transition-all hover:scale-105">
             <Search size={20} strokeWidth={2.5} />
           </button>
         </form>
@@ -118,7 +118,7 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
           }>
             <div className="p-4">
               <div className="flex items-center gap-2 mb-3">
-                <TrendingUp size={16} className="text-orange-600" />
+                <TrendingUp size={16} className="text-[#6aa200]" />
                 <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
                   Recherches populaires
                 </span>
@@ -128,10 +128,10 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
                   <button
                     key={index}
                     onClick={() => handleTrendingClick(search)}
-                    className="w-full text-left px-4 py-2.5 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-orange-50 dark:hover:bg-neutral-800 rounded-lg transition-colors flex items-center gap-3 group"
+                    className="w-full text-left px-4 py-2.5 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-[#6aa200]/10 dark:hover:bg-neutral-800 rounded-lg transition-colors flex items-center gap-3 group"
                   >
-                    <Search size={14} className="text-neutral-400 group-hover:text-orange-600 transition-colors" />
-                    <span className="group-hover:text-orange-600 transition-colors">{search}</span>
+                    <Search size={14} className="text-neutral-400 group-hover:text-[#6aa200] transition-colors" />
+                    <span className="group-hover:text-[#6aa200] transition-colors">{search}</span>
                   </button>
                 ))}
               </div>

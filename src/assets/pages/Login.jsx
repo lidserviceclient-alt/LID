@@ -119,12 +119,12 @@ const TokenAvatar = ({ src, index }) => (
       zIndex: 50,
       rotateY: 25,
       rotateX: 10,
-      boxShadow: "0 20px 30px -10px rgba(227, 181, 118, 0.5)"
+      boxShadow: "0 20px 30px -10px rgba(106, 162, 0, 0.5)"
     }}
     initial={{ rotateY: 0, rotateX: 0 }}
     style={{ transformStyle: 'preserve-3d' }}
     transition={{ type: "spring", stiffness: 300, damping: 15 }}
-    className="relative w-10 h-10 rounded-full border-[3px] border-[#E3B576] shadow-[0_5px_15px_-5px_rgba(0,0,0,0.5)] bg-neutral-900 overflow-hidden cursor-pointer flex-shrink-0"
+    className="relative w-10 h-10 rounded-full border-[3px] border-[#6aa200] shadow-[0_5px_15px_-5px_rgba(0,0,0,0.5)] bg-neutral-900 overflow-hidden cursor-pointer flex-shrink-0"
   >
      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/50 z-10" />
      <img src={src} alt="User" className="w-full h-full object-cover relative z-0" />

@@ -3,13 +3,13 @@ import { getAnalytics } from "firebase/analytics";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBzwK8o54ws8EWYp8reSj7aZbWQ6iM1g84",
-  authDomain: "life-distribution.firebaseapp.com",
-  projectId: "life-distribution",
-  storageBucket: "life-distribution.firebasestorage.app",
-  messagingSenderId: "988883813912",
-  appId: "1:988883813912:web:b1da42800edf53b596256d",
-  measurementId: "G-ZNLG7JPLPE"
+  apiKey: "AIzaSyD-ExXx2nkIWlUEao_dOTyfnvxEWE76yIU",
+  authDomain: "lid-shop.firebaseapp.com",
+  projectId: "lid-shop",
+  storageBucket: "lid-shop.firebasestorage.app",
+  messagingSenderId: "264653021326",
+  appId: "1:264653021326:web:4ad94abd67ae02ddbce9df",
+  measurementId: "G-GS5Y1LHJQZ"
 };
 
 // Initialize Firebase

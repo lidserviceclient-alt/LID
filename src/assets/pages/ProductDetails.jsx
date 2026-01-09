@@ -185,7 +185,6 @@ export default function ProductDetails() {
     });
 
     setTimeout(() => setIsAdding(false), 1000);
-    navigate("/cart");
   };
 
   const handleWishlist = () => {

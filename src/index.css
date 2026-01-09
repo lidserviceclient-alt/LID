@@ -23,6 +23,10 @@
     @apply bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50;
   }
 }
+*{
+  margin: 0;
+  padding: 0;
+}
 /**
  * Police
  */
@@ -51,6 +55,19 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
   color: transparent; 
+}
+
+.gold-bg {
+  background: linear-gradient(
+    90deg,
+    #b8860b 0%,
+    #d3a900 25%,
+    #ffec8b 50%,
+    #ffd700 75%,
+    #b8860b 100%
+  );
+  background-size: 200% auto;
+  animation: goldFlow 3s linear infinite;
 }
 
 .gold-icon {

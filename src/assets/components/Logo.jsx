@@ -5,105 +5,82 @@ import { motion } from "framer-motion";
 export default function Logo({ size = "md" }) {
   const sizes = {
     sm: { box: "w-10 h-10", text: "text-xl", gap: "gap-2" },
-    md: { box: "w-14 h-14", text: "text-2xl", gap: "gap-3" },
-    lg: { box: "w-20 h-20", text: "text-3xl", gap: "gap-4" },
-    xl: { box: "w-24 h-24", text: "text-4xl", gap: "gap-4" },
+    md: { box: "w-[70px] h-[50px]", text: "text-2xl", gap: "gap-3" },
+    lg: { box: "w-[100px] h-[70px]", text: "text-3xl", gap: "gap-4" },
+    xl: { box: "w-[130px] h-[90px]", text: "text-4xl", gap: "gap-0" },
   };
 
   const s = sizes[size] || sizes.md;
 
   return (
-    <Link to="/" className={`flex items-center ${s.gap} group select-none`}>
+    <Link to="/" className={`flex flex-col items-start ${s.gap} group select-none transition-all duration-500 ease-in-out`}>
       {/* Icon Container */}
       <motion.div
-        className={`${s.box} relative flex items-center justify-center`}
-        whileHover={{ scale: 1.05 }}
+        className={`${s.box} relative flex items-center justify-start overflow-hidden transition-all duration-500 ease-in-out`}
+       
+        transition={{ 
+          duration: 3,
+          repeat: Infinity,
+          repeatType: "reverse",
+          ease: "easeInOut"
+        }}
+        whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
       >
-        <svg
-          viewBox="0 0 100 100"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full overflow-visible drop-shadow-md"
-        >
-          <defs>
-            <linearGradient id="bagGradient" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#FFA726" /> {/* Orange 400 */}
-              <stop offset="100%" stopColor="#EF6C00" /> {/* Orange 800 */}
-            </linearGradient>
-          </defs>
-
-          {/* Handle */}
-          <motion.path
-            d="M 35 30 C 35 10, 65 10, 65 30"
-            stroke="#1a1a1a"
-            strokeWidth="4"
-            strokeLinecap="round"
-            fill="none"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-          />
-
-          {/* Bag Body */}
-          <motion.rect
-            x="15" y="30" width="70" height="60" rx="15"
-            fill="url(#bagGradient)"
-            initial={{ scaleY: 0, originY: 1 }}
-            animate={{ scaleY: 1 }}
-            transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
-          />
-
-          {/* Handle Dots */}
-          <circle cx="35" cy="30" r="3" fill="#1a1a1a" />
-          <circle cx="65" cy="30" r="3" fill="#1a1a1a" />
-
-          {/* Happy Person Icon (White) */}
-          <motion.g
-            initial={{ y: 10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4, type: "spring" }}
-          >
-            {/* Head */}
-            <circle cx="50" cy="48" r="7" fill="white" />
-            
-            {/* Arms (U shape) */}
-            <path 
-              d="M 28 62 Q 50 88 72 62" 
-              stroke="white" 
-              strokeWidth="14" 
-              strokeLinecap="round"
-              fill="none"
-            />
-            
-            {/* Torso (Vertical line merging with arms) */}
-            <line 
-              x1="50" y1="92" 
-              x2="50" y2="72" 
-              stroke="white" 
-              strokeWidth="14" 
-              strokeLinecap="round"
-            />
-          </motion.g>
-
-        </svg>
+        <motion.img 
+          src="/imgs/lid-green.png" 
+          alt="Lid App" 
+          className="w-full h-full relative z-10"
+          initial={{ clipPath: "inset(0 100% 0 0)" }} 
+          animate={{ clipPath: "inset(0 0% 0 0)" }}
+          transition={{ duration: 1.2, ease: "easeInOut" }}
+        />
+        
+        {/* Shine Effect */}
+        <motion.div
+          className="absolute top-0 left-0 w-full h-full z-20"
+          style={{
+            background: "linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.6) 50%, transparent 70%)",
+          }}
+          initial={{ x: "-100%" }}
+          animate={{ x: "200%" }}
+          transition={{
+            repeat: Infinity,
+            repeatDelay: 3,
+            duration: 1.5,
+            ease: "easeInOut",
+          }}
+        />
       </motion.div>
 
       {/* Text Brand */}
-      <div className="flex flex-col justify-center">
-        <h1 
-          className={`${s.text} tracking-wider leading-none text-neutral-900 dark:text-white relative`}
-          style={{
-            fontFamily: "Modak",
-            textShadow: "1px 1px 0px #ea580c, 2px 2px 0px #c2410c, 3px 3px 0px #9a3412"
+        <motion.div 
+          className="text-[7px] px-[10px] font-bold text-neutral-400 uppercase tracking-widest hidden sm:flex group-hover:text-[#6aa200] transition-colors"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 1 },
+            visible: {
+              opacity: 1,
+              transition: {
+                staggerChildren: 0.1,
+                delayChildren: 0.3,
+              },
+            },
           }}
         >
-          Lid<span className="">.</span>
-        </h1>
-        <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest hidden sm:block mt-1 group-hover:text-orange-600 transition-colors">
-          All In One Market
-        </span>
-      </div>
+          {"Plus simple que jamais".split("").map((char, index) => (
+            <motion.span
+              key={index}
+              variants={{
+                hidden: { opacity: 0 },
+                visible: { opacity: 1 },
+              }}
+            >
+              {char === " " ? "\u00A0" : char}
+            </motion.span>
+          ))}
+        </motion.div>
     </Link>
   );
 }

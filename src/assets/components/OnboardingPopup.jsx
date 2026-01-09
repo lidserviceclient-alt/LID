@@ -18,14 +18,17 @@ export default function OnboardingPopup() {
     const hasSeen = localStorage.getItem("hasSeenOnboarding");
     if (!hasSeen) {
       // Petit délai pour ne pas agresser l'utilisateur immédiatement
-      const timer = setTimeout(() => setOpen(true), 1500);
+      const timer = setTimeout(() => {
+        setOpen(true);
+        // Marquer comme vu dès l'affichage pour éviter la répétition au rechargement
+        localStorage.setItem("hasSeenOnboarding", "true");
+      }, 1500);
       return () => clearTimeout(timer);
     }
   }, []);
 
   const close = () => {
     setOpen(false);
-    localStorage.setItem("hasSeenOnboarding", "true");
   };
 
   const steps = [
@@ -41,21 +44,21 @@ export default function OnboardingPopup() {
       desc: "Trouvez exactement ce que vous cherchez grâce à notre catalogue intelligent et nos filtres précis.",
       icon: Search,
       color: "bg-blue-100 text-blue-600",
-      image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=1000&auto=format&fit=crop",
+      image: "https://i.pinimg.com/1200x/bb/03/c2/bb03c2a0ed0721498ef1677af6cd3061.jpg",
     },
     {
       title: "Détails Immersifs",
       desc: "Des fiches produits riches et détaillées pour vous aider à faire le meilleur choix.",
       icon: ShoppingBag,
       color: "bg-purple-100 text-purple-600",
-      image: "https://images.unsplash.com/photo-1556740738-b6a63e27c4df?q=80&w=1000&auto=format&fit=crop",
+      image: "https://i.pinimg.com/736x/e3/a3/a7/e3a3a78d51653c7aeecce590a1e10970.jpg",
     },
     {
       title: "Paiement Sécurisé",
       desc: "Commandez en toute confiance avec nos solutions de paiement cryptées et sécurisées.",
       icon: ShieldCheck,
       color: "bg-emerald-100 text-emerald-600",
-      image: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?q=80&w=1000&auto=format&fit=crop",
+      image: "https://i.pinimg.com/1200x/06/20/8e/06208e1237d8125165c1a67c619ed720.jpg",
     },
   ];
 
@@ -77,8 +80,10 @@ export default function OnboardingPopup() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onClick={close}
         >
           <motion.div
+            onClick={(e) => e.stopPropagation()}
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}

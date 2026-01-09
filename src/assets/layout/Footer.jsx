@@ -9,6 +9,8 @@ import {
   Facebook,
   Globe
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import Logo from '../components/Logo';
 
 export default function Footer() {
@@ -26,9 +28,44 @@ export default function Footer() {
   const springY = useSpring(y, { stiffness: 100, damping: 30 });
 
   const links = {
-    collections: ["Nouveautés", "Streetwear", "Minimalist", "Accessoires", "Éditions Limitées"],
-    aide: ["Centre d'aide", "Livraisons", "Retours", "Contact", "Suivi de commande"],
-    legal: ["Confidentialité", "CGV", "Mentions Légales", "Cookies"],
+    collections: [
+      { name: "Nouveautés", path: "/catalogue?sort=newest" },
+      { name: "Streetwear", path: "/catalogue?category=streetwear" },
+      { name: "Minimalist", path: "/catalogue?category=minimalist" },
+      { name: "Accessoires", path: "/catalogue?category=accessories" },
+      { name: "Éditions Limitées", path: "/catalogue?tag=limited" },
+    ],
+    aide: [
+       { name: "Centre d'aide", path: "/help" },
+       { name: "Livraisons", path: "/delivery" },
+       { name: "Retours", path: "/returns" },
+       { name: "Contact", path: "/contact" },
+       { name: "Suivi de commande", path: "/tracking" },
+     ],
+    legal: [
+      { name: "Confidentialité", path: "/privacy" },
+      { name: "CGV", path: "/terms" },
+      { name: "Mentions Légales", path: "/terms" },
+      { name: "Cookies", path: "/privacy" },
+    ],
+  };
+
+  const handleSubscribe = () => {
+    if (!email || !email.includes('@')) {
+      toast.error("Veuillez entrer une adresse email valide");
+      return;
+    }
+    toast.success("Merci de votre inscription à la newsletter !");
+    setEmail('');
+  };
+
+  const handleSocialClick = (e, platform) => {
+    e.preventDefault();
+    toast.info(`La page ${platform} sera bientôt disponible`);
+  };
+
+  const handleLanguageClick = () => {
+    toast.info("Le changement de langue sera bientôt disponible");
   };
 
   const containerVariants = {
@@ -63,7 +100,7 @@ export default function Footer() {
       </motion.div>
 
       {/* Floating Orbs/Glows */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-orange-600/10 rounded-full blur-[128px] pointer-events-none animate-pulse" />
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#6aa200]/10 rounded-full blur-[128px] pointer-events-none animate-pulse" />
       <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-blue-600/5 rounded-full blur-[100px] pointer-events-none" />
 
       <motion.div 
@@ -107,16 +144,18 @@ export default function Footer() {
                 placeholder="Votre adresse email" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-transparent border-b border-neutral-700 py-4 pr-12 text-xl focus:outline-none focus:border-orange-500 transition-colors placeholder:text-neutral-600"
+                onKeyDown={(e) => e.key === 'Enter' && handleSubscribe()}
+                className="w-full bg-transparent border-b border-neutral-700 py-4 pr-12 text-xl focus:outline-none focus:border-[#6aa200] transition-colors placeholder:text-neutral-600"
               />
               <motion.button 
-                whileHover={{ x: 5, color: "#f97316" }}
+                whileHover={{ x: 5, color: "#6aa200" }}
+                onClick={handleSubscribe}
                 className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-neutral-400 transition-colors"
               >
                 <ArrowRight size={24} />
               </motion.button>
               <motion.div 
-                className="absolute bottom-0 left-0 h-[1px] bg-orange-500"
+                className="absolute bottom-0 left-0 h-[1px] bg-[#6aa200]"
                 initial={{ width: "0%" }}
                 whileInView={{ width: "100%" }}
                 transition={{ duration: 1.5, ease: "easeInOut" }}
@@ -125,11 +164,17 @@ export default function Footer() {
           </motion.div>
 
           <motion.div variants={itemVariants} className="flex gap-4">
-             {[Instagram, Twitter, Facebook, Linkedin].map((Icon, i) => (
+             {[
+               { Icon: Instagram, name: "Instagram" },
+               { Icon: Twitter, name: "Twitter" },
+               { Icon: Facebook, name: "Facebook" },
+               { Icon: Linkedin, name: "Linkedin" }
+             ].map(({ Icon, name }, i) => (
                <motion.a 
                  key={i} 
                  href="#" 
-                 whileHover={{ scale: 1.1, rotate: 5, backgroundColor: "#f97316", borderColor: "#f97316", color: "#fff" }}
+                 onClick={(e) => handleSocialClick(e, name)}
+                 whileHover={{ scale: 1.1, rotate: 5, backgroundColor: "#6aa200", borderColor: "#6aa200", color: "#fff" }}
                  whileTap={{ scale: 0.95 }}
                  className="p-3 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-400 transition-colors duration-300"
                >
@@ -176,14 +221,14 @@ export default function Footer() {
                  <ul className="space-y-4">
                    {items.map((item) => (
                      <motion.li 
-                        key={item}
+                        key={item.name}
                         whileHover={{ x: 10 }}
                         transition={{ type: "spring", stiffness: 300 }}
                      >
-                       <a href="#" className="text-lg text-neutral-300 hover:text-white transition-colors block flex items-center group">
-                         <span className="w-0 overflow-hidden group-hover:w-4 transition-all duration-300 text-orange-500 font-bold opacity-0 group-hover:opacity-100">/</span>
-                         {item}
-                       </a>
+                       <Link to={item.path} className="text-lg text-neutral-300 hover:text-white transition-colors block flex items-center group">
+                         <span className="w-0 overflow-hidden group-hover:w-4 transition-all duration-300 text-[#6aa200] font-bold opacity-0 group-hover:opacity-100">/</span>
+                         {item.name}
+                       </Link>
                      </motion.li>
                    ))}
                  </ul>
@@ -209,6 +254,7 @@ export default function Footer() {
              </div>
              <motion.button 
                whileHover={{ scale: 1.05 }}
+               onClick={handleLanguageClick}
                className="flex items-center gap-2 hover:text-white transition-colors"
              >
                <Globe size={16} />

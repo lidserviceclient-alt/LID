@@ -56,7 +56,7 @@ export default function MegaMenu({ isOpen, onClose }) {
                     onMouseEnter={() => setActiveCategory(category)}
                     className={`w-full text-left px-6 py-3 flex items-center justify-between group transition-all duration-200 ${
                       activeCategory.id === category.id 
-                        ? 'bg-white dark:bg-neutral-800 shadow-sm border-l-4 border-orange-600' 
+                        ? 'bg-white dark:bg-neutral-800 shadow-sm border-l-4 border-[#6aa200]' 
                         : 'hover:bg-neutral-100 dark:hover:bg-neutral-800 border-l-4 border-transparent'
                     }`}
                   >
@@ -65,7 +65,7 @@ export default function MegaMenu({ isOpen, onClose }) {
                         size={20} 
                         className={`${
                           activeCategory.id === category.id 
-                            ? 'text-orange-600' 
+                            ? 'text-[#6aa200]' 
                             : 'text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300'
                         }`} 
                       />
@@ -78,7 +78,7 @@ export default function MegaMenu({ isOpen, onClose }) {
                       </span>
                     </div>
                     {activeCategory.id === category.id && (
-                      <ChevronRight size={16} className="text-orange-600" />
+                      <ChevronRight size={16} className="text-[#6aa200]" />
                     )}
                   </button>
                 ))}
@@ -97,13 +97,13 @@ export default function MegaMenu({ isOpen, onClose }) {
                       transition={{ delay: index * 0.05 }}
                     >
                       <h3 className="font-bold text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
-                        <span className="w-1 h-4 bg-orange-600 rounded-full"></span>
+                        <span className="w-1 h-4 bg-[#6aa200] rounded-full"></span>
                         {sub.title}
                       </h3>
                       <ul className="space-y-2">
                         {sub.items.map((item) => (
                           <li key={item}>
-                            <a href="#" className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-orange-600 dark:hover:text-orange-500 hover:translate-x-1 transition-all inline-block">
+                            <a href="#" className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-[#6aa200] dark:hover:text-[#6aa200] hover:translate-x-1 transition-all inline-block">
                               {item}
                             </a>
                           </li>
@@ -127,7 +127,7 @@ export default function MegaMenu({ isOpen, onClose }) {
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/90 via-neutral-900/20 to-transparent flex flex-col justify-end p-6 text-white">
-                      <span className="bg-orange-600 text-white text-xs font-bold px-3 py-1 rounded-full w-fit mb-3">
+                      <span className="bg-[#6aa200] text-white text-xs font-bold px-3 py-1 rounded-full w-fit mb-3">
                         Recommandé
                       </span>
                       <h3 className="text-2xl font-bold mb-2">{activeCategory.label}</h3>

@@ -129,7 +129,7 @@ export default function Wishlist() {
                 <button
                   onClick={() => { 
                     addToCart({ ...product, size: product.sizes?.[0] || "Unique", color: product.color || "Standard" });
-                    navigate('/cart');
+                    toast.success("Ajouté au panier");
                   }}
                   className="w-full flex items-center justify-center gap-2 py-2.5 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-xl font-medium hover:bg-orange-600 dark:hover:bg-orange-500 hover:text-white transition-all active:scale-95"
                 >
