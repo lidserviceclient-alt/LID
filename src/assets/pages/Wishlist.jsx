@@ -1,15 +1,15 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Trash2, Heart, ArrowRight } from 'lucide-react';
+import { toast } from 'sonner';
 import { useWishlist } from '../provider/WishlistContext';
 import { useCart } from '../provider/CartContext';
 
 export default function Wishlist() {
   const { wishlistItems, removeFromWishlist } = useWishlist();
   const { addToCart } = useCart();
-  const navigate = useNavigate();
 
   const container = {
     hidden: { opacity: 0 },

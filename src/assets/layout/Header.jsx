@@ -18,7 +18,7 @@ import NavMobile from '../components/NavMobile.jsx'
 
 export default function Header() {
   const { theme, setTheme } = useTheme();
-  const { cartCount } = useCart();
+  const { cartCount, setIsCartOpen } = useCart();
   const [scrolled, setScrolled] = useState(false);
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

@@ -14,6 +14,24 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+
+let analytics;
+
+export const initAnalytics = () => {
+  if (typeof window !== "undefined") {
+    const consent = localStorage.getItem("lid_cookie_consent");
+    const preferences = JSON.parse(localStorage.getItem("lid_cookie_preferences") || "{}");
+    
+    // Initialize if explicit consent 'all' or custom with analytics=true
+    if (consent === "all" || (consent === "custom" && preferences.analytics)) {
+      if (!analytics) {
+        analytics = getAnalytics(app);
+      }
+    }
+  }
+};
+
+// Try to initialize on load
+initAnalytics();
 
 export { app, analytics };

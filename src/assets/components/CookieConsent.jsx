@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Sliders, ChevronUp } from "lucide-react";
+import { initAnalytics } from "../../lib/firebase";
 
 export default function CookieConsent() {
   const [showBanner, setShowBanner] = useState(false);
@@ -18,6 +19,7 @@ export default function CookieConsent() {
 
   const handleAcceptAll = () => {
     localStorage.setItem("lid_cookie_consent", "all");
+    initAnalytics();
     setShowBanner(false);
   };
 
@@ -32,6 +34,7 @@ export default function CookieConsent() {
       "lid_cookie_preferences",
       JSON.stringify({ essential: true, analytics: preferences.analytics, marketing: preferences.marketing })
     );
+    initAnalytics();
     setShowBanner(false);
   };
 
