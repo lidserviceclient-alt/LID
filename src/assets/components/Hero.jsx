@@ -6,34 +6,34 @@ import { useNavigate } from 'react-router-dom';
 import { Navigate } from 'react-router-dom';
 
  const productsRow1 = [
-  { img: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&q=80', name: 'URBAN JACKET', price: '$129' },
-  { img: 'https://images.unsplash.com/photo-1529139574466-a302d2052505?w=400&q=80', name: 'SILK DRESS', price: '$89' },
-  { img: 'https://images.unsplash.com/photo-1554568218-0f1715e72254?w=400&q=80', name: 'CLASSIC TEE', price: '$199' },
-  { img: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=400&q=80', name: 'NEON SHIRT', price: '$65' },
-  { img: 'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=400&q=80', name: 'SPORT LUXE', price: '$145' },
-  { img: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80', name: 'LEATHER BAG', price: '$149' },
-  { img: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=400&q=80', name: 'WOOL COAT', price: '$299' },
-  { img: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=400&q=80', name: 'SUMMER HAT', price: '$59' },
-  { img: 'https://images.unsplash.com/photo-1594223274512-ad4803739b7c?w=400&q=80', name: 'STREET SNEAKERS', price: '$180' },
-  { img: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400&q=80', name: 'WINTER SCARF', price: '$45' },
+  { img: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&q=80&fm=webp', name: 'URBAN JACKET', price: '$129' },
+  { img: 'https://images.unsplash.com/photo-1529139574466-a302d2052505?w=400&q=80&fm=webp', name: 'SILK DRESS', price: '$89' },
+  { img: 'https://images.unsplash.com/photo-1554568218-0f1715e72254?w=400&q=80&fm=webp', name: 'CLASSIC TEE', price: '$199' },
+  { img: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=400&q=80&fm=webp', name: 'NEON SHIRT', price: '$65' },
+  { img: 'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=400&q=80&fm=webp', name: 'SPORT LUXE', price: '$145' },
+  { img: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80&fm=webp', name: 'LEATHER BAG', price: '$149' },
+  { img: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=400&q=80&fm=webp', name: 'WOOL COAT', price: '$299' },
+  { img: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=400&q=80&fm=webp', name: 'SUMMER HAT', price: '$59' },
+  { img: 'https://images.unsplash.com/photo-1594223274512-ad4803739b7c?w=400&q=80&fm=webp', name: 'STREET SNEAKERS', price: '$180' },
+  { img: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400&q=80&fm=webp', name: 'WINTER SCARF', price: '$45' },
 ];
 
 const productsRow2 = [
-  { img: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80', name: 'LUXURY WATCH', price: '$349' },
-  { img: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400&q=80', name: 'DESIGNER SUNGLASSES', price: '$199' },
-  { img: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80', name: 'WIRELESS HEADPHONES', price: '$279' },
-  { img: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=400&q=80', name: 'SMART WATCH', price: '$399' },
-  { img: 'https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=400&q=80', name: 'RUNNING SHOES', price: '$159' },
-  { img: 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400&q=80', name: 'PREMIUM BACKPACK', price: '$229' },
-  { img: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=400&q=80', name: 'DENIM JEANS', price: '$119' },
-  { img: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&q=80', name: 'YOGA MAT PRO', price: '$89' },
-  { img: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400&q=80', name: 'CROSSBODY BAG', price: '$139' },
-  { img: 'https://images.unsplash.com/photo-1560343090-f0409e92791a?w=400&q=80', name: 'LEATHER WALLET', price: '$79' },
-  { img: 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?w=400&q=80', name: 'HOODIE STREETWEAR', price: '$95' },
-  { img: 'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=400&q=80', name: 'BLAZER PREMIUM', price: '$259' },
-  { img: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=400&q=80', name: 'PERFUME LUXURY', price: '$189' },
-  { img: 'https://images.unsplash.com/photo-1622445275576-721325f6ad24?w=400&q=80', name: 'BOOTS LEATHER', price: '$249' },
-  { img: 'https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=400&q=80', name: 'CARGO PANTS', price: '$129' },
+  { img: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80&fm=webp', name: 'LUXURY WATCH', price: '$349' },
+  { img: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400&q=80&fm=webp', name: 'DESIGNER SUNGLASSES', price: '$199' },
+  { img: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80&fm=webp', name: 'WIRELESS HEADPHONES', price: '$279' },
+  { img: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=400&q=80&fm=webp', name: 'SMART WATCH', price: '$399' },
+  { img: 'https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=400&q=80&fm=webp', name: 'RUNNING SHOES', price: '$159' },
+  { img: 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400&q=80&fm=webp', name: 'PREMIUM BACKPACK', price: '$229' },
+  { img: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=400&q=80&fm=webp', name: 'DENIM JEANS', price: '$119' },
+  { img: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&q=80&fm=webp', name: 'YOGA MAT PRO', price: '$89' },
+  { img: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400&q=80&fm=webp', name: 'CROSSBODY BAG', price: '$139' },
+  { img: 'https://images.unsplash.com/photo-1560343090-f0409e92791a?w=400&q=80&fm=webp', name: 'LEATHER WALLET', price: '$79' },
+  { img: 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?w=400&q=80&fm=webp', name: 'HOODIE STREETWEAR', price: '$95' },
+  { img: 'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=400&q=80&fm=webp', name: 'BLAZER PREMIUM', price: '$259' },
+  { img: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=400&q=80&fm=webp', name: 'PERFUME LUXURY', price: '$189' },
+  { img: 'https://images.unsplash.com/photo-1622445275576-721325f6ad24?w=400&q=80&fm=webp', name: 'BOOTS LEATHER', price: '$249' },
+  { img: 'https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=400&q=80&fm=webp', name: 'CARGO PANTS', price: '$129' },
 ];
 
 
@@ -57,11 +57,15 @@ const MarqueeRow = ({ items, direction = "left", speed = 10 }) => {
         }}
         className="flex gap-4 flex-shrink-0 px-2"
       >
-        {[...items, ...items, ...items, ...items].map((product, i) => (
+        {[...items, ...items].map((product, i) => (
           <div key={i} className="relative group w-[280px] sm:w-[350px] aspect-[4/5] flex-shrink-0 overflow-hidden rounded-xl bg-neutral-100 shadow-sm border border-neutral-200/50">
             <img 
               src={product.img} 
               alt={product.name} 
+              width="350"
+              height="437"
+              loading={i < 4 ? "eager" : "lazy"}
+              fetchPriority={i < 4 ? "high" : "auto"}
               className="w-full h-full object-cover opacity-90 grayscale group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700 ease-out"
             />
             {/* Gradient Overlay (Light Mode: White fade) */}
@@ -185,6 +189,9 @@ export default function Hero() {
                    key={i} 
                    src={img} 
                    alt="user" 
+                   width="40"
+                   height="40"
+                   loading="lazy"
                    className="w-10 h-10 rounded-full border-2 border-white object-cover shadow-sm" 
                  /> 
                ))} 
