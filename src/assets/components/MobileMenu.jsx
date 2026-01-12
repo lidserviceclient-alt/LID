@@ -79,8 +79,9 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
             <nav className="p-4 space-y-1">
               {[
                 { label: 'Accueil', path: '/' },
-                { label: 'Catalogue', path: '/shop' },
-                { label: 'Vendeurs', path: '/vendors' },
+                { label: 'Boutique', path: '/shop' },
+                { label: 'Organisateurs', path: '/sellers' },
+                { label: 'Billetterie', path: '/tickets' },
                 { label: 'Blog', path: '/blog' },
                 { label: 'Contact', path: '/contact' },
               ].map((link) => (

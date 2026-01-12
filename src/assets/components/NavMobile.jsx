@@ -7,7 +7,7 @@ import { useCart } from "../provider/CartContext";
 
 export default function NavMobile() {
   const location = useLocation();
-  const { cartCount } = useCart();
+  const { cartCount, setIsCartOpen } = useCart();
   const [bump, setBump] = useState(false);
 
   useEffect(() => {
@@ -67,6 +67,49 @@ export default function NavMobile() {
 
                // Standard Icons
                const Icon = item.icon;
+               const isCart = item.path === "/cart";
+               
+               if (isCart) {
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => setIsCartOpen(true)}
+                      className={cn(
+                          "flex flex-col items-center justify-center w-16 h-14 gap-1 transition-all duration-300 relative group",
+                          isActive ? "text-[#6aa200]" : "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
+                      )}
+                    >
+                      <div className="relative">
+                        <Icon 
+                          size={24} 
+                          strokeWidth={isActive ? 2.5 : 2} 
+                          className={cn(
+                            "transition-all duration-300", 
+                            isActive ? "-translate-y-1" : "group-hover:scale-110"
+                          )} 
+                        />
+                        {/* Notification Dot for Cart */}
+                        {cartCount > 0 && (
+                          <motion.span 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: bump ? 1.5 : 1 }}
+                            className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[10px] font-bold rounded-full border-2 border-white dark:border-neutral-950 flex items-center justify-center z-10"
+                          >
+                            {cartCount}
+                          </motion.span>
+                        )}
+                      </div>
+                      
+                      <span className={cn(
+                        "text-[10px] font-medium transition-all duration-300",
+                        isActive ? "opacity-100 translate-y-0 font-bold" : "opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0"
+                      )}>
+                        {item.label}
+                      </span>
+                    </button>
+                  )
+               }
+
                return (
                    <Link 
                       key={index} 

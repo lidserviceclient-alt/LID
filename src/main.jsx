@@ -2,7 +2,6 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Toaster } from 'sonner'
 import './index.css'
 import { ThemeProvider } from './assets/provider/theme-provider.jsx'
 import App from './App.jsx'
@@ -17,7 +16,6 @@ setTimeout(() => {
         <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
           <BrowserRouter>
             <App />
-            <Toaster position="top-right" />
           </BrowserRouter>
         </ThemeProvider>
       </QueryClientProvider>

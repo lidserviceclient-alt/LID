@@ -42,7 +42,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="w-full relative z-50 font-sans pb-16 lg:pb-0">
+      <header className="w-full sticky top-0 z-[100] font-sans pb-16 lg:pb-0">
         
         {/* =========================================
             TOP STRIP (Desktop Only)
@@ -118,7 +118,7 @@ export default function Header() {
                         </Link>
 
                         {/* Orders - Detailed */}
-                        <Link to="/orders" className="flex items-center gap-3 group">
+                        <Link to="/returns" className="flex items-center gap-3 group">
                             <div className="p-2.5 rounded-full bg-neutral-50 dark:bg-neutral-900 group-hover:bg-[#6aa200]/10 transition-colors">
                                 <Package size={22} strokeWidth={1.5} className="text-neutral-700 dark:text-neutral-300 group-hover:text-[#6aa200] transition-colors" />
                             </div>
@@ -234,8 +234,8 @@ export default function Header() {
                     {[
                       { label: 'Accueil', path: '/' },
                       { label: 'Boutique', path: '/shop' },
-                      { label: 'Vendeurs', path: '/vendors' },
-                      { label: 'Nouveautés', path: '/new' },
+                      { label: 'Organisateurs', path: '/sellers' },
+                      { label: 'Billetterie', path: '/tickets' },
                       { label: 'Blog', path: '/blog' },
                     ].map((link) => {
                         const isActive = location.pathname === link.path;

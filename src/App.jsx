@@ -21,6 +21,9 @@ const Help = lazy(() => import('./assets/pages/Help.jsx'))
 const FAQ = lazy(() => import('./assets/pages/FAQ.jsx'))
 const Terms = lazy(() => import('./assets/pages/Terms.jsx'))
 const Privacy = lazy(() => import('./assets/pages/Privacy.jsx'))
+const TicketCatalog = lazy(() => import('./assets/pages/TicketCatalog.jsx'))
+const SellersList = lazy(() => import('./assets/pages/SellersList.jsx'))
+const SellerDetails = lazy(() => import('./assets/pages/SellerDetails.jsx'))
 import OrderTracking from './assets/pages/OrderTracking.jsx'
 import Returns from './assets/pages/Returns.jsx'
 import Delivery from './assets/pages/Delivery.jsx'
@@ -45,6 +48,9 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} /> 
             <Route path="shop" element={<Catalogue />} />
+            <Route path="tickets" element={<TicketCatalog />} />
+            <Route path="sellers" element={<SellersList />} />
+            <Route path="sellers/:id" element={<SellerDetails />} />
             <Route path="cart" element={<Cart />} />
             <Route path="wishlist" element={<Wishlist />} />
             <Route path="profile" element={<Profile />} />

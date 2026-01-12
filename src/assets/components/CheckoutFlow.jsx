@@ -34,7 +34,7 @@ const formatExpires = (value) => {
     );
 };
 
-export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, selectedSize, quantity }) {
+export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, selectedSize, quantity, cartItems, onSuccess, shippingCost = 0, discountAmount = 0 }) {
   const [step, setStep] = useState(1); // 1: Info, 2: Payment, 3: Processing, 4: Success
   const [loadingStep, setLoadingStep] = useState(0); // 0: Init, 1: Connecting, 2: Verifying, 3: Approved
   const [orderNumber, setOrderNumber] = useState('');
@@ -56,7 +56,20 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
 
   const [cardFocused, setCardFocused] = useState(false);
  
-  const total = product?.price * quantity;
+  const isCartCheckout = cartItems && cartItems.length > 0;
+  
+  // Calculate items total
+  const itemsTotal = isCartCheckout 
+    ? cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0)
+    : product?.price * quantity;
+
+  // Calculate final total with shipping and discount
+  const finalTotal = itemsTotal + shippingCost - discountAmount;
+
+  const TAX_RATE = 0.18; // 18% TVA Côte d'Ivoire
+  // Calculate tax based on final total
+  const taxAmount = Math.round(finalTotal - (finalTotal / (1 + TAX_RATE)));
+  const subTotalHT = finalTotal - taxAmount;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -88,6 +101,10 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     
     setOrderNumber(Math.floor(10000 + Math.random() * 90000));
     setStep(4); // Success
+    
+    if (onSuccess) {
+      onSuccess();
+    }
   };
 
   if (!isOpen) return null;
@@ -122,37 +139,67 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
               </div>
 
               <div className="space-y-6">
-                 <div className="flex gap-6 items-start">
-                    <div className="w-24 h-24 bg-white rounded-xl p-2 shadow-xl flex items-center justify-center relative group">
-                      <img src={product?.image} alt={product?.name} className="w-full h-full object-contain mix-blend-multiply" />
-                      <span className="absolute -top-2 -right-2 w-6 h-6 bg-neutral-500 text-white text-xs font-bold flex items-center justify-center rounded-full border-2 border-neutral-900">
-                        {quantity}
-                      </span>
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold leading-tight mb-2">{product?.name}</h3>
-                      <p className="text-neutral-400 text-sm mb-1">Taille: {selectedSize} • Couleur: {selectedColor}</p>
-                      <p className="text-2xl font-bold text-orange-500">{product?.price?.toLocaleString()} FCFA</p>
-                    </div>
-                 </div>
+                 {isCartCheckout ? (
+                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                     {cartItems.map((item, index) => (
+                       <div key={`${item.id}-${index}`} className="flex gap-4 items-center">
+                          <div className="w-16 h-16 bg-white rounded-lg p-1 shadow-md flex items-center justify-center relative flex-shrink-0">
+                            <img src={item.image} alt={item.name} className="w-full h-full object-contain mix-blend-multiply" />
+                            <span className="absolute -top-2 -right-2 w-5 h-5 bg-neutral-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-neutral-900">
+                              {item.quantity}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-sm leading-tight truncate">{item.name}</h4>
+                            <p className="text-neutral-400 text-xs truncate">{item.size} • {item.color}</p>
+                            <p className="text-orange-500 font-bold text-sm">{(item.price * item.quantity).toLocaleString()} FCFA</p>
+                          </div>
+                       </div>
+                     ))}
+                   </div>
+                 ) : (
+                   <div className="flex gap-6 items-start">
+                      <div className="w-24 h-24 bg-white rounded-xl p-2 shadow-xl flex items-center justify-center relative group">
+                        <img src={product?.image} alt={product?.name} className="w-full h-full object-contain mix-blend-multiply" />
+                        <span className="absolute -top-2 -right-2 w-6 h-6 bg-neutral-500 text-white text-xs font-bold flex items-center justify-center rounded-full border-2 border-neutral-900">
+                          {quantity}
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold leading-tight mb-2">{product?.name}</h3>
+                        <p className="text-neutral-400 text-sm mb-1">Taille: {selectedSize} • Couleur: {selectedColor}</p>
+                        <p className="text-2xl font-bold text-orange-500">{product?.price?.toLocaleString()} FCFA</p>
+                      </div>
+                   </div>
+                 )}
 
                  <div className="bg-white/5 rounded-2xl p-6 backdrop-blur-sm border border-white/10 space-y-3">
                     <div className="flex justify-between text-neutral-300">
-                      <span>Sous-total</span>
-                      <span>{Number(total).toLocaleString()} FCFA</span>
+                      <span>Sous-total (HT)</span>
+                      <span>{Number(subTotalHT).toLocaleString(undefined, { maximumFractionDigits: 0 })} FCFA</span>
                     </div>
                     <div className="flex justify-between text-neutral-300">
                       <span>Livraison</span>
-                      <span className="text-green-400 font-bold">GRATUIT</span>
+                      {shippingCost === 0 ? (
+                        <span className="text-green-400 font-bold">GRATUIT</span>
+                      ) : (
+                        <span>{shippingCost.toLocaleString()} FCFA</span>
+                      )}
                     </div>
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-green-400">
+                        <span>Réduction</span>
+                        <span>-{discountAmount.toLocaleString()} FCFA</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-neutral-300">
-                      <span>Taxes estimées</span>
-                      <span>Included</span>
+                      <span>TVA (18%)</span>
+                      <span>{Number(taxAmount).toLocaleString(undefined, { maximumFractionDigits: 0 })} FCFA</span>
                     </div>
                     <div className="h-px bg-white/10 my-4" />
                     <div className="flex justify-between text-2xl font-bold">
-                      <span>Total à payer</span>
-                      <span>{Number(total).toLocaleString()} FCFA</span>
+                      <span>Total TTC</span>
+                      <span>{Number(finalTotal).toLocaleString()} FCFA</span>
                     </div>
                  </div>
               </div>

@@ -11,7 +11,8 @@ import {
   Share2,
   X,
   LayoutGrid,
-  List
+  List,
+  ChevronRight
 } from "lucide-react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -21,6 +22,32 @@ import { products, categories, brands, colors, priceRanges } from "../data/produ
 import FavoriteNotification from "./FavoriteNotification";
 
 // --- Components ---
+
+const ProductSection = ({ title, products, onSeeAll }) => {
+  if (!products || products.length === 0) return null;
+  return (
+    <div className="mb-10 last:mb-0">
+      <div className="flex items-center justify-between mb-4 px-1">
+        <h2 className="text-xl font-bold text-neutral-900 dark:text-white">{title}</h2>
+        {onSeeAll && (
+          <button 
+            onClick={onSeeAll}
+            className="text-sm font-bold text-orange-600 hover:underline flex items-center gap-1"
+          >
+            Voir tout <ChevronRight size={16} />
+          </button>
+        )}
+      </div>
+      <div className="flex overflow-x-auto gap-4 pb-4 -mx-1 px-1 no-scrollbar snap-x">
+        {products.map(product => (
+          <div key={product.id} className="min-w-[220px] sm:min-w-[240px] max-w-[240px] snap-start h-full">
+             <ProductCard product={product} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const FilterCheckbox = ({ label, checked, onChange, count }) => (
   <label className="flex items-center gap-3 cursor-pointer group py-1.5">
@@ -227,7 +254,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
         {/* Image Area - Smaller for List View */}
         <motion.div 
           layoutId={`product-bg-${product.id}`}
-          className="relative w-full sm:w-48 aspect-[4/5] sm:aspect-square bg-neutral-100 dark:bg-neutral-800 p-4 overflow-hidden flex-shrink-0"
+          className="relative w-full sm:w-48 aspect-[4/5] sm:aspect-square bg-neutral-100 dark:bg-neutral-800 overflow-hidden flex-shrink-0"
         >
           {/* Badges */}
           <div className="absolute top-0 left-0 p-2 z-10 flex flex-col gap-1 items-start">
@@ -330,7 +357,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
                  addToCart({ ...product, size: product.sizes[0] || 'Unique' });
                  toast.success("Ajouté au panier");
                }}
-               className="py-2.5 px-6 bg-[#FFD814] hover:bg-[#F7CA00] text-black font-medium text-sm rounded-full shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 active:scale-95 whitespace-nowrap"
+               className="py-2.5 px-6 bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm rounded-full shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 active:scale-95 whitespace-nowrap"
              >
                <ShoppingBag size={16} />
                Ajouter au panier
@@ -447,7 +474,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
                addToCart({ ...product, size: product.sizes[0] || 'Unique' });
                toast.success("Ajouté au panier");
              }}
-             className="w-full py-2 sm:py-2.5 bg-[#FFD814] hover:bg-[#F7CA00] text-black font-medium text-xs sm:text-sm rounded-full shadow-sm hover:shadow transition-all flex items-center justify-center gap-1.5 sm:gap-2 active:scale-95"
+             className="w-full py-2 sm:py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs sm:text-sm rounded-full shadow-sm hover:shadow transition-all flex items-center justify-center gap-1.5 sm:gap-2 active:scale-95"
            >
              <ShoppingBag size={14} className="sm:w-4 sm:h-4" />
              <span className="hidden sm:inline">Ajouter au panier</span>
@@ -523,6 +550,14 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
     setSelectedPriceRange(null);
     setMinRating(null);
   };
+
+  const isDefaultView = !searchQuery && 
+    selectedCategories.length === 0 && 
+    selectedBrands.length === 0 && 
+    selectedColors.length === 0 && 
+    !selectedPriceRange && 
+    !minRating && 
+    sortBy === 'featured';
 
   return (
     <div className="bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white font-sans">
@@ -650,43 +685,58 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
 
         {/* Main Grid */}
         <main className="flex-1">
-           {filteredProducts.length > 0 ? (
-             <div className={viewMode === 'grid' 
-               ? "grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-6"
-               : "flex flex-col gap-4"
-             }>
-              {filteredProducts.slice(0, limit || filteredProducts.length).map(product => (
-                <ProductCard 
-                  key={product.id} 
-                  product={product} 
-                  onWishlistToggle={handleWishlistToggle}
-                  viewMode={viewMode}
-                />
-              ))}
-            </div>
+           {isDefaultView ? (
+             <div className="space-y-2 pb-12">
+               {categories.map(cat => (
+                 <ProductSection 
+                   key={cat}
+                   title={cat}
+                   products={products.filter(p => p.category === cat)}
+                   onSeeAll={() => setSelectedCategories([cat])}
+                 />
+               ))}
+             </div>
            ) : (
-             <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl">
-               <Filter className="w-12 h-12 text-neutral-300 mb-4" />
-               <h3 className="text-lg font-bold">Aucun résultat</h3>
-               <p className="text-neutral-500 mb-4">Essayez de modifier vos filtres.</p>
-               <button onClick={clearFilters} className="text-orange-600 font-bold hover:underline">
-                 Tout effacer
-               </button>
-             </div>
-           )}
-           
-           {/* Pagination (Mock) */}
-           {filteredProducts.length > 0 && !limit && (
-             <div className="mt-12 flex justify-center py-8 border-t border-neutral-200 dark:border-neutral-800">
-               <div className="flex gap-2">
-                 <button className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-400 cursor-not-allowed">Précédent</button>
-                 <button className="px-4 py-2 bg-orange-600 text-white rounded-lg font-bold">1</button>
-                 <button className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-900">2</button>
-                 <button className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-900">3</button>
-                 <span className="px-4 py-2">...</span>
-                 <button className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-900">Suivant</button>
-               </div>
-             </div>
+             <>
+               {filteredProducts.length > 0 ? (
+                 <div className={viewMode === 'grid' 
+                   ? "grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-6"
+                   : "flex flex-col gap-4"
+                 }>
+                  {filteredProducts.slice(0, limit || filteredProducts.length).map(product => (
+                    <ProductCard 
+                      key={product.id} 
+                      product={product} 
+                      onWishlistToggle={handleWishlistToggle}
+                      viewMode={viewMode}
+                    />
+                  ))}
+                </div>
+               ) : (
+                 <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl">
+                   <Filter className="w-12 h-12 text-neutral-300 mb-4" />
+                   <h3 className="text-lg font-bold">Aucun résultat</h3>
+                   <p className="text-neutral-500 mb-4">Essayez de modifier vos filtres.</p>
+                   <button onClick={clearFilters} className="text-orange-600 font-bold hover:underline">
+                     Tout effacer
+                   </button>
+                 </div>
+               )}
+               
+               {/* Pagination (Mock) */}
+               {filteredProducts.length > 0 && !limit && (
+                 <div className="mt-12 flex justify-center py-8 border-t border-neutral-200 dark:border-neutral-800">
+                   <div className="flex gap-2">
+                     <button className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-400 cursor-not-allowed">Précédent</button>
+                     <button className="px-4 py-2 bg-orange-600 text-white rounded-lg font-bold">1</button>
+                     <button className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-900">2</button>
+                     <button className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-900">3</button>
+                     <span className="px-4 py-2">...</span>
+                     <button className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-900">Suivant</button>
+                   </div>
+                 </div>
+               )}
+             </>
            )}
         </main>
 

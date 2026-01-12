@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { 
   Trash2, Minus, Plus, ShoppingBag, ArrowRight, ArrowLeft, 
   Truck, ShieldCheck, Tag, CreditCard, Star, Package, CheckCircle2 
 } from "lucide-react";
 import { useCart } from "../provider/CartContext";
+import { toast } from "sonner";
+import CheckoutFlow from "../components/CheckoutFlow";
 
 // Mock Recommendations Data
 const recommendedProducts = [
@@ -47,10 +49,22 @@ export default function Cart() {
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [shippingMethod, setShippingMethod] = useState("standard");
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const navigate = useNavigate();
 
   const FREE_SHIPPING_THRESHOLD = 130000;
   const shippingCost = shippingMethod === "express" ? 6500 : (cartTotal >= FREE_SHIPPING_THRESHOLD ? 0 : 3250);
+  
+  const handleCheckout = () => {
+    setShowCheckout(true);
+  };
+  
+  const handlePaymentSuccess = () => {
+    clearCart();
+    setShowCheckout(false);
+    toast.success("Commande effectuée avec succès !");
+    navigate('/profile?tab=orders');
+  };
   
   const handleApplyPromo = () => {
     if (promoCode.toUpperCase() === "LID10") {
@@ -397,22 +411,11 @@ export default function Cart() {
               </div>
 
               <button 
-                onClick={() => setIsCheckingOut(true)}
-                disabled={isCheckingOut}
-                className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-lg shadow-lg shadow-orange-600/20 hover:shadow-orange-600/40 transition-all flex items-center justify-center gap-2 transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                onClick={handleCheckout}
+                className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-lg shadow-lg shadow-orange-600/20 hover:shadow-orange-600/40 transition-all flex items-center justify-center gap-2 transform active:scale-[0.98]"
               >
-                {isCheckingOut ? (
-                  <motion.div 
-                    animate={{ rotate: 360 }}
-                    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                    className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                  />
-                ) : (
-                  <>
-                    Payer maintenant
-                    <ArrowRight size={20} />
-                  </>
-                )}
+                Payer maintenant
+                <ArrowRight size={20} />
               </button>
 
               <div className="mt-6 space-y-3">
@@ -434,6 +437,15 @@ export default function Cart() {
           </div>
         </motion.div>
       </div>
+      
+      <CheckoutFlow 
+        isOpen={showCheckout}
+        onClose={() => setShowCheckout(false)}
+        cartItems={cartItems}
+        onSuccess={handlePaymentSuccess}
+        shippingCost={shippingCost}
+        discountAmount={discountAmount}
+      />
     </div>
   );
 }

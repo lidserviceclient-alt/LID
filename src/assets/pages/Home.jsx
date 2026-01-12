@@ -1,10 +1,10 @@
-import { motion } from "framer-motion"; // eslint-disable-line no-unused-vars
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ChevronRight, ShieldCheck, Zap, Truck } from "lucide-react";
 import Hero from "../components/Hero";
 import Promotion from "../components/Promotion";
 import Offer from "../components/offer";
-import Catalog, { ProductCard } from "../components/Catalog";
+import { ProductCard } from "../components/Catalog";
 import Opinion from "../components/Opinion";
 import Blog from "../components/Blog";
 import About from "../components/About";
@@ -25,7 +25,35 @@ const MobileSectionHeader = ({ title, linkTo, linkText = "Voir tout" }) => (
   </div>
 );
 
+// --- Desktop Specific Components ---
+const DesktopSectionHeader = ({ title, linkTo, linkText = "Voir tout" }) => (
+  <div className="flex justify-between items-end mb-8 border-b border-neutral-200 dark:border-neutral-800 pb-4">
+    <h2 className="text-3xl font-black text-neutral-900 dark:text-white uppercase tracking-tight">{title}</h2>
+    {linkTo && (
+      <Link to={linkTo} className="group flex items-center gap-2 text-sm font-bold text-neutral-500 hover:text-orange-600 transition-colors">
+        {linkText} 
+        <ChevronRight size={18} className="transition-transform group-hover:translate-x-1" />
+      </Link>
+    )}
+  </div>
+);
+
+const CategoryCard = ({ title, image, count, link }) => (
+  <Link to={link} className="group relative overflow-hidden rounded-2xl aspect-[4/5] md:aspect-[3/4]">
+    <div className="absolute inset-0 bg-neutral-900/20 group-hover:bg-neutral-900/30 transition-colors z-10" />
+    <img src={image} alt={title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+    <div className="absolute inset-0 z-20 p-6 flex flex-col justify-end">
+      <h3 className="text-2xl font-black text-white mb-1 translate-y-2 group-hover:translate-y-0 transition-transform duration-500">{title}</h3>
+      <p className="text-white/80 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">{count} produits</p>
+    </div>
+  </Link>
+);
+
 export default function Home() {
+  const newArrivals = products.slice(0, 4);
+  const bestSellers = products.slice(4, 8);
+  // Reuse products for trending to ensure full grid with limited data
+  const trending = [...products].sort(() => 0.5 - Math.random()).slice(0, 4);
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950">
@@ -142,20 +170,78 @@ export default function Home() {
           whileInView={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
           viewport={{ once: true }}
-          className="px-6 pb-10"
+          className="px-6 pb-16 max-w-7xl mx-auto"
         >
           <Offer />
         </motion.section>
 
-        {/* Catalog */}
+        {/* Categories Grid */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          viewport={{ once: true }}
+          className="px-6 pb-20 max-w-7xl mx-auto"
+        >
+          <DesktopSectionHeader title="Explorer par Catégorie" />
+          <div className="grid grid-cols-4 gap-6">
+            <CategoryCard 
+              title="Homme" 
+              image="https://images.unsplash.com/photo-1516257984-b1b4d8c9230c?q=80&w=1000&auto=format&fit=crop" 
+              count="120+" 
+              link="/shop?category=Homme" 
+            />
+            <CategoryCard 
+              title="Femme" 
+              image="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1000&auto=format&fit=crop" 
+              count="85+" 
+              link="/shop?category=Femme" 
+            />
+            <CategoryCard 
+              title="Accessoires" 
+              image="https://images.unsplash.com/photo-1523293182086-7651a899d60f?q=80&w=1000&auto=format&fit=crop" 
+              count="45+" 
+              link="/shop?category=Accessoires" 
+            />
+            <CategoryCard 
+              title="Sport" 
+              image="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1000&auto=format&fit=crop" 
+              count="60+" 
+              link="/shop?category=Sport" 
+            />
+          </div>
+        </motion.section>
+
+        {/* New Arrivals Section */}
         <motion.section
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.3 }}
           viewport={{ once: true }}
-          className="px-6"
+          className="px-6 pb-20 max-w-7xl mx-auto"
         >
-          <Catalog showFilters={false} showHeader={false} limit={8} />
+          <DesktopSectionHeader title="Dernières Nouveautés" linkTo="/shop?sort=newest" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {newArrivals.map(product => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </motion.section>
+
+        {/* Best Sellers Section */}
+        <motion.section
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          viewport={{ once: true }}
+          className="px-6 pb-20 max-w-7xl mx-auto"
+        >
+          <DesktopSectionHeader title="Meilleures Ventes" linkTo="/shop?sort=bestsellers" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {bestSellers.map(product => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
         </motion.section>
 
         {/* Promotion */}
@@ -164,9 +250,25 @@ export default function Home() {
           whileInView={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.3 }}
           viewport={{ once: true }}
-          className="px-6"
+          className="px-6 pb-20 max-w-7xl mx-auto"
         >
           <Promotion />
+        </motion.section>
+
+        {/* Trending Section */}
+        <motion.section
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          viewport={{ once: true }}
+          className="px-6 pb-20 max-w-7xl mx-auto"
+        >
+          <DesktopSectionHeader title="Tendances du Moment" linkTo="/shop?sort=trending" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {trending.map(product => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
         </motion.section>
 
         {/* Blog */}

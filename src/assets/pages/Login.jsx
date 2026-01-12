@@ -144,6 +144,50 @@ const MotionLink = motion(Link);
 export default function Login() {
   const navigate = useNavigate();
 
+  const handleGoogleLogin = async () => {
+    // Fallback: Si reCAPTCHA n'est pas chargé, on laisse passer
+    if (!window.grecaptcha) {
+      console.warn("reCAPTCHA not loaded, skipping verification.");
+      userManager.signinRedirect();
+      return;
+    }
+
+    try {
+      // Attendre que reCAPTCHA soit prêt
+      await new Promise(resolve => window.grecaptcha.enterprise.ready(resolve));
+      
+      // Obtenir le token
+      const token = await window.grecaptcha.enterprise.execute(
+        import.meta.env.VITE_RECAPTCHA_SITE_KEY, 
+        { action: 'LOGIN' }
+      );
+      
+      console.log("Token reCAPTCHA généré:", token);
+
+      // NOTE IMPORTANTE : La vérification du token (Assessment) via l'API Google Cloud
+      // ne peut PAS être faite directement depuis le navigateur à cause des restrictions de sécurité (CORS).
+      // Elle doit être faite depuis votre BACKEND (serveur Node.js, Python, PHP, etc.).
+      
+      // Simulation de la vérification (On considère que c'est bon pour le frontend)
+      // Une fois le backend prêt, vous enverrez ce token à votre API :
+      // await api.post('/verify-recaptcha', { token });
+
+      // On procède à la connexion
+      userManager.signinRedirect();
+
+      /* CODE CÔTÉ SERVEUR (BACKEND) REQUIS POUR CECI :
+      const apiKey = import.meta.env.VITE_GOOGLE_CLOUD_API_KEY;
+      ... fetch(...) 
+      */
+
+    } catch (error) {
+      console.error("Erreur reCAPTCHA:", error);
+      // Fallback en cas d'erreur technique (ex: API injoignable)
+      console.warn("Erreur technique reCAPTCHA, connexion autorisée.");
+      userManager.signinRedirect();
+    }
+  };
+
   return (
     <div className="relative h-screen w-screen bg-neutral-950 text-white flex lg:flex-row overflow-hidden font-sans selection:bg-purple-500/30">
       {/* Left Side - Hero/Branding */}
