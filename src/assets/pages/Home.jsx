@@ -52,6 +52,8 @@ const BentoCard = ({ title, image, count, link, className, large = false }) => (
     <motion.img 
       src={image} 
       alt={title} 
+      width="800"
+      height="600"
       className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 will-change-transform"
       whileHover={{ scale: 1.05 }}
     />

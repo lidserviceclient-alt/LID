@@ -96,7 +96,7 @@ export default function Footer() {
         style={{ y: springY, opacity }}
         className="absolute -top-12 -right-12 md:-top-24 md:-right-24 pointer-events-none select-none z-0"
       >
-        <h1 className="text-[150px] md:text-[300px] lg:text-[400px] font-black leading-none tracking-tighter opacity-[0.03]">LID</h1>
+        <h1 className="text-[150px] md:text-[300px] lg:text-[400px] font-black leading-none tracking-tighter opacity-[0.03]" aria-hidden="true">LID</h1>
       </motion.div>
 
       {/* Floating Orbs/Glows */}
@@ -150,6 +150,7 @@ export default function Footer() {
               <motion.button 
                 whileHover={{ x: 5, color: "#6aa200" }}
                 onClick={handleSubscribe}
+                aria-label="S'inscrire à la newsletter"
                 className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-neutral-400 transition-colors"
               >
                 <ArrowRight size={24} />
@@ -174,6 +175,7 @@ export default function Footer() {
                  key={i} 
                  href="#" 
                  onClick={(e) => handleSocialClick(e, name)}
+                 aria-label={`Suivez-nous sur ${name}`}
                  whileHover={{ scale: 1.1, rotate: 5, backgroundColor: "#6aa200", borderColor: "#6aa200", color: "#fff" }}
                  whileTap={{ scale: 0.95 }}
                  className="p-3 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-400 transition-colors duration-300"

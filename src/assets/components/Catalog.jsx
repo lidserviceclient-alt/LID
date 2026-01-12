@@ -269,6 +269,8 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
             <motion.img 
               src={product.image} 
               alt={product.name}
+              width="400"
+              height="500"
               whileHover={{ scale: 1.1 }}
               transition={{ duration: 0.4 }}
               className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
@@ -390,6 +392,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
         <div className="absolute top-2 right-2 z-20 flex flex-col gap-2">
           <button 
             onClick={handleWishlist}
+            aria-label={isWishlisted ? "Retirer de la wishlist" : "Ajouter à la wishlist"}
             className="p-1.5 sm:p-2 bg-white/80 dark:bg-black/40 hover:bg-white dark:hover:bg-neutral-700 backdrop-blur-sm rounded-full text-neutral-600 dark:text-neutral-300 transition-colors shadow-sm"
           >
             <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isWishlisted ? "fill-orange-500 text-orange-500" : ""}`} />
@@ -397,6 +400,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
           
           <button 
             onClick={handleShare}
+            aria-label="Partager ce produit"
             className="hidden sm:block p-2 bg-white/80 dark:bg-black/40 hover:bg-white dark:hover:bg-neutral-700 backdrop-blur-sm rounded-full text-neutral-600 dark:text-neutral-300 transition-colors shadow-sm translate-x-10 group-hover:translate-x-0 opacity-0 group-hover:opacity-100 duration-300"
           >
             <Share2 className="w-4 h-4" />
@@ -407,6 +411,8 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
           <motion.img 
             src={product.image} 
             alt={product.name}
+            width="400"
+            height="500"
             loading="lazy"
             whileHover={{ scale: 1.1 }}
             transition={{ duration: 0.4 }}
