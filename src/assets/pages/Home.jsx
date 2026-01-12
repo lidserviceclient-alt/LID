@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, ShieldCheck, Zap, Truck } from "lucide-react";
+import { ChevronRight, ShieldCheck, Zap, Truck, ArrowUpRight } from "lucide-react";
 import Hero from "../components/Hero";
 import Promotion from "../components/Promotion";
 import Offer from "../components/offer";
@@ -12,6 +13,7 @@ import Mark from "../components/Mark";
 import Newsletter from "../components/Newsletter";
 import Reassurance from "../components/Reassurance";
 import { products } from "../data/products";
+import { cn } from "@/lib/utils";
 
 // --- Mobile Specific Components ---
 const MobileSectionHeader = ({ title, linkTo, linkText = "Voir tout" }) => (
@@ -27,8 +29,8 @@ const MobileSectionHeader = ({ title, linkTo, linkText = "Voir tout" }) => (
 
 // --- Desktop Specific Components ---
 const DesktopSectionHeader = ({ title, linkTo, linkText = "Voir tout" }) => (
-  <div className="flex justify-between items-end mb-8 border-b border-neutral-200 dark:border-neutral-800 pb-4">
-    <h2 className="text-3xl font-black text-neutral-900 dark:text-white uppercase tracking-tight">{title}</h2>
+  <div className="flex justify-between items-end mb-12">
+    <h2 className="text-4xl font-black text-neutral-900 dark:text-white uppercase tracking-tight">{title}</h2>
     {linkTo && (
       <Link to={linkTo} className="group flex items-center gap-2 text-sm font-bold text-neutral-500 hover:text-orange-600 transition-colors">
         {linkText} 
@@ -38,13 +40,42 @@ const DesktopSectionHeader = ({ title, linkTo, linkText = "Voir tout" }) => (
   </div>
 );
 
-const CategoryCard = ({ title, image, count, link }) => (
-  <Link to={link} className="group relative overflow-hidden rounded-2xl aspect-[4/5] md:aspect-[3/4]">
-    <div className="absolute inset-0 bg-neutral-900/20 group-hover:bg-neutral-900/30 transition-colors z-10" />
-    <img src={image} alt={title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-    <div className="absolute inset-0 z-20 p-6 flex flex-col justify-end">
-      <h3 className="text-2xl font-black text-white mb-1 translate-y-2 group-hover:translate-y-0 transition-transform duration-500">{title}</h3>
-      <p className="text-white/80 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">{count} produits</p>
+const BentoCard = ({ title, image, count, link, className, large = false }) => (
+  <Link 
+    to={link} 
+    className={cn(
+      "group relative overflow-hidden rounded-3xl cursor-pointer", 
+      className
+    )}
+  >
+    <div className="absolute inset-0 bg-neutral-900/20 group-hover:bg-neutral-900/40 transition-colors duration-500 z-10" />
+    <motion.img 
+      src={image} 
+      alt={title} 
+      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 will-change-transform"
+      whileHover={{ scale: 1.05 }}
+    />
+    
+    <div className="absolute inset-0 z-20 p-8 flex flex-col justify-between">
+      <div className="flex justify-end">
+        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center opacity-0 -translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
+           <ArrowUpRight className="text-white" size={20} />
+        </div>
+      </div>
+      
+      <div>
+        <h3 className={cn("font-black text-white mb-2 leading-none", large ? "text-5xl" : "text-3xl")}>
+          {title}
+        </h3>
+        <div className="flex items-center gap-3 overflow-hidden">
+          <span className="text-white/80 text-sm font-medium backdrop-blur-sm bg-black/10 px-3 py-1 rounded-full border border-white/10">
+            {count} produits
+          </span>
+          <span className="text-white text-sm font-bold translate-y-8 group-hover:translate-y-0 transition-transform duration-300 delay-75">
+            Explorer
+          </span>
+        </div>
+      </div>
     </div>
   </Link>
 );
@@ -175,39 +206,45 @@ export default function Home() {
           <Offer />
         </motion.section>
 
-        {/* Categories Grid */}
+        {/* Categories Grid - BENTO LAYOUT */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.8 }}
           viewport={{ once: true }}
           className="px-6 pb-20 max-w-7xl mx-auto"
         >
           <DesktopSectionHeader title="Explorer par Catégorie" />
-          <div className="grid grid-cols-4 gap-6">
-            <CategoryCard 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[400px]">
+            <BentoCard 
               title="Homme" 
               image="https://images.unsplash.com/photo-1516257984-b1b4d8c9230c?q=80&w=1000&auto=format&fit=crop" 
               count="120+" 
               link="/shop?category=Homme" 
+              className="md:col-span-2"
+              large
             />
-            <CategoryCard 
+            <BentoCard 
               title="Femme" 
               image="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1000&auto=format&fit=crop" 
               count="85+" 
               link="/shop?category=Femme" 
+              className="md:col-span-1"
             />
-            <CategoryCard 
+            <BentoCard 
               title="Accessoires" 
               image="https://images.unsplash.com/photo-1523293182086-7651a899d60f?q=80&w=1000&auto=format&fit=crop" 
               count="45+" 
               link="/shop?category=Accessoires" 
+              className="md:col-span-1"
             />
-            <CategoryCard 
+            <BentoCard 
               title="Sport" 
               image="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1000&auto=format&fit=crop" 
               count="60+" 
               link="/shop?category=Sport" 
+              className="md:col-span-2"
+              large
             />
           </div>
         </motion.section>

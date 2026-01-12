@@ -36,7 +36,6 @@ const productsRow2 = [
   { img: 'https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=400&q=80&fm=webp', name: 'CARGO PANTS', price: '$129' },
 ];
 
-
 const users = [
   "https://randomuser.me/api/portraits/women/44.jpg",
   "https://randomuser.me/api/portraits/men/32.jpg",

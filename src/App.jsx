@@ -24,9 +24,9 @@ const Privacy = lazy(() => import('./assets/pages/Privacy.jsx'))
 const TicketCatalog = lazy(() => import('./assets/pages/TicketCatalog.jsx'))
 const SellersList = lazy(() => import('./assets/pages/SellersList.jsx'))
 const SellerDetails = lazy(() => import('./assets/pages/SellerDetails.jsx'))
-import OrderTracking from './assets/pages/OrderTracking.jsx'
-import Returns from './assets/pages/Returns.jsx'
-import Delivery from './assets/pages/Delivery.jsx'
+const OrderTracking = lazy(() => import('./assets/pages/OrderTracking.jsx'))
+const Returns = lazy(() => import('./assets/pages/Returns.jsx'))
+const Delivery = lazy(() => import('./assets/pages/Delivery.jsx'))
 
 function App() {
   

@@ -374,9 +374,8 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
       className="group flex flex-col h-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative"
     >
       {/* Image Area */}
-      <motion.div 
-        layoutId={`product-bg-${product.id}`}
-        className="relative aspect-[4/5] bg-neutral-100 dark:bg-neutral-800 p-3 sm:p-4 overflow-hidden"
+      <div 
+        className="relative aspect-[4/5] bg-neutral-100 dark:bg-neutral-800 overflow-hidden"
       >
         {/* Badges */}
         <div className="absolute top-0 left-0 p-2 z-10 flex flex-col gap-1 items-start">
@@ -408,12 +407,13 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
           <motion.img 
             src={product.image} 
             alt={product.name}
+            loading="lazy"
             whileHover={{ scale: 1.1 }}
             transition={{ duration: 0.4 }}
-            className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
+            className="w-full h-full object-cover"
           />
         </Link>
-      </motion.div>
+      </div>
 
       {/* Product Details - Amazon Modern Style */}
       <div className="flex-1 flex flex-col p-3 sm:p-4 gap-1.5 sm:gap-2">

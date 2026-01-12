@@ -1,7 +1,7 @@
 import { useState, useEffect, Fragment } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars
-import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, useScroll } from "framer-motion";
 import { 
   Star, 
   Check, 
@@ -255,8 +255,82 @@ export default function ProductDetails() {
     }
   };
 
+  // Scroll detection for sticky bar
+  const [showStickyBar, setShowStickyBar] = useState(false);
+  const { scrollY } = useScroll();
+
+  useEffect(() => {
+    return scrollY.onChange((latest) => {
+      setShowStickyBar(latest > 600);
+    });
+  }, [scrollY]);
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 relative overflow-hidden">
+      {/* Sticky Bottom Bar */}
+      <AnimatePresence>
+        {showStickyBar && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-lg border-t border-neutral-200 dark:border-neutral-800 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] px-4 py-3 md:py-4"
+          >
+            <div className="max-w-[1500px] mx-auto flex items-center justify-between gap-4">
+              {/* Product Info (Hidden on small mobile) */}
+              <div className="hidden md:flex items-center gap-4">
+                <img src={product.image} alt={product.name} className="w-12 h-12 object-contain bg-neutral-100 rounded-md" />
+                <div>
+                  <h3 className="font-bold text-neutral-900 dark:text-white line-clamp-1">{product.name}</h3>
+                  <div className="text-sm text-neutral-500">
+                    <span className="font-medium text-orange-600">{product.price.toLocaleString()} FCFA</span>
+                    {product.originalPrice && (
+                      <span className="ml-2 text-xs line-through">{product.originalPrice.toLocaleString()} FCFA</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                 <div className="hidden sm:block">
+                    <select 
+                      value={selectedSize} 
+                      onChange={(e) => setSelectedSize(e.target.value)}
+                      className="h-10 px-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-transparent text-sm"
+                    >
+                      {product.sizes?.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                 </div>
+                 
+                 <button
+                    onClick={handleAddToCart}
+                    disabled={isAdding}
+                    className="flex-1 md:flex-none h-10 px-6 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-bold text-sm rounded-full hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+                 >
+                   {isAdding ? (
+                     <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                   ) : (
+                     <>
+                       <ShoppingBag size={16} />
+                       <span className="hidden sm:inline">Ajouter</span>
+                     </>
+                   )}
+                 </button>
+
+                 <button
+                   onClick={() => setShowCheckout(true)}
+                   className="flex-1 md:flex-none h-10 px-6 bg-orange-600 text-white font-bold text-sm rounded-full hover:bg-orange-700 transition-colors whitespace-nowrap shadow-lg shadow-orange-600/20"
+                 >
+                   Acheter
+                 </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Background Animated Blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10 opacity-40 dark:opacity-30">
         <motion.div 
