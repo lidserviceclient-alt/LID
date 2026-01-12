@@ -1,12 +1,11 @@
 import { Suspense, lazy } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import ScrollToTop from './assets/components/ScrollToTop'
-import OnboardingPopup from './assets/components/OnboardingPopup.jsx'
 import { Toaster } from 'sonner'
 
-import CookieConsent from './assets/components/CookieConsent.jsx'
-
 const Layout = lazy(() => import('./assets/layout/Layout.jsx'))
+const OnboardingPopup = lazy(() => import('./assets/components/OnboardingPopup.jsx'))
+const CookieConsent = lazy(() => import('./assets/components/CookieConsent.jsx'))
 const Home = lazy(() => import('./assets/pages/Home.jsx'))
 const Catalogue = lazy(() => import('./assets/pages/Catalogue.jsx'))
 const Cart = lazy(() => import('./assets/pages/Cart.jsx'))
@@ -33,9 +32,11 @@ function App() {
   return (
     <>
       <ScrollToTop />
-      <OnboardingPopup />
-      <CookieConsent />
       <Toaster richColors closeButton position="top-center" />
+      <Suspense fallback={null}>
+        <OnboardingPopup />
+        <CookieConsent />
+      </Suspense>
       <Suspense fallback={
         <div className="flex items-center justify-center h-screen w-screen bg-white dark:bg-neutral-950">
           <div className="w-10 h-10 border-4 border-neutral-200 dark:border-neutral-800 border-t-[#6aa200] rounded-full animate-spin"></div>

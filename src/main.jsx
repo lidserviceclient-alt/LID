@@ -8,17 +8,14 @@ import App from './App.jsx'
 
 const queryClient = new QueryClient()
 
-// Simulate loading delay to show the loader
-setTimeout(() => {
-  createRoot(document.getElementById('root')).render(
-    <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </StrictMode>,
-  )
-}, 2000);
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </ThemeProvider>
+    </QueryClientProvider>
+  </StrictMode>,
+)
