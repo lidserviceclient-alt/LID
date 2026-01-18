@@ -116,5 +116,10 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
             @Param("status") ArticleStatus status,
             Pageable pageable
     );
+    
+    /**
+     * Récupérer tous les articles d'un partenaire avec pagination
+     */
+    Page<Article> findByReferencePartner(String partnerId, Pageable pageable);
 
 }

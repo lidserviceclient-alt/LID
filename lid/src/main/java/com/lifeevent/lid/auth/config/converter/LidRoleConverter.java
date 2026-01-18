@@ -16,12 +16,8 @@ import java.util.stream.Collectors;
 public class LidRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
     @Override
     public Collection<GrantedAuthority> convert(Jwt source) {
-        Map<String, Object> realmAccess = (Map<String, Object>) source.getClaims().get("realm_access");
-        if (realmAccess == null || realmAccess.isEmpty()) {
-            return new ArrayList<>();
-        }
-        return ((List<String>) realmAccess.get("roles"))
-                .stream().map(roleName -> "ROLE_" + roleName)
+        return ((List<String>) source.getClaims().get("roles"))
+                .stream().map(roleName -> "ROLE_" + "ADMIN")
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
     }

@@ -5,6 +5,7 @@ import com.lifeevent.lid.article.entity.Category;
 import com.lifeevent.lid.article.enumeration.ArticleStatus;
 import com.lifeevent.lid.batch.dto.ArticleCsvDto;
 import com.lifeevent.lid.batch.dto.ArticleImportAggregate;
+import com.lifeevent.lid.common.security.SecurityUtils;
 import com.lifeevent.lid.stock.entity.Stock;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.item.ItemProcessor;
@@ -32,6 +33,8 @@ public class ArticleItemProcessor implements ItemProcessor<ArticleCsvDto, Articl
         if(this.isEmpty(item)) return null;
         final String title = item.getTitle().toUpperCase();
         final Double price = item.getPrice().doubleValue();
+        final String currentPartnerId = SecurityUtils.getCurrentUserId();
+        
         final Article transformedArticle = Article.builder()
                 .referenceProduitPartenaire(item.getReferenceProduitPartenaire())
                 .name(title)
@@ -45,9 +48,10 @@ public class ArticleItemProcessor implements ItemProcessor<ArticleCsvDto, Articl
                 .isBestSeller(Boolean.TRUE.equals(item.getIsBestSeller()))
                 .isFlashSale(Boolean.TRUE.equals(item.getIsFlashSale()))
                 .ean(item.getEan())
+                .referencePartner(currentPartnerId)
                 .build();
 
-        log.info("[transformedArticle] : ( {} ) ", transformedArticle);
+        log.info("[transformedArticle] : ( {} ) [Partner: {}]", transformedArticle, currentPartnerId);
         return transformedArticle;
     }
 
@@ -78,8 +82,7 @@ public class ArticleItemProcessor implements ItemProcessor<ArticleCsvDto, Articl
 
 
     private boolean isEmpty(ArticleCsvDto item) {
-        return isBlank(item.getReferencePartenaire())
-                && isBlank(item.getReferenceProduitPartenaire())
+        return isBlank(item.getReferenceProduitPartenaire())
                 && isBlank(item.getEan())
                 && isBlank(item.getTitle())
                 && isBlank(item.getDescription())

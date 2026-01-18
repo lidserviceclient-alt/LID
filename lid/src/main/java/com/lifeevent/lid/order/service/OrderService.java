@@ -42,4 +42,10 @@ public interface OrderService {
      * Annuler une commande
      */
     void cancelOrder(Long orderId, String reason);
+    
+    /**
+     * Vérifier si la commande appartient à l'utilisateur courant (CUSTOMER)
+     * Utilisé pour les vérifications d'ownership dans @PreAuthorize
+     */
+    boolean isOwnedByCurrentUser(Long orderId);
 }

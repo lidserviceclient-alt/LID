@@ -9,6 +9,7 @@ import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.article.repository.CategoryRepository;
 import com.lifeevent.lid.article.service.ArticleService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.common.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -151,5 +152,36 @@ public class ArticleServiceImpl implements ArticleService {
         
         article.getCategories().remove(category);
         articleRepository.save(article);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isOwnedByCurrentUser(Long articleId) {
+        log.debug("Vérification de ownership pour l'article: {}", articleId);
+        String currentUserId = SecurityUtils.getCurrentUserId();
+        
+        if (currentUserId == null) {
+            log.warn("Tentative de vérification d'ownership sans utilisateur authentifié");
+            return false;
+        }
+        
+        return articleRepository.findById(articleId)
+            .map(article -> currentUserId.equals(article.getReferencePartner()))
+            .orElse(false);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ArticleDto> getArticlesByCurrentPartner(Pageable pageable) {
+        log.info("Récupération des articles du partenaire courant - Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
+        String currentPartnerId = SecurityUtils.getCurrentUserId();
+        
+        if (currentPartnerId == null) {
+            log.warn("Tentative de récupération des articles sans utilisateur authentifié");
+            return Page.empty(pageable);
+        }
+        
+        Page<Article> articles = articleRepository.findByReferencePartner(currentPartnerId, pageable);
+        return articles.map(articleMapper::toDto);
     }
 }

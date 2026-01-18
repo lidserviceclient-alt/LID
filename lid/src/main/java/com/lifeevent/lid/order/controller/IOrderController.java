@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,17 +21,23 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
+/**
+ * Interface documentant les endpoints Order pour Swagger
+ * CUSTOMER can checkout and access own orders (#customerId == authentication.name or ADMIN)
+ */
 @Tag(name = "Orders", description = "API pour la gestion des commandes")
 @SecurityRequirement(name = "Bearer Token")
 public interface IOrderController {
     
-    @Operation(summary = "Initier un checkout", description = "Crée une commande, réserve le stock et initie le processus de paiement")
+    @Operation(summary = "Initier un checkout", description = "Crée une commande, réserve le stock et initie le processus de paiement (CUSTOMER or ADMIN)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Commande créée avec succès"),
         @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Can checkout only own cart"),
         @ApiResponse(responseCode = "400", description = "Requête invalide")
     })
     @PostMapping("/checkout")
+    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasRole('ADMIN')")
     ResponseEntity<CheckoutResponseDto> checkout(
             @Parameter(description = "ID du client", example = "1", required = true)
             @RequestParam String customerId,
@@ -41,12 +48,14 @@ public interface IOrderController {
             )
             @RequestBody CheckoutRequestDto request);
     
-    @Operation(summary = "Récupérer les commandes du client", description = "Retourne la liste paginée des commandes d'un client")
+    @Operation(summary = "Récupérer les commandes du client", description = "Retourne la liste paginée des commandes d'un client (CUSTOMER or ADMIN)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Liste des commandes"),
-        @ApiResponse(responseCode = "401", description = "Non autorisé")
+        @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Can view only own orders")
     })
     @GetMapping("/orders")
+    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasRole('ADMIN')")
     ResponseEntity<List<OrderDetailDto>> getCustomerOrders(
             @Parameter(description = "ID du client", example = "1", required = true)
             @RequestParam String customerId,
@@ -55,24 +64,28 @@ public interface IOrderController {
             @Parameter(description = "Nombre de commandes par page", example = "10")
             @RequestParam(defaultValue = "10") int size);
     
-    @Operation(summary = "Récupérer les détails d'une commande", description = "Retourne les informations complètes d'une commande spécifique")
+    @Operation(summary = "Récupérer les détails d'une commande", description = "Retourne les informations complètes d'une commande spécifique (CUSTOMER or ADMIN)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Détails de la commande"),
         @ApiResponse(responseCode = "404", description = "Commande non trouvée"),
-        @ApiResponse(responseCode = "401", description = "Non autorisé")
+        @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Can view only own orders")
     })
     @GetMapping("/orders/{id}")
+    @PreAuthorize("(hasRole('CUSTOMER') and @orderService.isOwnedByCurrentUser(#id)) or hasRole('ADMIN')")
     ResponseEntity<?> getOrderDetail(
             @Parameter(description = "ID de la commande", example = "1", required = true)
             @PathVariable Long id);
     
-    @Operation(summary = "Suivi de la commande", description = "Retourne les informations de suivi incluant numéro de tracking et statut actuel")
+    @Operation(summary = "Suivi de la commande", description = "Retourne les informations de suivi incluant numéro de tracking et statut actuel (CUSTOMER or ADMIN)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Informations de suivi"),
         @ApiResponse(responseCode = "404", description = "Commande non trouvée"),
-        @ApiResponse(responseCode = "401", description = "Non autorisé")
+        @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Can track only own orders")
     })
     @GetMapping("/orders/{id}/tracking")
+    @PreAuthorize("(hasRole('CUSTOMER') and @orderService.isOwnedByCurrentUser(#id)) or hasRole('ADMIN')")
     ResponseEntity<?> getOrderTracking(
             @Parameter(description = "ID de la commande", example = "1", required = true)
             @PathVariable Long id);

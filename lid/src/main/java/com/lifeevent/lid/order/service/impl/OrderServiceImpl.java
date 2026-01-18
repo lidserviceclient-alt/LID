@@ -5,6 +5,7 @@ import com.lifeevent.lid.cart.entity.CartArticle;
 import com.lifeevent.lid.cart.repository.CartArticleRepository;
 import com.lifeevent.lid.cart.repository.CartRepository;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.common.security.SecurityUtils;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import com.lifeevent.lid.order.dto.*;
@@ -211,5 +212,21 @@ public class OrderServiceImpl implements OrderService {
             .items(items)
             .statusHistory(statusHistory)
             .build();
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isOwnedByCurrentUser(Long orderId) {
+        log.debug("Vérification de ownership pour la commande: {}", orderId);
+        String currentUserId = SecurityUtils.getCurrentUserId();
+        
+        if (currentUserId == null) {
+            log.warn("Tentative de vérification d'ownership sans utilisateur authentifié");
+            return false;
+        }
+        
+        return orderRepository.findById(orderId)
+            .map(order -> currentUserId.equals(order.getCustomer().getUserId()))
+            .orElse(false);
     }
 }

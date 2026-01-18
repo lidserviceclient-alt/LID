@@ -12,7 +12,6 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class ArticleCsvDto {
 
-    private String referencePartenaire;
     private String referenceProduitPartenaire;
     private String ean;
 

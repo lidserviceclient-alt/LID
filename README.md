@@ -7,6 +7,10 @@ Life Event Distribution Api repository
 - est ce que 1 partner à 1 boutique ou plusieurs partners ont 1 boutique ? et qu'est ce qu'un partenaire peut faire (à part la gestion d'articles).
 - Reste la gestion des rôles
 - Lors de la création d'un partenaire, il faut que des mains catégories existent
+- Comment se log un partenaire ?
+- 
+
+
 
 ## Modèle physique de base de donnée pour le site de e-commerce LID.
 

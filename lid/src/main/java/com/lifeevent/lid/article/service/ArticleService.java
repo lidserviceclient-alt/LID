@@ -78,4 +78,15 @@ public interface ArticleService {
      * Retirer une catégorie d'un article
      */
     void removeCategoryFromArticle(Long articleId, Integer categoryId);
+    
+    /**
+     * Vérifier si l'article appartient à l'utilisateur courant (PARTNER)
+     * Utilisé pour les vérifications d'ownership dans @PreAuthorize
+     */
+    boolean isOwnedByCurrentUser(Long articleId);
+    
+    /**
+     * Récupérer les articles du partenaire courant (PARTNER only)
+     */
+    Page<ArticleDto> getArticlesByCurrentPartner(Pageable pageable);
 }

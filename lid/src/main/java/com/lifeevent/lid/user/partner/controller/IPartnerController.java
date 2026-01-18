@@ -10,11 +10,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
  * Interface documentant les endpoints Partner pour Swagger
- * Enregistrement en 3 étapes + CRUD
+ * Registration en 3 étapes (step-1 public, step-2/3 protected)
+ * Partner can access only own profile (#partnerId == authentication.name or ADMIN)
  */
 @Tag(name = "Partners", description = "API pour l'enregistrement et la gestion des partenaires/vendeurs")
 public interface IPartnerController {
@@ -24,9 +26,10 @@ public interface IPartnerController {
      * ENDPOINT PUBLIC (pas d'authentification requise)
      */
     @PostMapping("/register/step-1")
+    @PreAuthorize("permitAll")
     @Operation(
         summary = "Étape 1 - Créer un compte Partner",
-        description = "Crée un nouveau compte Partner avec infos de base (nom, email, téléphone)"
+        description = "Crée un nouveau compte Partner avec infos de base (nom, email, téléphone) - PUBLIC"
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -48,13 +51,14 @@ public interface IPartnerController {
     
     /**
      * ÉTAPE 2 : Ajouter les infos de boutique
-     * ENDPOINT PROTÉGÉ (authentification requise)
+     * ENDPOINT PROTÉGÉ (Partner or ADMIN)
      */
     @PostMapping("/register/step-2")
     @SecurityRequirement(name = "Bearer Token")
+    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN')")
     @Operation(
         summary = "Étape 2 - Ajouter les infos de boutique",
-        description = "Crée la boutique du Partner avec nom, catégorie principale, description"
+        description = "Crée la boutique du Partner avec nom, catégorie principale, description (PARTNER or ADMIN)"
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -63,6 +67,7 @@ public interface IPartnerController {
             content = @Content(schema = @Schema(implementation = PartnerResponseDto.class))
         ),
         @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Partner or Admin only"),
         @ApiResponse(responseCode = "404", description = "Partner ou Category non trouvé"),
         @ApiResponse(responseCode = "400", description = "Données invalides")
     })
@@ -77,13 +82,14 @@ public interface IPartnerController {
     
     /**
      * ÉTAPE 3 : Ajouter les infos légales
-     * ENDPOINT PROTÉGÉ (authentification requise)
+     * ENDPOINT PROTÉGÉ (Partner or ADMIN)
      */
     @PostMapping("/register/step-3")
     @SecurityRequirement(name = "Bearer Token")
+    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN')")
     @Operation(
         summary = "Étape 3 - Ajouter les infos légales",
-        description = "Complète l'enregistrement avec adresse, ville, pays et document de registration"
+        description = "Complète l'enregistrement avec adresse, ville, pays et document de registration (PARTNER or ADMIN)"
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -92,6 +98,7 @@ public interface IPartnerController {
             content = @Content(schema = @Schema(implementation = PartnerResponseDto.class))
         ),
         @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Partner or Admin only"),
         @ApiResponse(responseCode = "404", description = "Partner non trouvé"),
         @ApiResponse(responseCode = "400", description = "Données invalides")
     })
@@ -106,13 +113,14 @@ public interface IPartnerController {
     
     /**
      * Récupérer un Partner par ID
-     * ENDPOINT PROTÉGÉ
+     * ENDPOINT PROTÉGÉ (Own profile or ADMIN)
      */
     @GetMapping("/{partnerId}")
     @SecurityRequirement(name = "Bearer Token")
+    @PreAuthorize("(#partnerId == authentication.name) or hasRole('ADMIN')")
     @Operation(
         summary = "Récupérer un Partner",
-        description = "Récupère les détails complets d'un Partner avec ses infos de boutique et légales"
+        description = "Récupère les détails complets d'un Partner avec ses infos de boutique et légales (Own profile or ADMIN)"
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -121,6 +129,7 @@ public interface IPartnerController {
             content = @Content(schema = @Schema(implementation = PartnerResponseDto.class))
         ),
         @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Can view only own profile"),
         @ApiResponse(responseCode = "404", description = "Partner non trouvé")
     })
     ResponseEntity<PartnerResponseDto> getPartner(
@@ -130,13 +139,14 @@ public interface IPartnerController {
     
     /**
      * Mettre à jour un Partner
-     * ENDPOINT PROTÉGÉ
+     * ENDPOINT PROTÉGÉ (Own profile or ADMIN)
      */
     @PutMapping("/{partnerId}")
     @SecurityRequirement(name = "Bearer Token")
+    @PreAuthorize("(#partnerId == authentication.name) or hasRole('ADMIN')")
     @Operation(
         summary = "Mettre à jour un Partner",
-        description = "Met à jour les infos générales d'un Partner (nom, prénom, téléphone)"
+        description = "Met à jour les infos générales d'un Partner (nom, prénom, téléphone) (Own profile or ADMIN)"
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -145,6 +155,7 @@ public interface IPartnerController {
             content = @Content(schema = @Schema(implementation = PartnerResponseDto.class))
         ),
         @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Can update only own profile"),
         @ApiResponse(responseCode = "404", description = "Partner non trouvé"),
         @ApiResponse(responseCode = "400", description = "Données invalides")
     })
@@ -156,17 +167,19 @@ public interface IPartnerController {
     
     /**
      * Supprimer un Partner
-     * ENDPOINT PROTÉGÉ (généralement admin seulement)
+     * ENDPOINT PROTÉGÉ (ADMIN only)
      */
     @DeleteMapping("/{partnerId}")
     @SecurityRequirement(name = "Bearer Token")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(
         summary = "Supprimer un Partner",
-        description = "Supprime complètement un Partner et ses données associées"
+        description = "Supprime complètement un Partner et ses données associées (ADMIN only)"
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Partner supprimé avec succès"),
         @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Admin only"),
         @ApiResponse(responseCode = "404", description = "Partner non trouvé")
     })
     ResponseEntity<Void> deletePartner(

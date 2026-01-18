@@ -50,6 +50,12 @@ public class Article extends BaseEntity {
     private ArticleStatus status = ArticleStatus.ACTIVE;
 
     /**
+     * ID du Partner qui a créé cet article (pour vérification d'ownership)
+     */
+    @Column(name = "reference_partner")
+    private String referencePartner;
+
+    /**
      * Remise en pourcentage (ex: 15 pour 15%)
      */
     private Float discountPercent;

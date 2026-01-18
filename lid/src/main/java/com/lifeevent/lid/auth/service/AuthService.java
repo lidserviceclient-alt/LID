@@ -40,7 +40,7 @@ public class AuthService {
     public AuthResponse loginWithGoogle(HttpServletRequest request, HttpServletResponse response){
         String idToken = bearerTokenResolver.resolve(request);
         Jwt googleJwt = googleJwtDecoder.decode(idToken);
-        List<String> roles = List.of("User");
+        List<String> roles = List.of("CUSTOMER");
         UserJwt userJwt = jwtService.extractUserFromJwt(googleJwt, roles);
         String accessToken = jwtService.generateAccessToken(userJwt.getUserId(), userJwt.getEmail(), roles);
         RefreshToken refreshToken = refreshTokenService.create(userJwt.getUserId());
