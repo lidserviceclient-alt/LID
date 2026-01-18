@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 
 @Tag(name = "Wishlist", description = "API pour la gestion de la liste de favoris")
-@SecurityRequirement(name = "bearer-jwt")
+@SecurityRequirement(name = "Bearer Token")
 public interface IWishlistController {
     
     @Operation(summary = "Récupérer la wishlist", description = "Retourne la liste complète des articles en favoris du client")
@@ -28,7 +28,7 @@ public interface IWishlistController {
     @GetMapping
     ResponseEntity<List<WishlistDto>> getWishlist(
             @Parameter(description = "ID du client", example = "1", required = true)
-            @RequestParam(defaultValue = "1") Integer customerId);
+            @RequestParam(defaultValue = "1") String customerId);
     
     @Operation(summary = "Ajouter à la wishlist", description = "Ajoute un article à la liste de favoris du client")
     @ApiResponses(value = {
@@ -41,7 +41,7 @@ public interface IWishlistController {
             @Parameter(description = "ID de l'article", example = "1", required = true)
             @PathVariable Long articleId,
             @Parameter(description = "ID du client", example = "1", required = true)
-            @RequestParam(defaultValue = "1") Integer customerId);
+            @RequestParam(defaultValue = "1") String customerId);
     
     @Operation(summary = "Retirer de la wishlist", description = "Supprime un article de la liste de favoris du client")
     @ApiResponses(value = {
@@ -54,7 +54,7 @@ public interface IWishlistController {
             @Parameter(description = "ID de l'article", example = "1", required = true)
             @PathVariable Long articleId,
             @Parameter(description = "ID du client", example = "1", required = true)
-            @RequestParam(defaultValue = "1") Integer customerId);
+            @RequestParam(defaultValue = "1") String customerId);
     
     @Operation(summary = "Vérifier si en wishlist", description = "Retourne true si l'article est dans la liste de favoris")
     @ApiResponses(value = {
@@ -66,5 +66,5 @@ public interface IWishlistController {
             @Parameter(description = "ID de l'article", example = "1", required = true)
             @PathVariable Long articleId,
             @Parameter(description = "ID du client", example = "1", required = true)
-            @RequestParam(defaultValue = "1") Integer customerId);
+            @RequestParam(defaultValue = "1") String customerId);
 }

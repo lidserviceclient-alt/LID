@@ -1,10 +1,12 @@
 package com.lifeevent.lid.order.entity;
 
 import com.lifeevent.lid.common.entity.BaseEntity;
-import com.lifeevent.lid.customer.entity.Customer;
+import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.order.enumeration.Status;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
+
 import java.util.List;
 
 import java.time.LocalDateTime;
@@ -13,7 +15,7 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "orders")
@@ -23,7 +25,7 @@ public class Order extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private Customer customer;
 
     /**

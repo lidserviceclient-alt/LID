@@ -1,6 +1,7 @@
 package com.lifeevent.lid.wishlist.repository;
 
 import com.lifeevent.lid.wishlist.entity.Wishlist;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -13,15 +14,17 @@ public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
     /**
      * Obtenir la wishlist d'un client
      */
-    List<Wishlist> findByCustomerId(Integer customerId);
+    @EntityGraph(attributePaths = {"customer", "article"})
+    List<Wishlist> findByCustomer_UserId(String customerId);
     
     /**
      * Vérifier si un article est dans la wishlist
      */
-    Optional<Wishlist> findByCustomerIdAndArticleId(Integer customerId, Long articleId);
+    @EntityGraph(attributePaths = {"customer", "article"})
+    Optional<Wishlist> findByCustomer_UserIdAndArticleId(String customerId, Long articleId);
     
     /**
      * Supprimer un article de la wishlist
      */
-    void deleteByCustomerIdAndArticleId(Integer customerId, Long articleId);
+    void deleteByCustomer_UserIdAndArticleId(String customerId, Long articleId);
 }

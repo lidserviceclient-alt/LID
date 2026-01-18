@@ -1,6 +1,7 @@
 package com.lifeevent.lid.auth.config.converter;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -12,10 +13,14 @@ import java.util.List;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class GoogleScopeConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
 
         @Override
         public Collection<GrantedAuthority> convert(Jwt jwt) {
+
+            log.info("🔥 GoogleScopeConverter CALLED");
+            log.info("JWT claims: {}", jwt.getClaims());
 
             String email = jwt.getClaimAsString("email");
             if (email == null) {

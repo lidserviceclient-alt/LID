@@ -5,8 +5,8 @@ import com.lifeevent.lid.cart.entity.CartArticle;
 import com.lifeevent.lid.cart.repository.CartArticleRepository;
 import com.lifeevent.lid.cart.repository.CartRepository;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
-import com.lifeevent.lid.customer.entity.Customer;
-import com.lifeevent.lid.customer.repository.CustomerRepository;
+import com.lifeevent.lid.user.customer.entity.Customer;
+import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import com.lifeevent.lid.order.dto.*;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.entity.OrderArticle;
@@ -41,7 +41,7 @@ public class OrderServiceImpl implements OrderService {
     private final CustomerRepository customerRepository;
     
     @Override
-    public CheckoutResponseDto checkout(Integer customerId, CheckoutRequestDto request) {
+    public CheckoutResponseDto checkout(String customerId, CheckoutRequestDto request) {
         log.info("Initiation du checkout pour le client: {}", customerId);
         
         // Vérifier le client
@@ -49,7 +49,7 @@ public class OrderServiceImpl implements OrderService {
             .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId.toString()));
         
         // Récupérer le panier
-        Cart cart = cartRepository.findByCustomerId(customerId)
+        Cart cart = cartRepository.findByCustomer_userId(customerId)
             .orElseThrow(() -> new ResourceNotFoundException("Cart", "customerId", customerId.toString()));
         
         List<CartArticle> cartItems = cartArticleRepository.findByCart(cart);
@@ -114,7 +114,7 @@ public class OrderServiceImpl implements OrderService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<OrderDetailDto> getOrdersByCustomer(Integer customerId, int page, int size) {
+    public List<OrderDetailDto> getOrdersByCustomer(String customerId, int page, int size) {
         log.info("Récupération des commandes du client: {}", customerId);
         
         // Vérifier le client
@@ -122,7 +122,7 @@ public class OrderServiceImpl implements OrderService {
             .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId.toString()));
         
         Pageable pageable = PageRequest.of(page, size);
-        return orderRepository.findByCustomerId(customerId, pageable)
+        return orderRepository.findByCustomer_UserId(customerId, pageable)
             .stream()
             .map(this::mapToDetailDto)
             .collect(Collectors.toList());

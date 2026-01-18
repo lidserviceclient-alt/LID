@@ -1,8 +1,6 @@
-package com.lifeevent.lid.customer.dto;
+package com.lifeevent.lid.user.customer.dto;
 
 import lombok.*;
-
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -10,10 +8,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class CustomerDto {
-    private Integer id;
-    private String login;
+    private String userId;
     private String firstName;
     private String lastName;
     private String email;
-    private String password;
+    private String avatarUrl;
 }

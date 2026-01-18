@@ -1,9 +1,8 @@
 package com.lifeevent.lid.cart.dto;
 
-import com.lifeevent.lid.customer.dto.CustomerDto;
+import com.lifeevent.lid.user.customer.dto.CustomerDto;
 import lombok.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter

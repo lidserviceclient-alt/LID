@@ -9,27 +9,27 @@ public interface CartService {
     /**
      * Créer un panier pour un client
      */
-    CartDto createCart(Integer customerId);
+    CartDto createCart(String customerId);
     
     /**
      * Récupérer le panier d'un client
      */
-    Optional<CartDto> getCartByCustomerId(Integer customerId);
+    Optional<CartDto> getCartByCustomerId(String customerId);
     
     /**
      * Ajouter un article au panier
      */
-    CartDto addArticleToCart(Integer customerId, Long articleId);
+    CartDto addArticleToCart(String customerId, Long articleId);
     
     /**
      * Retirer un article du panier
      */
-    CartDto removeArticleFromCart(Integer customerId, Long articleId);
+    CartDto removeArticleFromCart(String customerId, Long articleId);
     
     /**
      * Vider le panier
      */
-    void clearCart(Integer customerId);
+    void clearCart(String customerId);
     
     /**
      * Supprimer un panier

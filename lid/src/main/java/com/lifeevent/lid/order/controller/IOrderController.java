@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 
 @Tag(name = "Orders", description = "API pour la gestion des commandes")
-@SecurityRequirement(name = "bearer-jwt")
+@SecurityRequirement(name = "Bearer Token")
 public interface IOrderController {
     
     @Operation(summary = "Initier un checkout", description = "Crée une commande, réserve le stock et initie le processus de paiement")
@@ -33,7 +33,7 @@ public interface IOrderController {
     @PostMapping("/checkout")
     ResponseEntity<CheckoutResponseDto> checkout(
             @Parameter(description = "ID du client", example = "1", required = true)
-            @RequestParam Integer customerId,
+            @RequestParam String customerId,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                 description = "Détails du checkout (articles à commander, adresse, etc)",
                 required = true,
@@ -49,7 +49,7 @@ public interface IOrderController {
     @GetMapping("/orders")
     ResponseEntity<List<OrderDetailDto>> getCustomerOrders(
             @Parameter(description = "ID du client", example = "1", required = true)
-            @RequestParam Integer customerId,
+            @RequestParam String customerId,
             @Parameter(description = "Numéro de page (commençant à 0)", example = "0")
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Nombre de commandes par page", example = "10")

@@ -1,11 +1,12 @@
-package com.lifeevent.lid.customer.service.impl;
+package com.lifeevent.lid.user.customer.service.impl;
 
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
-import com.lifeevent.lid.customer.dto.CustomerDto;
-import com.lifeevent.lid.customer.entity.Customer;
-import com.lifeevent.lid.customer.mapper.CustomerMapper;
-import com.lifeevent.lid.customer.repository.CustomerRepository;
-import com.lifeevent.lid.customer.service.CustomerService;
+import com.lifeevent.lid.user.customer.dto.CustomerDto;
+import com.lifeevent.lid.user.customer.repository.CustomerRepository;
+import com.lifeevent.lid.user.customer.entity.Customer;
+import com.lifeevent.lid.user.customer.mapper.CustomerMapper;
+import com.lifeevent.lid.user.customer.service.CustomerService;
+import com.lifeevent.lid.user.common.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,8 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
+/**
+ * Service Customer - délègue les opérations génériques à UserService,
+ * ne gère que la logique spécifique au Customer (avatar, etc)
+ */
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -23,17 +27,15 @@ public class CustomerServiceImpl implements CustomerService {
     
     private final CustomerRepository customerRepository;
     private final CustomerMapper customerMapper;
+    private final UserService userService;
     
     @Override
     public CustomerDto createCustomer(CustomerDto dto) {
-        log.info("Création d'un nouveau client: {}", dto.getLogin());
+        log.info("Création d'un nouveau client: {}", dto.getLastName());
         
-        if (customerRepository.existsByEmail(dto.getEmail())) {
+        // Vérifier l'email via UserService (pas de doublon)
+        if (userService.emailExists(dto.getEmail())) {
             throw new IllegalArgumentException("L'email existe déjà");
-        }
-        
-        if (customerRepository.existsByLogin(dto.getLogin())) {
-            throw new IllegalArgumentException("Le login existe déjà");
         }
         
         Customer customer = customerMapper.toEntity(dto);
@@ -43,33 +45,33 @@ public class CustomerServiceImpl implements CustomerService {
     
     @Override
     @Transactional(readOnly = true)
-    public Optional<CustomerDto> getCustomerById(Integer id) {
-        return customerRepository.findById(id).map(customerMapper::toDto);
+    public Optional<CustomerDto> getCustomerById(String id) {
+        // Utiliser CustomerRepository uniquement pour obtenir le Customer complet
+        return customerRepository.findById(id)
+            .map(customerMapper::toDto);
     }
     
     @Override
     @Transactional(readOnly = true)
     public List<CustomerDto> getAllCustomers() {
+        // Requête optimisée qui charge UNIQUEMENT les Customers, pas tous les UserEntity
         return customerMapper.toDtoList(customerRepository.findAll());
     }
     
     @Override
     @Transactional(readOnly = true)
     public Optional<CustomerDto> getCustomerByEmail(String email) {
-        return customerRepository.findByEmail(email).map(customerMapper::toDto);
+        // Chercher spécifiquement dans les Customers
+        return customerRepository.findByEmail(email)
+            .map(customerMapper::toDto);
     }
+
     
     @Override
-    @Transactional(readOnly = true)
-    public Optional<CustomerDto> getCustomerByLogin(String login) {
-        return customerRepository.findByLogin(login).map(customerMapper::toDto);
-    }
-    
-    @Override
-    public CustomerDto updateCustomer(Integer id, CustomerDto dto) {
+    public CustomerDto updateCustomer(String id, CustomerDto dto) {
         log.info("Mise à jour du client: {}", id);
         Customer customer = customerRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", id.toString()));
+            .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", id));
         
         customerMapper.updateEntityFromDto(dto, customer);
         Customer updated = customerRepository.save(customer);
@@ -77,21 +79,18 @@ public class CustomerServiceImpl implements CustomerService {
     }
     
     @Override
-    public void deleteCustomer(Integer id) {
+    public void deleteCustomer(String id) {
         log.info("Suppression du client: {}", id);
         if (!customerRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Customer", "id", id.toString());
+            throw new ResourceNotFoundException("Customer", "id", id);
         }
         customerRepository.deleteById(id);
     }
     
     @Override
+    @Transactional(readOnly = true)
     public boolean emailExists(String email) {
-        return customerRepository.existsByEmail(email);
-    }
-    
-    @Override
-    public boolean loginExists(String login) {
-        return customerRepository.existsByLogin(login);
+        // Déléguer à UserService pour vérifier TOUT utilisateur (Customer ou autre)
+        return userService.emailExists(email);
     }
 }

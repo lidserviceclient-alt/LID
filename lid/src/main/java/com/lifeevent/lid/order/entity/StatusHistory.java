@@ -4,6 +4,7 @@ import com.lifeevent.lid.common.entity.BaseEntity;
 import com.lifeevent.lid.order.enumeration.Status;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
 
@@ -11,7 +12,7 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
 public class StatusHistory extends BaseEntity {

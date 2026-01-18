@@ -12,20 +12,20 @@ public interface WishlistService {
     /**
      * Récupérer la wishlist d'un client
      */
-    List<WishlistDto> getWishlist(Integer customerId);
+    List<WishlistDto> getWishlist(String customerId);
     
     /**
      * Ajouter un article à la wishlist
      */
-    WishlistDto addToWishlist(Integer customerId, Long articleId);
+    WishlistDto addToWishlist(String customerId, Long articleId);
     
     /**
      * Retirer un article de la wishlist
      */
-    void removeFromWishlist(Integer customerId, Long articleId);
+    void removeFromWishlist(String customerId, Long articleId);
     
     /**
      * Vérifier si un article est en wishlist
      */
-    boolean isInWishlist(Integer customerId, Long articleId);
+    boolean isInWishlist(String customerId, Long articleId);
 }

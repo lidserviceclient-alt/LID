@@ -16,7 +16,7 @@ public interface OrderService {
     /**
      * Initier un checkout : créer une commande et réserver le stock
      */
-    CheckoutResponseDto checkout(Integer customerId, CheckoutRequestDto request);
+    CheckoutResponseDto checkout(String customerId, CheckoutRequestDto request);
     
     /**
      * Récupérer une commande par ID
@@ -26,7 +26,7 @@ public interface OrderService {
     /**
      * Récupérer les commandes d'un client avec pagination
      */
-    List<OrderDetailDto> getOrdersByCustomer(Integer customerId, int page, int size);
+    List<OrderDetailDto> getOrdersByCustomer(String customerId, int page, int size);
     
     /**
      * Changer le statut d'une commande

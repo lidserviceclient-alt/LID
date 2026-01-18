@@ -3,13 +3,14 @@ package com.lifeevent.lid.payment.entity;
 import com.lifeevent.lid.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Entité pour tracker l'historique des paiements (audit)
  */
 @Entity
 @Table(name = "payment_transactions")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @SuperBuilder
 public class PaymentTransaction extends BaseEntity {
     
     @Id

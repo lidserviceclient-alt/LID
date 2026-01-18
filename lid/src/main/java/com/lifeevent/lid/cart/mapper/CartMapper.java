@@ -2,7 +2,7 @@ package com.lifeevent.lid.cart.mapper;
 
 import com.lifeevent.lid.cart.dto.CartDto;
 import com.lifeevent.lid.cart.entity.Cart;
-import com.lifeevent.lid.customer.mapper.CustomerMapper;
+import com.lifeevent.lid.user.customer.mapper.CustomerMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;

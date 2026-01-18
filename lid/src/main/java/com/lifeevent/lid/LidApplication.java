@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 @EnableJpaAuditing(auditorAwareRef = "auditAwareImpl")
 @ComponentScan(basePackages = {
 		"com.lifeevent.lid.article",
-		"com.lifeevent.lid.customer",
+        "com.lifeevent.lid.user",
 		"com.lifeevent.lid.cart",
 		"com.lifeevent.lid.order",
 		"com.lifeevent.lid.auth",

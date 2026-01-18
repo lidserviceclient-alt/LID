@@ -1,55 +1,172 @@
 package com.lifeevent.lid.auth.config;
 
 import com.lifeevent.lid.auth.config.converter.GoogleScopeConverter;
+import com.lifeevent.lid.auth.config.converter.LidRoleConverter;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import java.util.List;
 
 @Configuration
-@EnableWebSecurity
 public class SecurityConfig {
 
     @Value("${spring.profiles.active}")
     private String activeProfile;
 
+//    @Bean
+//    SecurityFilterChain securityFilterChainConfig(
+//            HttpSecurity http,
+//            JwtDecoder lidApplicationDecoder
+//    ) throws Exception {
+//        if("local".equals(activeProfile)){
+//            http.cors(corsSpec -> corsSpec.configurationSource(corsConfigurationSource()));
+//        }
+//
+//        return http
+//                .authorizeHttpRequests(auth ->
+//                        auth
+//                                // Actuator
+//                                .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
+//                                // Swagger
+//                                .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
+//                                // Api
+//                                .requestMatchers("/api/v1/auth/**").permitAll()
+//                                .anyRequest().permitAll()
+//
+//                )
+//                .headers(headers -> headers
+//                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::disable)
+//                )
+//                .oauth2ResourceServer(oauth2 ->
+//                        oauth2.jwt(jwtConfigurer -> jwtConfigurer
+//                                        .decoder(lidApplicationDecoder)
+//                                        .jwtAuthenticationConverter(jwtLidAuthenticationConverter())
+//                                )
+//                )
+//                .csrf(AbstractHttpConfigurer::disable)
+//                .build()
+//                ;
+//    }
+
+
     @Bean
-    public SecurityFilterChain securityFilterChainConfig(HttpSecurity http) throws Exception {
+    @Order(1)
+    SecurityFilterChain authChain(HttpSecurity http) throws Exception {
         if("local".equals(activeProfile)){
             http.cors(corsSpec -> corsSpec.configurationSource(corsConfigurationSource()));
         }
         return http
-                .authorizeHttpRequests(auth ->
-                        auth.anyRequest().permitAll()
-                )
-                .headers(headers -> headers
-                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::disable)
-                )
-                .oauth2ResourceServer(oauth2 ->
-                        oauth2
-                                .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                .securityMatcher("/api/v1/auth/**")
+                .authorizeHttpRequests(auth -> auth
+                        .anyRequest().permitAll()
                 )
                 .csrf(AbstractHttpConfigurer::disable)
-                .build()
-                ;
+                .build();
+    }
+
+    @Bean
+    @Order(2)
+    SecurityFilterChain apiChain(HttpSecurity http,JwtDecoder lidApplicationDecoder) throws Exception {
+        if("local".equals(activeProfile)){
+            http.cors(corsSpec -> corsSpec.configurationSource(corsConfigurationSource()));
+        }
+        return http
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/swagger-ui/**","/v3/api-docs/**","/actuator/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .oauth2ResourceServer(oauth2 ->
+                        oauth2.jwt(jwt -> jwt
+                                .decoder(lidApplicationDecoder)
+                                .jwtAuthenticationConverter(jwtLidAuthenticationConverter())
+                        )
+                )
+                .csrf(AbstractHttpConfigurer::disable)
+                .build();
+    }
+
+
+
+
+
+    @Bean
+    SecretKey secretKey(@Value("${config.security.app.secret}") String secretKey){
+        return new SecretKeySpec(secretKey.getBytes(), "HmacSHA256");
+    }
+
+    @Bean
+    BearerTokenResolver bearerTokenResolver(){
+        return new DefaultBearerTokenResolver();
     }
 
 
     @Bean
+    JwtDecoder googleJwtDecoder(@Value("${config.security.google.jwk-set-uri}") String jwtSetUri,
+                                @Value("${config.security.google.client-id}") String googleClientId){
+        OAuth2TokenValidator<Jwt> audienceValidator = jwt -> {
+            if (jwt.getAudience().contains(googleClientId)) {
+                return OAuth2TokenValidatorResult.success();
+            }
+            return OAuth2TokenValidatorResult.failure(
+                    new OAuth2Error("invalid_token", "Invalid audience", null)
+            );
+        };
+        var decoder = NimbusJwtDecoder.withJwkSetUri(jwtSetUri).build();
+        decoder.setJwtValidator(audienceValidator);
+        return decoder;
+    }
+
+
+    @Bean
+    JwtDecoder lidApplicationDecoder(SecretKey secretKey){
+        return NimbusJwtDecoder.withSecretKey(secretKey).build();
+    }
+
+
+
+    @Bean
+    JwtAuthenticationConverter jwtGoogleAuthenticationConverter() {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(new GoogleScopeConverter());
+        return converter;
+    }
+
+    @Bean
+    JwtAuthenticationConverter jwtLidAuthenticationConverter() {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(new LidRoleConverter());
+        return converter;
+    }
+
+
+
+    @Bean
     @Profile("local")
-    public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
 
         // Autorise localhost sur n'importe quel port (4200, 3000, etc.)
@@ -67,14 +184,6 @@ public class SecurityConfig {
 
 
 
-
-
-    @Bean
-    public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(new GoogleScopeConverter());
-        return converter;
-    }
 
 
 }

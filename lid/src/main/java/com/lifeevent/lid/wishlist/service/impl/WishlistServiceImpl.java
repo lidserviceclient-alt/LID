@@ -3,8 +3,8 @@ package com.lifeevent.lid.wishlist.service.impl;
 import com.lifeevent.lid.article.entity.Article;
 import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
-import com.lifeevent.lid.customer.entity.Customer;
-import com.lifeevent.lid.customer.repository.CustomerRepository;
+import com.lifeevent.lid.user.customer.entity.Customer;
+import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import com.lifeevent.lid.wishlist.dto.WishlistDto;
 import com.lifeevent.lid.wishlist.entity.Wishlist;
 import com.lifeevent.lid.wishlist.mapper.WishlistMapper;
@@ -30,17 +30,17 @@ public class WishlistServiceImpl implements WishlistService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<WishlistDto> getWishlist(Integer customerId) {
+    public List<WishlistDto> getWishlist(String customerId) {
         log.info("Récupération de la wishlist du client: {}", customerId);
         // Vérifier que le client existe
         customerRepository.findById(customerId)
             .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId.toString()));
         
-        return wishlistMapper.toDtoList(wishlistRepository.findByCustomerId(customerId));
+        return wishlistMapper.toDtoList(wishlistRepository.findByCustomer_UserId(customerId));
     }
     
     @Override
-    public WishlistDto addToWishlist(Integer customerId, Long articleId) {
+    public WishlistDto addToWishlist(String customerId, Long articleId) {
         log.info("Ajout de l'article {} à la wishlist du client {}", articleId, customerId);
         
         Customer customer = customerRepository.findById(customerId)
@@ -50,7 +50,7 @@ public class WishlistServiceImpl implements WishlistService {
             .orElseThrow(() -> new ResourceNotFoundException("Article", "id", articleId.toString()));
         
         // Si déjà en wishlist, retourner sans erreur (idempotent)
-        return wishlistRepository.findByCustomerIdAndArticleId(customerId, articleId)
+        return wishlistRepository.findByCustomer_UserIdAndArticleId(customerId, articleId)
             .map(wishlistMapper::toDto)
             .orElseGet(() -> {
                 Wishlist wishlist = Wishlist.builder()
@@ -63,19 +63,19 @@ public class WishlistServiceImpl implements WishlistService {
     }
     
     @Override
-    public void removeFromWishlist(Integer customerId, Long articleId) {
+    public void removeFromWishlist(String customerId, Long articleId) {
         log.info("Retrait de l'article {} de la wishlist du client {}", articleId, customerId);
         
         // Vérifier que le client existe
         customerRepository.findById(customerId)
             .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId.toString()));
         
-        wishlistRepository.deleteByCustomerIdAndArticleId(customerId, articleId);
+        wishlistRepository.deleteByCustomer_UserIdAndArticleId(customerId, articleId);
     }
     
     @Override
     @Transactional(readOnly = true)
-    public boolean isInWishlist(Integer customerId, Long articleId) {
-        return wishlistRepository.findByCustomerIdAndArticleId(customerId, articleId).isPresent();
+    public boolean isInWishlist(String customerId, Long articleId) {
+        return wishlistRepository.findByCustomer_UserIdAndArticleId(customerId, articleId).isPresent();
     }
 }

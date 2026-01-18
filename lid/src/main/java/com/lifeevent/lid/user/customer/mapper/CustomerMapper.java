@@ -1,7 +1,7 @@
-package com.lifeevent.lid.customer.mapper;
+package com.lifeevent.lid.user.customer.mapper;
 
-import com.lifeevent.lid.customer.dto.CustomerDto;
-import com.lifeevent.lid.customer.entity.Customer;
+import com.lifeevent.lid.user.customer.dto.CustomerDto;
+import com.lifeevent.lid.user.customer.entity.Customer;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingTarget;
 

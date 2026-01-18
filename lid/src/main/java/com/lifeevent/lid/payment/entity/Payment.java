@@ -5,6 +5,7 @@ import com.lifeevent.lid.payment.enums.PaymentOperator;
 import com.lifeevent.lid.payment.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
  * Entité représentant une transaction de paiement PayDunya
  */
 @Entity
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @SuperBuilder
 public class Payment extends BaseEntity {
     
     @Id

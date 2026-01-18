@@ -53,7 +53,8 @@ public class ArticleItemProcessor implements ItemProcessor<ArticleCsvDto, Articl
 
     public List<Category> processCategories(ArticleCsvDto item){
         if(this.isEmpty(item)) return null;
-        final List<Category> categories =  Arrays.stream(item.getCategory().split(">")).map(s -> Category.builder()
+        final List<Category> categories =  Arrays.stream(item.getCategory().split(">"))
+                .<Category>map(s -> Category.builder()
                 .name(s.trim().toUpperCase())
                 .orderIdx(1)
                 .build()

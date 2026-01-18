@@ -3,6 +3,7 @@ package com.lifeevent.lid.payment.entity;
 import com.lifeevent.lid.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -12,7 +13,7 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "refunds")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @SuperBuilder
 public class Refund extends BaseEntity {
     
     @Id

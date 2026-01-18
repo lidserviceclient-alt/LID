@@ -13,9 +13,9 @@ import com.lifeevent.lid.cart.repository.CartArticleRepository;
 import com.lifeevent.lid.cart.repository.CartRepository;
 import com.lifeevent.lid.cart.service.CartService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
-import com.lifeevent.lid.customer.entity.Customer;
-import com.lifeevent.lid.customer.mapper.CustomerMapper;
-import com.lifeevent.lid.customer.repository.CustomerRepository;
+import com.lifeevent.lid.user.customer.entity.Customer;
+import com.lifeevent.lid.user.customer.mapper.CustomerMapper;
+import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.antlr.v4.runtime.misc.Pair;
@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -43,7 +42,7 @@ public class CartServiceImpl implements CartService {
     private final ArticleMapper articleMapper;
     
     @Override
-    public CartDto createCart(Integer customerId) {
+    public CartDto createCart(String customerId) {
         log.info("Création d'un panier pour le client: {}", customerId);
         
         Customer customer = customerRepository.findById(customerId)
@@ -60,15 +59,15 @@ public class CartServiceImpl implements CartService {
     
     @Override
     @Transactional(readOnly = true)
-    public Optional<CartDto> getCartByCustomerId(Integer customerId) {
-        return cartRepository.findByCustomerId(customerId).map(this::mapToDtoWithDetails);
+    public Optional<CartDto> getCartByCustomerId(String customerId) {
+        return cartRepository.findByCustomer_userId(customerId).map(this::mapToDtoWithDetails);
     }
     
     @Override
-    public CartDto addArticleToCart(Integer customerId, Long articleId) {
+    public CartDto addArticleToCart(String customerId, Long articleId) {
         log.info("Ajout d'article {} au panier du client {}", articleId, customerId);
         
-        Cart cart = cartRepository.findByCustomerId(customerId)
+        Cart cart = cartRepository.findByCustomer_userId(customerId)
             .orElseThrow(() -> new ResourceNotFoundException("Cart", "customerId", customerId.toString()));
         
         Article article = articleRepository.findById(articleId)
@@ -104,10 +103,10 @@ public class CartServiceImpl implements CartService {
     }
     
     @Override
-    public CartDto removeArticleFromCart(Integer customerId, Long articleId) {
+    public CartDto removeArticleFromCart(String customerId, Long articleId) {
         log.info("Suppression d'article {} du panier du client {}", articleId, customerId);
         
-        Cart cart = cartRepository.findByCustomerId(customerId)
+        Cart cart = cartRepository.findByCustomer_userId(customerId)
             .orElseThrow(() -> new ResourceNotFoundException("Cart", "customerId", customerId.toString()));
         
         Article article = articleRepository.findById(articleId)
@@ -129,10 +128,10 @@ public class CartServiceImpl implements CartService {
     }
     
     @Override
-    public void clearCart(Integer customerId) {
+    public void clearCart(String customerId) {
         log.info("Vidage du panier du client: {}", customerId);
         
-        Cart cart = cartRepository.findByCustomerId(customerId)
+        Cart cart = cartRepository.findByCustomer_userId(customerId)
             .orElseThrow(() -> new ResourceNotFoundException("Cart", "customerId", customerId.toString()));
         
         // Supprimer toutes les lignes de panier
