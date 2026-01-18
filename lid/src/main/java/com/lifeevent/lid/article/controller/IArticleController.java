@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,17 +17,21 @@ import java.util.List;
 
 /**
  * Interface documentant les endpoints Article pour Swagger
+ * Les GET sont publics (lecture du catalogue)
+ * Les POST/PUT/DELETE sont protégés (gestion admin/vendeur)
  */
 @Tag(name = "Articles", description = "API pour gérer les articles de la plateforme e-commerce")
 public interface IArticleController {
 
     @PostMapping
+    @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Créer un nouvel article", description = "Crée un nouvel article dans la plateforme")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Article créé avec succès",
                     content = @Content(schema = @Schema(implementation = ArticleDto.class))),
             @ApiResponse(responseCode = "400", description = "Données invalides"),
-            @ApiResponse(responseCode = "409", description = "Article déjà existant")
+            @ApiResponse(responseCode = "409", description = "Article déjà existant"),
+            @ApiResponse(responseCode = "401", description = "Non autorisé")
     })
     ResponseEntity<ArticleDto> createArticle(@RequestBody ArticleDto dto);
 
@@ -35,12 +40,14 @@ public interface IArticleController {
             value = "/import",
             consumes = "multipart/form-data"
     )
+    @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Importer des articles via CSV",
             description = "Importe plusieurs articles à partir d'un fichier CSV")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Import démarré avec succès"),
             @ApiResponse(responseCode = "400", description = "Fichier invalide"),
-            @ApiResponse(responseCode = "500", description = "Erreur lors du traitement")
+            @ApiResponse(responseCode = "500", description = "Erreur lors du traitement"),
+            @ApiResponse(responseCode = "401", description = "Non autorisé")
     })
     ResponseEntity<String> importArticles(
             @Parameter(
@@ -174,12 +181,14 @@ public interface IArticleController {
     );
 
     @PutMapping("/{id}")
+    @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Mettre à jour un article",
             description = "Met à jour les informations d'un article existant")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Article mis à jour avec succès"),
             @ApiResponse(responseCode = "404", description = "Article non trouvé"),
-            @ApiResponse(responseCode = "400", description = "Données invalides")
+            @ApiResponse(responseCode = "400", description = "Données invalides"),
+            @ApiResponse(responseCode = "401", description = "Non autorisé")
     })
     ResponseEntity<ArticleDto> updateArticle(
             @PathVariable Long id,
@@ -187,30 +196,36 @@ public interface IArticleController {
     );
 
     @DeleteMapping("/{id}")
+    @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Supprimer un article",
             description = "Supprime un article de la plateforme")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Article supprimé avec succès"),
-            @ApiResponse(responseCode = "404", description = "Article non trouvé")
+            @ApiResponse(responseCode = "404", description = "Article non trouvé"),
+            @ApiResponse(responseCode = "401", description = "Non autorisé")
     })
     ResponseEntity<Void> deleteArticle(@PathVariable Long id);
 
     @PutMapping("/{id}/deactivate")
+    @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Désactiver un article",
             description = "Marque un article comme inactif (soft delete)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Article désactivé avec succès"),
-            @ApiResponse(responseCode = "404", description = "Article non trouvé")
+            @ApiResponse(responseCode = "404", description = "Article non trouvé"),
+            @ApiResponse(responseCode = "401", description = "Non autorisé")
     })
     ResponseEntity<Void> deactivateArticle(@PathVariable Long id);
 
     @PostMapping("/{articleId}/categories/{categoryId}")
+    @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Ajouter une catégorie à un article",
             description = "Associe une catégorie à un article existant")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Catégorie ajoutée avec succès"),
             @ApiResponse(responseCode = "404", description = "Article ou catégorie non trouvé"),
-            @ApiResponse(responseCode = "409", description = "Catégorie déjà associée")
+            @ApiResponse(responseCode = "409", description = "Catégorie déjà associée"),
+            @ApiResponse(responseCode = "401", description = "Non autorisé")
     })
     ResponseEntity<Void> addCategoryToArticle(
             @PathVariable Long articleId,
@@ -218,11 +233,13 @@ public interface IArticleController {
     );
 
     @DeleteMapping("/{articleId}/categories/{categoryId}")
+    @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Retirer une catégorie d'un article",
             description = "Dissocie une catégorie d'un article")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Catégorie retirée avec succès"),
-            @ApiResponse(responseCode = "404", description = "Article ou catégorie non trouvé")
+            @ApiResponse(responseCode = "404", description = "Article ou catégorie non trouvé"),
+            @ApiResponse(responseCode = "401", description = "Non autorisé")
     })
     ResponseEntity<Void> removeCategoryFromArticle(
             @PathVariable Long articleId,

@@ -13,52 +13,37 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/v1/categories")
 @RequiredArgsConstructor
-public class CategoryController {
+public class CategoryController implements ICategoryController {
     
     private final CategoryService categoryService;
     
-    /**
-     * Créer une catégorie
-     */
-    @PostMapping
+    @Override
     public ResponseEntity<CategoryDto> createCategory(@RequestBody CategoryDto dto) {
         CategoryDto created = categoryService.createCategory(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
     
-    /**
-     * Récupérer une catégorie par ID
-     */
-    @GetMapping("/{id}")
+    @Override
     public ResponseEntity<CategoryDto> getCategory(@PathVariable Integer id) {
         Optional<CategoryDto> category = categoryService.getCategoryById(id);
         return category.map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
     
-    /**
-     * Lister toutes les catégories
-     */
-    @GetMapping
+    @Override
     public ResponseEntity<List<CategoryDto>> getAllCategories() {
         List<CategoryDto> categories = categoryService.getAllCategories();
         return ResponseEntity.ok(categories);
     }
     
-    /**
-     * Recherche par nom
-     */
-    @GetMapping("/name/{name}")
+    @Override
     public ResponseEntity<CategoryDto> getCategoryByName(@PathVariable String name) {
         Optional<CategoryDto> category = categoryService.getCategoryByName(name);
         return category.map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
     
-    /**
-     * Mettre à jour une catégorie
-     */
-    @PutMapping("/{id}")
+    @Override
     public ResponseEntity<CategoryDto> updateCategory(
             @PathVariable Integer id,
             @RequestBody CategoryDto dto) {
@@ -66,10 +51,7 @@ public class CategoryController {
         return ResponseEntity.ok(updated);
     }
     
-    /**
-     * Supprimer une catégorie
-     */
-    @DeleteMapping("/{id}")
+    @Override
     public ResponseEntity<Void> deleteCategory(@PathVariable Integer id) {
         categoryService.deleteCategory(id);
         return ResponseEntity.noContent().build();
