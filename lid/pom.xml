@@ -94,6 +94,7 @@
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
+			<version>1.18.42</version>
 			<optional>true</optional>
 		</dependency>
 		<dependency>
@@ -123,13 +124,13 @@
 			<artifactId>micrometer-registry-prometheus</artifactId>
 		</dependency>
 		<!-- PayDunya Payment Integration -->
-		<dependency>
+		<!-- <dependency>
 			<groupId>com.paydunya</groupId>
 			<artifactId>paydunya-java</artifactId>
 			<version>1.0</version>
 			<scope>system</scope>
 			<systemPath>${project.basedir}/lib/paydunya_java_latest.jar</systemPath>
-		</dependency>
+		</dependency> -->
 	</dependencies>
 
 	<build>
@@ -144,7 +145,7 @@
 						<path>
 							<groupId>org.projectlombok</groupId>
 							<artifactId>lombok</artifactId>
-							<version>1.18.30</version>
+							<version>1.18.42</version>
 						</path>
 						<path>
 							<groupId>org.mapstruct</groupId>
