@@ -1,13 +1,21 @@
 import axios from 'axios';
-import { userManager } from './auth';
+import { getAccessToken } from './auth';
+
+const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5173/api';
+const isDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true';
+
+if (isDebug) {
+  console.info('[API] baseURL:', resolvedBaseUrl);
+}
 
 // Create an Axios instance with default configuration
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5173/api', // Fallback to localhost if env var is missing
+  baseURL: resolvedBaseUrl, // Fallback to localhost if env var is missing
   headers: {
     'Content-Type': 'application/json',
     'X-Client-ID': import.meta.env.VITE_CLIENT_ID, // ID Client header
   },
+  withCredentials: true,
   timeout: 10000, // 10 seconds timeout
 });
 
@@ -16,9 +24,14 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     // Retrieve the user from OIDC storage
-    const user = await userManager.getUser();
-    if (user && user.access_token) {
-      config.headers.Authorization = `Bearer ${user.access_token}`;
+    const accessToken = getAccessToken();
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
+    }
+    if (isDebug) {
+      const method = (config.method || 'get').toUpperCase();
+      const url = `${config.baseURL || ''}${config.url || ''}`;
+      console.info('[API] request:', method, url);
     }
     return config;
   },
@@ -26,29 +39,32 @@ api.interceptors.request.use(
     return Promise.reject(error);
   }
 );
-// Après chaque réponse, je gère les erreurs globalement
+// Apr�s chaque r�ponse, je g�re les erreurs globalement
 api.interceptors.response.use(
-  (response) => response, // Si tout va bien, je renvoie la réponse direct
+  (response) => response, // Si tout va bien, je renvoie la r�ponse direct
   (error) => {
     if (error.response) {
-      // Le serveur a répondu mais avec une erreur (hors 2xx)
+      // Le serveur a r�pondu mais avec une erreur (hors 2xx)
       const status = error.response.status;
       const message = error.response.data?.message || error.message;
 
       if (status === 401) {
-        console.error('Pas autorisé !'); 
+        console.error('Pas autoris� !');
         window.location.href = '/login';
       } else if (status === 403) {
-        console.error('Accès refusé :', message);
+        console.error('Acc�s refus� :', message);
       } else {
         console.error('Erreur API :', message);
       }
     } else if (error.request) {
-      // La requête est partie mais rien n'est revenu
-      console.error('Erreur réseau : pas de réponse du serveur');
+      // La requ�te est partie mais rien n'est revenu
+      console.error('Erreur r�seau : pas de r�ponse du serveur');
+      if (isDebug) {
+        console.info('[API] no response; check CORS or network.');
+      }
     } else {
-      // Une erreur est survenue en préparant la requête
-      console.error('Erreur côté client :', error.message);
+      // Une erreur est survenue en pr�parant la requ�te
+      console.error('Erreur c�t� client :', error.message);
     }
 
     return Promise.reject(error); // Je renvoie l'erreur pour pouvoir la catcher ailleurs si besoin

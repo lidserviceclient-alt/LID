@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { BackgroundLines } from "../components/textAnimat.jsx";
 import ResetPasswordForm from "../components/ResetPasswordForm.jsx";
 import { useNavigate } from "react-router-dom";
-import { userManager } from "../../Config/auth.js"; // Import userManager
+import api from "../../Config/api.js";
+import { setAccessToken } from "../../Config/auth.js";
 
 const avatars = [
   "https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=100&auto=format&fit=crop",
@@ -103,15 +104,6 @@ const AnimatedStoreIcon = ({ className, size = 48 }) => (
   </svg>
 );
 
-const GoogleIcon = () => (
-  <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-  </svg>
-);
-
 
 const TokenAvatar = ({ src, index }) => (
   <motion.div
@@ -139,54 +131,95 @@ const TokenAvatar = ({ src, index }) => (
   </motion.div>
 );
 
-const MotionLink = motion(Link);
+const MotionLink = motion.create(Link);
 
 export default function Login() {
   const navigate = useNavigate();
+  const videoSrc = `${import.meta.env.BASE_URL || '/'}videos/video-og.mp4`;
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const googleInitRef = useRef(false);
+  const googleButtonRef = useRef(null);
+  const [googleReady, setGoogleReady] = useState(false);
+  const isDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true';
 
-  const handleGoogleLogin = async () => {
-    // Fallback: Si reCAPTCHA n'est pas chargé, on laisse passer
-    if (!window.grecaptcha) {
-      console.warn("reCAPTCHA not loaded, skipping verification.");
-      userManager.signinRedirect();
+  const handleCredentialResponse = useCallback(async (credentialResponse) => {
+    const idToken = credentialResponse?.credential;
+    if (!idToken) {
+      console.error("Token Google manquant.");
       return;
     }
 
     try {
-      // Attendre que reCAPTCHA soit prêt
-      await new Promise(resolve => window.grecaptcha.enterprise.ready(resolve));
-      
-      // Obtenir le token
-      const token = await window.grecaptcha.enterprise.execute(
-        import.meta.env.VITE_RECAPTCHA_SITE_KEY, 
-        { action: 'LOGIN' }
+      if (isDebug) {
+        console.info('[AUTH] Google credential reçu, appel API login.');
+      }
+      const { data } = await api.post(
+        "/api/v1/auth/login",
+        null,
+        { headers: { Authorization: `Bearer ${idToken}` } }
       );
-      
-      console.log("Token reCAPTCHA généré:", token);
-
-      // NOTE IMPORTANTE : La vérification du token (Assessment) via l'API Google Cloud
-      // ne peut PAS être faite directement depuis le navigateur à cause des restrictions de sécurité (CORS).
-      // Elle doit être faite depuis votre BACKEND (serveur Node.js, Python, PHP, etc.).
-      
-      // Simulation de la vérification (On considère que c'est bon pour le frontend)
-      // Une fois le backend prêt, vous enverrez ce token à votre API :
-      // await api.post('/verify-recaptcha', { token });
-
-      // On procède à la connexion
-      userManager.signinRedirect();
-
-      /* CODE CÔTÉ SERVEUR (BACKEND) REQUIS POUR CECI :
-      const apiKey = import.meta.env.VITE_GOOGLE_CLOUD_API_KEY;
-      ... fetch(...) 
-      */
-
+      const accessToken = data?.accessToken;
+      if (accessToken) {
+        setAccessToken(accessToken);
+      }
+      if (isDebug) {
+        console.info('[AUTH] Login OK, access token présent:', Boolean(accessToken));
+      }
+      navigate("/");
     } catch (error) {
-      console.error("Erreur reCAPTCHA:", error);
-      // Fallback en cas d'erreur technique (ex: API injoignable)
-      console.warn("Erreur technique reCAPTCHA, connexion autorisée.");
-      userManager.signinRedirect();
+      console.error("Erreur lors de la connexion Google:", error);
+      if (isDebug) {
+        if (!error.response && error.request) {
+          console.info('[AUTH] Réseau/CORS: aucune réponse API.');
+        }
+      }
     }
-  };
+  }, [isDebug, navigate]);
+
+  useEffect(() => {
+    if (!googleClientId || googleInitRef.current) {
+      if (isDebug && !googleClientId) {
+        console.info('[AUTH] VITE_GOOGLE_CLIENT_ID manquant.');
+      }
+      return;
+    }
+
+    const tryInit = () => {
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleCredentialResponse,
+        });
+        if (googleButtonRef.current) {
+          window.google.accounts.id.renderButton(googleButtonRef.current, {
+            theme: 'outline',
+            size: 'large',
+            shape: 'pill',
+            text: 'continue_with',
+            width: 320,
+          });
+        }
+        googleInitRef.current = true;
+        setGoogleReady(true);
+        if (isDebug) {
+          console.info('[AUTH] Google Identity Services initialisé.');
+        }
+        return true;
+      }
+      return false;
+    };
+
+    if (!tryInit()) {
+      const interval = setInterval(() => {
+        if (tryInit()) {
+          clearInterval(interval);
+        }
+      }, 300);
+      return () => clearInterval(interval);
+    }
+  }, [googleClientId, handleCredentialResponse, isDebug]);
+
+  const renderFallbackButton = !googleReady;
 
   return (
     <div className="relative h-screen w-screen bg-neutral-950 text-white flex lg:flex-row overflow-hidden font-sans selection:bg-purple-500/30">
@@ -200,7 +233,7 @@ export default function Login() {
           playsInline
           className="absolute inset-0 w-full h-full object-cover opacity-60 lg:opacity-50 mix-blend-screen pointer-events-none"
         >
-          <source src="/videos/video-og.mp4" type="video/mp4" />
+          <source src={videoSrc} type="video/mp4" />
         </video>
 
         {/* Spotlight Effect */}
@@ -313,14 +346,14 @@ export default function Login() {
 
             {/* Social Buttons */}
             <div className="">
-              <button 
-                type="button"
-                onClick={() => userManager.signinRedirect()}
-                className="flex w-full items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-xl py-3 px-4 transition-all shadow-sm group"
-              >
-                <GoogleIcon />
-                <span className="text-neutral-300 text-sm font-medium group-hover:text-white transition-colors">Continuer avec Google</span>
-              </button>
+              <div className="flex w-full items-center justify-center">
+                <div ref={googleButtonRef} />
+              </div>
+              {renderFallbackButton && (
+                <div className="mt-2 text-center text-xs text-neutral-500">
+                  Chargement du bouton Google...
+                </div>
+              )}
             </div>
 
             <div className="text-center text-sm">
@@ -346,3 +379,4 @@ export default function Login() {
     </div>
   );
 }
+

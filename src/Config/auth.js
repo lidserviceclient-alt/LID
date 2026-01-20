@@ -1,17 +1,13 @@
-import { UserManager } from 'oidc-client-ts';
+const ACCESS_TOKEN_KEY = 'lid_access_token';
 
-const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+export const getAccessToken = () => localStorage.getItem(ACCESS_TOKEN_KEY);
 
-export const userManager = new UserManager({
-  authority: 'https://accounts.google.com',
-  client_id: googleClientId , // Fallback pour éviter le crash si non défini
-  redirect_uri: window.location.origin + '/callback',
-  response_type: 'code',
-  scope: 'openid profile email',
-  automaticSilentRenew: true,
-  loadUserInfo: true,
-  // Ajout de post_logout_redirect_uri pour rediriger après déconnexion
-  post_logout_redirect_uri: window.location.origin,
-});
+export const setAccessToken = (token) => {
+  if (token) {
+    localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  }
+};
 
-export default userManager;
+export const clearAccessToken = () => {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+};

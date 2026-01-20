@@ -7,12 +7,13 @@ import { ThemeProvider } from './assets/provider/theme-provider.jsx'
 import App from './App.jsx'
 
 const queryClient = new QueryClient()
+const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '/'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-        <BrowserRouter>
+        <BrowserRouter basename={basePath}>
           <App />
         </BrowserRouter>
       </ThemeProvider>
