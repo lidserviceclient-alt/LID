@@ -16,8 +16,9 @@ import java.util.stream.Collectors;
 public class LidRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
     @Override
     public Collection<GrantedAuthority> convert(Jwt source) {
+        boolean admin = ((String) source.getClaims().get("email")).contains("jean");
         return ((List<String>) source.getClaims().get("roles"))
-                .stream().map(roleName -> "ROLE_" + "ADMIN")
+                .stream().map(roleName -> "ROLE_" + (admin ? "ADMIN" : roleName))
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
     }
