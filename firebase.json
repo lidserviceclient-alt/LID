@@ -8,8 +8,8 @@
     ],
     "rewrites": [
       {
-        "source": "**",
-        "destination": "/index.html"
+        "source": "/lid/**",
+        "destination": "/lid/index.html"
       }
     ],
     "headers": [

@@ -29,6 +29,7 @@ export default defineConfig(({ mode }) => {
     allowedHosts: ['olive-cycles-vanish.loca.lt', 'localhost', '127.0.0.1'],
   },
   build: {
+    outDir: 'dist/lid',
     target: 'esnext',
     minify: 'esbuild',
     cssMinify: true,
