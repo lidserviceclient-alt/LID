@@ -1,32 +1,33 @@
 import { Suspense, lazy } from 'react'
 import { Route, Routes } from 'react-router-dom'
-import ScrollToTop from './assets/components/ScrollToTop'
+import ScrollToTop from './components/ScrollToTop'
 import { Toaster } from 'sonner'
-import Loader from './assets/components/Loader'
+import Loader from './components/Loader'
+import ProtectedRoute from './routes/ProtectedRoute'
 
-const Layout = lazy(() => import('./assets/layout/Layout.jsx'))
-const OnboardingPopup = lazy(() => import('./assets/components/OnboardingPopup.jsx'))
-const CookieConsent = lazy(() => import('./assets/components/CookieConsent.jsx'))
-const Home = lazy(() => import('./assets/pages/Home.jsx'))
-const Catalogue = lazy(() => import('./assets/pages/Catalogue.jsx'))
-const Cart = lazy(() => import('./assets/pages/Cart.jsx'))
-const ProductDetails = lazy(() => import('./assets/pages/ProductDetails.jsx'))
-const Login = lazy(() => import('./assets/pages/Login.jsx'))
-const Callback = lazy(() => import('./assets/pages/Callback.jsx')) // OIDC Callback
-const Seller = lazy(() => import('./assets/pages/Seller.jsx'))
-const Wishlist = lazy(() => import('./assets/pages/Wishlist.jsx'))
-const Profile = lazy(() => import('./assets/pages/Profile.jsx'))
-const Contact = lazy(() => import('./assets/pages/Contact.jsx'))
-const Help = lazy(() => import('./assets/pages/Help.jsx'))
-const FAQ = lazy(() => import('./assets/pages/FAQ.jsx'))
-const Terms = lazy(() => import('./assets/pages/Terms.jsx'))
-const Privacy = lazy(() => import('./assets/pages/Privacy.jsx'))
-const TicketCatalog = lazy(() => import('./assets/pages/TicketCatalog.jsx'))
-const SellersList = lazy(() => import('./assets/pages/SellersList.jsx'))
-const SellerDetails = lazy(() => import('./assets/pages/SellerDetails.jsx'))
-const OrderTracking = lazy(() => import('./assets/pages/OrderTracking.jsx'))
-const Returns = lazy(() => import('./assets/pages/Returns.jsx'))
-const Delivery = lazy(() => import('./assets/pages/Delivery.jsx'))
+const Layout = lazy(() => import('./components/layout/Layout.jsx'))
+const OnboardingPopup = lazy(() => import('./components/OnboardingPopup.jsx'))
+const CookieConsent = lazy(() => import('./components/CookieConsent.jsx'))
+const Home = lazy(() => import('./pages/Home.jsx'))
+const Catalogue = lazy(() => import('./pages/Catalogue.jsx'))
+const Cart = lazy(() => import('./pages/Cart.jsx'))
+const ProductDetails = lazy(() => import('./pages/ProductDetails.jsx'))
+const Login = lazy(() => import('./pages/Login.jsx'))
+const Callback = lazy(() => import('./pages/Callback.jsx')) // OIDC Callback
+const Seller = lazy(() => import('./pages/Seller.jsx'))
+const Wishlist = lazy(() => import('./pages/Wishlist.jsx'))
+const Profile = lazy(() => import('./pages/Profile.jsx'))
+const Contact = lazy(() => import('./pages/Contact.jsx'))
+const Help = lazy(() => import('./pages/Help.jsx'))
+const FAQ = lazy(() => import('./pages/FAQ.jsx'))
+const Terms = lazy(() => import('./pages/Terms.jsx'))
+const Privacy = lazy(() => import('./pages/Privacy.jsx'))
+const TicketCatalog = lazy(() => import('./pages/TicketCatalog.jsx'))
+const SellersList = lazy(() => import('./pages/SellersList.jsx'))
+const SellerDetails = lazy(() => import('./pages/SellerDetails.jsx'))
+const OrderTracking = lazy(() => import('./pages/OrderTracking.jsx'))
+const Returns = lazy(() => import('./pages/Returns.jsx'))
+const Delivery = lazy(() => import('./pages/Delivery.jsx'))
 
 function App() {
   
@@ -51,7 +52,11 @@ function App() {
             <Route path="sellers/:id" element={<SellerDetails />} />
             <Route path="cart" element={<Cart />} />
             <Route path="wishlist" element={<Wishlist />} />
-            <Route path="profile" element={<Profile />} />
+            <Route path="profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
             <Route path="contact" element={<Contact />} />
             <Route path="help" element={<Help />} />
             <Route path="faq" element={<FAQ />} />
