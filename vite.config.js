@@ -82,7 +82,7 @@ export default defineConfig(({ mode }) => {
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'script-defer',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['favicon-48x48.png', 'favicon-192x192.png', 'favicon-512x512.png', 'imgs/logo.png'],
       manifest: {
         name: 'Lid - E-commerce',
         short_name: 'Lid',
@@ -90,14 +90,16 @@ export default defineConfig(({ mode }) => {
         theme_color: '#ffffff',
         icons: [
           {
-            src: '/imgs/logo.png',
+            src: '/favicon-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
-            src: '/imgs/logo.png',
+            src: '/favicon-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       }
