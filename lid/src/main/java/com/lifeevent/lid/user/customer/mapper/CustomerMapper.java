@@ -3,6 +3,7 @@ package com.lifeevent.lid.user.customer.mapper;
 import com.lifeevent.lid.user.customer.dto.CustomerDto;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
 import java.util.List;
@@ -33,5 +34,6 @@ public interface CustomerMapper {
     /**
      * Mettre à jour une entité Customer à partir d'un CustomerDto
      */
+    @Mapping(target = "createdAt", ignore = true)
     void updateEntityFromDto(CustomerDto dto, @MappingTarget Customer customer);
 }

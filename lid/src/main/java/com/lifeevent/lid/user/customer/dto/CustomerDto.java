@@ -13,4 +13,5 @@ public class CustomerDto {
     private String lastName;
     private String email;
     private String avatarUrl;
+    private java.time.LocalDateTime createdAt;
 }

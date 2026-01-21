@@ -42,12 +42,38 @@ public class AuthService {
         Jwt googleJwt = googleJwtDecoder.decode(idToken);
         List<String> roles = List.of("CUSTOMER");
         UserJwt userJwt = jwtService.extractUserFromJwt(googleJwt, roles);
-        String accessToken = jwtService.generateAccessToken(userJwt.getUserId(), userJwt.getEmail(), roles);
+        String accessToken = jwtService.generateAccessToken(userJwt, roles);
         RefreshToken refreshToken = refreshTokenService.create(userJwt.getUserId());
         setRefreshCookie(response, refreshToken.getId());
 
-        CustomerDto LoggedUser = customerService.getCustomerById(userJwt.getUserId())
-                .orElseGet(() -> customerService.createCustomer(mapUserJwt(userJwt)));
+        Optional<CustomerDto> loggedUser = customerService.getCustomerById(userJwt.getUserId());
+        if (loggedUser.isEmpty()) {
+            loggedUser = customerService.getCustomerByEmail(userJwt.getEmail());
+        }
+        if (loggedUser.isEmpty()) {
+            if (!customerService.emailExists(userJwt.getEmail())) {
+                customerService.createCustomer(mapUserJwt(userJwt));
+            }
+        } else {
+            CustomerDto existing = loggedUser.get();
+            String incomingAvatar = userJwt.getAvatarUrl();
+            boolean needsAvatar = (existing.getAvatarUrl() == null || existing.getAvatarUrl().isBlank())
+                    && incomingAvatar != null && !incomingAvatar.isBlank();
+            boolean needsNames = (existing.getFirstName() == null || existing.getFirstName().isBlank()
+                    || existing.getLastName() == null || existing.getLastName().isBlank())
+                    && (userJwt.getFirstName() != null || userJwt.getLastName() != null);
+            if (needsAvatar || needsNames) {
+                CustomerDto updated = CustomerDto.builder()
+                        .userId(existing.getUserId())
+                        .firstName(needsNames ? userJwt.getFirstName() : existing.getFirstName())
+                        .lastName(needsNames ? userJwt.getLastName() : existing.getLastName())
+                        .email(existing.getEmail())
+                        .avatarUrl(needsAvatar ? incomingAvatar : existing.getAvatarUrl())
+                        .createdAt(existing.getCreatedAt())
+                        .build();
+                customerService.updateCustomer(existing.getUserId(), updated);
+            }
+        }
 
         return new AuthResponse(accessToken);
     }

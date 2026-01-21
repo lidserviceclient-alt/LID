@@ -138,8 +138,8 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
 
-        // Autorise localhost sur n'importe quel port (4200, 3000, etc.)
-        cors.setAllowedOriginPatterns(List.of("http://localhost:*"));
+        // Autorise localhost/127.0.0.1 sur n'importe quel port (4200, 3000, etc.)
+        cors.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
 
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("*"));
