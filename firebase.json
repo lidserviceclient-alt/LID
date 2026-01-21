@@ -9,7 +9,7 @@
     "rewrites": [
       {
         "source": "/lid/**",
-        "destination": "/lid/index.html"
+        "destination": "/index.html"
       }
     ],
     "headers": [
