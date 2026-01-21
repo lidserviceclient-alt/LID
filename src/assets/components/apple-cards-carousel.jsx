@@ -188,7 +188,6 @@ export const Card = ({ card, index, layout = false, className }) => {
         <BlurImage
           src={card.src}
           alt={card.title}
-          fill
           className="object-cover absolute z-10 inset-0 h-full w-full"
         />
       </motion.div>
@@ -210,7 +209,6 @@ export const BlurImage = ({ height, width, src, className, alt, ...rest }) => {
       height={height}
       loading="lazy"
       decoding="async"
-      blurDataURL={typeof src === "string" ? src : undefined}
       alt={alt ? alt : "Background of a beautiful view"}
       {...rest}
     />

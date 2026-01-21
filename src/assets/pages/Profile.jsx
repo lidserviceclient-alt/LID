@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, 
@@ -15,17 +15,14 @@ import {
   AlertCircle,
   Camera
 } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import api from '../../Config/api.js';
+import { clearAccessToken, getAccessTokenPayload } from '../../Config/auth.js';
 
 // --- Mock Data ---
-const MOCK_USER = {
-  name: "Jean Dupont",
-  email: "jean.dupont@example.com",
-  phone: "+225 07 07 07 07 07",
-  avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
-  memberSince: "Jan 2024"
-};
+const DEFAULT_AVATAR =
+  "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80";
 
 const MOCK_ORDERS = [
   { id: "#ORD-7352", date: "08 Jan 2026", total: "45.000 FCFA", status: "delivered", items: 3 },
@@ -209,7 +206,10 @@ const AddressSection = () => (
   </div>
 );
 
-const SettingsSection = () => (
+const SettingsSection = ({ profile }) => {
+  const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ');
+
+  return (
   <div className="max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
     <h2 className="text-xl font-bold text-neutral-900 mb-6">Paramètres du Compte</h2>
     
@@ -219,15 +219,15 @@ const SettingsSection = () => (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1">
             <label className="text-xs font-bold text-neutral-500 uppercase">Nom complet</label>
-            <input defaultValue={MOCK_USER.name} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            <input defaultValue={fullName} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
           </div>
           <div className="space-y-1">
             <label className="text-xs font-bold text-neutral-500 uppercase">Email</label>
-            <input defaultValue={MOCK_USER.email} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            <input defaultValue={profile?.email || ''} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
           </div>
           <div className="space-y-1">
             <label className="text-xs font-bold text-neutral-500 uppercase">Téléphone</label>
-            <input defaultValue={MOCK_USER.phone} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            <input defaultValue="" className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
           </div>
         </div>
         <div className="pt-2 flex justify-end">
@@ -267,13 +267,17 @@ const SettingsSection = () => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
 // --- Main Page ---
 
 export default function Profile() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
+  const [userProfile, setUserProfile] = useState(null);
+  const tokenPayload = useMemo(() => getAccessTokenPayload(), []);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -281,6 +285,48 @@ export default function Profile() {
       setActiveTab(tab);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!tokenPayload?.sub) {
+        return;
+      }
+      try {
+        const { data } = await api.get(`/api/v1/customers/${tokenPayload.sub}`);
+        setUserProfile(data);
+      } catch (error) {
+        setUserProfile(null);
+      } finally {
+        // Keep UI responsive even if profile load fails.
+      }
+    };
+
+    loadProfile();
+  }, [tokenPayload]);
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/api/v1/auth/logout');
+    } catch (error) {
+      // Best effort logout; continue clearing local session.
+    } finally {
+      clearAccessToken();
+      navigate('/login');
+    }
+  };
+
+  const displayName = useMemo(() => {
+    const firstName = userProfile?.firstName || tokenPayload?.firstName || '';
+    const lastName = userProfile?.lastName || tokenPayload?.lastName || '';
+    const combined = `${firstName} ${lastName}`.trim();
+    return combined || tokenPayload?.email || 'Utilisateur';
+  }, [tokenPayload?.email, tokenPayload?.firstName, tokenPayload?.lastName, userProfile?.firstName, userProfile?.lastName]);
+
+  const displayEmail = userProfile?.email || tokenPayload?.email || '—';
+  const avatarUrl = userProfile?.avatarUrl || tokenPayload?.avatarUrl || DEFAULT_AVATAR;
+  const memberSinceYear = userProfile?.createdAt
+    ? String(userProfile.createdAt).slice(0, 4)
+    : (tokenPayload?.iat ? new Date(tokenPayload.iat * 1000).getFullYear() : '—');
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-8 pb-20">
@@ -290,18 +336,18 @@ export default function Profile() {
         <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-10">
           <div className="relative group">
             <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden border-4 border-white dark:border-neutral-900 shadow-lg">
-              <img src={MOCK_USER.avatar} alt="User" className="w-full h-full object-cover" />
+              <img src={avatarUrl} alt="User" className="w-full h-full object-cover" />
             </div>
             <button className="absolute bottom-0 right-0 p-1.5 bg-[#6aa200] text-white rounded-full border-2 border-white shadow-sm hover:scale-110 transition-transform">
               <Camera size={14} />
             </button>
           </div>
           <div className="flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white">{MOCK_USER.name}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white">{displayName}</h1>
             <div className="flex items-center gap-3 text-sm text-neutral-500 mt-1">
-              <span>{MOCK_USER.email}</span>
+              <span>{displayEmail}</span>
               <span className="w-1 h-1 bg-neutral-300 rounded-full" />
-              <span>Membre depuis {MOCK_USER.memberSince}</span>
+              <span>Membre depuis {memberSinceYear}</span>
             </div>
           </div>
         </div>
@@ -350,7 +396,7 @@ export default function Profile() {
                 label="Déconnexion" 
                 active={false} 
                 danger 
-                onClick={() => {}} 
+                onClick={handleLogout} 
               />
             </div>
           </div>
@@ -360,7 +406,7 @@ export default function Profile() {
             {activeTab === 'overview' && <OverviewSection />}
             {activeTab === 'orders' && <OrdersSection />}
             {activeTab === 'addresses' && <AddressSection />}
-            {activeTab === 'settings' && <SettingsSection />}
+            {activeTab === 'settings' && <SettingsSection profile={userProfile} />}
             {activeTab === 'payments' && (
               <div className="flex flex-col items-center justify-center h-64 text-neutral-500 animate-in fade-in">
                 <CreditCard size={48} className="mb-4 opacity-20" />

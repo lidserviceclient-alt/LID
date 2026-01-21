@@ -27,6 +27,16 @@ export default defineConfig(({ mode }) => {
     strictPort: true,
     cors: true,
     allowedHosts: ['olive-cycles-vanish.loca.lt', 'localhost', '127.0.0.1'],
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'Cross-Origin-Embedder-Policy': 'unsafe-none',
+    },
+  },
+  preview: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'Cross-Origin-Embedder-Policy': 'unsafe-none',
+    },
   },
   build: {
     outDir: 'dist/lid',

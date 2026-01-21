@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getAccessToken } from './auth';
 
-const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5173/api';
+const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:9000';
 const isDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true';
 
 if (isDebug) {
@@ -25,7 +25,15 @@ api.interceptors.request.use(
   async (config) => {
     // Retrieve the user from OIDC storage
     const accessToken = getAccessToken();
-    if (accessToken) {
+    const isAuthLogin = (config.url || '').includes('/api/v1/auth/login');
+    const existingAuth =
+      config.headers?.Authorization ||
+      config.headers?.authorization ||
+      (typeof config.headers?.get === 'function'
+        ? (config.headers.get('Authorization') || config.headers.get('authorization'))
+        : null);
+
+    if (!isAuthLogin && accessToken && !existingAuth) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
     if (isDebug) {
