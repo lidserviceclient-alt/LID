@@ -15,6 +15,7 @@ const ProductDetails = lazy(() => import('./pages/ProductDetails.jsx'))
 const Login = lazy(() => import('./pages/Login.jsx'))
 const Callback = lazy(() => import('./pages/Callback.jsx')) // OIDC Callback
 const Seller = lazy(() => import('./pages/Seller.jsx'))
+const SellerDashboard = lazy(() => import('./pages/SellerDashboard/index'))
 const Wishlist = lazy(() => import('./pages/Wishlist.jsx'))
 const Profile = lazy(() => import('./pages/Profile.jsx'))
 const Contact = lazy(() => import('./pages/Contact.jsx'))
@@ -44,6 +45,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/callback" element={<Callback />} />
           <Route path="/seller-join" element={<Seller />} />
+          <Route path="/dashboard/seller" element={<SellerDashboard />} />
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} /> 
             <Route path="shop" element={<Catalogue />} />

@@ -65,3 +65,21 @@ export const isAuthenticated = () => {
   const payload = getAccessTokenPayload();
   return Boolean(payload?.sub);
 };
+
+/**
+ * Tente de rafraîchir le token de session.
+ * Utile après un changement de rôle (ex: Customer -> Partner).
+ * @returns {Promise<boolean>} True si le refresh a réussi.
+ */
+export const refreshSession = async () => {
+  try {
+    const { data } = await api.post('/api/v1/auth/refresh');
+    if (data?.accessToken) {
+      setAccessToken(data.accessToken);
+      return true;
+    }
+  } catch (error) {
+    console.warn('Erreur lors du refresh session:', error);
+  }
+  return false;
+};

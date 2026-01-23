@@ -103,8 +103,6 @@ const AnimatedStoreIcon = ({ className, size = 48 }) => (
         initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1.2, type: "spring" }} />
   </svg>
 );
-
-
 const TokenAvatar = ({ src, index }) => (
   <motion.div
     whileHover={{ 

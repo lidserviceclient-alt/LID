@@ -22,7 +22,7 @@ const DEFAULT_AVATAR =
 
 export default function Header() {
   const { theme, setTheme } = useTheme();
-  const { cartCount, setIsCartOpen } = useCart();
+  const { cartCount, setIsCartOpen, cartTotal } = useCart();
   const [scrolled, setScrolled] = useState(false);
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -184,7 +184,7 @@ export default function Header() {
                             </div>
                             <div className="flex flex-col items-start leading-none gap-1">
                                 <span className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">Mon Panier</span>
-                                <span className="text-sm font-bold text-neutral-900 dark:text-white group-hover:text-[#6aa200] transition-colors">25.000 FCFA</span>
+                                <span className="text-sm font-bold text-neutral-900 dark:text-white group-hover:text-[#6aa200] transition-colors">{cartTotal.toLocaleString()} FCFA</span>
                             </div>
                         </button>
                     </div>
