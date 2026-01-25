@@ -1,0 +1,17 @@
+config:
+  security:
+    app:
+      secret: "this-is-a-very-secure-secret-key-for-local-development-only-needs-to-be-long-enough"
+      issuer: "lid-local"
+      access-ttl-minutes: 60
+      refresh-ttl-days: 30
+    google:
+      issuer-uri: "https://accounts.google.com"
+      jwk-set-uri: "https://www.googleapis.com/oauth2/v3/certs"
+      client-id: "264653021326-am0b1ll2ik7crh1si3lnfo2vt3j5lk36.apps.googleusercontent.com"
+
+paydunya:
+  masterKey: "dummy-master-key"
+  privateKey: "dummy-private-key"
+  publicKey: "dummy-public-key"
+  token: "dummy-token"

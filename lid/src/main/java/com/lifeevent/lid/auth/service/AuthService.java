@@ -94,7 +94,16 @@ public class AuthService {
         Optional<CustomerDto> userFound = customerService.getCustomerById(rt.getUserId());
         CustomerDto customerDto = ResponseUtils.getOrThrow(userFound, "Customer", rt.getUserId());
         List<String> roles = List.of("USER");
-        String newAccessToken = jwtService.generateAccessToken(customerDto.getUserId(), customerDto.getEmail(), roles);
+
+        UserJwt userJwt = UserJwt.builder()
+                .userId(customerDto.getUserId())
+                .email(customerDto.getEmail())
+                .firstName(customerDto.getFirstName())
+                .lastName(customerDto.getLastName())
+                .avatarUrl(customerDto.getAvatarUrl())
+                .build();
+
+        String newAccessToken = jwtService.generateAccessToken(userJwt, roles);
         return new RefreshResponse(newAccessToken);
     }
 

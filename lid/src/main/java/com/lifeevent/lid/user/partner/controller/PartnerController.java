@@ -10,6 +10,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 /**
  * Contrôleur Partner - Implémentation
  */
@@ -24,6 +27,14 @@ public class PartnerController implements IPartnerController {
     public ResponseEntity<PartnerResponseDto> registerStep1(@RequestBody PartnerRegisterStep1RequestDto dto) {
         PartnerResponseDto created = partnerService.registerStep1(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @Override
+    public ResponseEntity<PartnerResponseDto> upgradeToPartner(@RequestBody PartnerRegisterStep1RequestDto dto) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String userId = auth.getName(); // userId from JWT subject
+        PartnerResponseDto upgraded = partnerService.upgradeCustomerToPartner(userId, dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(upgraded);
     }
     
     @Override

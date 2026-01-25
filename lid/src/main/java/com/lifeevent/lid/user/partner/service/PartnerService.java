@@ -14,6 +14,11 @@ public interface PartnerService {
      * Crée un Partner avec le statut STEP_1_PENDING
      */
     PartnerResponseDto registerStep1(PartnerRegisterStep1RequestDto dto);
+
+    /**
+     * UPGRADE : Transformer un Customer existant en Partner
+     */
+    PartnerResponseDto upgradeCustomerToPartner(String userId, PartnerRegisterStep1RequestDto dto);
     
     /**
      * ÉTAPE 2 : Ajouter les infos de boutique

@@ -48,6 +48,21 @@ public interface IPartnerController {
         )
         @RequestBody PartnerRegisterStep1RequestDto dto
     );
+
+    /**
+     * UPGRADE : Transformer un Customer en Partner
+     * ENDPOINT PROTÉGÉ (Authenticated Customer)
+     */
+    @PostMapping("/register/upgrade")
+    @SecurityRequirement(name = "Bearer Token")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+        summary = "Upgrade Customer -> Partner",
+        description = "Transforme un compte Customer existant en Partner (garde le même userId)"
+    )
+    ResponseEntity<PartnerResponseDto> upgradeToPartner(
+        @RequestBody PartnerRegisterStep1RequestDto dto
+    );
     
     /**
      * ÉTAPE 2 : Ajouter les infos de boutique
