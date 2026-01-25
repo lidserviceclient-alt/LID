@@ -145,6 +145,7 @@ export default function Header() {
                                         src={avatarUrl}
                                         alt="Profile"
                                         className="w-[22px] h-[22px] rounded-full object-cover"
+                                        onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_AVATAR; }}
                                     />
                                 ) : (
                                     <User size={22} strokeWidth={1.5} className="text-neutral-700 dark:text-neutral-300 group-hover:text-[#6aa200] transition-colors" />
@@ -206,6 +207,7 @@ export default function Header() {
                                         src={avatarUrl} 
                                         alt="Profile" 
                                         className="w-full h-full object-cover" 
+                                        onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_AVATAR; }}
                                     />
                                 ) : (
                                     <User size={20} className="text-neutral-500 dark:text-neutral-400" />

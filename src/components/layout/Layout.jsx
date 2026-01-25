@@ -43,7 +43,7 @@ export default function Layout() {
   return (
     <CartProvider>
       <WishlistProvider>
-        <div className="app-container w-screen bg-white dark:bg-neutral-950 min-h-screen flex flex-col">
+        <div className="app-container w-screen bg-white dark:bg-neutral-950 min-h-screen flex flex-col relative">
           {/* Header global */}
           <Header />
           
