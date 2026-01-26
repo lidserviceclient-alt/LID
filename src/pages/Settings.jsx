@@ -1,6 +1,7 @@
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Button from "../components/ui/Button.jsx";
+import Input from "../components/ui/Input.jsx";
 
 export default function Settings() {
   return (
@@ -14,9 +15,9 @@ export default function Settings() {
         <Card className="space-y-4">
           <SectionHeader title="Informations boutique" subtitle="Profil public" />
           <div className="grid gap-3">
-            <input className="border border-input bg-background rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="Nom de boutique" defaultValue="LID Prime Store" />
-            <input className="border border-input bg-background rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="Email" defaultValue="contact@lid.store" />
-            <input className="border border-input bg-background rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" placeholder="Ville" defaultValue="Abidjan" />
+            <Input placeholder="Nom de boutique" defaultValue="LID Prime Store" />
+            <Input placeholder="Email" defaultValue="contact@lid.store" />
+            <Input placeholder="Ville" defaultValue="Abidjan" />
           </div>
           <Button className="w-fit">Sauvegarder</Button>
         </Card>

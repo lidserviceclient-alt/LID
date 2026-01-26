@@ -262,3 +262,36 @@ export const teamActivity = [
     time: "Il y a 2h"
   }
 ];
+
+export const inventoryData = [
+  { id: "MVT-001", sku: "AP-42-RED", product: "Sneakers AeroPulse", type: "Entree", quantity: 50, date: "25 Jan 10:30", user: "Stock Bot" },
+  { id: "MVT-002", sku: "VX-11-BLK", product: "Veste Ventix", type: "Sortie", quantity: 12, date: "25 Jan 09:15", user: "Commande #89421" },
+  { id: "MVT-003", sku: "CM-88-GRY", product: "Sac Comet", type: "Sortie", quantity: 1, date: "25 Jan 08:45", user: "Commande #89418" },
+  { id: "MVT-004", sku: "NB-22-BLU", product: "Hoodie Nebula", type: "Ajustement", quantity: -2, date: "24 Jan 16:20", user: "Admin" },
+];
+
+export const logisticsData = [
+  { id: "TRK-9921", order: "LID-89421", carrier: "DHL Express", status: "En transit", eta: "26 Jan", cost: "4 500" },
+  { id: "TRK-9918", order: "LID-89418", carrier: "La Poste", status: "Livre", eta: "25 Jan", cost: "2 200" },
+  { id: "TRK-9912", order: "LID-89412", carrier: "Jumia Force", status: "Ramassage", eta: "27 Jan", cost: "3 000" },
+];
+
+export const marketingCampaigns = [
+  { id: 1, name: "Soldes Janvier", type: "Email", status: "Active", sent: 12500, openRate: "24%", clickRate: "3.2%", revenue: "4.2M" },
+  { id: 2, name: "Promo Flash Wknd", type: "SMS", status: "Terminee", sent: 5000, openRate: "92%", clickRate: "8.5%", revenue: "1.8M" },
+  { id: 3, name: "Nouveautes Fev", type: "Social", status: "Planifiee", sent: 0, openRate: "-", clickRate: "-", revenue: "-" },
+];
+
+export const financeTransactions = [
+  { id: "TX-001", type: "Paiement", method: "Orange Money", amount: "+128 000", status: "Succes", date: "25 Jan 14:20" },
+  { id: "TX-002", type: "Remboursement", method: "Carte Bancaire", amount: "-42 000", status: "Succes", date: "25 Jan 11:10" },
+  { id: "TX-003", type: "Paiement", method: "Wave", amount: "+210 500", status: "Succes", date: "24 Jan 09:45" },
+  { id: "TX-004", type: "Paiement", method: "Cash a la livraison", amount: "+68 900", status: "En attente", date: "24 Jan 08:30" },
+];
+
+export const loyaltyTiers = [
+  { name: "Bronze", minPoints: 0, members: 1250, benefits: "Livraison standard" },
+  { name: "Silver", minPoints: 500, members: 420, benefits: "-5% sur tout" },
+  { name: "Gold", minPoints: 2000, members: 85, benefits: "-10%, Livraison 24h" },
+  { name: "Platinum", minPoints: 5000, members: 12, benefits: "-15%, Concierge" },
+];

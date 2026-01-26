@@ -2,6 +2,7 @@ import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Badge from "../components/ui/Badge.jsx";
 import Button from "../components/ui/Button.jsx";
+import Input from "../components/ui/Input.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { orderTable } from "../data/mockData.js";
 
@@ -30,10 +31,11 @@ export default function Orders() {
             </button>
           ))}
           <div className="ml-auto flex items-center gap-2">
-            <input
-              className="border border-input bg-background rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Rechercher une commande"
-            />
+            <div className="w-64">
+              <Input
+                placeholder="Rechercher une commande"
+              />
+            </div>
             <Button variant="outline">Exporter</Button>
           </div>
         </div>

@@ -2,6 +2,8 @@ import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Badge from "../components/ui/Badge.jsx";
 import Button from "../components/ui/Button.jsx";
+import Input from "../components/ui/Input.jsx";
+import Select from "../components/ui/Select.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { customers } from "../data/mockData.js";
 
@@ -16,17 +18,20 @@ export default function Customers() {
 
       <Card>
         <div className="flex flex-wrap items-center gap-3 mb-4">
-          <input
-            className="border border-input bg-background rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            placeholder="Rechercher un client"
-          />
-          <select className="border border-input bg-background rounded-md px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring">
-            <option>Tous segments</option>
-            <option>Gold</option>
-            <option>Silver</option>
-            <option>Bronze</option>
-            <option>Platinum</option>
-          </select>
+          <div className="w-64">
+            <Input
+              placeholder="Rechercher un client"
+            />
+          </div>
+          <div className="w-48">
+            <Select>
+              <option>Tous segments</option>
+              <option>Gold</option>
+              <option>Silver</option>
+              <option>Bronze</option>
+              <option>Platinum</option>
+            </Select>
+          </div>
         </div>
 
         <Table>

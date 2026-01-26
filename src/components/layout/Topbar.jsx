@@ -24,7 +24,7 @@ export default function Topbar({ onMenuClick }) {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className={`hidden md:flex items-center gap-3 px-4 py-2 rounded-full border transition-all duration-300 ${focused ? "border-primary/50 ring-4 ring-primary/10 bg-background w-64" : "border-border/50 bg-muted/30 hover:bg-muted/50 w-48"}`}>
+        <div className={`hidden overflow-hidden  md:flex items-center gap-3 px-4 py-2 rounded-full border transition-all duration-300 ${focused ? "border-primary/50 ring-4 ring-primary/10 bg-background w-64" : "border-border/50 bg-muted/30 hover:bg-muted/50 w-48"}`}>
           <Search size={16} className={focused ? "text-primary" : "text-muted-foreground"} />
           <input
             className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground/70"

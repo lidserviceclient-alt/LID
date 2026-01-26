@@ -1,6 +1,7 @@
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import BarChart from "../components/charts/BarChart.jsx";
+import Select from "../components/ui/Select.jsx";
 import { analyticsSeries, channelMix } from "../data/mockData.js";
 
 export default function Analytics() {
@@ -9,6 +10,16 @@ export default function Analytics() {
       <SectionHeader
         title="Analytics"
         subtitle="Analysez vos canaux et la conversion."
+        rightSlot={
+          <div className="w-40">
+            <Select>
+              <option>Cette semaine</option>
+              <option>Ce mois</option>
+              <option>Ce trimestre</option>
+              <option>Cette année</option>
+            </Select>
+          </div>
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-3">

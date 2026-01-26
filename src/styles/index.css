@@ -72,7 +72,6 @@
 @layer base {
   * {
     @apply border-border;
-    padding: 1px;
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
