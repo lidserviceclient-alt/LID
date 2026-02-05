@@ -7,27 +7,19 @@ import {
   CreditCard, 
   Settings, 
   LogOut, 
-  Bell, 
   Heart,
   ChevronRight,
   Clock,
-  CheckCircle2,
-  AlertCircle,
   Camera
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/utils/cn';
-import { getUserProfile, logout, getCurrentUserPayload, isAuthenticated } from '@/services/authService.js';
+import { getUserProfile, logout, getCurrentUserPayload } from '@/services/authService.js';
+import { getCustomerOrders, getCustomerWishlist } from '@/services/customerService.js';
+import { useWishlist } from '@/features/wishlist/WishlistContext';
 
-// --- Mock Data ---
 const DEFAULT_AVATAR =
   "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80";
-
-const MOCK_ORDERS = [
-  { id: "#ORD-7352", date: "08 Jan 2026", total: "45.000 FCFA", status: "delivered", items: 3 },
-  { id: "#ORD-7351", date: "05 Jan 2026", total: "12.500 FCFA", status: "processing", items: 1 },
-  { id: "#ORD-7290", date: "28 Dec 2025", total: "85.000 FCFA", status: "cancelled", items: 2 },
-];
 
 const MOCK_ADDRESSES = [
   { id: 1, type: "Domicile", name: "Jean Dupont", address: "Cocody Rivera 2, Rue des Jardins", city: "Abidjan", phone: "+225 07...", default: true },
@@ -125,27 +117,62 @@ const AddressCard = ({ address }) => (
 
 // --- Sections ---
 
-const OverviewSection = () => (
+const formatOrderDate = (value) => {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return `${value}`;
+  return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).format(d);
+};
+
+const formatMoney = (amount, currency = 'FCFA') => {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return `— ${currency}`;
+  return `${n.toLocaleString('fr-FR')} ${currency || 'FCFA'}`;
+};
+
+const mapOrderStatus = (status) => {
+  switch (`${status || ''}`.toUpperCase()) {
+    case 'DELIVERED':
+      return 'delivered';
+    case 'CANCELED':
+      return 'cancelled';
+    case 'PENDING':
+    case 'PAID':
+    case 'PROCESSING':
+    case 'READY_TO_DELIVER':
+    case 'DELIVERY_IN_PROGRESS':
+      return 'processing';
+    default:
+      return 'processing';
+  }
+};
+
+const countOrderItems = (items) => {
+  if (!Array.isArray(items)) return 0;
+  return items.reduce((acc, it) => acc + (Number(it?.quantity) || 0), 0);
+};
+
+const OverviewSection = ({ stats, recentOrders, onSeeAllOrders, loading }) => (
   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
     {/* Stats Grid */}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div className="bg-[#6aa200] text-white p-6 rounded-3xl relative overflow-hidden">
         <div className="relative z-10">
-          <div className="text-3xl font-bold mb-1">0</div>
+          <div className="text-3xl font-bold mb-1">{loading ? '—' : stats.inProgress}</div>
           <div className="text-xs font-medium uppercase tracking-wider opacity-80">Commandes en cours</div>
         </div>
         <Clock className="absolute right-4 bottom-4 text-white/20" size={60} />
       </div>
       <div className="bg-neutral-900 text-white p-6 rounded-3xl relative overflow-hidden">
         <div className="relative z-10">
-          <div className="text-3xl font-bold mb-1">12</div>
+          <div className="text-3xl font-bold mb-1">{loading ? '—' : stats.total}</div>
           <div className="text-xs font-medium uppercase tracking-wider opacity-80">Commandes Totales</div>
         </div>
         <Package className="absolute right-4 bottom-4 text-white/20" size={60} />
       </div>
       <div className="bg-white border border-neutral-200 p-6 rounded-3xl relative overflow-hidden">
         <div className="relative z-10">
-          <div className="text-3xl font-bold mb-1 text-neutral-900">5</div>
+          <div className="text-3xl font-bold mb-1 text-neutral-900">{loading ? '—' : stats.favorites}</div>
           <div className="text-xs font-medium uppercase tracking-wider text-neutral-500">Articles Favoris</div>
         </div>
         <Heart className="absolute right-4 bottom-4 text-neutral-100" size={60} />
@@ -156,18 +183,24 @@ const OverviewSection = () => (
     <div>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold text-neutral-900">Commandes Récentes</h3>
-        <button className="text-sm font-bold text-[#6aa200] hover:underline">Voir tout</button>
+        <button className="text-sm font-bold text-[#6aa200] hover:underline" onClick={onSeeAllOrders}>
+          Voir tout
+        </button>
       </div>
       <div className="space-y-3">
-        {MOCK_ORDERS.map(order => (
-          <OrderCard key={order.id} order={order} />
-        ))}
+        {loading ? (
+          <div className="text-sm text-neutral-500">Chargement...</div>
+        ) : recentOrders.length === 0 ? (
+          <div className="text-sm text-neutral-500">Aucune commande.</div>
+        ) : (
+          recentOrders.map((order) => <OrderCard key={order.id} order={order} />)
+        )}
       </div>
     </div>
   </div>
 );
 
-const OrdersSection = () => (
+const OrdersSection = ({ orders, loading }) => (
   <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
     <div className="flex items-center justify-between">
       <h2 className="text-xl font-bold text-neutral-900">Mes Commandes</h2>
@@ -179,12 +212,13 @@ const OrdersSection = () => (
       </select>
     </div>
     <div className="space-y-3">
-      {MOCK_ORDERS.map(order => (
-        <OrderCard key={order.id} order={order} />
-      ))}
-       {/* Duplicate for demo */}
-       <OrderCard order={{ ...MOCK_ORDERS[0], id: "#ORD-7100", date: "10 Nov 2025", status: "delivered" }} />
-       <OrderCard order={{ ...MOCK_ORDERS[0], id: "#ORD-7050", date: "01 Nov 2025", status: "delivered" }} />
+      {loading ? (
+        <div className="text-sm text-neutral-500">Chargement...</div>
+      ) : orders.length === 0 ? (
+        <div className="text-sm text-neutral-500">Aucune commande.</div>
+      ) : (
+        orders.map((order) => <OrderCard key={order.id} order={order} />)
+      )}
     </div>
   </div>
 );
@@ -276,23 +310,13 @@ export default function Profile() {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const [userProfile, setUserProfile] = useState(null);
-  const tokenPayload = useMemo(() => getCurrentUserPayload(), []);
-
-   useEffect(() => {
-    const loadProfile = async () => {
-      if (!tokenPayload?.sub) {
-        return;
-      }
-      try {
-        const data = await getUserProfile(tokenPayload.sub);
-        setUserProfile(data);
-      } catch (error) {
-        setUserProfile(null);
-      }
-    };
-
-    loadProfile();
-  }, [tokenPayload]);
+  const tokenPayload = getCurrentUserPayload();
+  const { wishlistItems } = useWishlist();
+  const localWishlistCount = wishlistItems.length;
+  const [orders, setOrders] = useState([]);
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [stats, setStats] = useState({ total: 0, inProgress: 0, favorites: 0 });
+  const [loadingOverview, setLoadingOverview] = useState(true);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -302,22 +326,62 @@ export default function Profile() {
   }, [searchParams]);
 
   useEffect(() => {
-    const loadProfile = async () => {
+    let mounted = true;
+
+    const loadAll = async () => {
       if (!tokenPayload?.sub) {
+        setLoadingOverview(false);
         return;
       }
+      setLoadingOverview(true);
       try {
-        const data = await getUserProfile(tokenPayload.sub);
-        setUserProfile(data);
-      } catch (error) {
+        const [profile, ordersDto, wishlist] = await Promise.all([
+          getUserProfile(tokenPayload.sub),
+          getCustomerOrders(tokenPayload.sub, 0, 100),
+          getCustomerWishlist(tokenPayload.sub)
+        ]);
+
+        if (!mounted) return;
+        setUserProfile(profile);
+
+        const mappedOrders = ordersDto.map((o) => ({
+          id: `#${o.orderNumber || `ORD-${o.id}`}`,
+          date: formatOrderDate(o.createdAt),
+          total: formatMoney(o.amount, o.currency || 'FCFA'),
+          status: mapOrderStatus(o.currentStatus),
+          items: countOrderItems(o.items)
+        }));
+
+        setOrders(mappedOrders);
+        setRecentOrders(mappedOrders.slice(0, 3));
+
+        const inProgress = ordersDto.filter((o) => {
+          const st = `${o.currentStatus || ''}`.toUpperCase();
+          return st && st !== 'DELIVERED' && st !== 'CANCELED';
+        }).length;
+
+        setStats({
+          total: ordersDto.length,
+          inProgress,
+          favorites: Math.max(Array.isArray(wishlist) ? wishlist.length : 0, localWishlistCount)
+        });
+      } catch {
+        if (!mounted) return;
         setUserProfile(null);
+        setOrders([]);
+        setRecentOrders([]);
+        setStats({ total: 0, inProgress: 0, favorites: localWishlistCount });
       } finally {
-        // Keep UI responsive even if profile load fails.
+        if (!mounted) return;
+        setLoadingOverview(false);
       }
     };
 
-    loadProfile();
-  }, [tokenPayload]);
+    loadAll();
+    return () => {
+      mounted = false;
+    };
+  }, [tokenPayload?.sub, localWishlistCount]);
 
   const handleLogout = async () => {
     await logout();
@@ -410,8 +474,15 @@ export default function Profile() {
 
           {/* Main Content */}
           <div className="flex-1 min-h-[500px]">
-            {activeTab === 'overview' && <OverviewSection />}
-            {activeTab === 'orders' && <OrdersSection />}
+            {activeTab === 'overview' && (
+              <OverviewSection
+                stats={stats}
+                recentOrders={recentOrders}
+                loading={loadingOverview}
+                onSeeAllOrders={() => setActiveTab('orders')}
+              />
+            )}
+            {activeTab === 'orders' && <OrdersSection orders={orders} loading={loadingOverview} />}
             {activeTab === 'addresses' && <AddressSection />}
             {activeTab === 'settings' && <SettingsSection profile={userProfile} />}
             {activeTab === 'payments' && (

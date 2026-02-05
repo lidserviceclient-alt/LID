@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getAccessToken } from './auth';
+import { clearAccessToken, getAccessToken } from './auth';
 
 const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:9000';
 const isDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true';
@@ -13,7 +13,6 @@ const api = axios.create({
   baseURL: resolvedBaseUrl, // Fallback to localhost if env var is missing
   headers: {
     'Content-Type': 'application/json',
-    'X-Client-ID': import.meta.env.VITE_CLIENT_ID, // ID Client header
   },
   withCredentials: true,
   timeout: 10000, // 10 seconds timeout
@@ -26,6 +25,7 @@ api.interceptors.request.use(
     // Retrieve the user from OIDC storage
     const accessToken = getAccessToken();
     const isAuthLogin = (config.url || '').includes('/api/v1/auth/login');
+    const clientId = import.meta.env.VITE_CLIENT_ID;
     const existingAuth =
       config.headers?.Authorization ||
       config.headers?.authorization ||
@@ -33,6 +33,9 @@ api.interceptors.request.use(
         ? (config.headers.get('Authorization') || config.headers.get('authorization'))
         : null);
 
+    if (clientId && !config.headers?.['X-Client-ID']) {
+      config.headers['X-Client-ID'] = clientId;
+    }
     if (!isAuthLogin && accessToken && !existingAuth) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
@@ -54,25 +57,32 @@ api.interceptors.response.use(
     if (error.response) {
       // Le serveur a r�pondu mais avec une erreur (hors 2xx)
       const status = error.response.status;
-      const message = error.response.data?.message || error.message;
+      const message =
+        error.response.data?.errorMessage ||
+        error.response.data?.message ||
+        error.message;
 
       if (status === 401) {
-        console.error('Pas autoris� !');
-        window.location.href = '/login';
+        console.error('Pas autorisé !');
+        clearAccessToken();
+        const currentPath = window.location?.pathname || '';
+        if (currentPath !== '/login') {
+          window.location.href = '/login';
+        }
       } else if (status === 403) {
-        console.error('Acc�s refus� :', message);
+        console.error('Accès refusé :', message);
       } else {
         console.error('Erreur API :', message);
       }
     } else if (error.request) {
       // La requ�te est partie mais rien n'est revenu
-      console.error('Erreur r�seau : pas de r�ponse du serveur');
+      console.error('Erreur réseau : pas de réponse du serveur');
       if (isDebug) {
         console.info('[API] no response; check CORS or network.');
       }
     } else {
       // Une erreur est survenue en pr�parant la requ�te
-      console.error('Erreur c�t� client :', error.message);
+      console.error('Erreur côté client :', error.message);
     }
 
     return Promise.reject(error); // Je renvoie l'erreur pour pouvoir la catcher ailleurs si besoin

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Sliders, ChevronUp } from "lucide-react";
 import { initAnalytics } from "@/services/firebase";
+import { trackTrafficHit } from "@/services/traffic";
 
 export default function CookieConsent() {
   const [showBanner, setShowBanner] = useState(false);
@@ -20,6 +21,7 @@ export default function CookieConsent() {
   const handleAcceptAll = () => {
     localStorage.setItem("lid_cookie_consent", "all");
     initAnalytics();
+    trackTrafficHit({ path: window.location?.pathname || "/" });
     setShowBanner(false);
   };
 
@@ -35,6 +37,7 @@ export default function CookieConsent() {
       JSON.stringify({ essential: true, analytics: preferences.analytics, marketing: preferences.marketing })
     );
     initAnalytics();
+    trackTrafficHit({ path: window.location?.pathname || "/" });
     setShowBanner(false);
   };
 

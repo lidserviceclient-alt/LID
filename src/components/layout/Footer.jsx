@@ -34,6 +34,7 @@ export default function Footer() {
       { name: "Minimalist", path: "/catalogue?category=minimalist" },
       { name: "Accessoires", path: "/catalogue?category=accessories" },
       { name: "Éditions Limitées", path: "/catalogue?tag=limited" },
+      { name: "Blog", path: "/blog" },
     ],
     aide: [
        { name: "Centre d'aide", path: "/help" },

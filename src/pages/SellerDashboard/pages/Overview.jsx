@@ -1,7 +1,78 @@
-import { motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
 import { DollarSign, ShoppingBag, Users, Package, Clock } from "lucide-react";
+import LineChart from "@/components/charts/LineChart";
+import { fetchDailyTrafficSeries, fetchMonthlyTrafficSeries } from "@/services/traffic";
+
+const chartRanges = [
+  { value: "week", label: "Cette semaine", subtitle: "Évolution quotidienne (7 jours)" },
+  { value: "month", label: "Ce mois", subtitle: "Évolution quotidienne (30 jours)" },
+  { value: "quarter", label: "Ce trimestre", subtitle: "Évolution hebdomadaire (13 semaines)" },
+  { value: "year", label: "Cette année", subtitle: "Évolution mensuelle (12 mois)" }
+];
+
+const sumSeries = (series) =>
+  (Array.isArray(series) ? series : []).reduce((acc, v) => acc + (Number(v) || 0), 0);
+
+const chunkSum = (series, size) => {
+  const safe = Array.isArray(series) ? series : [];
+  if (size <= 0) return safe.slice();
+  const chunks = [];
+  for (let i = 0; i < safe.length; i += size) {
+    chunks.push(sumSeries(safe.slice(i, i + size)));
+  }
+  return chunks;
+};
 
 export default function Overview() {
+  const [range, setRange] = useState("week");
+  const [series, setSeries] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const selected = useMemo(
+    () => chartRanges.find((item) => item.value === range) || chartRanges[0],
+    [range]
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    setIsLoading(true);
+    setError("");
+
+    const load = async () => {
+      try {
+        if (selected.value === "year") {
+          const monthly = await fetchMonthlyTrafficSeries({ months: 12 });
+          if (mounted) setSeries(monthly);
+          return;
+        }
+
+        const days = selected.value === "week" ? 7 : selected.value === "month" ? 30 : 90;
+        const daily = await fetchDailyTrafficSeries({ days });
+        const aggregated = selected.value === "quarter" ? chunkSum(daily, 7) : daily;
+        if (mounted) setSeries(aggregated);
+      } catch (err) {
+        if (mounted) {
+          setError(err?.message || "Impossible de charger le trafic.");
+          setSeries([]);
+        }
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [selected.value]);
+
+  const totalTraffic = useMemo(() => sumSeries(series), [series]);
+  const formattedTotal = useMemo(
+    () => new Intl.NumberFormat("fr-FR").format(totalTraffic),
+    [totalTraffic]
+  );
+
   return (
     <div className="space-y-8">
       {/* Stats Grid */}
@@ -28,29 +99,35 @@ export default function Overview() {
       {/* Charts / Recent Activity Placeholder */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white p-8 rounded-[32px] border border-neutral-100 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xl font-bold">Aperçu des revenus</h3>
-            <select className="bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 text-sm font-bold outline-none">
-              <option>Cette semaine</option>
-              <option>Ce mois</option>
-              <option>Cette année</option>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-bold">Trafic & revenus</h3>
+              <p className="text-sm text-neutral-500 font-medium">{selected.subtitle}</p>
+              <p className="mt-2 text-xs font-bold text-neutral-400 uppercase tracking-wider">
+                Total visites : <span className="text-neutral-900">{formattedTotal}</span>
+              </p>
+            </div>
+            <select
+              value={range}
+              onChange={(e) => setRange(e.target.value)}
+              className="bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 text-sm font-bold outline-none"
+            >
+              {chartRanges.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
             </select>
           </div>
-          <div className="h-64 flex items-end justify-between gap-2 px-4">
-             {/* Simple Bar Chart Placeholder */}
-             {[40, 65, 30, 85, 50, 95, 60].map((h, i) => (
-               <div key={i} className="w-full bg-neutral-100 rounded-t-xl relative group overflow-hidden">
-                 <motion.div 
-                    initial={{ height: 0 }}
-                    animate={{ height: `${h}%` }}
-                    transition={{ duration: 1, delay: i * 0.1 }}
-                    className="absolute bottom-0 w-full rounded-t-xl bg-[#6aa200] opacity-80 group-hover:opacity-100 transition-opacity"
-                 />
-               </div>
-             ))}
-          </div>
-          <div className="flex justify-between mt-4 text-xs font-bold text-neutral-400 uppercase">
-            <span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+
+          {error && <div className="mt-4 text-sm font-medium text-red-600">{error}</div>}
+
+          <div className="mt-6 h-64">
+            <LineChart
+              data={series}
+              className={`h-64 ${isLoading ? "opacity-60 animate-pulse" : ""}`}
+              stroke="#6aa200"
+            />
           </div>
         </div>
 

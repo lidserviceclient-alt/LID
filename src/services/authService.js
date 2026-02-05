@@ -1,5 +1,5 @@
 import api from './api';
-import { setAccessToken, clearAccessToken, getAccessTokenPayload } from './auth';
+import { setAccessToken, clearAccessToken, getAccessTokenPayload, hasValidAccessToken } from './auth';
 
 /**
  * Service centralisant toute la logique d'authentification et de gestion utilisateur.
@@ -15,7 +15,7 @@ export const loginWithGoogle = async (idToken) => {
   const { data } = await api.post(
     "/api/v1/auth/login",
     null,
-    { headers: { Authorization: `Bearer ${idToken}` } }
+    { headers: { Authorization: `Bearer ${idToken}` }, timeout: 30000 }
   );
   
   if (data?.accessToken) {
@@ -62,8 +62,7 @@ export const getCurrentUserPayload = () => {
  * @returns {boolean} True si un token valide existe.
  */
 export const isAuthenticated = () => {
-  const payload = getAccessTokenPayload();
-  return Boolean(payload?.sub);
+  return hasValidAccessToken();
 };
 
 /**
@@ -82,4 +81,17 @@ export const refreshSession = async () => {
     console.warn('Erreur lors du refresh session:', error);
   }
   return false;
+};
+
+export const requestPasswordReset = async (email) => {
+  const { data } = await api.post('/api/v1/auth/password/forgot', { email });
+  return data;
+};
+
+export const verifyPasswordResetCode = async (code) => {
+  await api.post('/api/v1/auth/password/verify', { code });
+};
+
+export const resetPasswordWithCode = async ({ code, newPassword }) => {
+  await api.post('/api/v1/auth/password/reset', { code, newPassword });
 };

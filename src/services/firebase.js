@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
+import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -14,6 +15,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
 let analytics;
 
@@ -34,4 +36,4 @@ export const initAnalytics = () => {
 // Try to initialize on load
 initAnalytics();
 
-export { app, analytics };
+export { app, analytics, db };

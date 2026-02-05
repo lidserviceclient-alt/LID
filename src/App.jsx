@@ -18,12 +18,16 @@ const Seller = lazy(() => import('./pages/Seller.jsx'))
 const SellerDashboard = lazy(() => import('./pages/SellerDashboard/index'))
 const Wishlist = lazy(() => import('./pages/Wishlist.jsx'))
 const Profile = lazy(() => import('./pages/Profile.jsx'))
+const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess.jsx'))
+const PaymentCancel = lazy(() => import('./pages/PaymentCancel.jsx'))
 const Contact = lazy(() => import('./pages/Contact.jsx'))
 const Help = lazy(() => import('./pages/Help.jsx'))
 const FAQ = lazy(() => import('./pages/FAQ.jsx'))
 const Terms = lazy(() => import('./pages/Terms.jsx'))
 const Privacy = lazy(() => import('./pages/Privacy.jsx'))
 const TicketCatalog = lazy(() => import('./pages/TicketCatalog.jsx'))
+const Blog = lazy(() => import('./pages/Blog.jsx'))
+const BlogDetails = lazy(() => import('./pages/BlogDetails.jsx'))
 const SellersList = lazy(() => import('./pages/SellersList.jsx'))
 const SellerDetails = lazy(() => import('./pages/SellerDetails.jsx'))
 const OrderTracking = lazy(() => import('./pages/OrderTracking.jsx'))
@@ -49,6 +53,8 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} /> 
             <Route path="shop" element={<Catalogue />} />
+            <Route path="blog" element={<Blog />} />
+            <Route path="blog/:id" element={<BlogDetails />} />
             <Route path="tickets" element={<TicketCatalog />} />
             <Route path="sellers" element={<SellersList />} />
             <Route path="sellers/:id" element={<SellerDetails />} />
@@ -57,6 +63,16 @@ function App() {
             <Route path="profile" element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            } />
+            <Route path="payment/success" element={
+              <ProtectedRoute>
+                <PaymentSuccess />
+              </ProtectedRoute>
+            } />
+            <Route path="payment/cancel" element={
+              <ProtectedRoute>
+                <PaymentCancel />
               </ProtectedRoute>
             } />
             <Route path="contact" element={<Contact />} />

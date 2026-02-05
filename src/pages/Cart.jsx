@@ -9,6 +9,7 @@ import {
 import { useCart } from "@/features/cart/CartContext";
 import { toast } from "sonner";
 import CheckoutFlow from "../components/CheckoutFlow";
+import { isAuthenticated } from "@/services/authService.js";
 
 // Mock Recommendations Data
 const recommendedProducts = [
@@ -52,10 +53,14 @@ export default function Cart() {
   const [showCheckout, setShowCheckout] = useState(false);
   const navigate = useNavigate();
 
-  const FREE_SHIPPING_THRESHOLD = 130000;
+  const FREE_SHIPPING_THRESHOLD = 10000;
   const shippingCost = shippingMethod === "express" ? 6500 : (cartTotal >= FREE_SHIPPING_THRESHOLD ? 0 : 3250);
   
   const handleCheckout = () => {
+    if (!isAuthenticated()) {
+      navigate('/login', { state: { from: { pathname: '/cart' } } });
+      return;
+    }
     setShowCheckout(true);
   };
   

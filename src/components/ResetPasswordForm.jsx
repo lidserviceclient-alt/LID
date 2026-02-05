@@ -3,6 +3,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Eye, EyeOff, Mail, Lock, KeyRound } from "lucide-react";
 import { toast } from "sonner";
+import { requestPasswordReset, resetPasswordWithCode, verifyPasswordResetCode } from "../services/authService";
 
 export default function ResetPasswordForm({ onBack }) {
   const [step, setStep] = useState(1);
@@ -17,20 +18,53 @@ export default function ResetPasswordForm({ onBack }) {
   const handleNext = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsLoading(false);
-    
-    if (step < 3) {
-      setStep(step + 1);
-    } else {
-      // Final submit - Password reset successful
-      // Here you would typically call the API to reset the password
-      console.log("Password reset for:", email, code, password);
+    try {
+      if (step === 1) {
+        await requestPasswordReset(email);
+        setCode("");
+        toast.success("Si l'email existe, un code a été envoyé.");
+        setStep(2);
+        return;
+      }
+
+      if (step === 2) {
+        const normalized = (code || "").replace(/\D/g, "");
+        if (normalized.length !== 6) {
+          toast.error("Veuillez saisir un code à 6 chiffres.");
+          return;
+        }
+        await verifyPasswordResetCode(normalized);
+        setStep(3);
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        toast.error("Les mots de passe ne correspondent pas.");
+        return;
+      }
+      if ((password || "").length < 8) {
+        toast.error("Le mot de passe doit contenir au moins 8 caractères.");
+        return;
+      }
+      await resetPasswordWithCode({ code: (code || "").replace(/\D/g, ""), newPassword: password });
       toast.success("Mot de passe réinitialisé avec succès !");
-      onBack(); // Return to login
+      onBack();
+    } catch (error) {
+      toast.error(error?.response?.data?.errorMessage || error?.message || "Une erreur est survenue.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setIsLoading(true);
+    try {
+      await requestPasswordReset(email);
+      toast.success("Code renvoyé.");
+    } catch (error) {
+      toast.error(error?.response?.data?.errorMessage || error?.message || "Impossible de renvoyer le code.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -125,7 +159,15 @@ export default function ResetPasswordForm({ onBack }) {
                   />
                 </div>
                 <p className="text-xs text-neutral-500 text-right">
-                  Code non reçu ? <button type="button" className="text-[#E3B576] hover:underline">Renvoyer</button>
+                  Code non reçu ?{" "}
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    className="text-[#E3B576] hover:underline disabled:opacity-60"
+                    disabled={isLoading}
+                  >
+                    Renvoyer
+                  </button>
                 </p>
               </div>
             </motion.div>

@@ -3,6 +3,9 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, CreditCard, Smartphone, User, MapPin, Phone, Mail, ArrowRight, ShieldCheck, Lock, ChevronLeft, Loader2, Globe } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { toast } from 'sonner';
+import { getCurrentUserPayload } from '@/services/authService.js';
+import { checkout } from '@/services/orderService.js';
 
 const formatCardNumber = (value) => {
   const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
@@ -51,20 +54,25 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     cardNumber: '',
     cardExpiry: '',
     cardCvc: '',
-    cardName: ''
+    cardName: '',
+    mobilePhone: ''
   });
 
   const [cardFocused, setCardFocused] = useState(false);
  
   const isCartCheckout = cartItems && cartItems.length > 0;
+
+  const normalizedShippingCost = Number.isFinite(Number(shippingCost)) ? Number(shippingCost) : 0;
+  const normalizedDiscountAmount = Number.isFinite(Number(discountAmount)) ? Number(discountAmount) : 0;
+  const normalizedQuantity = Number.isFinite(Number(quantity)) ? Number(quantity) : 1;
   
   // Calculate items total
   const itemsTotal = isCartCheckout 
-    ? cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0)
-    : product?.price * quantity;
+    ? cartItems.reduce((acc, item) => acc + (Number(item?.price) || 0) * (Number(item?.quantity) || 0), 0)
+    : (Number(product?.price) || 0) * normalizedQuantity;
 
   // Calculate final total with shipping and discount
-  const finalTotal = itemsTotal + shippingCost - discountAmount;
+  const finalTotal = itemsTotal + normalizedShippingCost - normalizedDiscountAmount;
 
   const TAX_RATE = 0.18; // 18% TVA Côte d'Ivoire
   // Calculate tax based on final total
@@ -89,21 +97,55 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
 
   const handlePayment = async (e) => {
     e.preventDefault();
-    setStep(3); // Go to processing screen
-    
-    // Simulate realistic bank steps
+    const payload = getCurrentUserPayload();
+    if (!payload?.sub) {
+      toast.error("Veuillez vous connecter pour payer.");
+      return;
+    }
+
+    const items = isCartCheckout
+      ? cartItems.map((item) => ({ articleId: item.id, quantity: item.quantity }))
+      : [{ articleId: product?.id, quantity }];
+
+    if (!items.every((i) => i.articleId && i.quantity > 0)) {
+      toast.error("Panier invalide.");
+      return;
+    }
+
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const returnUrl = `${origin}/payment/success`;
+    const cancelUrl = `${origin}/payment/cancel`;
+
+    const shippingAddress = [formData.address, formData.city, formData.zip].filter(Boolean).join(', ');
+
+    setStep(3);
     setLoadingStep(1);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setLoadingStep(2);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setLoadingStep(3);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setOrderNumber(Math.floor(10000 + Math.random() * 90000));
-    setStep(4); // Success
-    
-    if (onSuccess) {
-      onSuccess();
+
+    try {
+      const res = await checkout(payload.sub, {
+        amount: finalTotal,
+        currency: 'XOF',
+        email: formData.email,
+        phone: formData.phone,
+        shippingAddress,
+        notes: '',
+        items,
+        returnUrl,
+        cancelUrl
+      });
+
+      const url = res?.paymentUrl;
+      if (!url) {
+        throw new Error("URL de paiement introuvable.");
+      }
+      setLoadingStep(3);
+      if (typeof window !== 'undefined') {
+        window.location.href = url;
+      }
+    } catch (err) {
+      setStep(2);
+      setLoadingStep(0);
+      toast.error(err?.response?.data?.message || err?.message || "Paiement impossible.");
     }
   };
 
@@ -180,16 +222,16 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                     </div>
                     <div className="flex justify-between text-neutral-300">
                       <span>Livraison</span>
-                      {shippingCost === 0 ? (
+                      {normalizedShippingCost === 0 ? (
                         <span className="text-green-400 font-bold">GRATUIT</span>
                       ) : (
-                        <span>{shippingCost.toLocaleString()} FCFA</span>
+                        <span>{Number(normalizedShippingCost).toLocaleString()} FCFA</span>
                       )}
                     </div>
-                    {discountAmount > 0 && (
+                    {normalizedDiscountAmount > 0 && (
                       <div className="flex justify-between text-green-400">
                         <span>Réduction</span>
-                        <span>-{discountAmount.toLocaleString()} FCFA</span>
+                        <span>-{Number(normalizedDiscountAmount).toLocaleString()} FCFA</span>
                       </div>
                     )}
                     <div className="flex justify-between text-neutral-300">
@@ -498,7 +540,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                          )}
 
                          <button type="submit" className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2 mt-8 shadow-lg shadow-orange-500/20">
-                           <Lock size={20} /> Payer {Number(total).toLocaleString()} FCFA
+                           <Lock size={20} /> Payer {Number(finalTotal).toLocaleString()} FCFA
                          </button>
                          
                          <button 

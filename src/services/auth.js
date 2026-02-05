@@ -36,3 +36,26 @@ export const getAccessTokenPayload = () => {
   }
   return decodeBase64Url(parts[1]);
 };
+
+export const isTokenExpired = (token, skewSeconds = 30) => {
+  if (!token) return true;
+  const payload = getAccessTokenPayload();
+  const exp = payload?.exp;
+  if (exp === null || exp === undefined) return false;
+  const expSeconds = Number(exp);
+  if (!Number.isFinite(expSeconds)) return false;
+  const nowSeconds = Date.now() / 1000;
+  return nowSeconds >= expSeconds - Math.max(0, Number(skewSeconds) || 0);
+};
+
+export const hasValidAccessToken = () => {
+  const token = getAccessToken();
+  if (!token) return false;
+  const payload = getAccessTokenPayload();
+  if (!payload?.sub) return false;
+  if (isTokenExpired(token)) {
+    clearAccessToken();
+    return false;
+  }
+  return true;
+};
