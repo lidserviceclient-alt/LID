@@ -18,14 +18,13 @@ import java.util.Optional;
 public class CustomerController implements ICustomerController {
     
     private final CustomerService customerService;
-    private final CartService cartService;
-    
-    @Override
-    public ResponseEntity<CustomerDto> createCustomer(@RequestBody CustomerDto dto) {
-        CustomerDto created = customerService.createCustomer(dto);
-        cartService.createCart(created.getUserId());
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
-    }
+
+
+//    @Override
+//    public ResponseEntity<CustomerDto> createCustomer(@RequestBody CustomerDto dto) {
+//        CustomerDto created = customerService.createCustomer(dto);
+//        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+//    }
     
     @Override
     public ResponseEntity<CustomerDto> getCustomer(@PathVariable String id) {

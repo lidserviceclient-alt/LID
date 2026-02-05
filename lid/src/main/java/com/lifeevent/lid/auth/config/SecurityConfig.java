@@ -1,6 +1,5 @@
 package com.lifeevent.lid.auth.config;
 
-import com.lifeevent.lid.auth.config.converter.GoogleScopeConverter;
 import com.lifeevent.lid.auth.config.converter.LidRoleConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -116,13 +115,6 @@ public class SecurityConfig {
     }
 
 
-
-    @Bean
-    JwtAuthenticationConverter jwtGoogleAuthenticationConverter() {
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(new GoogleScopeConverter());
-        return converter;
-    }
 
     @Bean
     JwtAuthenticationConverter jwtLidAuthenticationConverter() {

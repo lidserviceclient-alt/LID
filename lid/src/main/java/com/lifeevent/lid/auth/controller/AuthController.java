@@ -1,6 +1,7 @@
 package com.lifeevent.lid.auth.controller;
 
-import com.lifeevent.lid.auth.dto.AuthResponse;
+import com.lifeevent.lid.auth.dto.AuthCustomerResponse;
+import com.lifeevent.lid.auth.dto.AuthPartnerResponse;
 import com.lifeevent.lid.auth.dto.RefreshResponse;
 import com.lifeevent.lid.auth.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,12 +20,16 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController implements IAuthController {
-
     private final AuthService authService;
 
     @Override
-    public AuthResponse loginWithGoogle(HttpServletRequest request, HttpServletResponse response) {
-        return authService.loginWithGoogle(request, response);
+    public AuthCustomerResponse loginCustomerWithGoogle(HttpServletRequest request, HttpServletResponse response) {
+        return authService.loginCustomerWithGoogle(request, response);
+    }
+
+    @Override
+    public AuthPartnerResponse loginPartnerWithGoogle(HttpServletRequest request, HttpServletResponse response) {
+        return authService.loginPartnerWithGoogle(request, response);
     }
 
     @Override

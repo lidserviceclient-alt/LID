@@ -14,7 +14,12 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "wishlist", uniqueConstraints = @UniqueConstraint(columnNames = {"customer_id", "article_id"}))
+@Table(
+        name = "wishlist",
+        uniqueConstraints = @UniqueConstraint(
+                columnNames = {"customer_user_id", "article_id"}
+        )
+)
 public class Wishlist extends BaseEntity {
 
     @Id
@@ -22,8 +27,10 @@ public class Wishlist extends BaseEntity {
     private Long id;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_user_id", nullable = false)
     private Customer customer;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "article_id", nullable = false)
     private Article article;
 }

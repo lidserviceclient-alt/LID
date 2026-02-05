@@ -24,16 +24,16 @@ import java.util.List;
 @SecurityRequirement(name = "Bearer Token")
 public interface ICustomerController {
     
-    @PostMapping
-    @PreAuthorize("permitAll")
-    @Operation(summary = "Créer un nouveau client", description = "Crée un nouveau profil client dans la plateforme (PUBLIC)")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "201", description = "Client créé avec succès",
-            content = @Content(schema = @Schema(implementation = CustomerDto.class))),
-        @ApiResponse(responseCode = "400", description = "Données invalides"),
-        @ApiResponse(responseCode = "409", description = "Email déjà existant")
-    })
-    ResponseEntity<CustomerDto> createCustomer(@RequestBody CustomerDto dto);
+//    @PostMapping
+//    @PreAuthorize("permitAll")
+//    @Operation(summary = "Créer un nouveau client", description = "Crée un nouveau profil client dans la plateforme (PUBLIC)")
+//    @ApiResponses(value = {
+//        @ApiResponse(responseCode = "201", description = "Client créé avec succès",
+//            content = @Content(schema = @Schema(implementation = CustomerDto.class))),
+//        @ApiResponse(responseCode = "400", description = "Données invalides"),
+//        @ApiResponse(responseCode = "409", description = "Email déjà existant")
+//    })
+//    ResponseEntity<CustomerDto> createCustomer(@RequestBody CustomerDto dto);
     
     @GetMapping("/{id}")
     @PreAuthorize("(#id == authentication.name) or hasRole('ADMIN')")

@@ -1,6 +1,7 @@
 package com.lifeevent.lid.auth.controller;
 
-import com.lifeevent.lid.auth.dto.AuthResponse;
+import com.lifeevent.lid.auth.dto.AuthCustomerResponse;
+import com.lifeevent.lid.auth.dto.AuthPartnerResponse;
 import com.lifeevent.lid.auth.dto.RefreshResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,17 +21,14 @@ import org.springframework.web.bind.annotation.PostMapping;
  */
 @Tag(name = "Authentification", description = "API pour la gestion de l'authentification et du refresh token")
 public interface IAuthController {
-    
+
     /**
-     * Authentification via Google OAuth2
-     * 
-     * Accepte un token Google ID JWT dans l'header Authorization et valide l'identité.
-     * Retourne un access token JWT et définit un refresh token en cookie.
+     * Authentification client via Google OAuth2 (alias explicite)
      */
-    @PostMapping("/login")
+    @PostMapping("/login/customer")
     @Operation(
-            summary = "Connexion avec Google OAuth2",
-            description = "Authentifie l'utilisateur avec un token Google OAuth2"
+            summary = "Connexion client (alias)",
+            description = "Alias explicite du login client Google OAuth2"
     )
     @SecurityRequirement(name = "Bearer Token")
     @ApiResponses({
@@ -38,18 +36,46 @@ public interface IAuthController {
             @ApiResponse(responseCode = "401", description = "Token Google invalide"),
             @ApiResponse(responseCode = "400", description = "Token manquant")
     })
-    AuthResponse loginWithGoogle(
-        @Parameter(
-            description = "Requête HTTP contenant le header Authorization avec le token Google",
-            required = true
-        )
-        HttpServletRequest request,
-        
-        @Parameter(
-            description = "Réponse HTTP pour définir le cookie refresh_token",
-            required = true
-        )
-        HttpServletResponse response
+    AuthCustomerResponse loginCustomerWithGoogle(
+            @Parameter(
+                    description = "Requête HTTP contenant le header Authorization avec le token Google",
+                    required = true
+            )
+            HttpServletRequest request,
+
+            @Parameter(
+                    description = "Réponse HTTP pour définir le cookie refresh_token",
+                    required = true
+            )
+            HttpServletResponse response
+    );
+
+    /**
+     * Authentification partner via Google OAuth2
+     */
+    @PostMapping("/login/partner")
+    @Operation(
+            summary = "Connexion partner avec Google OAuth2",
+            description = "Authentifie le partner avec un token Google OAuth2"
+    )
+    @SecurityRequirement(name = "Bearer Token")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Authentification réussie"),
+            @ApiResponse(responseCode = "401", description = "Token Google invalide"),
+            @ApiResponse(responseCode = "400", description = "Token manquant")
+    })
+    AuthPartnerResponse loginPartnerWithGoogle(
+            @Parameter(
+                    description = "Requête HTTP contenant le header Authorization avec le token Google",
+                    required = true
+            )
+            HttpServletRequest request,
+
+            @Parameter(
+                    description = "Réponse HTTP pour définir le cookie refresh_token",
+                    required = true
+            )
+            HttpServletResponse response
     );
     
     /**

@@ -3,6 +3,7 @@ package com.lifeevent.lid.user.customer.mapper;
 import com.lifeevent.lid.user.customer.dto.CustomerDto;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
 import java.util.List;
@@ -18,6 +19,7 @@ public interface CustomerMapper {
     /**
      * Convertir un CustomerDto en entité Customer
      */
+    @Mapping(target = "createdBy", source = "userId")
     Customer toEntity(CustomerDto dto);
 
     /**

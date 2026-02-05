@@ -99,12 +99,14 @@ public class PartnerServiceImpl implements PartnerService {
         // Mettre à jour les infos légales
         partnerMapper.updateEntityFromStep3(dto, partner);
         partner.setRegistrationStatus(PartnerRegistrationStatus.STEP_3_PENDING);
-        
+
         Partner updated = partnerRepository.save(partner);
         log.info("Infos légales ajoutées pour Partner: {}", partner.getUserId());
-        
+
         return partnerMapper.toResponseDto(updated);
     }
+
+    // Rôle PARTNER accordé uniquement après VERIFIED (pas à STEP_3_PENDING)
     
     @Override
     @Transactional(readOnly = true)

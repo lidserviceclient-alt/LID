@@ -16,4 +16,10 @@ import lombok.experimental.SuperBuilder;
 @PrimaryKeyJoinColumn(name = "user_id")
 public class Customer extends UserEntity {
     private String avatarUrl;
+    @Column(length = 30)
+    private String phoneNumber;
+    @Column(length = 100)
+    private String city;
+    @Column(length = 100)
+    private String country;
 }

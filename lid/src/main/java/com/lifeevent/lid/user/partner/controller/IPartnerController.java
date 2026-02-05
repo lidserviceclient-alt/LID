@@ -55,10 +55,10 @@ public interface IPartnerController {
      */
     @PostMapping("/register/step-2")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN')")
+    @PreAuthorize("(#p0.partnerId == authentication.name) or hasRole('ADMIN')")
     @Operation(
         summary = "Étape 2 - Ajouter les infos de boutique",
-        description = "Crée la boutique du Partner avec nom, catégorie principale, description (PARTNER or ADMIN)"
+        description = "Crée la boutique du Partner avec nom, catégorie principale, description (Own profile or ADMIN)"
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -79,6 +79,32 @@ public interface IPartnerController {
         )
         @RequestBody PartnerRegisterStep2RequestDto dto
     );
+
+    /**
+     * Récupérer les infos de l'ÉTAPE 1
+     * ENDPOINT PROTÉGÉ (Own profile or ADMIN)
+     */
+    @GetMapping("/register/step-1/{partnerId}")
+    @SecurityRequirement(name = "Bearer Token")
+    @PreAuthorize("(#p0 == authentication.name) or hasRole('ADMIN')")
+    @Operation(
+        summary = "Récupérer les infos de l'étape 1",
+        description = "Retourne les infos de base du Partner pour l'étape 1 (Own profile or ADMIN)"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Partner trouvé",
+            content = @Content(schema = @Schema(implementation = PartnerResponseDto.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Can view only own profile"),
+        @ApiResponse(responseCode = "404", description = "Partner non trouvé")
+    })
+    ResponseEntity<PartnerResponseDto> getRegisterStep1(
+        @Parameter(description = "ID du Partner", required = true)
+        @PathVariable String partnerId
+    );
     
     /**
      * ÉTAPE 3 : Ajouter les infos légales
@@ -86,10 +112,10 @@ public interface IPartnerController {
      */
     @PostMapping("/register/step-3")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN')")
+    @PreAuthorize("(#p0.partnerId == authentication.name) or hasRole('ADMIN')")
     @Operation(
         summary = "Étape 3 - Ajouter les infos légales",
-        description = "Complète l'enregistrement avec adresse, ville, pays et document de registration (PARTNER or ADMIN)"
+        description = "Complète l'enregistrement avec adresse, ville, pays et document de registration (Own profile or ADMIN)"
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -109,6 +135,58 @@ public interface IPartnerController {
             content = @Content(schema = @Schema(implementation = PartnerRegisterStep3RequestDto.class))
         )
         @RequestBody PartnerRegisterStep3RequestDto dto
+    );
+
+    /**
+     * Récupérer les infos de l'ÉTAPE 2
+     * ENDPOINT PROTÉGÉ (Own profile or ADMIN)
+     */
+    @GetMapping("/register/step-2/{partnerId}")
+    @SecurityRequirement(name = "Bearer Token")
+    @PreAuthorize("(#p0 == authentication.name) or hasRole('ADMIN')")
+    @Operation(
+        summary = "Récupérer les infos de l'étape 2",
+        description = "Retourne les infos boutique du Partner pour l'étape 2 (Own profile or ADMIN)"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Partner trouvé",
+            content = @Content(schema = @Schema(implementation = PartnerResponseDto.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Can view only own profile"),
+        @ApiResponse(responseCode = "404", description = "Partner non trouvé")
+    })
+    ResponseEntity<PartnerResponseDto> getRegisterStep2(
+        @Parameter(description = "ID du Partner", required = true)
+        @PathVariable String partnerId
+    );
+
+    /**
+     * Récupérer les infos de l'ÉTAPE 3
+     * ENDPOINT PROTÉGÉ (Own profile or ADMIN)
+     */
+    @GetMapping("/register/step-3/{partnerId}")
+    @SecurityRequirement(name = "Bearer Token")
+    @PreAuthorize("(#p0 == authentication.name) or hasRole('ADMIN')")
+    @Operation(
+        summary = "Récupérer les infos de l'étape 3",
+        description = "Retourne les infos légales du Partner pour l'étape 3 (Own profile or ADMIN)"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Partner trouvé",
+            content = @Content(schema = @Schema(implementation = PartnerResponseDto.class))
+        ),
+        @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Can view only own profile"),
+        @ApiResponse(responseCode = "404", description = "Partner non trouvé")
+    })
+    ResponseEntity<PartnerResponseDto> getRegisterStep3(
+        @Parameter(description = "ID du Partner", required = true)
+        @PathVariable String partnerId
     );
     
     /**

@@ -1,5 +1,6 @@
 package com.lifeevent.lid.user.customer.service.impl;
 
+import com.lifeevent.lid.cart.service.CartService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.user.customer.dto.CustomerDto;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
@@ -28,6 +29,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final CustomerRepository customerRepository;
     private final CustomerMapper customerMapper;
     private final UserService userService;
+    private final CartService cartService;
     
     @Override
     public CustomerDto createCustomer(CustomerDto dto) {
@@ -40,6 +42,7 @@ public class CustomerServiceImpl implements CustomerService {
         
         Customer customer = customerMapper.toEntity(dto);
         Customer saved = customerRepository.save(customer);
+        cartService.createCart(saved.getUserId());
         return customerMapper.toDto(saved);
     }
     

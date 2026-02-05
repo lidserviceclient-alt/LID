@@ -25,6 +25,18 @@ public class Shop extends BaseEntity {
     
     @Column(nullable = false)
     private String shopName;
+
+    @Column(nullable = false)
+    private String description;
+
+    @Column(nullable = false)
+    private String logoUrl;
+
+    @Column(nullable = false)
+    private String backgroundUrl;
+
+    @Column(nullable = false)
+    private ShopStatusEnum status;
     
     @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
     @JoinColumn(name = "main_category_id", nullable = false)

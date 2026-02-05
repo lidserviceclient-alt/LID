@@ -31,11 +31,29 @@ public class PartnerController implements IPartnerController {
         PartnerResponseDto updated = partnerService.registerStep2(dto);
         return ResponseEntity.ok(updated);
     }
+
+    @Override
+    public ResponseEntity<PartnerResponseDto> getRegisterStep1(@PathVariable String partnerId) {
+        Optional<PartnerResponseDto> partner = partnerService.getPartnerById(partnerId);
+        return ResponseUtils.getOrNotFound(partner, "Partner", partnerId);
+    }
     
     @Override
     public ResponseEntity<PartnerResponseDto> registerStep3(@RequestBody PartnerRegisterStep3RequestDto dto) {
         PartnerResponseDto updated = partnerService.registerStep3(dto);
         return ResponseEntity.ok(updated);
+    }
+
+    @Override
+    public ResponseEntity<PartnerResponseDto> getRegisterStep2(@PathVariable String partnerId) {
+        Optional<PartnerResponseDto> partner = partnerService.getPartnerById(partnerId);
+        return ResponseUtils.getOrNotFound(partner, "Partner", partnerId);
+    }
+
+    @Override
+    public ResponseEntity<PartnerResponseDto> getRegisterStep3(@PathVariable String partnerId) {
+        Optional<PartnerResponseDto> partner = partnerService.getPartnerById(partnerId);
+        return ResponseUtils.getOrNotFound(partner, "Partner", partnerId);
     }
     
     @Override
