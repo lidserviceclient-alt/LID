@@ -37,7 +37,7 @@ public interface IOrderController {
         @ApiResponse(responseCode = "400", description = "Requête invalide")
     })
     @PostMapping("/checkout")
-    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasRole('ADMIN')")
+    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     ResponseEntity<CheckoutResponseDto> checkout(
             @Parameter(description = "ID du client", example = "1", required = true)
             @RequestParam String customerId,
@@ -55,7 +55,7 @@ public interface IOrderController {
         @ApiResponse(responseCode = "403", description = "Accès refusé - Can view only own orders")
     })
     @GetMapping("/orders")
-    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasRole('ADMIN')")
+    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     ResponseEntity<List<OrderDetailDto>> getCustomerOrders(
             @Parameter(description = "ID du client", example = "1", required = true)
             @RequestParam String customerId,
@@ -72,7 +72,7 @@ public interface IOrderController {
         @ApiResponse(responseCode = "403", description = "Accès refusé - Can view only own orders")
     })
     @GetMapping("/orders/{id}")
-    @PreAuthorize("(hasRole('CUSTOMER') and @orderService.isOwnedByCurrentUser(#id)) or hasRole('ADMIN')")
+    @PreAuthorize("(hasRole('CUSTOMER') and @orderService.isOwnedByCurrentUser(#id)) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     ResponseEntity<?> getOrderDetail(
             @Parameter(description = "ID de la commande", example = "1", required = true)
             @PathVariable Long id);
@@ -85,7 +85,7 @@ public interface IOrderController {
         @ApiResponse(responseCode = "403", description = "Accès refusé - Can track only own orders")
     })
     @GetMapping("/orders/{id}/tracking")
-    @PreAuthorize("(hasRole('CUSTOMER') and @orderService.isOwnedByCurrentUser(#id)) or hasRole('ADMIN')")
+    @PreAuthorize("(hasRole('CUSTOMER') and @orderService.isOwnedByCurrentUser(#id)) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     ResponseEntity<?> getOrderTracking(
             @Parameter(description = "ID de la commande", example = "1", required = true)
             @PathVariable Long id);

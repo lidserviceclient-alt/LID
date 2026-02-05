@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -33,6 +34,9 @@ public class ArticleServiceImpl implements ArticleService {
     public ArticleDto createArticle(ArticleDto dto) {
         log.info("Création d'un nouvel article: {}", dto.getName());
         Article article = articleMapper.toEntity(dto);
+        if (article.getReferenceProduitPartenaire() == null || article.getReferenceProduitPartenaire().isBlank()) {
+            article.setReferenceProduitPartenaire("AUTO-" + UUID.randomUUID());
+        }
         article.setStatus(ArticleStatus.ACTIVE);
         Article saved = articleRepository.save(article);
         return articleMapper.toDto(saved);

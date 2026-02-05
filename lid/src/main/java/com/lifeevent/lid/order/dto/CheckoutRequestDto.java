@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * DTO pour initier un checkout
  */
@@ -43,4 +45,15 @@ public class CheckoutRequestDto {
      * Remarques optionnelles
      */
     private String notes;
+
+    /**
+     * Items à acheter (si le panier n'est pas stocké serveur)
+     */
+    private List<CheckoutItemDto> items;
+
+    /**
+     * URLs de retour PayDunya (optionnel; sinon config)
+     */
+    private String returnUrl;
+    private String cancelUrl;
 }

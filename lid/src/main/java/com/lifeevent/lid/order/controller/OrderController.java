@@ -7,7 +7,6 @@ import com.lifeevent.lid.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,21 +14,27 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@PreAuthorize("isAuthenticated()")
 public class OrderController implements IOrderController {
     
     private final OrderService orderService;
     
     @Override
     @PostMapping("/checkout")
-    public ResponseEntity<CheckoutResponseDto> checkout(String customerId, CheckoutRequestDto request) {
+    public ResponseEntity<CheckoutResponseDto> checkout(
+            @RequestParam String customerId,
+            @RequestBody CheckoutRequestDto request
+    ) {
         CheckoutResponseDto response = orderService.checkout(customerId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
     
     @Override
     @GetMapping("/orders")
-    public ResponseEntity<List<OrderDetailDto>> getCustomerOrders(String customerId, int page, int size) {
+    public ResponseEntity<List<OrderDetailDto>> getCustomerOrders(
+            @RequestParam String customerId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
         List<OrderDetailDto> orders = orderService.getOrdersByCustomer(customerId, page, size);
         return ResponseEntity.ok(orders);
     }

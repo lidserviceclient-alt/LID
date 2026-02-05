@@ -4,8 +4,17 @@ import com.lifeevent.lid.cart.entity.Cart;
 import com.lifeevent.lid.cart.entity.CartArticle;
 import com.lifeevent.lid.cart.repository.CartArticleRepository;
 import com.lifeevent.lid.cart.repository.CartRepository;
+import com.lifeevent.lid.article.entity.Article;
+import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
+import com.lifeevent.lid.payment.config.PaydunyaProperties;
+import com.lifeevent.lid.payment.dto.CreatePaymentRequestDto;
+import com.lifeevent.lid.payment.dto.PaymentItemDto;
+import com.lifeevent.lid.payment.dto.PaymentResponseDto;
+import com.lifeevent.lid.payment.dto.PaymentTaxDto;
+import com.lifeevent.lid.payment.enums.PaymentOperator;
+import com.lifeevent.lid.payment.service.PaymentService;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import com.lifeevent.lid.order.dto.*;
@@ -23,6 +32,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,30 +50,76 @@ public class OrderServiceImpl implements OrderService {
     private final CartRepository cartRepository;
     private final CartArticleRepository cartArticleRepository;
     private final CustomerRepository customerRepository;
+    private final ArticleRepository articleRepository;
+    private final PaymentService paymentService;
+    private final PaydunyaProperties paydunyaProperties;
     
     @Override
     public CheckoutResponseDto checkout(String customerId, CheckoutRequestDto request) {
         log.info("Initiation du checkout pour le client: {}", customerId);
         
         // Vérifier le client
-        Customer customer = customerRepository.findById(customerId)
-            .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId.toString()));
-        
-        // Récupérer le panier
-        Cart cart = cartRepository.findByCustomer_userId(customerId)
-            .orElseThrow(() -> new ResourceNotFoundException("Cart", "customerId", customerId.toString()));
-        
-        List<CartArticle> cartItems = cartArticleRepository.findByCart(cart);
-        
-        if (cartItems.isEmpty()) {
+        Customer customer = customerRepository.findById(customerId).orElseGet(() -> {
+            String email = request.getEmail();
+            if (email == null || email.isBlank()) {
+                email = customerId + "@unknown.local";
+            }
+            Customer created = Customer.builder()
+                    .userId(customerId)
+                    .email(email)
+                    .emailVerified(false)
+                    .build();
+            return customerRepository.save(created);
+        });
+
+        List<OrderArticle> orderArticles = new ArrayList<>();
+        double computedAmount = 0d;
+        String currency = (request.getCurrency() == null || request.getCurrency().isBlank()) ? "XOF" : request.getCurrency();
+
+        if (request.getItems() != null && !request.getItems().isEmpty()) {
+            for (CheckoutItemDto item : request.getItems()) {
+                Long articleId = item == null ? null : item.getArticleId();
+                int qty = item == null || item.getQuantity() == null ? 0 : item.getQuantity();
+                if (articleId == null || qty <= 0) continue;
+                Article article = articleRepository.findById(articleId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Article", "id", String.valueOf(articleId)));
+                double unit = article.getPrice() == null ? 0d : article.getPrice();
+                computedAmount += unit * qty;
+                OrderArticle oa = OrderArticle.builder()
+                        .article(article)
+                        .quantity(qty)
+                        .priceAtOrder(unit)
+                        .build();
+                orderArticles.add(oa);
+            }
+        } else {
+            Cart cart = cartRepository.findByCustomer_userId(customerId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Cart", "customerId", customerId.toString()));
+            List<CartArticle> cartItems = cartArticleRepository.findByCart(cart);
+            if (cartItems.isEmpty()) {
+                throw new IllegalArgumentException("Le panier est vide");
+            }
+            for (CartArticle cartItem : cartItems) {
+                double unit = cartItem.getArticle().getPrice() == null ? 0d : cartItem.getArticle().getPrice();
+                computedAmount += unit * cartItem.getQuantity();
+                OrderArticle oa = OrderArticle.builder()
+                        .article(cartItem.getArticle())
+                        .quantity(cartItem.getQuantity())
+                        .priceAtOrder(unit)
+                        .build();
+                orderArticles.add(oa);
+            }
+            cartArticleRepository.deleteByCart(cart);
+        }
+
+        if (orderArticles.isEmpty() || computedAmount <= 0d) {
             throw new IllegalArgumentException("Le panier est vide");
         }
-        
-        // Créer la commande
+
         Order order = Order.builder()
             .customer(customer)
-            .amount(request.getAmount())
-            .currency(request.getCurrency())
+            .amount(computedAmount)
+            .currency(currency)
             .currentStatus(Status.PENDING)
             .statusHistory(new ArrayList<>())
             .articles(new ArrayList<>())
@@ -71,17 +127,10 @@ public class OrderServiceImpl implements OrderService {
         
         Order savedOrder = orderRepository.save(order);
         
-        // Ajouter les articles de la commande
-        for (CartArticle cartItem : cartItems) {
-            OrderArticle orderArticle = OrderArticle.builder()
-                .order(savedOrder)
-                .article(cartItem.getArticle())
-                .quantity(cartItem.getQuantity())
-                .priceAtOrder(cartItem.getArticle().getPrice())
-                .build();
-            
-            orderArticleRepository.save(orderArticle);
-            savedOrder.getArticles().add(orderArticle);
+        for (OrderArticle oa : orderArticles) {
+            oa.setOrder(savedOrder);
+            orderArticleRepository.save(oa);
+            savedOrder.getArticles().add(oa);
         }
         
         // Ajouter un statut à l'historique
@@ -94,16 +143,56 @@ public class OrderServiceImpl implements OrderService {
         savedOrder.getStatusHistory().add(history);
         
         orderRepository.save(savedOrder);
-        
-        // Vider le panier après le checkout
-        cartArticleRepository.deleteByCart(cart);
-        
+
+        String fullName = java.util.stream.Stream.of(customer.getFirstName(), customer.getLastName())
+                .filter(v -> v != null && !v.isBlank())
+                .collect(Collectors.joining(" "));
+        if (fullName.isBlank()) fullName = customer.getEmail();
+        String email = request.getEmail() != null && !request.getEmail().isBlank() ? request.getEmail() : customer.getEmail();
+        String phone = request.getPhone() != null && !request.getPhone().isBlank() ? request.getPhone() : "+225000000000";
+
+        List<PaymentItemDto> paymentItems = savedOrder.getArticles().stream()
+                .map(oa -> PaymentItemDto.builder()
+                        .name(oa.getArticle().getName())
+                        .quantity(oa.getQuantity())
+                        .unitPrice(BigDecimal.valueOf(oa.getPriceAtOrder()))
+                        .totalPrice(BigDecimal.valueOf(oa.getPriceAtOrder() * oa.getQuantity()))
+                        .description(oa.getArticle().getDescription())
+                        .build())
+                .toList();
+
+        PaymentTaxDto tva = PaymentTaxDto.builder()
+                .name("TVA (18%)")
+                .amount(BigDecimal.valueOf(Math.round(savedOrder.getAmount() - (savedOrder.getAmount() / 1.18d))))
+                .build();
+
+        String returnUrl = request.getReturnUrl() != null && !request.getReturnUrl().isBlank()
+                ? request.getReturnUrl()
+                : paydunyaProperties.getReturnUrl();
+        String cancelUrl = request.getCancelUrl() != null && !request.getCancelUrl().isBlank()
+                ? request.getCancelUrl()
+                : paydunyaProperties.getCancelUrl();
+
+        PaymentResponseDto payment = paymentService.createPayment(CreatePaymentRequestDto.builder()
+                .orderId(savedOrder.getId())
+                .amount(BigDecimal.valueOf(savedOrder.getAmount()))
+                .description("Paiement commande ORD-" + savedOrder.getId())
+                .operator(PaymentOperator.CARD_CI)
+                .customerName(fullName)
+                .customerEmail(email)
+                .customerPhone(phone)
+                .returnUrl(returnUrl)
+                .cancelUrl(cancelUrl)
+                .items(paymentItems)
+                .taxes(List.of(tva))
+                .build());
+
         return CheckoutResponseDto.builder()
-            .orderId(savedOrder.getId())
-            .amount(request.getAmount())
-            .paymentUrl("https://paydunya.com/pay/placeholder")
-            .invoiceToken("TOKEN-" + savedOrder.getId())
-            .build();
+                .orderId(savedOrder.getId())
+                .amount(savedOrder.getAmount())
+                .paymentUrl(payment.getPaymentUrl())
+                .invoiceToken(payment.getInvoiceToken())
+                .build();
     }
     
     @Override

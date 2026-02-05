@@ -8,6 +8,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.web.client.RestTemplate;
 
 /**
  * Configuration PayDunya pour l'intégration des paiements.
@@ -42,4 +44,9 @@ public class PaydunyaConfig {
     //     store.setCancelUrl(properties.getCancelUrl());
     //     return store;
     // }
+
+    @Bean
+    RestTemplate paydunyaRestTemplate(RestTemplateBuilder builder) {
+        return builder.build();
+    }
 }

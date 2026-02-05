@@ -1,12 +1,11 @@
 package com.lifeevent.lid.user.customer.service.impl;
 
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.core.entity.Utilisateur;
+import com.lifeevent.lid.core.enums.RoleUtilisateur;
+import com.lifeevent.lid.core.repository.UtilisateurRepository;
 import com.lifeevent.lid.user.customer.dto.CustomerDto;
-import com.lifeevent.lid.user.customer.repository.CustomerRepository;
-import com.lifeevent.lid.user.customer.entity.Customer;
-import com.lifeevent.lid.user.customer.mapper.CustomerMapper;
 import com.lifeevent.lid.user.customer.service.CustomerService;
-import com.lifeevent.lid.user.common.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -14,10 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
- * Service Customer - délègue les opérations génériques à UserService,
- * ne gère que la logique spécifique au Customer (avatar, etc)
+ * Service Customer - Implémentation basée sur l'entité Utilisateur (lid.sql)
  */
 @Service
 @Transactional
@@ -25,72 +24,94 @@ import java.util.Optional;
 @Slf4j
 public class CustomerServiceImpl implements CustomerService {
     
-    private final CustomerRepository customerRepository;
-    private final CustomerMapper customerMapper;
-    private final UserService userService;
+    private final UtilisateurRepository utilisateurRepository;
     
     @Override
     public CustomerDto createCustomer(CustomerDto dto) {
         log.info("Création d'un nouveau client: {}", dto.getLastName());
         
-        // Vérifier l'email via UserService (pas de doublon)
-        if (userService.emailExists(dto.getEmail())) {
+        if (utilisateurRepository.findByEmail(dto.getEmail()).isPresent()) {
             throw new IllegalArgumentException("L'email existe déjà");
         }
         
-        Customer customer = customerMapper.toEntity(dto);
-        Customer saved = customerRepository.save(customer);
-        return customerMapper.toDto(saved);
+        Utilisateur utilisateur = new Utilisateur();
+        utilisateur.setEmail(dto.getEmail());
+        utilisateur.setNom(dto.getLastName());
+        utilisateur.setPrenom(dto.getFirstName());
+        utilisateur.setAvatarUrl(dto.getAvatarUrl());
+        utilisateur.setRole(RoleUtilisateur.CLIENT);
+        // Note: Password/Auth is handled separately usually
+        
+        Utilisateur saved = utilisateurRepository.save(utilisateur);
+        return toDto(saved);
     }
     
     @Override
     @Transactional(readOnly = true)
     public Optional<CustomerDto> getCustomerById(String id) {
-        // Utiliser CustomerRepository uniquement pour obtenir le Customer complet
-        return customerRepository.findById(id)
-            .map(customerMapper::toDto);
+        return utilisateurRepository.findById(id).map(this::toDto);
     }
     
     @Override
     @Transactional(readOnly = true)
     public List<CustomerDto> getAllCustomers() {
-        // Requête optimisée qui charge UNIQUEMENT les Customers, pas tous les UserEntity
-        return customerMapper.toDtoList(customerRepository.findAll());
+        return utilisateurRepository.findAll().stream()
+                .filter(u -> u.getRole() == RoleUtilisateur.CLIENT)
+                .map(this::toDto)
+                .collect(Collectors.toList());
     }
     
     @Override
     @Transactional(readOnly = true)
     public Optional<CustomerDto> getCustomerByEmail(String email) {
-        // Chercher spécifiquement dans les Customers
-        return customerRepository.findByEmail(email)
-            .map(customerMapper::toDto);
+        return utilisateurRepository.findByEmail(email).map(this::toDto);
     }
 
     
     @Override
     public CustomerDto updateCustomer(String id, CustomerDto dto) {
         log.info("Mise à jour du client: {}", id);
-        Customer customer = customerRepository.findById(id)
+        Utilisateur utilisateur = utilisateurRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", id));
         
-        customerMapper.updateEntityFromDto(dto, customer);
-        Customer updated = customerRepository.save(customer);
-        return customerMapper.toDto(updated);
+        if (dto.getFirstName() != null) utilisateur.setPrenom(dto.getFirstName());
+        if (dto.getLastName() != null) utilisateur.setNom(dto.getLastName());
+        if (dto.getAvatarUrl() != null) utilisateur.setAvatarUrl(dto.getAvatarUrl());
+        
+        if (dto.getEmail() != null && !dto.getEmail().equals(utilisateur.getEmail())) {
+             if (utilisateurRepository.findByEmail(dto.getEmail()).isPresent()) {
+                 throw new IllegalArgumentException("Email already taken");
+             }
+             utilisateur.setEmail(dto.getEmail());
+        }
+
+        Utilisateur updated = utilisateurRepository.save(utilisateur);
+        return toDto(updated);
     }
     
     @Override
     public void deleteCustomer(String id) {
         log.info("Suppression du client: {}", id);
-        if (!customerRepository.existsById(id)) {
+        if (!utilisateurRepository.existsById(id)) {
             throw new ResourceNotFoundException("Customer", "id", id);
         }
-        customerRepository.deleteById(id);
+        utilisateurRepository.deleteById(id);
     }
     
     @Override
     @Transactional(readOnly = true)
     public boolean emailExists(String email) {
-        // Déléguer à UserService pour vérifier TOUT utilisateur (Customer ou autre)
-        return userService.emailExists(email);
+        return utilisateurRepository.findByEmail(email).isPresent();
+    }
+
+    private CustomerDto toDto(Utilisateur utilisateur) {
+        return CustomerDto.builder()
+                .userId(utilisateur.getId())
+                .email(utilisateur.getEmail())
+                .firstName(utilisateur.getPrenom())
+                .lastName(utilisateur.getNom())
+                .avatarUrl(utilisateur.getAvatarUrl())
+                .createdAt(utilisateur.getDateCreation())
+                .build();
     }
 }

@@ -2,10 +2,12 @@ package com.lifeevent.lid.auth.config;
 
 import com.lifeevent.lid.auth.config.converter.GoogleScopeConverter;
 import com.lifeevent.lid.auth.config.converter.LidRoleConverter;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -17,7 +19,11 @@ import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -37,14 +43,15 @@ import java.util.List;
 @EnableMethodSecurity(prePostEnabled = true, securedEnabled = true)
 public class SecurityConfig {
 
-    @Value("${spring.profiles.active}")
+    @Value("${spring.profiles.active:}")
     private String activeProfile;
 
     @Bean
     @Order(1)
-    SecurityFilterChain authChain(HttpSecurity http) throws Exception {
-        if("local".equals(activeProfile)){
-            http.cors(corsSpec -> corsSpec.configurationSource(corsConfigurationSource()));
+    SecurityFilterChain authChain(HttpSecurity http, ObjectProvider<CorsConfigurationSource> corsProvider) throws Exception {
+        CorsConfigurationSource cors = corsProvider.getIfAvailable();
+        if (cors != null) {
+            http.cors(corsSpec -> corsSpec.configurationSource(cors));
         }
         return http
                 .securityMatcher("/api/v1/auth/**")
@@ -57,13 +64,17 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
-    SecurityFilterChain apiChain(HttpSecurity http,JwtDecoder lidApplicationDecoder) throws Exception {
-        if("local".equals(activeProfile)){
-            http.cors(corsSpec -> corsSpec.configurationSource(corsConfigurationSource()));
+    SecurityFilterChain apiChain(HttpSecurity http, JwtDecoder lidApplicationDecoder, ObjectProvider<CorsConfigurationSource> corsProvider) throws Exception {
+        CorsConfigurationSource cors = corsProvider.getIfAvailable();
+        if (cors != null) {
+            http.cors(corsSpec -> corsSpec.configurationSource(cors));
         }
         return http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/swagger-ui/**","/v3/api-docs/**","/actuator/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
+                        .requestMatchers("/api/v1/webhooks/**").permitAll()
+                        .requestMatchers("/api/backoffice/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/partners/register/**", "/api/v1/catalog/**").permitAll()
                         .requestMatchers("/api/v1/articles/search/**").permitAll()
                         .anyRequest().authenticated()
@@ -92,6 +103,11 @@ public class SecurityConfig {
         return new DefaultBearerTokenResolver();
     }
 
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
 
     @Bean
     JwtDecoder googleJwtDecoder(@Value("${config.security.google.jwk-set-uri}") String jwtSetUri,
@@ -104,7 +120,14 @@ public class SecurityConfig {
                     new OAuth2Error("invalid_token", "Invalid audience", null)
             );
         };
-        var decoder = NimbusJwtDecoder.withJwkSetUri(jwtSetUri).build();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(5000);
+        requestFactory.setReadTimeout(10000);
+        RestTemplate restTemplate = new RestTemplate(requestFactory);
+
+        var decoder = NimbusJwtDecoder.withJwkSetUri(jwtSetUri)
+                .restOperations(restTemplate)
+                .build();
         decoder.setJwtValidator(audienceValidator);
         return decoder;
     }
@@ -134,7 +157,8 @@ public class SecurityConfig {
 
 
     @Bean
-    @Profile("local")
+    @Profile({"local", "local-h2"})
+    @Primary
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
 

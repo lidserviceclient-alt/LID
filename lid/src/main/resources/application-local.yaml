@@ -1,17 +1,61 @@
+spring:
+  application:
+    name: lid
+  config:
+    import: "optional:file:../env/.env.local.properties"
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:lid}?serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  devtools:
+    restart:
+      enabled: false
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:lid.service.client@gmail.com}
+    password: ${MAIL_PASSWORD:pcapmvvllpdigmuw}
+    properties:
+      mail:
+        debug: true
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 config:
   security:
     app:
-      secret: "this-is-a-very-secure-secret-key-for-local-development-only-needs-to-be-long-enough"
-      issuer: "lid-local"
-      access-ttl-minutes: 60
-      refresh-ttl-days: 30
+      secret: ${APP_JWT_SECRET_KEY:9ef466e4efac58e0368cfea99019c3c473ec349a8f544e7753f9fb538a15745f}
+      issuer: ${APP_ISSUER:lid-local}
+      access-ttl-minutes: ${APP_ACCESS_TTL_MINUTES:60}
+      refresh-ttl-days: ${APP_REFRESH_TTL_DAYS:30}
+      reset-code-ttl-minutes: ${APP_RESET_CODE_TTL_MINUTES:15}
     google:
-      issuer-uri: "https://accounts.google.com"
-      jwk-set-uri: "https://www.googleapis.com/oauth2/v3/certs"
-      client-id: "264653021326-am0b1ll2ik7crh1si3lnfo2vt3j5lk36.apps.googleusercontent.com"
+      issuer-uri: ${GOOGLE_ISSUER_URI:https://accounts.google.com}
+      jwk-set-uri: ${GOOGLE_JWK_SET_URI:https://www.googleapis.com/oauth2/v3/certs}
+      client-id: ${GOOGLE_CLIENT_ID:264653021326-am0b1ll2ik7crh1si3lnfo2vt3j5lk36.apps.googleusercontent.com}
+    cors:
+      allowed-origins: "http://localhost:5173,http://localhost:5174"
+      allowed-methods: "GET,POST,PUT,DELETE,OPTIONS"
+      allowed-headers: "*"
+      allow-credentials: true
 
 paydunya:
-  masterKey: "dummy-master-key"
-  privateKey: "dummy-private-key"
-  publicKey: "dummy-public-key"
-  token: "dummy-token"
+  masterKey: ${PAYDUNYA_MASTER_KEY:dummy-master-key}
+  privateKey: ${PAYDUNYA_PRIVATE_KEY:dummy-private-key}
+  publicKey: ${PAYDUNYA_PUBLIC_KEY:dummy-public-key}
+  token: ${PAYDUNYA_TOKEN:dummy-token}
+  mode: ${PAYDUNYA_MODE:test}
+  callbackUrl: ${PAYDUNYA_CALLBACK_URL:http://localhost:9000/api/v1/webhooks/paydunya}
+  returnUrl: ${PAYDUNYA_RETURN_URL:http://localhost:5173/payment/success}
+  cancelUrl: ${PAYDUNYA_CANCEL_URL:http://localhost:5173/payment/cancel}

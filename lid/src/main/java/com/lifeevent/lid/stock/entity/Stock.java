@@ -8,14 +8,14 @@ import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
 
-@Entity
+@Entity(name = "ArticleStock")
 @Data
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "stock")
+@Table(name = "article_stock")
 public class Stock extends BaseEntity {
 
     @Id

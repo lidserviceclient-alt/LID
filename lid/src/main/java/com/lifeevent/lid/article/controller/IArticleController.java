@@ -26,7 +26,7 @@ public interface IArticleController {
 
     @PostMapping
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Créer un nouvel article", description = "Crée un nouvel article dans la plateforme (Partner/Admin)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Article créé avec succès",
@@ -44,7 +44,7 @@ public interface IArticleController {
             consumes = "multipart/form-data"
     )
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Importer des articles via CSV",
             description = "Importe plusieurs articles à partir d'un fichier CSV (Partner/Admin)")
     @ApiResponses(value = {

@@ -7,6 +7,7 @@ import com.lifeevent.lid.common.util.ResponseUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +22,8 @@ public class CustomerController implements ICustomerController {
     private final CartService cartService;
     
     @Override
+    @PostMapping
+    @PreAuthorize("permitAll")
     public ResponseEntity<CustomerDto> createCustomer(@RequestBody CustomerDto dto) {
         CustomerDto created = customerService.createCustomer(dto);
         cartService.createCart(created.getUserId());
@@ -28,18 +31,24 @@ public class CustomerController implements ICustomerController {
     }
     
     @Override
+    @GetMapping("/{id}")
+    @PreAuthorize("(#id == authentication.name) or hasRole('ADMIN')")
     public ResponseEntity<CustomerDto> getCustomer(@PathVariable String id) {
         Optional<CustomerDto> customer = customerService.getCustomerById(id);
         return ResponseUtils.getOrNotFound(customer, "Customer", id);
     }
     
     @Override
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<CustomerDto>> getAllCustomers() {
         List<CustomerDto> customers = customerService.getAllCustomers();
         return ResponseEntity.ok(customers);
     }
     
     @Override
+    @GetMapping("/email/{email}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CustomerDto> getCustomerByEmail(@PathVariable String email) {
         Optional<CustomerDto> customer = customerService.getCustomerByEmail(email);
         return ResponseUtils.getOrNotFound(customer, "Customer", "email", email);
@@ -47,6 +56,8 @@ public class CustomerController implements ICustomerController {
 
     
     @Override
+    @PutMapping("/{id}")
+    @PreAuthorize("(#id == authentication.name) or hasRole('ADMIN')")
     public ResponseEntity<CustomerDto> updateCustomer(
             @PathVariable String id,
             @RequestBody CustomerDto dto) {
@@ -55,12 +66,16 @@ public class CustomerController implements ICustomerController {
     }
     
     @Override
+    @DeleteMapping("/{id}")
+    @PreAuthorize("(#id == authentication.name) or hasRole('ADMIN')")
     public ResponseEntity<Void> deleteCustomer(@PathVariable String id) {
         customerService.deleteCustomer(id);
         return ResponseEntity.noContent().build();
     }
     
     @Override
+    @GetMapping("/check-email/{email}")
+    @PreAuthorize("permitAll")
     public ResponseEntity<Boolean> emailExists(@PathVariable String email) {
         return ResponseEntity.ok(customerService.emailExists(email));
     }

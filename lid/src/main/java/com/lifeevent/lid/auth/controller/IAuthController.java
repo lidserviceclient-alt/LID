@@ -1,7 +1,12 @@
 package com.lifeevent.lid.auth.controller;
 
 import com.lifeevent.lid.auth.dto.AuthResponse;
+import com.lifeevent.lid.auth.dto.ForgotPasswordRequest;
+import com.lifeevent.lid.auth.dto.ForgotPasswordResponse;
+import com.lifeevent.lid.auth.dto.LoginRequest;
 import com.lifeevent.lid.auth.dto.RefreshResponse;
+import com.lifeevent.lid.auth.dto.ResetPasswordRequest;
+import com.lifeevent.lid.auth.dto.VerifyResetCodeRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -10,10 +15,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 /**
  * Interface documentant les endpoints d'authentification pour Swagger
@@ -121,5 +128,57 @@ public interface IAuthController {
             required = true
         )
         HttpServletResponse response
+    );
+
+    @PostMapping("/password/forgot")
+    @Operation(
+        summary = "Demander un code de réinitialisation",
+        description = "Envoie un code de réinitialisation par email si l'utilisateur existe"
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Code envoyé si l'email existe"),
+        @ApiResponse(responseCode = "400", description = "Email invalide")
+    })
+    ForgotPasswordResponse forgotPassword(
+        @Valid @RequestBody ForgotPasswordRequest request
+    );
+
+    @PostMapping("/password/verify")
+    @Operation(
+        summary = "Vérifier un code de réinitialisation",
+        description = "Valide le code et sa date d'expiration"
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Code valide"),
+        @ApiResponse(responseCode = "400", description = "Code invalide ou expiré")
+    })
+    void verifyResetCode(
+        @Valid @RequestBody VerifyResetCodeRequest request
+    );
+
+    @PostMapping("/password/reset")
+    @Operation(
+        summary = "Réinitialiser le mot de passe",
+        description = "Réinitialise le mot de passe avec le code reçu"
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Mot de passe réinitialisé"),
+        @ApiResponse(responseCode = "400", description = "Code invalide ou expiré")
+    })
+    void resetPassword(
+        @Valid @RequestBody ResetPasswordRequest request
+    );
+
+    @PostMapping("/login/local")
+    @Operation(
+            summary = "Connexion locale (Backoffice)",
+            description = "Authentifie un utilisateur ADMIN/SUPER_ADMIN via email/mot de passe et retourne un access token JWT"
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Authentification réussie"),
+            @ApiResponse(responseCode = "400", description = "Identifiants invalides ou accès refusé")
+    })
+    AuthResponse loginLocal(
+            @Valid @RequestBody LoginRequest request
     );
 }
