@@ -2,7 +2,7 @@ import React from "react";
 import { cn } from "../../utils/cn.js";
 import { ChevronDown } from "lucide-react";
 
-const Select = React.forwardRef(({ className, children, ...props }, ref) => {
+const Select = React.forwardRef(({ className, children, options, ...props }, ref) => {
   return (
     <div className="relative">
       <select
@@ -13,7 +13,24 @@ const Select = React.forwardRef(({ className, children, ...props }, ref) => {
         ref={ref}
         {...props}
       >
-        {children}
+        {Array.isArray(options)
+          ? options.map((opt) => {
+              if (opt && typeof opt === "object") {
+                const value = opt.value ?? opt.label ?? "";
+                const label = opt.label ?? opt.value ?? "";
+                return (
+                  <option key={`${value}`} value={value} disabled={Boolean(opt.disabled)}>
+                    {label}
+                  </option>
+                );
+              }
+              return (
+                <option key={`${opt}`} value={opt}>
+                  {opt}
+                </option>
+              );
+            })
+          : children}
       </select>
       <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
     </div>

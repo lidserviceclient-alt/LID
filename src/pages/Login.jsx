@@ -1,25 +1,40 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Eye, EyeOff, Lock, Mail, ArrowRight, ShieldCheck } from "lucide-react";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import Label from "../components/ui/Label";
 import Card from "../components/ui/Card";
+import { backofficeApi } from "../services/api.js";
+import { setAccessToken } from "../services/auth.js";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || "/";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    setIsLoading(false);
-    navigate("/");
+    setError("");
+
+    try {
+      const response = await backofficeApi.loginLocal(email.trim(), password);
+      if (!response?.accessToken) {
+        throw new Error("Réponse invalide du serveur.");
+      }
+      setAccessToken(response.accessToken);
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(err?.message || "Connexion impossible.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -73,6 +88,12 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-foreground/80">Email professionnel</Label>
@@ -85,6 +106,8 @@ export default function Login() {
                     placeholder="admin@lid.ci"
                     type="email"
                     className="pl-10 h-12 bg-muted/30 border-border/60 focus:bg-background transition-all"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                   />
                 </div>
@@ -109,6 +132,8 @@ export default function Login() {
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     className="pl-10 pr-10 h-12 bg-muted/30 border-border/60 focus:bg-background transition-all"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
                   />
                   <button

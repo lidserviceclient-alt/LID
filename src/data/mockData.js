@@ -236,6 +236,8 @@ export const customers = [
 
 export const analyticsSeries = [18, 22, 26, 21, 28, 32, 30, 36, 33, 38, 41, 44];
 
+export const promoUsageSeries = [2, 1, 0, 3, 2, 4, 1, 5, 3, 2, 6, 4];
+
 export const channelMix = [
   { label: "Web", value: 48, color: "#0ea5a3" },
   { label: "Mobile", value: 32, color: "#f97316" },

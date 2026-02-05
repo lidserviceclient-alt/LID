@@ -18,6 +18,13 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+const enableAnalytics =
+  typeof window !== "undefined" && (import.meta.env.PROD || import.meta.env.VITE_ENABLE_ANALYTICS === "true");
+const analytics = enableAnalytics ? getAnalytics(app) : null;
+
+export async function getStorageClient() {
+  const { getStorage } = await import("firebase/storage");
+  return getStorage(app);
+}
 
 export { app, analytics };

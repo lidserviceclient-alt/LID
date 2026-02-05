@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   kpiData,
   orderPipeline,
@@ -5,33 +7,236 @@ import {
   lowStock,
   topProducts,
   analyticsSeries,
+  promoUsageSeries,
   teamActivity
 } from "../data/mockData.js";
+import { backofficeApi } from "../services/api.js";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Badge from "../components/ui/Badge.jsx";
 import Progress from "../components/ui/Progress.jsx";
 import Sparkline from "../components/charts/Sparkline.jsx";
-import BarChart from "../components/charts/BarChart.jsx";
+import LineChart from "../components/charts/LineChart.jsx";
 import Button from "../components/ui/Button.jsx";
+import Modal from "../components/ui/Modal.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 
+const formatCurrency = (value) => {
+  if (value === null || value === undefined) return "-";
+  const num = Number(value);
+  if (Number.isNaN(num)) return `${value}`;
+  return `${new Intl.NumberFormat("fr-FR").format(num)} FCFA`;
+};
+
+const mapStatus = (status) => {
+  if (!status) return "-";
+  switch (status) {
+    case "CREEE":
+      return "Nouvelle";
+    case "PAYEE":
+      return "En preparation";
+    case "EXPEDIEE":
+      return "Expediee";
+    case "LIVREE":
+      return "Livree";
+    case "ANNULEE":
+      return "Retournee";
+    case "REMBOURSEE":
+      return "Retournee";
+    default:
+      return status;
+  }
+};
+
+const formatCompact = (value) => {
+  if (value === null || value === undefined) return "-";
+  const num = Number(value);
+  if (Number.isNaN(num)) return `${value}`;
+  if (num >= 1_000_000) {
+    return `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(num / 1_000_000)} M`;
+  }
+  if (num >= 1_000) {
+    return `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(num / 1_000)} K`;
+  }
+  return `${new Intl.NumberFormat("fr-FR").format(num)}`;
+};
+
 export default function Dashboard() {
+  const [dashboard, setDashboard] = useState(null);
+  const [recentOrdersState, setRecentOrdersState] = useState(recentOrders);
+  const [orderPipelineState, setOrderPipelineState] = useState(orderPipeline);
+  const [analyticsSeriesState, setAnalyticsSeriesState] = useState(analyticsSeries);
+  const [promoUsageSeriesState, setPromoUsageSeriesState] = useState(promoUsageSeries);
+  const [lowStockState, setLowStockState] = useState(lowStock);
+  const [topProductsState, setTopProductsState] = useState(topProducts);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
+  const [overviewRaw, setOverviewRaw] = useState(null);
+
+  const navigate = useNavigate();
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const loadOverview = async () => {
+    setIsRefreshing(true);
+    try {
+      const data = await backofficeApi.overview();
+      if (!mountedRef.current) return;
+
+      setOverviewRaw(data);
+      setLastUpdatedAt(new Date());
+
+      if (data?.dashboard) {
+        setDashboard(data.dashboard);
+      }
+
+      if (Array.isArray(data?.recentOrders)) {
+        setRecentOrdersState(
+          data.recentOrders.map((order) => ({
+            id: order.id,
+            customer: order.customer,
+            channel: "Backoffice",
+            amount: formatCurrency(order.total),
+            status: mapStatus(order.status),
+            date: order.dateCreation
+          }))
+        );
+      }
+
+      if (Array.isArray(data?.analyticsSeries)) {
+        setAnalyticsSeriesState(data.analyticsSeries.map((v) => Number(v) || 0));
+      }
+
+      if (Array.isArray(data?.promoUsageSeries)) {
+        setPromoUsageSeriesState(data.promoUsageSeries.map((v) => Number(v) || 0));
+      }
+
+      if (Array.isArray(data?.orderPipeline)) {
+        const colors = {
+          Nouvelles: "bg-teal-500",
+          "En preparation": "bg-amber-500",
+          Expediees: "bg-emerald-500",
+          Retours: "bg-rose-500"
+        };
+        setOrderPipelineState(
+          data.orderPipeline.map((step) => ({
+            label: step.label,
+            value: Number(step.value) || 0,
+            color: colors[step.label] || "bg-primary"
+          }))
+        );
+      }
+
+      if (Array.isArray(data?.lowStock)) {
+        setLowStockState(data.lowStock);
+      }
+
+      if (Array.isArray(data?.topProducts)) {
+        setTopProductsState(
+          data.topProducts.map((product) => ({
+            name: product.name,
+            category: product.category || "-",
+            revenue: formatCompact(product.revenue),
+            delta: product.delta || "+0%"
+          }))
+        );
+      }
+    } catch {
+      // keep mock data on failure
+    } finally {
+      if (mountedRef.current) {
+        setIsRefreshing(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    loadOverview();
+  }, []);
+
+  const downloadReport = () => {
+    const timestamp = new Date().toISOString().replaceAll(":", "-");
+    const payload = overviewRaw || {
+      dashboard,
+      recentOrders: recentOrdersState,
+      orderPipeline: orderPipelineState,
+      analyticsSeries: analyticsSeriesState,
+      lowStock: lowStockState,
+      topProducts: topProductsState
+    };
+    const blob = new Blob([JSON.stringify({ generatedAt: new Date().toISOString(), ...payload }, null, 2)], {
+      type: "application/json;charset=utf-8"
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `lid-backoffice-report-${timestamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const kpis = dashboard
+    ? [
+        {
+          label: "Chiffre d'affaires",
+          value: formatCurrency(dashboard.totalRevenue),
+          trend: "Live",
+          trendDirection: "up",
+          hint: "Toutes commandes"
+        },
+        {
+          label: "Commandes",
+          value: `${dashboard.totalOrders}`,
+          trend: "Live",
+          trendDirection: "up",
+          hint: "Total"
+        },
+        {
+          label: "Commandes en attente",
+          value: `${dashboard.pendingOrders}`,
+          trend: "Live",
+          trendDirection: "down",
+          hint: "A traiter"
+        },
+        {
+          label: "Clients actifs",
+          value: `${dashboard.customers}`,
+          trend: "Live",
+          trendDirection: "up",
+          hint: "Base client"
+        }
+      ]
+    : kpiData;
+
   return (
+    <>
     <div className="space-y-6">
       <SectionHeader
         title="Tableau de bord"
         subtitle="Vue d'ensemble des opérations et de la performance."
         rightSlot={
           <>
-            <Button variant="outline">Synchroniser</Button>
-            <Button>Planifier un rapport</Button>
+            <Button variant="outline" onClick={loadOverview} disabled={isRefreshing}>
+              {isRefreshing ? "Synchronisation..." : "Synchroniser"}
+            </Button>
+            <Button onClick={() => setIsReportOpen(true)}>
+              Planifier un rapport
+            </Button>
           </>
         }
       />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {kpiData.map((kpi) => (
+        {kpis.map((kpi) => (
           <Card key={kpi.label} className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <p className="text-xs uppercase tracking-widest text-muted-foreground">
@@ -49,7 +254,7 @@ export default function Dashboard() {
               <p className="text-2xl font-bold text-foreground">{kpi.value}</p>
               <div className="w-24">
                 <Sparkline
-                  data={analyticsSeries}
+                  data={analyticsSeriesState}
                   color={kpi.trendDirection === "up" ? "hsl(var(--primary))" : "hsl(var(--destructive))"}
                 />
               </div>
@@ -67,10 +272,14 @@ export default function Dashboard() {
           />
           <div className="grid gap-6 md:grid-cols-3">
             <div className="md:col-span-2">
-              <BarChart data={analyticsSeries} barClassName="bg-primary" />
+              <LineChart
+                data={analyticsSeriesState}
+                className="h-56"
+                stroke="hsl(var(--foreground))"
+              />
             </div>
             <div className="space-y-6">
-              {orderPipeline.map((step) => (
+              {orderPipelineState.map((step) => (
                 <div key={step.label} className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{step.label}</span>
@@ -84,6 +293,19 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+
+          <div className="space-y-3 pt-2 border-t border-border/40">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Codes promo</p>
+                <p className="text-xs text-muted-foreground">Utilisations (pÃ©riode courante)</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => navigate("/promo-codes")}>
+                GÃ©rer
+              </Button>
+            </div>
+            <LineChart data={promoUsageSeriesState} className="h-24" />
+          </div>
         </Card>
 
         <Card className="space-y-6">
@@ -92,7 +314,7 @@ export default function Dashboard() {
             subtitle="Produits sous seuil"
           />
           <div className="space-y-4">
-            {lowStock.map((item) => (
+            {lowStockState.map((item) => (
               <div key={item.sku} className="flex items-center justify-between group">
                 <div>
                   <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{item.name}</p>
@@ -102,7 +324,13 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-          <Button variant="outline" className="w-full">Planifier un réappro</Button>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => navigate("/inventory")}
+          >
+            Planifier un réappro
+          </Button>
         </Card>
       </div>
 
@@ -111,7 +339,11 @@ export default function Dashboard() {
           <SectionHeader
             title="Dernières commandes"
             subtitle="Flux temps réel des ventes"
-            rightSlot={<Button variant="outline" size="sm">Voir toutes</Button>}
+            rightSlot={
+              <Button variant="outline" size="sm" onClick={() => navigate("/orders")}>
+                Voir toutes
+              </Button>
+            }
           />
           <div className="mt-4">
             <Table>
@@ -125,7 +357,7 @@ export default function Dashboard() {
                 </TRow>
               </THead>
               <tbody>
-                {recentOrders.map((order) => (
+                {recentOrdersState.map((order) => (
                   <TRow key={order.id}>
                     <TCell className="font-semibold text-foreground">{order.id}</TCell>
                     <TCell>{order.customer}</TCell>
@@ -144,7 +376,7 @@ export default function Dashboard() {
         <Card className="space-y-6">
           <SectionHeader title="Top produits" subtitle="Par revenu (7 jours)" />
           <div className="space-y-4">
-            {topProducts.map((product) => (
+            {topProductsState.map((product) => (
               <div key={product.name} className="flex items-center justify-between group">
                 <div>
                   <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{product.name}</p>
@@ -192,9 +424,53 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground">Associer accessoire + premium</p>
             </div>
           </div>
-          <Button variant="outline" className="w-full">Ouvrir la roadmap</Button>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => navigate("/marketing")}
+          >
+            Ouvrir la roadmap
+          </Button>
         </Card>
       </div>
     </div>
+
+    <Modal
+      isOpen={isReportOpen}
+      onClose={() => setIsReportOpen(false)}
+      title="Rapport - Vue d'ensemble"
+      footer={
+        <>
+          <Button variant="outline" onClick={() => setIsReportOpen(false)}>
+            Fermer
+          </Button>
+          <Button variant="outline" onClick={() => navigate("/analytics")}>
+            Ouvrir Analytics
+          </Button>
+          <Button onClick={downloadReport}>
+            Télécharger (JSON)
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3 text-sm">
+        <p className="text-muted-foreground">
+          Export rapide des données affichées dans la vue d'ensemble (utile pour un partage ou un audit).
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border border-border/60 p-3 bg-muted/20">
+            <p className="text-xs text-muted-foreground">Dernière mise à jour</p>
+            <p className="font-semibold text-foreground">
+              {lastUpdatedAt ? lastUpdatedAt.toLocaleString("fr-FR") : "-"}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border/60 p-3 bg-muted/20">
+            <p className="text-xs text-muted-foreground">Commandes (liste)</p>
+            <p className="font-semibold text-foreground">{recentOrdersState.length}</p>
+          </div>
+        </div>
+      </div>
+    </Modal>
+    </>
   );
 }

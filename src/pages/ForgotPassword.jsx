@@ -3,39 +3,54 @@ import { Link, useNavigate } from "react-router-dom";
 import { Mail, ArrowRight, ShieldCheck, Key, CheckCircle, ChevronLeft, AlertCircle } from "lucide-react";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
+import { backofficeApi } from "../services/api";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
+  const [codeDigits, setCodeDigits] = useState(["", "", "", "", "", ""]);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
 
-  const handleSendCode = (e) => {
+  const codeValue = codeDigits.join("");
+
+  const handleSendCode = async (e) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
-    // Simulation d'envoi
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await backofficeApi.forgotPassword(email);
+      setCodeDigits(["", "", "", "", "", ""]);
       setStep(2);
-    }, 1500);
+    } catch (err) {
+      setError(err.message || "Impossible d'envoyer le code.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleVerifyCode = (e) => {
+  const handleVerifyCode = async (e) => {
     e.preventDefault();
     setError("");
+    if (codeValue.length < 6) {
+      setError("Veuillez saisir le code complet.");
+      return;
+    }
     setIsLoading(true);
-    // Simulation de vérification
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await backofficeApi.verifyResetCode(codeValue);
       setStep(3);
-    }, 1500);
+    } catch (err) {
+      setError(err.message || "Code invalide ou expiré.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleResetPassword = (e) => {
+  const handleResetPassword = async (e) => {
     e.preventDefault();
     setError("");
 
@@ -50,12 +65,36 @@ export default function ForgotPassword() {
     }
 
     setIsLoading(true);
-    // Simulation de reset
-    setTimeout(() => {
-      setIsLoading(false);
-      // Redirection vers login
+    try {
+      await backofficeApi.resetPassword({ code: codeValue, newPassword: password });
       navigate("/login");
-    }, 1500);
+    } catch (err) {
+      setError(err.message || "Impossible de réinitialiser le mot de passe.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setError("");
+    setIsLoading(true);
+    try {
+      await backofficeApi.forgotPassword(email);
+      setCodeDigits(["", "", "", "", "", ""]);
+    } catch (err) {
+      setError(err.message || "Impossible de renvoyer le code.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCodeChange = (index, value) => {
+    const next = value.replace(/\D/g, "").slice(-1);
+    setCodeDigits((prev) => {
+      const updated = [...prev];
+      updated[index] = next;
+      return updated;
+    });
   };
 
   return (
@@ -150,17 +189,19 @@ export default function ForgotPassword() {
                   Code de vérification
                 </label>
                 <div className="flex gap-2 justify-between">
-                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
                     <input
                       key={i}
                       type="text"
                       maxLength={1}
                       className="w-12 h-14 text-center text-xl font-bold rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                      value={codeDigits[i]}
+                      onChange={(e) => handleCodeChange(i, e.target.value)}
                     />
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Vous n'avez rien reçu ? <button type="button" className="text-primary hover:underline">Renvoyer le code</button>
+                  Vous n'avez rien reçu ? <button type="button" className="text-primary hover:underline" onClick={handleResendCode}>Renvoyer le code</button>
                 </p>
               </div>
 

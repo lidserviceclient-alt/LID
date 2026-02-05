@@ -21,6 +21,8 @@ export default function Button({
   className, 
   variant = "primary", 
   size = "default",
+  isLoading = false,
+  disabled,
   ...props 
 }) {
   return (
@@ -31,6 +33,8 @@ export default function Button({
         sizes[size],
         className
       )}
+      disabled={disabled || isLoading}
+      aria-busy={isLoading || undefined}
       {...props}
     >
       {children}
