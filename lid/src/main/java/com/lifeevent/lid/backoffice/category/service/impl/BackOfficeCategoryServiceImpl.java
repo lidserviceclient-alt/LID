@@ -1,0 +1,134 @@
+package com.lifeevent.lid.backoffice.category.service.impl;
+
+import com.lifeevent.lid.article.entity.Category;
+import com.lifeevent.lid.article.enumeration.CategoryLevel;
+import com.lifeevent.lid.article.repository.CategoryRepository;
+import com.lifeevent.lid.backoffice.category.dto.BackOfficeCategoryDto;
+import com.lifeevent.lid.backoffice.category.dto.BulkCategoryResult;
+import com.lifeevent.lid.backoffice.category.dto.BulkCategoryResultItem;
+import com.lifeevent.lid.backoffice.category.mapper.BackOfficeCategoryMapper;
+import com.lifeevent.lid.backoffice.category.service.BackOfficeCategoryService;
+import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+@Service
+@Transactional
+@RequiredArgsConstructor
+@Slf4j
+public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService {
+
+    private final CategoryRepository categoryRepository;
+    private final BackOfficeCategoryMapper backOfficeCategoryMapper;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BackOfficeCategoryDto> getAll() {
+        return backOfficeCategoryMapper.toDtoList(categoryRepository.findAllByOrderByOrderIdxAsc());
+    }
+
+    @Override
+    public BackOfficeCategoryDto create(BackOfficeCategoryDto dto) {
+        Category entity = backOfficeCategoryMapper.toEntity(dto);
+        applyDefaults(entity, dto);
+        Category saved = categoryRepository.save(entity);
+        return backOfficeCategoryMapper.toDto(saved);
+    }
+
+    @Override
+    public BackOfficeCategoryDto update(Integer id, BackOfficeCategoryDto dto) {
+        Category entity = categoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id.toString()));
+        backOfficeCategoryMapper.updateEntityFromDto(dto, entity);
+        applyDefaults(entity, dto);
+        Category saved = categoryRepository.save(entity);
+        return backOfficeCategoryMapper.toDto(saved);
+    }
+
+    @Override
+    public void delete(Integer id) {
+        if (!categoryRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Category", "id", id.toString());
+        }
+        categoryRepository.deleteById(id);
+    }
+
+    @Override
+    public BulkCategoryResult bulkCreate(List<BackOfficeCategoryDto> dtos) {
+        List<BulkCategoryResultItem> results = new ArrayList<>();
+        int created = 0;
+        int total = dtos == null ? 0 : dtos.size();
+        if (dtos != null) {
+            for (int i = 0; i < dtos.size(); i++) {
+                BackOfficeCategoryDto dto = dtos.get(i);
+                try {
+                    create(dto);
+                    created++;
+                    results.add(BulkCategoryResultItem.builder()
+                            .index(i)
+                            .name(dto != null ? dto.getNom() : null)
+                            .success(true)
+                            .build());
+                } catch (Exception e) {
+                    log.warn("Bulk category create failed at index {}: {}", i, e.getMessage());
+                    results.add(BulkCategoryResultItem.builder()
+                            .index(i)
+                            .name(dto != null ? dto.getNom() : null)
+                            .success(false)
+                            .errorMessage(e.getMessage())
+                            .build());
+                }
+            }
+        }
+        return BulkCategoryResult.builder()
+                .total(total)
+                .created(created)
+                .results(results)
+                .build();
+    }
+
+    @Override
+    public void bulkDelete(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        categoryRepository.deleteAllById(ids);
+    }
+
+    @Override
+    public void purge(boolean withProducts) {
+        // NOTE: withProducts is reserved for future behavior (e.g. delete products too).
+        categoryRepository.deleteAll();
+    }
+
+    private void applyDefaults(Category entity, BackOfficeCategoryDto dto) {
+        if (entity.getLevel() == null) {
+            entity.setLevel(CategoryLevel.PRINCIPALE);
+        }
+        if (entity.getIsActivated() == null) {
+            entity.setIsActivated(Boolean.TRUE);
+        }
+        if (entity.getOrderIdx() == null) {
+            entity.setOrderIdx(0);
+        }
+        if ((entity.getSlug() == null || entity.getSlug().trim().isEmpty())
+                && dto != null && dto.getNom() != null && !dto.getNom().trim().isEmpty()) {
+            entity.setSlug(slugify(dto.getNom()));
+        }
+    }
+
+    private String slugify(String value) {
+        String normalized = Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+        String slug = normalized.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("(^-+|-+$)", "")
+                .replaceAll("-{2,}", "-");
+        return slug.isEmpty() ? null : slug;
+    }
+}

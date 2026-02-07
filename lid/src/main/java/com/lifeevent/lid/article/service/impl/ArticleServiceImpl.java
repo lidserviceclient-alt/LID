@@ -118,7 +118,7 @@ public class ArticleServiceImpl implements ArticleService {
         Article article = articleRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Article","articleId",id.toString()));
         // Soft delete: changer le statut au lieu de supprimer physiquement
-        article.setStatus(ArticleStatus.INACTIVE);
+        article.setStatus(ArticleStatus.DRAFT);
         articleRepository.save(article);
     }
 

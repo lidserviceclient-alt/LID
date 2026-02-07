@@ -34,7 +34,7 @@ public class BatchConfiguration {
         tokenizer.setDelimiter(";");
         tokenizer.setStrict(false);
         tokenizer.setNames(
-                "referenceProduitPartenaire",
+                "sku",
                 "ean",
                 "title",
                 "description",

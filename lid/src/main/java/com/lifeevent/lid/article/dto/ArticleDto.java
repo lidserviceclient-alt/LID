@@ -12,6 +12,7 @@ import java.util.List;
 @Builder
 public class ArticleDto {
     private Long id;
+    private String sku;
     private String name;
     private Double price;
     private String img;

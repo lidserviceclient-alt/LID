@@ -17,9 +17,9 @@ import java.util.Optional;
 public interface ArticleRepository extends JpaRepository<Article, Long> {
     
     /**
-     * Trouver par referenceProduitPartenaire (clé métier)
+     * Trouver par SKU (clé métier)
      */
-    Optional<Article> findByReferenceProduitPartenaire(String referenceProduitPartenaire);
+    Optional<Article> findBySku(String sku);
 
     /**
      * Trouver par EAN

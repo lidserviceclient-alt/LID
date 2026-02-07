@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class ArticleCsvDto {
 
-    private String referenceProduitPartenaire;
+    private String sku;
     private String ean;
 
     private String title;

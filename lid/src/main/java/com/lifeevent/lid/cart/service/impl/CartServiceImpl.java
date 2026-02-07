@@ -73,7 +73,7 @@ public class CartServiceImpl implements CartService {
         Article article = articleRepository.findById(articleId)
             .orElseThrow(() -> new ResourceNotFoundException("Article", "articleId", articleId.toString()));
 
-        if(ArticleStatus.INACTIVE.equals(article.getStatus()))
+        if(ArticleStatus.DRAFT.equals(article.getStatus()))
                 throw new RuntimeException("Article is not available");
         
 

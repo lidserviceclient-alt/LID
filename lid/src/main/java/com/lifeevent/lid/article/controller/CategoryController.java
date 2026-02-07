@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
 
-@RestController
-@RequestMapping("/api/v1/categories")
+// @RestController
+// @RequestMapping("/api/v1/categories")
 @RequiredArgsConstructor
 public class CategoryController implements ICategoryController {
     

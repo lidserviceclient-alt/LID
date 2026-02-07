@@ -40,5 +40,20 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM Order o WHERE o.customer.userId = :customerId AND o.currentStatus = :status")
     @EntityGraph(attributePaths = {"customer"})
     List<Order> findByCustomerAndStatus(@Param("customerId") String customerId, @Param("status") Status status);
-}
 
+    @EntityGraph(attributePaths = {"customer", "articles"})
+    @Query("""
+        SELECT o
+        FROM Order o
+        JOIN o.customer c
+        WHERE (:status IS NULL OR o.currentStatus = :status)
+          AND (
+            :q IS NULL OR :q = '' OR
+            LOWER(c.firstName) LIKE LOWER(CONCAT('%', :q, '%')) OR
+            LOWER(c.lastName) LIKE LOWER(CONCAT('%', :q, '%')) OR
+            LOWER(c.email) LIKE LOWER(CONCAT('%', :q, '%'))
+          )
+        ORDER BY o.createdAt DESC
+    """)
+    Page<Order> searchBackOffice(@Param("status") Status status, @Param("q") String q, Pageable pageable);
+}

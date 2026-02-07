@@ -1018,6 +1018,8 @@ components:
           format: double
         img:
           type: string
+        sku:
+          type: string
         ean:
           type: string
         vat:

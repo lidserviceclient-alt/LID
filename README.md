@@ -117,10 +117,10 @@ classDiagram
 
 * Les identifiants sont numériques (int), et auto-générés.
 * Article
+  * Le champ `sku` est l'identifiant produit de l'article.
   * Le champ `ean13` est le code-barre de l'article.
   * `vat` est le taux de tva. (0.18 = 18% en CIV).
 * Category
   * `orderIdx` est un entier qui permettra de trier les produits selon un ordre donné par l'administrateur.  
 * Perishable
   * `lot` représente un texte permettant de dissocier les livraisons de produits frais.  
-

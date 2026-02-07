@@ -10,5 +10,6 @@ public enum Status {
     READY_TO_DELIVER,    // Prêt à livrer
     DELIVERY_IN_PROGRESS,// En cours de livraison
     DELIVERED,           // Livré
-    CANCELED             // Annulé
+    CANCELED,            // Annulé
+    REFUNDED             // Remboursé
 }

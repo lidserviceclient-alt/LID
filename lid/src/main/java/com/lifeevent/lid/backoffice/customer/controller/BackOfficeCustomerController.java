@@ -1,0 +1,25 @@
+package com.lifeevent.lid.backoffice.customer.controller;
+
+import com.lifeevent.lid.backoffice.customer.dto.BackOfficeCustomerDto;
+import com.lifeevent.lid.backoffice.customer.service.BackOfficeCustomerService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/back-office/customers")
+@RequiredArgsConstructor
+public class BackOfficeCustomerController implements IBackOfficeCustomerController {
+
+    private final BackOfficeCustomerService backOfficeCustomerService;
+
+    @Override
+    public ResponseEntity<Page<BackOfficeCustomerDto>> getAll(int page, int size) {
+        return ResponseEntity.ok(backOfficeCustomerService.getAll(PageRequest.of(page, size)));
+    }
+
+    
+}

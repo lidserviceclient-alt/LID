@@ -17,7 +17,7 @@ import java.util.List;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(uniqueConstraints = @UniqueConstraint(columnNames = "referenceProduitPartenaire"))
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = "sku"))
 public class Article extends BaseEntity {
 
     @Id
@@ -25,7 +25,7 @@ public class Article extends BaseEntity {
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private String referenceProduitPartenaire;
+    private String sku;
 
     @Column(unique = true)
     private String ean;

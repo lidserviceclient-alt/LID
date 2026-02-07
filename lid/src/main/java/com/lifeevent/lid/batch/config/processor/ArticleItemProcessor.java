@@ -36,7 +36,7 @@ public class ArticleItemProcessor implements ItemProcessor<ArticleCsvDto, Articl
         final String currentPartnerId = SecurityUtils.getCurrentUserId();
         
         final Article transformedArticle = Article.builder()
-                .referenceProduitPartenaire(item.getReferenceProduitPartenaire())
+                .sku(item.getSku())
                 .name(title)
                 .description(item.getDescription())
                 .price(price)
@@ -72,7 +72,7 @@ public class ArticleItemProcessor implements ItemProcessor<ArticleCsvDto, Articl
         final Stock stock = Stock.builder()
                 .quantityAvailable(item.getStock())
                 .quantityReserved(0)
-                .lot(item.getReferenceProduitPartenaire())
+                .lot(item.getSku())
                 .build();
         log.info("[transformedStock] : ( {} ) ", stock);
         return stock;
@@ -82,7 +82,7 @@ public class ArticleItemProcessor implements ItemProcessor<ArticleCsvDto, Articl
 
 
     private boolean isEmpty(ArticleCsvDto item) {
-        return isBlank(item.getReferenceProduitPartenaire())
+        return isBlank(item.getSku())
                 && isBlank(item.getEan())
                 && isBlank(item.getTitle())
                 && isBlank(item.getDescription())
