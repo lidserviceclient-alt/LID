@@ -1,17 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { ArrowRight, TicketPercent, X } from "lucide-react";
 import { cn } from "@/utils/cn";
 import CheckoutFlow from "./CheckoutFlow";
-import { products } from "@/assets/data/products";
+import { resolveBackendAssetUrl } from "@/services/categoryService";
+import { getBestSellerCatalogProducts, getFeaturedCatalogProducts } from "@/services/productService";
 
 export default function Offer({ className, onClose }) {
   const [particles, setParticles] = useState([]);
   const [isFlipped, setIsFlipped] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const offerProduct = products.find(p => p.id === 1);
+  const [offerProduct, setOfferProduct] = useState(null);
+
+  const offerImageSrc = useMemo(() => {
+    const raw = offerProduct?.imageUrl || offerProduct?.image;
+    const resolved = raw ? resolveBackendAssetUrl(raw) : "";
+    return resolved || "/imgs/logo.png";
+  }, [offerProduct]);
+
+  const offerPrice = useMemo(() => Number(offerProduct?.price) || 0, [offerProduct?.price]);
 
   useEffect(() => {
     // Generate particles only once on mount to avoid hydration mismatch and re-renders
@@ -28,8 +37,27 @@ export default function Offer({ className, onClose }) {
     setParticles(newParticles);
   }, []); // Empty dependency array ensures this runs once on mount
 
+  useEffect(() => {
+    let cancelled = false;
+
+    Promise.all([
+      getFeaturedCatalogProducts(1).catch(() => []),
+      getBestSellerCatalogProducts(1).catch(() => [])
+    ]).then(([featured, bestsellers]) => {
+      if (cancelled) return;
+      const pick =
+        (Array.isArray(featured) && featured.length > 0 ? featured[0] : null) ||
+        (Array.isArray(bestsellers) && bestsellers.length > 0 ? bestsellers[0] : null);
+      setOfferProduct(pick || null);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
-    <section className={cn("w-full py-12 md:py-24 bg-neutral-950 text-white overflow-hidden relative rounded-3xl mx-auto max-w-full perspective-1000 bg-[url('https://i.pinimg.com/1200x/97/a7/da/97a7da613398da17f4a1b22e1b6be872.jpg')] bg-cover bg-center bg-no-repeat", className)}>
+    <section className={cn("w-full py-12 md:py-24 bg-neutral-950 text-white overflow-hidden relative rounded-3xl mx-auto max-w-full perspective-1000 bg-[url('/imgs/wall-1.jpg')] bg-cover bg-center bg-no-repeat", className)}>
       {/* Close Button for Modal Context */}
       {onClose && (
         <button 
@@ -104,8 +132,10 @@ export default function Offer({ className, onClose }) {
 
           <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center lg:justify-start">
             <button 
-              onClick={() => setShowCheckout(true)}
-              className="group relative px-8 py-4 bg-white text-black rounded-full font-bold text-lg overflow-hidden transition-all hover:scale-105 hover:shadow-[0_0_40px_rgba(255,255,255,0.3)] inline-flex items-center justify-center w-full sm:w-auto"
+              type="button"
+              disabled={!offerProduct}
+              onClick={() => offerProduct && setShowCheckout(true)}
+              className="group relative px-8 py-4 bg-white text-black rounded-full font-bold text-lg overflow-hidden transition-all hover:scale-105 hover:shadow-[0_0_40px_rgba(255,255,255,0.3)] inline-flex items-center justify-center w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-orange-400 via-red-500 to-orange-400 opacity-0 group-hover:opacity-10 transition-opacity duration-300" />
               <span className="relative flex items-center gap-2">
@@ -139,7 +169,7 @@ export default function Offer({ className, onClose }) {
 
         {/* 3D Floating Card */}
         <div className="flex justify-center w-full">
-            <TiltCard isFlipped={isFlipped} onClose={onClose} />
+            <TiltCard isFlipped={isFlipped} onClose={onClose} product={offerProduct} imageSrc={offerImageSrc} price={offerPrice} />
         </div>
       </div>
 
@@ -155,7 +185,7 @@ export default function Offer({ className, onClose }) {
   );
 }
 
-function TiltCard({ isFlipped, onClose }) {
+function TiltCard({ isFlipped, onClose, product, imageSrc, price }) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
 
@@ -213,10 +243,17 @@ function TiltCard({ isFlipped, onClose }) {
                 animate={{ opacity: isFlipped ? 0 : 1 }}
                 transition={{ duration: 0.15, delay: 0.2 }}
             >
-                <img 
-                    src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1000&auto=format&fit=crop" 
-                    alt="Nike Shoe" 
-                    className="w-[120%] h-auto object-cover drop-shadow-[0_30px_30px_rgba(0,0,0,0.5)] rotate-[-15deg] group-hover:rotate-[-5deg] group-hover:scale-110 transition-all duration-500 backface-hidden"
+                <img
+                    src={imageSrc}
+                    alt={product?.name || "Produit"}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = "/imgs/logo.png";
+                    }}
+                    className={cn(
+                      "h-auto drop-shadow-[0_30px_30px_rgba(0,0,0,0.5)] rotate-[-15deg] group-hover:rotate-[-5deg] group-hover:scale-110 transition-all duration-500 backface-hidden",
+                      product?.imageUrl || product?.image ? "w-[120%] object-cover" : "w-[70%] object-contain opacity-30"
+                    )}
                 />
             </motion.div>
 
@@ -228,8 +265,9 @@ function TiltCard({ isFlipped, onClose }) {
                 transition={{ duration: 0.15, delay: 0.2 }}
             >
                 <div className="bg-white/10 backdrop-blur-md p-2 md:p-3 rounded-2xl border border-white/20 shadow-xl">
-                    <h3 className="text-lg md:text-2xl font-bold text-white">85 000 FCFA</h3>
-                    <p className="text-[10px] md:text-xs text-neutral-400 line-through">165 000 FCFA</p>
+                    <h3 className="text-lg md:text-2xl font-bold text-white">
+                      {price && Number(price) > 0 ? `${Number(price).toLocaleString()} FCFA` : "—"}
+                    </h3>
                 </div>
             </motion.div>
 
@@ -240,7 +278,7 @@ function TiltCard({ isFlipped, onClose }) {
                 transition={{ duration: 0.15, delay: 0.2 }}
             >
                 <h3 className="text-lg md:text-3xl font-black italic text-white/10 tracking-widest uppercase">
-                    Air Max
+                    {product?.brand || product?.categoryName || "LID"}
                 </h3>
             </motion.div>
 
@@ -261,34 +299,34 @@ function TiltCard({ isFlipped, onClose }) {
                 style={{ transform: "rotateY(180deg)" }}
             >
                 <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 to-black p-5 md:p-8 flex flex-col">
-                    <h3 className="text-xl md:text-3xl font-bold text-white mb-2">Nike Air Max Pulse</h3>
+                    <h3 className="text-xl md:text-3xl font-bold text-white mb-2">{product?.name || "Offre exclusive"}</h3>
                     <div className="flex items-center gap-2 mb-3 md:mb-6">
-                        <span className="px-3 py-1 bg-orange-600/20 text-orange-400 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider">Best Seller</span>
-                        <span className="text-neutral-400 text-xs md:text-sm">Sneakers</span>
+                        {Boolean(product?.isBestSeller) ? (
+                          <span className="px-3 py-1 bg-orange-600/20 text-orange-400 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider">Best Seller</span>
+                        ) : Boolean(product?.isFeatured) ? (
+                          <span className="px-3 py-1 bg-orange-600/20 text-orange-400 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider">En phare</span>
+                        ) : (
+                          <span className="px-3 py-1 bg-orange-600/20 text-orange-400 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider">Offre</span>
+                        )}
+                        <span className="text-neutral-400 text-xs md:text-sm">{product?.categoryName || "Catalogue"}</span>
                     </div>
 
                     <div className="space-y-3 md:space-y-4 flex-1 overflow-y-auto no-scrollbar">
                         <p className="text-xs md:text-base text-neutral-300 leading-relaxed">
-                            La Air Max Pulse repousse les limites du style underground. 
-                            Inspirée de la scène musicale londonienne, elle apporte une touche 
-                            avant-gardiste à la légendaire gamme Air Max.
+                          {product?.name ? `Découvrez ${product.name} sur LID.` : "Découvrez ce produit sur LID."}
                         </p>
                         
-                        <div>
-                            <h4 className="text-xs md:text-sm font-bold text-neutral-500 uppercase tracking-wider mb-2">Tailles disponibles</h4>
-                            <div className="flex gap-2 flex-wrap">
-                                {["40", "41", "42", "43"].map(size => (
-                                    <span key={size} className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-neutral-800 border border-neutral-700 flex items-center justify-center text-white text-sm md:text-base font-medium hover:border-orange-500 transition-colors cursor-pointer">
-                                        {size}
-                                    </span>
-                                ))}
-                            </div>
+                        <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+                          <h4 className="text-xs md:text-sm font-bold text-neutral-500 uppercase tracking-wider mb-2">Stock</h4>
+                          <div className="text-white font-bold text-lg">
+                            {Number.isFinite(Number(product?.stock)) ? `${Number(product.stock)} disponible(s)` : "—"}
+                          </div>
                         </div>
                     </div>
 
                     <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-white/10">
                         <Link 
-                            to="/product/1"
+                            to={product?.id ? `/product/${product.id}` : "/shop"}
                             onClick={() => onClose && onClose()}
                             className="w-full py-3 md:py-4 bg-white text-black rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-neutral-200 transition-colors relative z-50 cursor-pointer text-sm md:text-base"
                         >

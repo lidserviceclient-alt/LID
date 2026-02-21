@@ -112,7 +112,8 @@ export default function ProductDetails() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
-  const isWishlisted = isInWishlist(product?.id);
+  const wishlistId = product?.id ?? product?.articleId ?? product?.productId;
+  const isWishlisted = isInWishlist(wishlistId);
   const [showFavNotification, setShowFavNotification] = useState(false);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);

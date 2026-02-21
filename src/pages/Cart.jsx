@@ -9,7 +9,9 @@ import {
 import { useCart } from "@/features/cart/CartContext";
 import { toast } from "sonner";
 import CheckoutFlow from "../components/CheckoutFlow";
-import { isAuthenticated } from "@/services/authService.js";
+import { getCurrentUserPayload, isAuthenticated } from "@/services/authService.js";
+import { quoteCheckout } from "@/services/orderService.js";
+import { resolveBackendAssetUrl } from "@/services/categoryService";
 
 // Mock Recommendations Data
 const recommendedProducts = [
@@ -38,7 +40,7 @@ const recommendedProducts = [
     name: "Sac à dos Explorer",
     brand: "Nike",
     price: 45.00,
-    image: "https://static.nike.com/a/images/t_PDP_1728_v1/f_auto,q_auto:eco/924d2757-788b-4c57-9c98-1329bb632975/elemental-backpack-21l-lZ51g5.png",
+    image: "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?q=80&w=1000&auto=format&fit=crop",
     category: "Accessoires",
     color: "Gris",
     size: "TU"
@@ -71,18 +73,65 @@ export default function Cart() {
     navigate('/profile?tab=orders');
   };
   
-  const handleApplyPromo = () => {
-    if (promoCode.toUpperCase() === "LID10") {
-      setAppliedPromo({ code: "LID10", discount: 0.10 });
-    } else if (promoCode.toUpperCase() === "WELCOME") {
-      setAppliedPromo({ code: "WELCOME", discount: 0.05 });
-    } else {
-      // Shake animation or error toast could go here
-      alert("Code promo invalide");
+  const handleApplyPromo = async () => {
+    const code = (promoCode || "").trim().toUpperCase();
+    if (!code) {
+      setAppliedPromo(null);
+      return;
+    }
+    if (!isAuthenticated()) {
+      navigate('/login', { state: { from: { pathname: '/cart' } } });
+      return;
+    }
+    const payload = getCurrentUserPayload();
+    if (!payload?.sub) {
+      toast.error("Veuillez vous connecter.");
+      return;
+    }
+    try {
+      const toArticleId = (value) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric <= 0) return null;
+        return Math.trunc(numeric);
+      };
+      const items = cartItems
+        .map((item) => {
+          const quantity = Number(item?.quantity) || 0;
+          if (quantity <= 0) return null;
+          const referenceProduitPartenaire = item?.referenceProduitPartenaire || item?.referencePartenaire || item?.sku;
+          const articleId = item?.articleId ?? toArticleId(item?.id);
+          if (!articleId && !referenceProduitPartenaire) return null;
+          return { articleId: articleId ?? undefined, referenceProduitPartenaire: referenceProduitPartenaire ?? undefined, quantity };
+        })
+        .filter(Boolean);
+      if (items.length === 0) {
+        toast.error("Panier invalide.");
+        return;
+      }
+      const res = await quoteCheckout(payload.sub, {
+        currency: "XOF",
+        email: payload?.email || "",
+        phone: "",
+        promoCode: code,
+        items
+      });
+
+      if (!res?.promoApplied) {
+        setAppliedPromo(null);
+        toast.error(res?.promoMessage || "Code promo invalide.");
+        return;
+      }
+
+      const discount = Number(res?.discountAmount) || 0;
+      setAppliedPromo({ code: res?.promoCode || code, discountAmount: discount });
+      toast.success(res?.promoMessage || "Code promo appliqué.");
+    } catch (err) {
+      setAppliedPromo(null);
+      toast.error(err?.response?.data?.message || err?.message || "Impossible d'appliquer le code promo.");
     }
   };
 
-  const discountAmount = appliedPromo ? cartTotal * appliedPromo.discount : 0;
+  const discountAmount = appliedPromo ? (Number(appliedPromo.discountAmount) || 0) : 0;
   const finalTotal = cartTotal - discountAmount + shippingCost;
   const progressToFreeShipping = Math.min((cartTotal / FREE_SHIPPING_THRESHOLD) * 100, 100);
 
@@ -199,7 +248,7 @@ export default function Cart() {
                       <div className="col-span-2 md:col-span-6 flex gap-4">
                         <Link to={`/product/${item.id}`} className="w-20 h-20 md:w-24 md:h-24 bg-neutral-100 dark:bg-neutral-800 rounded-xl overflow-hidden flex-shrink-0 p-2 cursor-pointer">
                           <img 
-                            src={item.image} 
+                            src={resolveBackendAssetUrl(item?.image || item?.imageUrl)} 
                             alt={item.name} 
                             className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal group-hover:scale-105 transition-transform duration-500" 
                           />
@@ -345,7 +394,7 @@ export default function Cart() {
                 {appliedPromo && (
                   <div className="mt-2 text-sm text-green-600 flex items-center gap-1">
                     <CheckCircle2 size={14} />
-                    Code "{appliedPromo.code}" appliqué (-{appliedPromo.discount * 100}%)
+                    Code "{appliedPromo.code}" appliqué (-{discountAmount.toLocaleString()} FCFA)
                   </div>
                 )}
               </div>
@@ -450,6 +499,7 @@ export default function Cart() {
         onSuccess={handlePaymentSuccess}
         shippingCost={shippingCost}
         discountAmount={discountAmount}
+        promoCode={appliedPromo?.code || ""}
       />
     </div>
   );

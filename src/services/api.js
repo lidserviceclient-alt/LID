@@ -26,6 +26,7 @@ api.interceptors.request.use(
     const accessToken = getAccessToken();
     const isAuthLogin = (config.url || '').includes('/api/v1/auth/login');
     const clientId = import.meta.env.VITE_CLIENT_ID;
+
     const existingAuth =
       config.headers?.Authorization ||
       config.headers?.authorization ||

@@ -1,16 +1,67 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 import { Link } from 'react-router-dom';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronDown, User, ShoppingBag, Heart, Zap } from 'lucide-react';
-import { categories } from '@/assets/data/categories';
+import { X, User, ShoppingBag, Heart, Zap } from "lucide-react";
+import { buildCategoryTree, getCatalogCategories } from "@/services/categoryService";
 
 export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
   const [expandedCategory, setExpandedCategory] = useState(null);
+  const [remoteCategories, setRemoteCategories] = useState([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [categoriesError, setCategoriesError] = useState("");
 
   const toggleCategory = (id) => {
     setExpandedCategory(expandedCategory === id ? null : id);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setIsLoadingCategories(true);
+      setCategoriesError("");
+      try {
+        const list = await getCatalogCategories();
+        if (cancelled) return;
+        setRemoteCategories(list);
+      } catch (e) {
+        if (!cancelled) {
+          setRemoteCategories([]);
+          setCategoriesError(e?.message || "Impossible de charger les catégories.");
+        }
+      } finally {
+        if (!cancelled) setIsLoadingCategories(false);
+      }
+    }
+    if (isOpen) load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  const menuCategories = useMemo(() => {
+    const tree = buildCategoryTree(remoteCategories);
+    return tree.map((root) => {
+      const subcategories = (root.children || [])
+        .map((child) => {
+          const items = (child.children || [])
+            .map((g) => ({
+              label: g?.nom,
+              slug: g?.slug || g?.id || ""
+            }))
+            .filter((g) => g.label && g.slug);
+          if (items.length === 0) return null;
+          return { title: child.nom, items };
+        })
+        .filter(Boolean)
+        .slice(0, 6);
+      return {
+        id: root.id,
+        label: root.nom,
+        subcategories,
+      };
+    });
+  }, [remoteCategories]);
 
   const sidebarVariants = {
     closed: { x: '-100%', transition: { type: 'spring', stiffness: 300, damping: 30 } },
@@ -102,7 +153,13 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
             <div className="p-4">
               <h3 className="px-4 text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Catégories</h3>
               <div className="space-y-1">
-                {categories.map((cat) => (
+                {isLoadingCategories ? (
+                  <div className="px-4 py-2 text-sm text-neutral-500 dark:text-neutral-400">Chargement...</div>
+                ) : categoriesError ? (
+                  <div className="px-4 py-2 text-sm text-red-600">{categoriesError}</div>
+                ) : menuCategories.length === 0 ? (
+                  <div className="px-4 py-2 text-sm text-neutral-500 dark:text-neutral-400">Aucune catégorie.</div>
+                ) : menuCategories.map((cat) => (
                   <div key={cat.id} className="rounded-xl overflow-hidden">
                     <button
                       onClick={() => toggleCategory(cat.id)}
@@ -113,13 +170,9 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <cat.icon size={20} />
                         <span className="font-medium">{cat.label}</span>
                       </div>
-                      <ChevronDown 
-                        size={16} 
-                        className={`transition-transform duration-300 ${expandedCategory === cat.id ? 'rotate-180' : ''}`}
-                      />
+                      <span className="text-neutral-400">{expandedCategory === cat.id ? "▾" : "▸"}</span>
                     </button>
                     
                     <AnimatePresence>
@@ -139,13 +192,13 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
                                 </h4>
                                 <ul className="pl-3 space-y-2 border-l border-neutral-200 dark:border-neutral-700 ml-0.5">
                                   {sub.items.map((item) => (
-                                    <li key={item}>
+                                    <li key={item.slug}>
                                       <Link 
-                                        to={`/shop?search=${item}`}
+                                        to={`/shop?category=${encodeURIComponent(item.slug)}`}
                                         onClick={onClose}
                                         className="block text-sm text-neutral-500 dark:text-neutral-400 hover:text-[#6aa200] pl-3 py-0.5"
                                       >
-                                        {item}
+                                        {item.label}
                                       </Link>
                                     </li>
                                   ))}

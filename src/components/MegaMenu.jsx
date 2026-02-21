@@ -1,12 +1,15 @@
-import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { useMemo, useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { createPortal } from "react-dom";
 // eslint-disable-next-line no-unused-vars
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight } from 'lucide-react';
-import { categories } from '@/assets/data/categories';
+import { motion, AnimatePresence } from "framer-motion";
+import { buildCategoryTree, getCatalogCategories, resolveBackendAssetUrl } from "@/services/categoryService";
 
 export default function MegaMenu({ isOpen, onClose }) {
-  const [activeCategory, setActiveCategory] = useState(categories[0]);
+  const [remoteCategories, setRemoteCategories] = useState([]);
+  const [activeCategoryId, setActiveCategoryId] = useState(null);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [categoriesError, setCategoriesError] = useState("");
 
   // Lock body scroll when menu is open
   useEffect(() => {
@@ -21,6 +24,63 @@ export default function MegaMenu({ isOpen, onClose }) {
       }
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setIsLoadingCategories(true);
+      setCategoriesError("");
+      try {
+        const list = await getCatalogCategories();
+        if (cancelled) return;
+        setRemoteCategories(list);
+      } catch (e) {
+        if (!cancelled) {
+          setRemoteCategories([]);
+          setCategoriesError(e?.message || "Impossible de charger les catégories.");
+        }
+      } finally {
+        if (!cancelled) setIsLoadingCategories(false);
+      }
+    }
+    if (isOpen) load();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  const menuCategories = useMemo(() => {
+    const tree = buildCategoryTree(remoteCategories);
+    return tree.map((root) => {
+      const subcategories = (root.children || [])
+        .map((child) => {
+          const items = (child.children || [])
+            .map((g) => ({
+              label: g?.nom,
+              slug: g?.slug || g?.id || ""
+            }))
+            .filter((g) => g.label && g.slug);
+          if (items.length === 0) return null;
+          return { title: child.nom, items };
+        })
+        .filter(Boolean)
+        .slice(0, 6);
+      const imageUrl = resolveBackendAssetUrl(root.imageUrl);
+      return {
+        id: root.id,
+        label: root.nom,
+        subcategories,
+        imageUrl,
+      };
+    });
+  }, [remoteCategories]);
+
+  const activeCategory = useMemo(() => {
+    const list = menuCategories;
+    if (!Array.isArray(list) || list.length === 0) return null;
+    if (!activeCategoryId) return list[0];
+    return list.find((c) => c.id === activeCategoryId) || list[0];
+  }, [menuCategories, activeCategoryId]);
 
   return (
     <AnimatePresence>
@@ -50,48 +110,50 @@ export default function MegaMenu({ isOpen, onClose }) {
               
               {/* Left Sidebar: Categories List */}
               <div className="w-1/4 h-full border-r border-neutral-100 dark:border-neutral-800 overflow-y-auto py-4 bg-neutral-50 dark:bg-neutral-900/50">
-                {categories.map((category) => (
-                  <button
-                    key={category.id}
-                    onMouseEnter={() => setActiveCategory(category)}
-                    className={`w-full text-left px-6 py-3 flex items-center justify-between group transition-all duration-200 ${
-                      activeCategory.id === category.id 
-                        ? 'bg-white dark:bg-neutral-800 shadow-sm border-l-4 border-[#6aa200]' 
-                        : 'hover:bg-neutral-100 dark:hover:bg-neutral-800 border-l-4 border-transparent'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <category.icon 
-                        size={20} 
-                        className={`${
-                          activeCategory.id === category.id 
-                            ? 'text-[#6aa200]' 
-                            : 'text-neutral-400 group-hover:text-neutral-600 dark:text-neutral-500 dark:group-hover:text-neutral-300'
-                        }`} 
-                      />
-                      <span className={`font-medium ${
-                        activeCategory.id === category.id 
-                          ? 'text-neutral-900 dark:text-white' 
-                          : 'text-neutral-600 dark:text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white'
-                      }`}>
-                        {category.label}
-                      </span>
-                    </div>
-                    {activeCategory.id === category.id && (
-                      <ChevronRight size={16} className="text-[#6aa200]" />
-                    )}
-                  </button>
-                ))}
+                {isLoadingCategories ? (
+                  <div className="px-6 py-3 text-sm text-neutral-500 dark:text-neutral-400">Chargement...</div>
+                ) : categoriesError ? (
+                  <div className="px-6 py-3 text-sm text-red-600">{categoriesError}</div>
+                ) : menuCategories.length === 0 ? (
+                  <div className="px-6 py-3 text-sm text-neutral-500 dark:text-neutral-400">
+                    Aucune catégorie.
+                  </div>
+                ) : (
+                  menuCategories.map((category) => (
+                    <button
+                      key={category.id}
+                      onMouseEnter={() => setActiveCategoryId(category.id)}
+                      className={`w-full text-left px-6 py-3 flex items-center justify-between group transition-all duration-200 ${
+                        activeCategory?.id === category.id
+                          ? "bg-white dark:bg-neutral-800 shadow-sm border-l-4 border-[#6aa200]"
+                          : "hover:bg-neutral-100 dark:hover:bg-neutral-800 border-l-4 border-transparent"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`font-medium ${
+                            activeCategory?.id === category.id
+                              ? "text-neutral-900 dark:text-white"
+                              : "text-neutral-600 dark:text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white"
+                          }`}
+                        >
+                          {category.label}
+                        </span>
+                      </div>
+                      {activeCategory?.id === category.id ? <span className="text-[#6aa200]">›</span> : null}
+                    </button>
+                  ))
+                )}
               </div>
 
               {/* Right Content Area */}
-              <div className="flex-1 h-full p-8 flex gap-8">
+              <div className="flex-1 h-full p-8 flex gap-8 overflow-y-auto">
                 
                 {/* Subcategories Grid */}
                 <div className="flex-1 grid grid-cols-2 gap-8 content-start">
-                  {activeCategory.subcategories.map((sub, index) => (
+                  {(activeCategory?.subcategories || []).map((sub, index) => (
                     <motion.div
-                      key={`${activeCategory.id}-${index}`}
+                      key={`${activeCategory?.id || "cat"}-${index}`}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
@@ -102,10 +164,14 @@ export default function MegaMenu({ isOpen, onClose }) {
                       </h3>
                       <ul className="space-y-2">
                         {sub.items.map((item) => (
-                          <li key={item}>
-                            <a href="#" className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-[#6aa200] dark:hover:text-[#6aa200] hover:translate-x-1 transition-all inline-block">
-                              {item}
-                            </a>
+                          <li key={item.slug}>
+                            <Link
+                              to={`/shop?category=${encodeURIComponent(item.slug)}`}
+                              onClick={onClose}
+                              className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-[#6aa200] dark:hover:text-[#6aa200] hover:translate-x-1 transition-all inline-block"
+                            >
+                              {item.label}
+                            </Link>
                           </li>
                         ))}
                       </ul>
@@ -116,26 +182,27 @@ export default function MegaMenu({ isOpen, onClose }) {
                 {/* Featured Image / Offer */}
                 <div className="w-1/3">
                   <motion.div
-                    key={activeCategory.id}
+                    key={activeCategory?.id || "active"}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     className="relative h-full rounded-2xl overflow-hidden group cursor-pointer"
                   >
-                    <img 
-                      src={activeCategory.image} 
-                      alt={activeCategory.label}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/90 via-neutral-900/20 to-transparent flex flex-col justify-end p-6 text-white">
-                      <span className="bg-[#6aa200] text-white text-xs font-bold px-3 py-1 rounded-full w-fit mb-3">
-                        Recommandé
-                      </span>
-                      <h3 className="text-2xl font-bold mb-2">{activeCategory.label}</h3>
-                      <p className="text-neutral-300 text-sm mb-4">{activeCategory.offer}</p>
-                      <button className="bg-white text-neutral-900 px-6 py-2 rounded-full font-bold text-sm hover:bg-neutral-100 transition-colors w-fit">
-                        Voir la collection
-                      </button>
-                    </div>
+                    {activeCategory?.imageUrl ? (
+                      <>
+                        <img
+                          src={activeCategory.imageUrl}
+                          alt={activeCategory?.label || ""}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/90 via-neutral-900/20 to-transparent flex flex-col justify-end p-6 text-white">
+                          <h3 className="text-2xl font-bold mb-2">{activeCategory?.label}</h3>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-neutral-900 to-neutral-700 flex items-end p-6 text-white">
+                        <h3 className="text-2xl font-bold">{activeCategory?.label}</h3>
+                      </div>
+                    )}
                   </motion.div>
                 </div>
 

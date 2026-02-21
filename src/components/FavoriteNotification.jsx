@@ -2,6 +2,9 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, X } from "lucide-react";
 import { useEffect } from "react";
+import { resolveBackendAssetUrl } from "@/services/categoryService";
+
+const FALLBACK_PRODUCT_IMAGE = "/imgs/logo.png";
 
 const FavoriteNotification = ({ isVisible, onClose, product, isAdding = true }) => {
   useEffect(() => {
@@ -25,8 +28,11 @@ const FavoriteNotification = ({ isVisible, onClose, product, isAdding = true }) 
           {/* Product Image */}
           <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-2 flex-shrink-0">
             <img 
-              src={product?.image} 
+              src={resolveBackendAssetUrl(product?.imageUrl || product?.image || product?.img) || FALLBACK_PRODUCT_IMAGE} 
               alt={product?.name} 
+              onError={(e) => {
+                e.currentTarget.src = FALLBACK_PRODUCT_IMAGE;
+              }}
               className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
             />
           </div>

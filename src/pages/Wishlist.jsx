@@ -6,6 +6,7 @@ import { ShoppingCart, Trash2, Heart, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWishlist } from '@/features/wishlist/WishlistContext';
 import { useCart } from '@/features/cart/CartContext';
+import { resolveBackendAssetUrl } from '@/services/categoryService';
 
 export default function Wishlist() {
   const { wishlistItems, removeFromWishlist } = useWishlist();
@@ -92,7 +93,7 @@ export default function Wishlist() {
               <div className="aspect-[4/5] bg-neutral-100 dark:bg-neutral-800 relative overflow-hidden">
                 <Link to={`/product/${product.id}`}>
                   <img 
-                    src={product.image} 
+                    src={resolveBackendAssetUrl(product.image)} 
                     alt={product.name}
                     className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                   />

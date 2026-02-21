@@ -17,8 +17,7 @@ import { useCart } from '@/features/cart/CartContext.jsx';
 import NavMobile from '../NavMobile.jsx'
 import { getCurrentUserPayload, getUserProfile } from '@/services/authService.js';
 
-const DEFAULT_AVATAR =
-  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80';
+const DEFAULT_AVATAR = 'https://www.transparentpng.com/download/user/gray-user-profile-icon-png-fP8Q1P.png';
 
 export default function Header() {
   const { theme, setTheme } = useTheme();
@@ -284,8 +283,8 @@ export default function Header() {
                 <nav className="flex items-center gap-10">
                     {[
                       { label: 'Accueil', path: '/' },
-                      { label: 'Boutique', path: '/shop' },
-                      { label: 'Organisateurs', path: '/sellers' },
+                      { label: 'Catalogues', path: '/shop' },
+                      { label: 'Partenaires', path: '/sellers' },
                       { label: 'Billetterie', path: '/tickets' },
                       { label: 'Blog', path: '/blog' },
                     ].map((link) => {

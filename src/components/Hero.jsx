@@ -1,49 +1,20 @@
-// eslint-disable-next-line no-unused-vars
+import { useEffect, useMemo, useState } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, Zap, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { ContainerTextFlip } from './textAnimat.jsx';
 import { useNavigate } from 'react-router-dom';
-import { Navigate } from 'react-router-dom';
-
- const productsRow1 = [
-  { img: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&q=80&fm=webp', name: 'URBAN JACKET', price: '$129' },
-  { img: 'https://images.unsplash.com/photo-1529139574466-a302d2052505?w=400&q=80&fm=webp', name: 'SILK DRESS', price: '$89' },
-  { img: 'https://images.unsplash.com/photo-1554568218-0f1715e72254?w=400&q=80&fm=webp', name: 'CLASSIC TEE', price: '$199' },
-  { img: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=400&q=80&fm=webp', name: 'NEON SHIRT', price: '$65' },
-  { img: 'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=400&q=80&fm=webp', name: 'SPORT LUXE', price: '$145' },
-  { img: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80&fm=webp', name: 'LEATHER BAG', price: '$149' },
-  { img: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=400&q=80&fm=webp', name: 'WOOL COAT', price: '$299' },
-  { img: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=400&q=80&fm=webp', name: 'SUMMER HAT', price: '$59' },
-  { img: 'https://images.unsplash.com/photo-1594223274512-ad4803739b7c?w=400&q=80&fm=webp', name: 'STREET SNEAKERS', price: '$180' },
-  { img: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400&q=80&fm=webp', name: 'WINTER SCARF', price: '$45' },
-];
-
-const productsRow2 = [
-  { img: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80&fm=webp', name: 'LUXURY WATCH', price: '$349' },
-  { img: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400&q=80&fm=webp', name: 'DESIGNER SUNGLASSES', price: '$199' },
-  { img: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80&fm=webp', name: 'WIRELESS HEADPHONES', price: '$279' },
-  { img: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=400&q=80&fm=webp', name: 'SMART WATCH', price: '$399' },
-  { img: 'https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=400&q=80&fm=webp', name: 'RUNNING SHOES', price: '$159' },
-  { img: 'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400&q=80&fm=webp', name: 'PREMIUM BACKPACK', price: '$229' },
-  { img: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=400&q=80&fm=webp', name: 'DENIM JEANS', price: '$119' },
-  { img: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&q=80&fm=webp', name: 'YOGA MAT PRO', price: '$89' },
-  { img: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400&q=80&fm=webp', name: 'CROSSBODY BAG', price: '$139' },
-  { img: 'https://images.unsplash.com/photo-1560343090-f0409e92791a?w=400&q=80&fm=webp', name: 'LEATHER WALLET', price: '$79' },
-  { img: 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?w=400&q=80&fm=webp', name: 'HOODIE STREETWEAR', price: '$95' },
-  { img: 'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=400&q=80&fm=webp', name: 'BLAZER PREMIUM', price: '$259' },
-  { img: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=400&q=80&fm=webp', name: 'PERFUME LUXURY', price: '$189' },
-  { img: 'https://images.unsplash.com/photo-1622445275576-721325f6ad24?w=400&q=80&fm=webp', name: 'BOOTS LEATHER', price: '$249' },
-  { img: 'https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=400&q=80&fm=webp', name: 'CARGO PANTS', price: '$129' },
-];
+import { getCatalogProductsPage } from '@/services/productService';
+import { resolveBackendAssetUrl } from '@/services/categoryService';
 
 const users = [
-  "https://randomuser.me/api/portraits/women/44.jpg",
-  "https://randomuser.me/api/portraits/men/32.jpg",
-  "https://randomuser.me/api/portraits/women/68.jpg",
-  "https://randomuser.me/api/portraits/men/86.jpg"
+  "https://i.pinimg.com/736x/db/2b/8b/db2b8bb42bb8494e4640759c66914915.jpg",
+  "https://i.pinimg.com/1200x/b3/a6/55/b3a655c44b783f5e3e3a2ff77576745a.jpg",
+  "https://i.pinimg.com/1200x/b2/ca/eb/b2caeb3b429b486bd1ee32a5ef1bb18e.jpg",
+  "https://i.pinimg.com/1200x/b8/e3/0c/b8e30c0bd21299e768d315448e6d60a0.jpg"
 ];
 
 const MarqueeRow = ({ items, direction = "left", speed = 10 }) => {
+  if (!items || items.length === 0) return null;
   return (
     <div className="flex overflow-hidden relative z-0 py-4">
       <motion.div
@@ -56,30 +27,43 @@ const MarqueeRow = ({ items, direction = "left", speed = 10 }) => {
         }}
         className="flex gap-4 flex-shrink-0 px-2"
       >
-        {[...items, ...items].map((product, i) => (
-          <div key={i} className="relative group w-[280px] sm:w-[350px] aspect-[4/5] flex-shrink-0 overflow-hidden rounded-xl bg-neutral-100 shadow-sm border border-neutral-200/50">
-            <img 
-              src={product.img} 
-              alt={product.name} 
-              width="350"
-              height="437"
-              loading={i < 4 ? "eager" : "lazy"}
-              fetchPriority={i < 4 ? "high" : "auto"}
-              className="w-full h-full object-cover opacity-90 grayscale group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700 ease-out"
-            />
-            {/* Gradient Overlay (Light Mode: White fade) */}
-            <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            
-            {/* Content */}
-            <div className="absolute bottom-0 left-0 p-6 translate-y-4 group-hover:translate-y-0 transition-transform duration-500 z-10">
-              <div className="flex items-center gap-2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
-                <span className="bg-orange-600 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">New</span>
+        {[...items, ...items].map((product, i) => {
+          const hasImage = Boolean(product?.img);
+          const src = hasImage ? product.img : "/imgs/logo.png";
+          const imgClass = hasImage
+            ? "w-full h-full object-cover opacity-90 grayscale group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700 ease-out"
+            : "w-full h-full object-contain opacity-30 p-10 transition-all duration-700 ease-out";
+
+          return (
+            <div key={i} className="relative group w-[280px] sm:w-[350px] aspect-[4/5] flex-shrink-0 overflow-hidden rounded-xl bg-neutral-100 shadow-sm border border-neutral-200/50">
+              <img 
+                src={src} 
+                alt={product.name} 
+                width="350"
+                height="437"
+                loading={i < 4 ? "eager" : "lazy"}
+                fetchPriority={i < 4 ? "high" : "auto"}
+                className={imgClass}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = "/imgs/logo.png";
+                  e.currentTarget.className = "w-full h-full object-contain opacity-30 p-10 transition-all duration-700 ease-out";
+                }}
+              />
+              {/* Gradient Overlay (Light Mode: White fade) */}
+              <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              
+              {/* Content */}
+              <div className="absolute bottom-0 left-0 p-6 translate-y-4 group-hover:translate-y-0 transition-transform duration-500 z-10">
+                <div className="flex items-center gap-2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
+                  <span className="bg-orange-600 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">New</span>
+                </div>
+                <h3 className="text-neutral-900 text-2xl font-black italic uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity duration-500">{product.name}</h3>
+                <p className="text-neutral-600 font-mono text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500">{product.price}</p>
               </div>
-              <h3 className="text-neutral-900 text-2xl font-black italic uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity duration-500">{product.name}</h3>
-              <p className="text-neutral-600 font-mono text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500">{product.price}</p>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </motion.div>
     </div>
   );
@@ -89,6 +73,7 @@ export default function Hero() {
   const navigate = useNavigate();
   const { scrollY } = useScroll();
   const y = useTransform(scrollY, [0, 500], [0, 200]);
+  const [catalogProducts, setCatalogProducts] = useState([]);
 
   const sentence = {
     hidden: { opacity: 1 },
@@ -117,6 +102,58 @@ export default function Hero() {
   const handleMouseMove = () => {
     // Optional: Add interaction logic here if needed
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    getCatalogProductsPage(0, 10)
+      .then((data) => {
+        if (cancelled) return;
+        setCatalogProducts(Array.isArray(data?.content) ? data.content : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCatalogProducts([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const apiItems = useMemo(() => {
+    return (Array.isArray(catalogProducts) ? catalogProducts : [])
+      .map((product, index) => {
+        const amount = Number(product?.price ?? product?.prix ?? product?.amount);
+        const currency = `${product?.currency || product?.devise || "FCFA"}`.trim() || "FCFA";
+        const price = Number.isFinite(amount) && amount > 0 ? `${amount.toLocaleString()} ${currency}` : `${product?.price || product?.prix || ""}`.trim() || "—";
+        return {
+          id: product?.id,
+          img: resolveBackendAssetUrl(product?.imageUrl || product?.image),
+          name: `${product?.name || product?.nom || product?.title || `Produit ${index + 1}`}`.trim(),
+          price
+        };
+      })
+      .filter((item) => item.img || item.name)
+      .slice(0, 10);
+  }, [catalogProducts]);
+
+  const fallbackItems = useMemo(() => {
+    return Array.from({ length: 10 }).map((_, index) => ({
+      id: `placeholder-${index}`,
+      img: "",
+      name: "Ajoutez vos produits",
+      price: ""
+    }));
+  }, []);
+
+  const [row1Items, row2Items] = useMemo(() => {
+    const items = apiItems.length > 0 ? apiItems : fallbackItems;
+    if (items.length <= 1) return [items, items];
+    const mid = Math.ceil(items.length / 2);
+    return [items.slice(0, mid), items.slice(mid)];
+  }, [apiItems, fallbackItems]);
 
   return (
     <section 
@@ -164,8 +201,8 @@ export default function Hero() {
 
       {/* Marquee Layers */}
       <div className="relative z-10 flex flex-col gap-8 -rotate-2 scale-105 origin-center transform-gpu">
-        <MarqueeRow items={productsRow1} direction="left" speed={150} />
-        <MarqueeRow items={productsRow2} direction="right" speed={140} />
+        <MarqueeRow items={row1Items} direction="left" speed={150} />
+        <MarqueeRow items={row2Items} direction="right" speed={140} />
       </div>
 
       {/* Floating UI Controls */}

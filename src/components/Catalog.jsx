@@ -14,14 +14,46 @@ import {
   List,
   ChevronRight
 } from "lucide-react";
-import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useCart } from "@/features/cart/CartContext";
 import { useWishlist } from "@/features/wishlist/WishlistContext";
-import { products, categories, brands, colors, priceRanges } from "@/assets/data/products";
+import { getCatalogProductsPage } from "@/services/productService";
+import { resolveBackendAssetUrl } from "@/services/categoryService";
 import FavoriteNotification from "./FavoriteNotification";
 
 // --- Components ---
+
+const priceRanges = [
+  { label: "Moins de 5 000", min: 0, max: 4999 },
+  { label: "5 000 - 10 000", min: 5000, max: 10000 },
+  { label: "10 000 - 25 000", min: 10000, max: 25000 },
+  { label: "25 000 - 50 000", min: 25000, max: 50000 },
+  { label: "Plus de 50 000", min: 50000, max: Number.POSITIVE_INFINITY },
+];
+
+const parseCsvParam = (value) => {
+  const raw = `${value || ""}`.trim();
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((v) => `${v || ""}`.trim())
+    .filter(Boolean);
+};
+
+const normalizeSortParam = (value) => {
+  const v = `${value || ""}`.trim().toLowerCase();
+  if (!v) return "featured";
+  if (v === "featured" || v === "pertinence") return "featured";
+  if (v === "newest" || v === "nouveautes" || v === "nouveautés") return "newest";
+  if (v === "price-asc" || v === "prix-asc" || v === "prixcroissant") return "price-asc";
+  if (v === "price-desc" || v === "prix-desc" || v === "prixdecroissant") return "price-desc";
+  if (v === "reviews" || v === "avis" || v === "avis-clients") return "reviews";
+  if (v === "bestsellers" || v === "best-sellers" || v === "trending") return "featured";
+  return "featured";
+};
+
+const FALLBACK_PRODUCT_IMAGE = "/imgs/logo.png";
 
 const ProductSection = ({ title, products, onSeeAll }) => {
   if (!products || products.length === 0) return null;
@@ -109,6 +141,10 @@ const FilterSection = ({ title, children, isOpen = true }) => {
 };
 
 const FiltersContent = ({ 
+  categoryOptions = [],
+  brandOptions = [],
+  colorOptions = [],
+  showRatingFilter = false,
   selectedCategories, setSelectedCategories,
   selectedBrands, setSelectedBrands,
   selectedPriceRange, setSelectedPriceRange,
@@ -123,7 +159,7 @@ const FiltersContent = ({
   return (
     <div className="space-y-2">
        {/* Active Filters Summary */}
-       {(selectedCategories.length > 0 || selectedBrands.length > 0 || selectedPriceRange || minRating) && (
+       {(selectedCategories.length > 0 || selectedBrands.length > 0 || selectedPriceRange || (showRatingFilter && minRating)) && (
          <div className="mb-6 pb-4 border-b border-neutral-200 dark:border-neutral-800">
            <div className="flex justify-between items-center mb-2">
              <h3 className="font-bold text-sm">Filtres actifs</h3>
@@ -132,44 +168,52 @@ const FiltersContent = ({
          </div>
        )}
 
-       <FilterSection title="Avis client">
-         <div className="space-y-1">
-           {[4, 3, 2, 1].map(stars => (
-             <RatingFilter 
-               key={stars} 
-               stars={stars} 
-               checked={minRating === stars} 
-               onChange={() => setMinRating(minRating === stars ? null : stars)} 
-             />
-           ))}
-         </div>
-       </FilterSection>
+       {showRatingFilter ? (
+         <FilterSection title="Avis client">
+           <div className="space-y-1">
+             {[4, 3, 2, 1].map((stars) => (
+               <RatingFilter 
+                 key={stars} 
+                 stars={stars} 
+                 checked={minRating === stars} 
+                 onChange={() => setMinRating(minRating === stars ? null : stars)} 
+               />
+             ))}
+           </div>
+         </FilterSection>
+       ) : null}
 
-       <FilterSection title="Marques">
-         <div className="space-y-1">
-           {brands.map(brand => (
-             <FilterCheckbox 
-               key={brand} 
-               label={brand} 
-               checked={selectedBrands.includes(brand)}
-               onChange={() => toggleFilter(setSelectedBrands, brand)}
-             />
-           ))}
-         </div>
-       </FilterSection>
+       {brandOptions.length > 0 ? (
+         <FilterSection title="Marques">
+           <div className="space-y-1">
+             {brandOptions.map((brand) => (
+               <FilterCheckbox 
+                 key={brand.value} 
+                 label={brand.label} 
+                 checked={selectedBrands.includes(brand.value)}
+                 onChange={() => toggleFilter(setSelectedBrands, brand.value)}
+                 count={brand.count}
+               />
+             ))}
+           </div>
+         </FilterSection>
+       ) : null}
 
-       <FilterSection title="Catégories">
-         <div className="space-y-1">
-           {categories.map(cat => (
-             <FilterCheckbox 
-               key={cat} 
-               label={cat} 
-               checked={selectedCategories.includes(cat)}
-               onChange={() => toggleFilter(setSelectedCategories, cat)}
-             />
-           ))}
-         </div>
-       </FilterSection>
+       {categoryOptions.length > 0 ? (
+         <FilterSection title="Catégories">
+           <div className="space-y-1">
+             {categoryOptions.map((cat) => (
+               <FilterCheckbox 
+                 key={cat.value} 
+                 label={cat.label} 
+                 checked={selectedCategories.includes(cat.value)}
+                 onChange={() => toggleFilter(setSelectedCategories, cat.value)}
+                 count={cat.count}
+               />
+             ))}
+           </div>
+         </FilterSection>
+       ) : null}
 
        <FilterSection title="Prix">
          <div className="space-y-1">
@@ -191,21 +235,23 @@ const FiltersContent = ({
          </div>
        </FilterSection>
 
-       <FilterSection title="Couleurs">
-          <div className="flex flex-wrap gap-2">
-            {colors.map(col => (
-              <button
-                key={col.name}
-                onClick={() => toggleFilter(setSelectedColors, col.name)}
-                className={`w-8 h-8 rounded-full border-2 transition-all ${selectedColors.includes(col.name) ? 'border-orange-600 scale-110' : 'border-transparent hover:border-neutral-300 dark:hover:border-neutral-700'}`}
-                style={{ backgroundColor: col.hex }}
-                title={col.name}
-              >
-                <span className="sr-only">{col.name}</span>
-              </button>
-            ))}
-          </div>
-       </FilterSection>
+       {colorOptions.length > 0 ? (
+         <FilterSection title="Couleurs">
+            <div className="flex flex-wrap gap-2">
+              {colorOptions.map((col) => (
+                <button
+                  key={col.value}
+                  onClick={() => toggleFilter(setSelectedColors, col.value)}
+                  className={`w-8 h-8 rounded-full border-2 transition-all ${selectedColors.includes(col.value) ? 'border-orange-600 scale-110' : 'border-transparent hover:border-neutral-300 dark:hover:border-neutral-700'}`}
+                  style={{ backgroundColor: col.hex }}
+                  title={col.label}
+                >
+                  <span className="sr-only">{col.label}</span>
+                </button>
+              ))}
+            </div>
+         </FilterSection>
+       ) : null}
     </div>
   );
 };
@@ -213,14 +259,28 @@ const FiltersContent = ({
 export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) => {
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
-  const isWishlisted = isInWishlist(product.id);
-  const navigate = useNavigate();
+  const wishlistId = product?.id ?? product?.articleId ?? product?.productId;
+  const isWishlisted = isInWishlist(wishlistId);
+  const price = Number(product?.price) || 0;
+  const rating = Number(product?.rating) || 0;
+  const reviews = Number(product?.reviews) || 0;
+
+  const rawImage = product?.imageUrl || product?.image;
+  const resolvedImage = rawImage ? resolveBackendAssetUrl(rawImage) : "";
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [resolvedImage]);
+
+  const hasRealImage = Boolean(resolvedImage) && !imageFailed;
+  const imageSrc = hasRealImage ? resolvedImage : FALLBACK_PRODUCT_IMAGE;
+  const imageIsPlaceholder = !hasRealImage;
 
   const handleWishlist = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const isAdding = !isWishlisted;
-    toggleWishlist(product);
+    const isAdding = toggleWishlist(product);
     if (onWishlistToggle) {
       onWishlistToggle(product, isAdding);
     }
@@ -234,10 +294,10 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
         await navigator.share({
           title: product.name,
           text: `Découvre ${product.name} sur LID !`,
-          url: `${window.location.origin}/product/${product.id}`,
+          url: `${window.location.origin}/product/${wishlistId}`,
         });
       } else {
-        await navigator.clipboard.writeText(`${window.location.origin}/product/${product.id}`);
+        await navigator.clipboard.writeText(`${window.location.origin}/product/${wishlistId}`);
         toast.success("Lien copié !");
       }
     } catch (err) {
@@ -265,15 +325,16 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
             )}
           </div>
           
-          <Link to={`/product/${product.id}`} className="block w-full h-full">
+          <Link to={`/product/${wishlistId}`} className="block w-full h-full">
             <motion.img 
-              src={product.image} 
+              src={imageSrc} 
               alt={product.name}
               width="400"
               height="500"
+              onError={() => setImageFailed(true)}
               whileHover={{ scale: 1.1 }}
               transition={{ duration: 0.4 }}
-              className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
+              className={`w-full h-full object-contain ${imageIsPlaceholder ? "opacity-30" : "mix-blend-multiply dark:mix-blend-normal"}`}
             />
           </Link>
         </motion.div>
@@ -281,7 +342,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
         {/* Product Details - List Layout */}
         <div className="flex-1 flex flex-col p-4 gap-2">
           <div className="flex justify-between items-start">
-            <Link to={`/product/${product.id}`}>
+            <Link to={`/product/${wishlistId}`}>
               <h3 className="font-medium text-lg text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors">
                 {product.name}
               </h3>
@@ -289,12 +350,14 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
             
             <div className="flex gap-2">
               <button 
+                type="button"
                 onClick={handleWishlist}
                 className="p-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full text-neutral-600 dark:text-neutral-300 transition-colors"
               >
                 <Heart className={`w-4 h-4 ${isWishlisted ? "fill-orange-500 text-orange-500" : ""}`} />
               </button>
               <button 
+                type="button"
                 onClick={handleShare}
                 className="p-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full text-neutral-600 dark:text-neutral-300 transition-colors"
               >
@@ -310,12 +373,12 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
                 <Star 
                   key={i} 
                   size={14} 
-                  fill={i < Math.floor(product.rating) ? "currentColor" : "none"} 
-                  className={i < Math.floor(product.rating) ? "text-[#FFA41C]" : "text-neutral-300 dark:text-neutral-600"}
+                  fill={i < Math.floor(rating) ? "currentColor" : "none"} 
+                  className={i < Math.floor(rating) ? "text-[#FFA41C]" : "text-neutral-300 dark:text-neutral-600"}
                 />
               ))}
             </div>
-            <span className="text-xs text-cyan-700 dark:text-cyan-400 hover:underline cursor-pointer font-medium">{product.reviews.toLocaleString()}</span>
+            <span className="text-xs text-cyan-700 dark:text-cyan-400 hover:underline cursor-pointer font-medium">{reviews.toLocaleString()}</span>
           </div>
 
           {/* Description or extra info could go here */}
@@ -328,7 +391,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
             <div className="flex flex-col">
                <div className="flex items-baseline gap-2">
                  <span className="text-2xl font-bold text-neutral-900 dark:text-white">
-                   {product.price.toLocaleString()} <span className="text-sm">FCFA</span>
+                   {price.toLocaleString()} <span className="text-sm">FCFA</span>
                  </span>
                  {product.originalPrice && (
                    <span className="text-xs text-neutral-500 line-through">
@@ -356,7 +419,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
             {/* Add to Cart Button */}
             <button 
                onClick={() => { 
-                 addToCart({ ...product, size: product.sizes[0] || 'Unique' });
+                 addToCart({ ...product, size: product.sizes?.[0] || 'Unique' });
                  toast.success("Ajouté au panier");
                }}
                className="py-2.5 px-6 bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm rounded-full shadow-sm hover:shadow transition-all flex items-center justify-center gap-2 active:scale-95 whitespace-nowrap"
@@ -391,6 +454,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
         {/* Actions */}
         <div className="absolute top-2 right-2 z-20 flex flex-col gap-2">
           <button 
+            type="button"
             onClick={handleWishlist}
             aria-label={isWishlisted ? "Retirer de la wishlist" : "Ajouter à la wishlist"}
             className="p-1.5 sm:p-2 bg-white/80 dark:bg-black/40 hover:bg-white dark:hover:bg-neutral-700 backdrop-blur-sm rounded-full text-neutral-600 dark:text-neutral-300 transition-colors shadow-sm"
@@ -399,6 +463,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
           </button>
           
           <button 
+            type="button"
             onClick={handleShare}
             aria-label="Partager ce produit"
             className="hidden sm:block p-2 bg-white/80 dark:bg-black/40 hover:bg-white dark:hover:bg-neutral-700 backdrop-blur-sm rounded-full text-neutral-600 dark:text-neutral-300 transition-colors shadow-sm translate-x-10 group-hover:translate-x-0 opacity-0 group-hover:opacity-100 duration-300"
@@ -407,16 +472,17 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
           </button>
         </div>
 
-        <Link to={`/product/${product.id}`} className="block w-full h-full">
+        <Link to={`/product/${wishlistId}`} className="block w-full h-full">
           <motion.img 
-            src={product.image} 
+            src={imageSrc} 
             alt={product.name}
             width="400"
             height="500"
             loading="lazy"
+            onError={() => setImageFailed(true)}
             whileHover={{ scale: 1.1 }}
             transition={{ duration: 0.4 }}
-            className="w-full h-full object-cover"
+            className={`w-full h-full ${imageIsPlaceholder ? "object-contain opacity-30 p-8" : "object-cover"}`}
           />
         </Link>
       </div>
@@ -424,7 +490,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
       {/* Product Details - Amazon Modern Style */}
       <div className="flex-1 flex flex-col p-3 sm:p-4 gap-1.5 sm:gap-2">
         {/* Title */}
-        <Link to={`/product/${product.id}`}>
+        <Link to={`/product/${wishlistId}`}>
           <h3 className="font-medium text-neutral-900 dark:text-white group-hover:text-orange-600 transition-colors line-clamp-2 leading-snug text-sm sm:text-[15px]">
             {product.name}
           </h3>
@@ -437,18 +503,18 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
               <Star 
                 key={i} 
                 size={12} 
-                fill={i < Math.floor(product.rating) ? "currentColor" : "none"} 
-                className={i < Math.floor(product.rating) ? "text-[#FFA41C]" : "text-neutral-300 dark:text-neutral-600"}
+                fill={i < Math.floor(rating) ? "currentColor" : "none"} 
+                className={i < Math.floor(rating) ? "text-[#FFA41C]" : "text-neutral-300 dark:text-neutral-600"}
               />
             ))}
           </div>
-          <span className="text-[10px] sm:text-xs text-cyan-700 dark:text-cyan-400 hover:underline cursor-pointer font-medium">({product.reviews})</span>
+          <span className="text-[10px] sm:text-xs text-cyan-700 dark:text-cyan-400 hover:underline cursor-pointer font-medium">({reviews})</span>
         </div>
 
         {/* Price Block */}
         <div className="flex items-baseline gap-1.5 mt-0.5">
            <span className="text-lg sm:text-2xl font-bold text-neutral-900 dark:text-white">
-             {product.price.toLocaleString()} <span className="text-xs sm:text-sm">FCFA</span>
+             {price.toLocaleString()} <span className="text-xs sm:text-sm">FCFA</span>
            </span>
            {product.originalPrice && (
              <span className="text-[10px] sm:text-xs text-neutral-500 line-through">
@@ -477,7 +543,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
           <button 
              onClick={(e) => {
                e.preventDefault();
-               addToCart({ ...product, size: product.sizes[0] || 'Unique' });
+               addToCart({ ...product, size: product.sizes?.[0] || 'Unique' });
                toast.success("Ajouté au panier");
              }}
              className="w-full py-2 sm:py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs sm:text-sm rounded-full shadow-sm hover:shadow transition-all flex items-center justify-center gap-1.5 sm:gap-2 active:scale-95"
@@ -493,28 +559,107 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
 };
 
 export default function Catalog({ showFilters = true, showHeader = true, limit = null }) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParamsString = searchParams.toString();
   const searchQuery = searchParams.get('q') || '';
   const categoryParam = searchParams.get('category');
+  const sortParam = searchParams.get('sort');
+
+  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadedPages, setLoadedPages] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadError, setLoadError] = useState("");
 
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedBrands, setSelectedBrands] = useState([]);
 
-  // Sync category from URL params
   useEffect(() => {
-    if (categoryParam) {
-      // Use requestAnimationFrame to avoid synchronous setState warning
-      const frame = requestAnimationFrame(() => setSelectedCategories([categoryParam]));
-      return () => cancelAnimationFrame(frame);
-    }
-  }, [categoryParam]);
+    let cancelled = false;
+    setIsLoading(true);
+    setLoadError("");
+    fetchPage(0)
+      .then(({ content, pages }) => {
+        if (cancelled) return;
+        setCatalogProducts(Array.isArray(content) ? content : []);
+        setLoadedPages(1);
+        setTotalPages(Math.max(1, pages));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(err?.message || "Erreur lors du chargement des produits");
+        setCatalogProducts([]);
+        setLoadedPages(0);
+        setTotalPages(1);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (limit) return;
+    if (isLoading) return;
+    if (loadError) return;
+    if (loadedPages <= 0) return;
+
+    let cancelled = false;
+    const maxPrefetchPages = 3;
+
+    (async () => {
+      const target = Math.min(totalPages, maxPrefetchPages);
+      for (let p = loadedPages; p < target; p++) {
+        if (cancelled) return;
+        try {
+          const { content } = await fetchPage(p);
+          if (cancelled) return;
+          setCatalogProducts((prev) => mergeUniqueById(prev, content));
+          setLoadedPages((prev) => Math.max(prev, p + 1));
+        } catch {
+          return;
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, loadError, loadedPages, limit, totalPages]);
+
   const [selectedColors, setSelectedColors] = useState([]);
   const [selectedPriceRange, setSelectedPriceRange] = useState(null);
   const [minRating, setMinRating] = useState(null);
-  const [sortBy, setSortBy] = useState('featured');
+  const [sortBy, setSortBy] = useState(() => normalizeSortParam(sortParam));
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useState('grid');
+  const [visibleCount, setVisibleCount] = useState(40);
   const [favNotification, setFavNotification] = useState({ show: false, product: null, isAdding: true });
+
+  const pageSize = 80;
+  const hasMorePages = loadedPages < totalPages;
+
+  const mergeUniqueById = (prev, next) => {
+    const map = new Map();
+    for (const p of Array.isArray(prev) ? prev : []) {
+      if (p?.id) map.set(p.id, p);
+    }
+    for (const p of Array.isArray(next) ? next : []) {
+      if (p?.id && !map.has(p.id)) map.set(p.id, p);
+    }
+    return [...map.values()];
+  };
+
+  const fetchPage = async (page) => {
+    const data = await getCatalogProductsPage(page, pageSize);
+    const content = Array.isArray(data?.content) ? data.content : [];
+    const pages = Number.isFinite(Number(data?.totalPages)) ? Number(data.totalPages) : 1;
+    return { content, pages };
+  };
 
   const handleWishlistToggle = (product, isAdding) => {
     setFavNotification({
@@ -524,30 +669,146 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
     });
   };
 
-  // Filter Logic
-  const filteredProducts = useMemo(() => {
-    let result = products.filter(product => {
-      const matchCategory = selectedCategories.length === 0 || selectedCategories.includes(product.category);
-      const matchBrand = selectedBrands.length === 0 || selectedBrands.includes(product.brand);
-      const matchColor = selectedColors.length === 0 || selectedColors.includes(product.color);
-      const matchPrice = !selectedPriceRange || (product.price >= selectedPriceRange.min && product.price <= selectedPriceRange.max);
-      const matchRating = !minRating || product.rating >= minRating;
-      
-      const matchSearch = !searchQuery || 
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        product.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchQuery.toLowerCase());
+  const categoryOptions = useMemo(() => {
+    const counts = new Map();
+    const labels = new Map();
+    for (const p of Array.isArray(catalogProducts) ? catalogProducts : []) {
+      const slug = `${p?.categorySlug || ""}`.trim();
+      if (!slug) continue;
+      const label = `${p?.categoryName || slug}`.trim();
+      labels.set(slug, label);
+      counts.set(slug, (counts.get(slug) || 0) + 1);
+    }
+    return [...labels.entries()]
+      .map(([value, label]) => ({ value, label, count: counts.get(value) || 0 }))
+      .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  }, [catalogProducts]);
 
-      return matchCategory && matchBrand && matchColor && matchPrice && matchRating && matchSearch;
+  useEffect(() => {
+    if (!categoryParam) return;
+    const rawTokens = parseCsvParam(categoryParam);
+    if (rawTokens.length === 0) return;
+
+    const mapped = rawTokens
+      .map((raw) => {
+        const token = `${raw || ""}`.trim();
+        if (!token) return null;
+        const match =
+          categoryOptions.find((opt) => opt.value === token) ||
+          categoryOptions.find((opt) => `${opt.label || ""}`.trim().toLowerCase() === token.toLowerCase());
+        return match ? match.value : token;
+      })
+      .filter(Boolean);
+
+    const same =
+      mapped.length === selectedCategories.length &&
+      mapped.every((value, idx) => value === selectedCategories[idx]);
+    if (same) return;
+
+    const frame = requestAnimationFrame(() => setSelectedCategories(mapped));
+    return () => cancelAnimationFrame(frame);
+  }, [categoryParam, categoryOptions, selectedCategories]);
+
+  useEffect(() => {
+    if (!categoryParam) return;
+    setIsMobileFiltersOpen(false);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [categoryParam]);
+
+  useEffect(() => {
+    const next = normalizeSortParam(sortParam);
+    if (next !== sortBy) setSortBy(next);
+  }, [sortParam, sortBy]);
+
+  useEffect(() => {
+    if (limit) return;
+    const nextParams = new URLSearchParams(searchParamsString);
+
+    const desiredSort = sortBy === "featured" ? "" : sortBy;
+    const currentSort = `${nextParams.get("sort") || ""}`.trim();
+    if (currentSort !== desiredSort) {
+      if (desiredSort) nextParams.set("sort", desiredSort);
+      else nextParams.delete("sort");
+    }
+
+    const desiredCategory = selectedCategories.length > 0 ? selectedCategories.join(",") : "";
+    const currentCategory = `${nextParams.get("category") || ""}`.trim();
+    if (currentCategory !== desiredCategory) {
+      if (desiredCategory) nextParams.set("category", desiredCategory);
+      else nextParams.delete("category");
+    }
+
+    if (nextParams.toString() !== searchParamsString) {
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [limit, searchParamsString, selectedCategories, setSearchParams, sortBy]);
+
+  const brandOptions = useMemo(() => {
+    const counts = new Map();
+    for (const p of Array.isArray(catalogProducts) ? catalogProducts : []) {
+      const brand = `${p?.brand || ""}`.trim();
+      if (!brand) continue;
+      counts.set(brand, (counts.get(brand) || 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([value, count]) => ({ value, label: value, count }))
+      .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  }, [catalogProducts]);
+
+  const colorOptions = useMemo(() => [], []);
+
+  const showRatingFilter = useMemo(() => {
+    return (Array.isArray(catalogProducts) ? catalogProducts : []).some((p) => Number(p?.rating) > 0);
+  }, [catalogProducts]);
+
+  const filteredProducts = useMemo(() => {
+    const q = `${searchQuery || ""}`.trim().toLowerCase();
+    let result = (Array.isArray(catalogProducts) ? catalogProducts : []).filter((product) => {
+      const productCategory = `${product?.categorySlug || ""}`.trim();
+      const productCategoryName = `${product?.categoryName || ""}`.trim();
+      const productCategoryId = `${product?.categoryId || ""}`.trim();
+      const productBrand = `${product?.brand || ""}`.trim();
+      const productName = `${product?.name || ""}`.trim();
+      const price = Number(product?.price) || 0;
+
+      const matchCategory =
+        selectedCategories.length === 0 ||
+        selectedCategories.some(
+          (selected) =>
+            selected === productCategory ||
+            selected === productCategoryName ||
+            selected === productCategoryId
+        );
+      const matchBrand = selectedBrands.length === 0 || selectedBrands.includes(productBrand);
+      const matchPrice = !selectedPriceRange || (price >= selectedPriceRange.min && price <= selectedPriceRange.max);
+
+      const matchRating = !showRatingFilter || !minRating || Number(product?.rating) >= minRating;
+
+      const matchSearch =
+        !q ||
+        productName.toLowerCase().includes(q) ||
+        productBrand.toLowerCase().includes(q) ||
+        productCategory.toLowerCase().includes(q) ||
+        productCategoryName.toLowerCase().includes(q);
+
+      return matchCategory && matchBrand && matchPrice && matchRating && matchSearch;
     });
 
-    if (sortBy === 'price-asc') result.sort((a, b) => a.price - b.price);
-    else if (sortBy === 'price-desc') result.sort((a, b) => b.price - a.price);
-    else if (sortBy === 'newest') result.sort((a, b) => b.id - a.id);
-    else if (sortBy === 'reviews') result.sort((a, b) => b.reviews - a.reviews);
-    
+    if (sortBy === 'price-asc') result.sort((a, b) => (Number(a?.price) || 0) - (Number(b?.price) || 0));
+    else if (sortBy === 'price-desc') result.sort((a, b) => (Number(b?.price) || 0) - (Number(a?.price) || 0));
+    else if (sortBy === 'newest') result.sort((a, b) => new Date(b?.dateCreation || 0).getTime() - new Date(a?.dateCreation || 0).getTime());
+    else if (sortBy === 'reviews') result.sort((a, b) => (Number(b?.reviews) || 0) - (Number(a?.reviews) || 0));
+
     return result;
-  }, [selectedCategories, selectedBrands, selectedColors, selectedPriceRange, minRating, sortBy, searchQuery]);
+  }, [catalogProducts, selectedCategories, selectedBrands, selectedPriceRange, minRating, sortBy, searchQuery, showRatingFilter]);
+
+  useEffect(() => {
+    if (limit) return;
+    const base = viewMode === "list" ? 20 : 40;
+    setVisibleCount(Math.min(base, filteredProducts.length));
+  }, [limit, viewMode, filteredProducts.length, selectedCategories, selectedBrands, selectedColors, selectedPriceRange, minRating, sortBy, searchQuery]);
 
   const clearFilters = () => {
     setSelectedCategories([]);
@@ -557,13 +818,56 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
     setMinRating(null);
   };
 
-  const isDefaultView = !searchQuery && 
-    selectedCategories.length === 0 && 
-    selectedBrands.length === 0 && 
-    selectedColors.length === 0 && 
-    !selectedPriceRange && 
-    !minRating && 
-    sortBy === 'featured';
+  const displayedProducts = useMemo(() => {
+    if (limit) return filteredProducts.slice(0, limit);
+    return filteredProducts.slice(0, Math.min(visibleCount, filteredProducts.length));
+  }, [filteredProducts, limit, visibleCount]);
+
+  const handleLoadMore = async () => {
+    if (limit) return;
+    const step = viewMode === "list" ? 20 : 40;
+    setVisibleCount((c) => c + step);
+    if (!hasMorePages || isLoadingMore) return;
+
+    if (visibleCount >= filteredProducts.length) {
+      setIsLoadingMore(true);
+      try {
+        const { content } = await fetchPage(loadedPages);
+        setCatalogProducts((prev) => mergeUniqueById(prev, content));
+        setLoadedPages((prev) => prev + 1);
+      } catch (err) {
+        toast.error(err?.message || "Impossible de charger plus de produits.");
+      } finally {
+        setIsLoadingMore(false);
+      }
+    }
+  };
+
+  const handleShowAll = async () => {
+    if (limit) return;
+    if (!hasMorePages || isLoadingMore) {
+      setVisibleCount(filteredProducts.length);
+      return;
+    }
+    setIsLoadingMore(true);
+    try {
+      const maxExtraPages = 8;
+      let page = loadedPages;
+      let loaded = 0;
+      while (page < totalPages && loaded < maxExtraPages) {
+        const { content } = await fetchPage(page);
+        setCatalogProducts((prev) => mergeUniqueById(prev, content));
+        page += 1;
+        loaded += 1;
+        setLoadedPages(page);
+      }
+      setVisibleCount(Number.MAX_SAFE_INTEGER);
+    } catch (err) {
+      toast.error(err?.message || "Impossible de charger tous les produits.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white font-sans">
@@ -674,6 +978,10 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
         {showFilters && (
           <aside className="w-64 flex-shrink-0 hidden lg:block space-y-2 sticky top-28 h-[calc(100vh-7rem)] overflow-y-auto pr-2 custom-scrollbar">
              <FiltersContent 
+                categoryOptions={categoryOptions}
+                brandOptions={brandOptions}
+                colorOptions={colorOptions}
+                showRatingFilter={showRatingFilter}
                 selectedCategories={selectedCategories}
                 setSelectedCategories={setSelectedCategories}
                 selectedBrands={selectedBrands}
@@ -691,25 +999,23 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
 
         {/* Main Grid */}
         <main className="flex-1">
-           {isDefaultView ? (
-             <div className="space-y-2 pb-12">
-               {categories.map(cat => (
-                 <ProductSection 
-                   key={cat}
-                   title={cat}
-                   products={products.filter(p => p.category === cat)}
-                   onSeeAll={() => setSelectedCategories([cat])}
-                 />
-               ))}
+           {isLoading ? (
+             <div className="flex items-center justify-center py-24">
+               <div className="w-12 h-12 border-4 border-neutral-200 border-t-orange-600 rounded-full animate-spin" />
+             </div>
+           ) : loadError ? (
+             <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl px-6">
+               <h3 className="text-lg font-bold">Impossible de charger les produits</h3>
+               <p className="text-neutral-500 mt-2">{loadError}</p>
              </div>
            ) : (
              <>
-               {filteredProducts.length > 0 ? (
+               {displayedProducts.length > 0 ? (
                  <div className={viewMode === 'grid' 
                    ? "grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-6"
                    : "flex flex-col gap-4"
                  }>
-                  {filteredProducts.slice(0, limit || filteredProducts.length).map(product => (
+                  {displayedProducts.map((product) => (
                     <ProductCard 
                       key={product.id} 
                       product={product} 
@@ -728,20 +1034,25 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
                    </button>
                  </div>
                )}
-               
-               {/* Pagination (Mock) */}
-               {filteredProducts.length > 0 && !limit && (
-                 <div className="mt-12 flex justify-center py-8 border-t border-neutral-200 dark:border-neutral-800">
-                   <div className="flex gap-2">
-                     <button className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-400 cursor-not-allowed">Précédent</button>
-                     <button className="px-4 py-2 bg-orange-600 text-white rounded-lg font-bold">1</button>
-                     <button className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-900">2</button>
-                     <button className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-900">3</button>
-                     <span className="px-4 py-2">...</span>
-                     <button className="px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-900">Suivant</button>
-                   </div>
+
+               {!limit && displayedProducts.length > 0 && (displayedProducts.length < filteredProducts.length || hasMorePages) ? (
+                 <div className="mt-10 flex flex-col items-center gap-3">
+                   <button
+                     onClick={handleLoadMore}
+                     className="px-6 py-3 rounded-full bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm shadow-sm disabled:opacity-60"
+                     disabled={isLoadingMore}
+                   >
+                     {isLoadingMore ? "Chargement..." : `Charger plus (${Math.min(displayedProducts.length, filteredProducts.length)}/${filteredProducts.length}${hasMorePages ? "+" : ""})`}
+                   </button>
+                   <button
+                     onClick={handleShowAll}
+                     className="text-sm font-bold text-neutral-700 dark:text-neutral-300 hover:underline disabled:opacity-60"
+                     disabled={isLoadingMore}
+                   >
+                     {isLoadingMore ? "Chargement..." : "Afficher tout"}
+                   </button>
                  </div>
-               )}
+               ) : null}
              </>
            )}
         </main>
@@ -776,6 +1087,10 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
               
               <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                 <FiltersContent 
+                  categoryOptions={categoryOptions}
+                  brandOptions={brandOptions}
+                  colorOptions={colorOptions}
+                  showRatingFilter={showRatingFilter}
                   selectedCategories={selectedCategories}
                   setSelectedCategories={setSelectedCategories}
                   selectedBrands={selectedBrands}

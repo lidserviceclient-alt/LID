@@ -14,18 +14,50 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/utils/cn';
-import { getUserProfile, logout, getCurrentUserPayload } from '@/services/authService.js';
-import { getCustomerOrders, getCustomerWishlist } from '@/services/customerService.js';
+import { toast } from 'sonner';
+import { getUserProfile, logout, getCurrentUserPayload, updateUserProfile } from '@/services/authService.js';
+import { 
+  getCustomerOrders, 
+  getCustomerWishlist,
+  getCustomerAddresses,
+  createCustomerAddress,
+  deleteCustomerAddress,
+  setDefaultCustomerAddress
+} from '@/services/customerService.js';
 import { useWishlist } from '@/features/wishlist/WishlistContext';
 
-const DEFAULT_AVATAR =
-  "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80";
+const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+const PAYMENT_STORAGE_KEY = 'paymentMethods';
+const PREFS_STORAGE_KEY = 'appPreferences';
 
-const MOCK_ADDRESSES = [
-  { id: 1, type: "Domicile", name: "Jean Dupont", address: "Cocody Rivera 2, Rue des Jardins", city: "Abidjan", phone: "+225 07...", default: true },
-  { id: 2, type: "Bureau", name: "Jean Dupont - LID Corp", address: "Plateau, Immeuble Alpha", city: "Abidjan", phone: "+225 05...", default: false },
-];
+const loadLocalJson = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
 
+const saveLocalJson = (key, value) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(key, JSON.stringify(value));
+};
+
+const fixMojibake = (value) => {
+  if (typeof value !== 'string') return value;
+  const s = value.trim();
+  if (!s) return value;
+  if (!/(Ã.|Â|â€™|â€œ|â€\u009d|â€¦|â€“|â€”)/.test(s)) return value;
+  try {
+    const bytes = Uint8Array.from([...s].map((c) => c.charCodeAt(0)));
+    const decoded = new TextDecoder('utf-8').decode(bytes);
+    return decoded.includes('�') ? value : decoded;
+  } catch {
+    return value;
+  }
+};
 // --- Sub-Components ---
 
 const SidebarItem = ({ icon: Icon, label, active, onClick, danger }) => (
@@ -88,32 +120,52 @@ const OrderCard = ({ order }) => {
   );
 };
 
-const AddressCard = ({ address }) => (
-  <div className={cn(
-    "p-5 rounded-2xl border transition-all duration-300 relative group cursor-pointer",
-    address.default 
-      ? "border-[#6aa200] bg-[#6aa200]/5" 
-      : "border-neutral-200 bg-white hover:border-[#6aa200]/50"
-  )}>
-    {address.default && (
-      <span className="absolute top-4 right-4 text-[10px] font-bold uppercase tracking-wider text-[#6aa200] bg-white px-2 py-1 rounded-full shadow-sm">
-        Par défaut
-      </span>
-    )}
-    <div className="flex items-center gap-3 mb-3">
-      <div className={cn("p-2 rounded-full", address.default ? "bg-[#6aa200] text-white" : "bg-neutral-100 text-neutral-500")}>
-        <MapPin size={16} />
+const AddressCard = ({ address, onDelete, onSetDefault }) => {
+  const isDefault = Boolean(address?.isDefault ?? address?.default);
+  return (
+    <div className={cn(
+      "p-5 rounded-2xl border transition-all duration-300 relative group",
+      isDefault 
+        ? "border-[#6aa200] bg-[#6aa200]/5" 
+        : "border-neutral-200 bg-white hover:border-[#6aa200]/50"
+    )}>
+      {isDefault && (
+        <span className="absolute top-4 right-4 text-[10px] font-bold uppercase tracking-wider text-[#6aa200] bg-white px-2 py-1 rounded-full shadow-sm">
+          Par défaut
+        </span>
+      )}
+      <div className="flex items-center gap-3 mb-3">
+        <div className={cn("p-2 rounded-full", isDefault ? "bg-[#6aa200] text-white" : "bg-neutral-100 text-neutral-500")}>
+          <MapPin size={16} />
+        </div>
+        <span className="font-bold text-neutral-900">{address.type || 'Adresse'}</span>
       </div>
-      <span className="font-bold text-neutral-900">{address.type}</span>
+      <div className="space-y-1 text-sm text-neutral-600">
+        <p className="font-medium text-neutral-900">{address.name}</p>
+        <p>{address.addressLine || address.address}</p>
+        <p>{[address.city, address.postalCode].filter(Boolean).join(' ')}</p>
+        <p>{address.country}</p>
+        <p className="text-xs text-neutral-400 mt-2">{address.phone}</p>
+      </div>
+      <div className="mt-4 flex items-center gap-3">
+        {!isDefault && (
+          <button
+            onClick={onSetDefault}
+            className="text-xs font-bold text-[#6aa200] hover:underline"
+          >
+            Définir par défaut
+          </button>
+        )}
+        <button
+          onClick={onDelete}
+          className="text-xs font-bold text-neutral-400 hover:text-red-500"
+        >
+          Supprimer
+        </button>
+      </div>
     </div>
-    <div className="space-y-1 text-sm text-neutral-600">
-      <p className="font-medium text-neutral-900">{address.name}</p>
-      <p>{address.address}</p>
-      <p>{address.city}</p>
-      <p className="text-xs text-neutral-400 mt-2">{address.phone}</p>
-    </div>
-  </div>
-);
+  );
+};
 
 // --- Sections ---
 
@@ -150,6 +202,12 @@ const mapOrderStatus = (status) => {
 const countOrderItems = (items) => {
   if (!Array.isArray(items)) return 0;
   return items.reduce((acc, it) => acc + (Number(it?.quantity) || 0), 0);
+};
+
+const maskCardNumber = (value) => {
+  const digits = `${value || ''}`.replace(/\D/g, '');
+  if (digits.length < 4) return '••••';
+  return `•••• •••• •••• ${digits.slice(-4)}`;
 };
 
 const OverviewSection = ({ stats, recentOrders, onSeeAllOrders, loading }) => (
@@ -200,15 +258,19 @@ const OverviewSection = ({ stats, recentOrders, onSeeAllOrders, loading }) => (
   </div>
 );
 
-const OrdersSection = ({ orders, loading }) => (
+const OrdersSection = ({ orders, loading, filter, onFilterChange }) => (
   <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
     <div className="flex items-center justify-between">
       <h2 className="text-xl font-bold text-neutral-900">Mes Commandes</h2>
-      <select className="bg-neutral-100 border-none rounded-lg text-sm font-medium px-3 py-2 outline-none focus:ring-2 focus:ring-[#6aa200]/20">
-        <option>Toutes les commandes</option>
-        <option>En cours</option>
-        <option>Livrées</option>
-        <option>Annulées</option>
+      <select 
+        value={filter}
+        onChange={(e) => onFilterChange(e.target.value)}
+        className="bg-neutral-100 border-none rounded-lg text-sm font-medium px-3 py-2 outline-none focus:ring-2 focus:ring-[#6aa200]/20"
+      >
+        <option value="all">Toutes les commandes</option>
+        <option value="processing">En cours</option>
+        <option value="delivered">Livrées</option>
+        <option value="cancelled">Annulées</option>
       </select>
     </div>
     <div className="space-y-3">
@@ -223,24 +285,293 @@ const OrdersSection = ({ orders, loading }) => (
   </div>
 );
 
-const AddressSection = () => (
-  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-    <div className="flex items-center justify-between">
-      <h2 className="text-xl font-bold text-neutral-900">Mes Adresses</h2>
-      <button className="bg-neutral-900 hover:bg-neutral-800 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
-        + Nouvelle Adresse
-      </button>
-    </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {MOCK_ADDRESSES.map(addr => (
-        <AddressCard key={addr.id} address={addr} />
-      ))}
-    </div>
-  </div>
-);
+const AddressSection = ({ addresses, loading, onCreate, onDelete, onSetDefault }) => {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    type: 'Domicile',
+    name: '',
+    addressLine: '',
+    city: '',
+    postalCode: '',
+    country: '',
+    phone: '',
+    isDefault: false
+  });
 
-const SettingsSection = ({ profile }) => {
-  const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ');
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const saved = await onCreate(form);
+    if (saved) {
+      setForm({
+        type: 'Domicile',
+        name: '',
+        addressLine: '',
+        city: '',
+        postalCode: '',
+        country: '',
+        phone: '',
+        isDefault: false
+      });
+      setShowForm(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-neutral-900">Mes Adresses</h2>
+        <button 
+          onClick={() => setShowForm((v) => !v)}
+          className="bg-neutral-900 hover:bg-neutral-800 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors"
+        >
+          {showForm ? 'Fermer' : '+ Nouvelle Adresse'}
+        </button>
+      </div>
+      {showForm && (
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl border border-neutral-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-neutral-500 uppercase">Type</label>
+            <input name="type" value={form.type} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-neutral-500 uppercase">Nom</label>
+            <input required name="name" value={form.name} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-xs font-bold text-neutral-500 uppercase">Adresse</label>
+            <input required name="addressLine" value={form.addressLine} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-neutral-500 uppercase">Ville</label>
+            <input required name="city" value={form.city} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-neutral-500 uppercase">Code postal</label>
+            <input name="postalCode" value={form.postalCode} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-neutral-500 uppercase">Pays</label>
+            <input name="country" value={form.country} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-neutral-500 uppercase">Téléphone</label>
+            <input name="phone" value={form.phone} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+          </div>
+          <label className="flex items-center gap-2 text-sm text-neutral-600 md:col-span-2">
+            <input type="checkbox" name="isDefault" checked={form.isDefault} onChange={handleChange} />
+            Définir comme adresse par défaut
+          </label>
+          <div className="md:col-span-2 flex justify-end">
+            <button type="submit" className="text-sm font-bold text-white bg-[#6aa200] hover:bg-[#5a8a00] px-4 py-2 rounded-lg transition-colors">
+              Enregistrer
+            </button>
+          </div>
+        </form>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {loading ? (
+          <div className="text-sm text-neutral-500">Chargement...</div>
+        ) : addresses.length === 0 ? (
+          <div className="text-sm text-neutral-500">Aucune adresse enregistrée.</div>
+        ) : (
+          addresses.map(addr => (
+            <AddressCard 
+              key={addr.id} 
+              address={addr} 
+              onDelete={() => onDelete(addr.id)} 
+              onSetDefault={() => onSetDefault(addr.id)}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+const PaymentSection = ({ paymentMethods, onAdd, onRemove }) => {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    type: 'card',
+    label: '',
+    cardNumber: '',
+    cardName: '',
+    expiry: '',
+    phone: ''
+  });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (form.type === 'card' && !form.cardNumber) {
+      toast.error("Numéro de carte requis.");
+      return;
+    }
+    if (form.type === 'mobile' && !form.phone) {
+      toast.error("Numéro de téléphone requis.");
+      return;
+    }
+    onAdd(form);
+    setForm({
+      type: 'card',
+      label: '',
+      cardNumber: '',
+      cardName: '',
+      expiry: '',
+      phone: ''
+    });
+    setShowForm(false);
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-neutral-900">Moyens de paiement</h2>
+        <button 
+          onClick={() => setShowForm((v) => !v)}
+          className="bg-neutral-900 hover:bg-neutral-800 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors"
+        >
+          {showForm ? 'Fermer' : '+ Ajouter'}
+        </button>
+      </div>
+      {showForm && (
+        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl border border-neutral-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-neutral-500 uppercase">Type</label>
+            <select name="type" value={form.type} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none">
+              <option value="card">Carte</option>
+              <option value="mobile">Mobile money</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-neutral-500 uppercase">Libellé</label>
+            <input name="label" value={form.label} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+          </div>
+          {form.type === 'card' ? (
+            <>
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-xs font-bold text-neutral-500 uppercase">Numéro de carte</label>
+                <input name="cardNumber" value={form.cardNumber} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-neutral-500 uppercase">Nom sur la carte</label>
+                <input name="cardName" value={form.cardName} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-neutral-500 uppercase">Expiration</label>
+                <input name="expiry" value={form.expiry} onChange={handleChange} placeholder="MM/AA" className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+              </div>
+            </>
+          ) : (
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-xs font-bold text-neutral-500 uppercase">Téléphone</label>
+              <input name="phone" value={form.phone} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            </div>
+          )}
+          <div className="md:col-span-2 flex justify-end">
+            <button type="submit" className="text-sm font-bold text-white bg-[#6aa200] hover:bg-[#5a8a00] px-4 py-2 rounded-lg transition-colors">
+              Enregistrer
+            </button>
+          </div>
+        </form>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {paymentMethods.length === 0 ? (
+          <div className="text-sm text-neutral-500">Aucun moyen de paiement enregistré.</div>
+        ) : (
+          paymentMethods.map((method) => (
+            <div key={method.id} className="p-5 rounded-2xl border border-neutral-200 bg-white flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-bold text-neutral-900">
+                  <CreditCard size={16} />
+                  {method.label || (method.type === 'mobile' ? 'Mobile money' : 'Carte bancaire')}
+                </div>
+                {method.type === 'card' ? (
+                  <div className="text-xs text-neutral-500 mt-2">
+                    {method.cardNumberMasked} • {method.expiry || '—'}
+                  </div>
+                ) : (
+                  <div className="text-xs text-neutral-500 mt-2">{method.phone}</div>
+                )}
+              </div>
+              <button onClick={() => onRemove(method.id)} className="text-xs font-bold text-neutral-400 hover:text-red-500">
+                Supprimer
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+const SettingsSection = ({ profile, userId, onProfileUpdated }) => {
+  const [form, setForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    telephone: '',
+    ville: '',
+    pays: ''
+  });
+  const [saving, setSaving] = useState(false);
+  const [prefs, setPrefs] = useState(() => loadLocalJson(PREFS_STORAGE_KEY, { emailOffers: true, smsNotifications: false }));
+
+  useEffect(() => {
+    setForm({
+      firstName: fixMojibake(profile?.firstName) || '',
+      lastName: fixMojibake(profile?.lastName) || '',
+      email: fixMojibake(profile?.email) || '',
+      telephone: profile?.telephone || '',
+      ville: profile?.ville || '',
+      pays: profile?.pays || ''
+    });
+  }, [profile]);
+
+  useEffect(() => {
+    saveLocalJson(PREFS_STORAGE_KEY, prefs);
+  }, [prefs]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!userId) {
+      toast.error("Connexion requise.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await updateUserProfile(userId, {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        telephone: form.telephone,
+        ville: form.ville,
+        pays: form.pays
+      });
+      onProfileUpdated(updated);
+      toast.success("Profil mis à jour.");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || "Mise à jour impossible.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const togglePref = (key) => {
+    setPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   return (
   <div className="max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -251,21 +582,37 @@ const SettingsSection = ({ profile }) => {
         <h3 className="font-bold text-neutral-900 border-b border-neutral-100 pb-2">Informations Personnelles</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="text-xs font-bold text-neutral-500 uppercase">Nom complet</label>
-            <input defaultValue={fullName} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            <label className="text-xs font-bold text-neutral-500 uppercase">Prénom</label>
+            <input name="firstName" value={form.firstName} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-neutral-500 uppercase">Nom</label>
+            <input name="lastName" value={form.lastName} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
           </div>
           <div className="space-y-1">
             <label className="text-xs font-bold text-neutral-500 uppercase">Email</label>
-            <input defaultValue={profile?.email || ''} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            <input name="email" value={form.email} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
           </div>
           <div className="space-y-1">
             <label className="text-xs font-bold text-neutral-500 uppercase">Téléphone</label>
-            <input defaultValue="" className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            <input name="telephone" value={form.telephone} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-neutral-500 uppercase">Ville</label>
+            <input name="ville" value={form.ville} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-neutral-500 uppercase">Pays</label>
+            <input name="pays" value={form.pays} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
           </div>
         </div>
         <div className="pt-2 flex justify-end">
-           <button className="text-sm font-bold text-white bg-[#6aa200] hover:bg-[#5a8a00] px-4 py-2 rounded-lg transition-colors">
-             Enregistrer
+           <button 
+             onClick={handleSave}
+             disabled={saving}
+             className="text-sm font-bold text-white bg-[#6aa200] hover:bg-[#5a8a00] px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+           >
+             {saving ? 'Enregistrement...' : 'Enregistrer'}
            </button>
         </div>
       </div>
@@ -287,15 +634,21 @@ const SettingsSection = ({ profile }) => {
         <h3 className="font-bold text-neutral-900 border-b border-neutral-100 pb-2">Préférences</h3>
         <div className="flex items-center justify-between">
            <span className="text-sm font-medium text-neutral-700">Recevoir les offres par email</span>
-           <div className="w-10 h-5 bg-[#6aa200] rounded-full relative cursor-pointer">
-              <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
-           </div>
+           <button 
+             onClick={() => togglePref('emailOffers')}
+             className={cn("w-10 h-5 rounded-full relative transition-colors", prefs.emailOffers ? "bg-[#6aa200]" : "bg-neutral-200")}
+           >
+              <div className={cn("absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-transform", prefs.emailOffers ? "right-1" : "left-1")} />
+           </button>
         </div>
         <div className="flex items-center justify-between">
            <span className="text-sm font-medium text-neutral-700">Notifications SMS</span>
-           <div className="w-10 h-5 bg-neutral-200 rounded-full relative cursor-pointer">
-              <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
-           </div>
+           <button 
+             onClick={() => togglePref('smsNotifications')}
+             className={cn("w-10 h-5 rounded-full relative transition-colors", prefs.smsNotifications ? "bg-[#6aa200]" : "bg-neutral-200")}
+           >
+              <div className={cn("absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-transform", prefs.smsNotifications ? "right-1" : "left-1")} />
+           </button>
         </div>
       </div>
     </div>
@@ -314,9 +667,17 @@ export default function Profile() {
   const { wishlistItems } = useWishlist();
   const localWishlistCount = wishlistItems.length;
   const [orders, setOrders] = useState([]);
+  const [ordersFilter, setOrdersFilter] = useState('all');
   const [recentOrders, setRecentOrders] = useState([]);
   const [stats, setStats] = useState({ total: 0, inProgress: 0, favorites: 0 });
   const [loadingOverview, setLoadingOverview] = useState(true);
+  const [addresses, setAddresses] = useState([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState(() => loadLocalJson(PAYMENT_STORAGE_KEY, []));
+
+  useEffect(() => {
+    saveLocalJson(PAYMENT_STORAGE_KEY, paymentMethods);
+  }, [paymentMethods]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -334,15 +695,18 @@ export default function Profile() {
         return;
       }
       setLoadingOverview(true);
+      setLoadingAddresses(true);
       try {
-        const [profile, ordersDto, wishlist] = await Promise.all([
+        const [profile, ordersDto, wishlist, addressList] = await Promise.all([
           getUserProfile(tokenPayload.sub),
           getCustomerOrders(tokenPayload.sub, 0, 100),
-          getCustomerWishlist(tokenPayload.sub)
+          getCustomerWishlist(tokenPayload.sub),
+          getCustomerAddresses(tokenPayload.sub)
         ]);
 
         if (!mounted) return;
         setUserProfile(profile);
+        setAddresses(Array.isArray(addressList) ? addressList : []);
 
         const mappedOrders = ordersDto.map((o) => ({
           id: `#${o.orderNumber || `ORD-${o.id}`}`,
@@ -370,10 +734,13 @@ export default function Profile() {
         setUserProfile(null);
         setOrders([]);
         setRecentOrders([]);
+        setAddresses([]);
         setStats({ total: 0, inProgress: 0, favorites: localWishlistCount });
       } finally {
-        if (!mounted) return;
-        setLoadingOverview(false);
+        if (mounted) {
+          setLoadingOverview(false);
+          setLoadingAddresses(false);
+        }
       }
     };
 
@@ -388,16 +755,106 @@ export default function Profile() {
     navigate('/login');
   };
 
- const displayName = useMemo(() => {
-    const firstName = userProfile?.firstName || tokenPayload?.firstName || '';
-    return firstName || tokenPayload?.email || 'Utilisateur';
-  }, [tokenPayload?.email, tokenPayload?.firstName, userProfile?.firstName]);
+  const displayName = useMemo(() => {
+    const firstName =
+      fixMojibake(userProfile?.firstName?.trim()) ||
+      fixMojibake(tokenPayload?.firstName?.trim());
 
-  const displayEmail = userProfile?.email || tokenPayload?.email || '—';
+    return firstName || fixMojibake(tokenPayload?.email) || 'Utilisateur';
+  }, [
+    userProfile?.firstName,
+    tokenPayload?.firstName,
+    tokenPayload?.email,
+  ]);
+
+
+  const displayEmail = fixMojibake(userProfile?.email) || fixMojibake(tokenPayload?.email) || '—';
   const avatarUrl = userProfile?.avatarUrl || tokenPayload?.avatarUrl || DEFAULT_AVATAR;
   const memberSinceYear = userProfile?.createdAt
     ? String(userProfile.createdAt).slice(0, 4)
     : (tokenPayload?.iat ? new Date(tokenPayload.iat * 1000).getFullYear() : '—');
+
+  const filteredOrders = useMemo(() => {
+    if (ordersFilter === 'all') return orders;
+    return orders.filter((order) => order.status === ordersFilter);
+  }, [orders, ordersFilter]);
+
+  const handleProfileUpdated = (updated) => {
+    setUserProfile(updated);
+  };
+
+  const handleCreateAddress = async (payload) => {
+    if (!tokenPayload?.sub) {
+      toast.error("Connexion requise.");
+      return null;
+    }
+    try {
+      const created = await createCustomerAddress(tokenPayload.sub, payload);
+      if (!created) return null;
+      setAddresses((prev) => {
+        const next = [...prev, created];
+        if (created.isDefault) {
+          return next.map((addr) => (addr.id === created.id ? addr : { ...addr, isDefault: false }));
+        }
+        return next;
+      });
+      toast.success("Adresse enregistrée.");
+      return created;
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || "Création impossible.");
+      return null;
+    }
+  };
+
+  const handleDeleteAddress = async (addressId) => {
+    if (!tokenPayload?.sub) {
+      toast.error("Connexion requise.");
+      return;
+    }
+    try {
+      await deleteCustomerAddress(tokenPayload.sub, addressId);
+      setAddresses((prev) => prev.filter((addr) => addr.id !== addressId));
+      toast.success("Adresse supprimée.");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || "Suppression impossible.");
+    }
+  };
+
+  const handleSetDefaultAddress = async (addressId) => {
+    if (!tokenPayload?.sub) {
+      toast.error("Connexion requise.");
+      return;
+    }
+    try {
+      const updated = await setDefaultCustomerAddress(tokenPayload.sub, addressId);
+      setAddresses((prev) => prev.map((addr) => ({
+        ...addr,
+        isDefault: addr.id === updated?.id
+      })));
+      toast.success("Adresse par défaut mise à jour.");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || "Mise à jour impossible.");
+    }
+  };
+
+  const handleAddPaymentMethod = (method) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const cardNumberMasked = method.type === 'card' ? maskCardNumber(method.cardNumber) : '';
+    setPaymentMethods((prev) => [
+      {
+        ...method,
+        id,
+        cardNumberMasked
+      },
+      ...prev
+    ]);
+    toast.success("Moyen de paiement enregistré.");
+  };
+
+  const handleRemovePaymentMethod = (id) => {
+    setPaymentMethods((prev) => prev.filter((method) => method.id !== id));
+    toast.success("Moyen de paiement supprimé.");
+  };
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-8 pb-20">
@@ -409,9 +866,6 @@ export default function Profile() {
             <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden border-4 border-white dark:border-neutral-900 shadow-lg">
               <img src={avatarUrl} alt="User" className="w-full h-full object-cover" />
             </div>
-            <button className="absolute bottom-0 right-0 p-1.5 bg-[#6aa200] text-white rounded-full border-2 border-white shadow-sm hover:scale-110 transition-transform">
-              <Camera size={14} />
-            </button>
           </div>
           <div className="flex-1">
             <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white">{displayName}</h1>
@@ -482,15 +936,36 @@ export default function Profile() {
                 onSeeAllOrders={() => setActiveTab('orders')}
               />
             )}
-            {activeTab === 'orders' && <OrdersSection orders={orders} loading={loadingOverview} />}
-            {activeTab === 'addresses' && <AddressSection />}
-            {activeTab === 'settings' && <SettingsSection profile={userProfile} />}
+            {activeTab === 'orders' && (
+              <OrdersSection 
+                orders={filteredOrders} 
+                loading={loadingOverview} 
+                filter={ordersFilter}
+                onFilterChange={setOrdersFilter}
+              />
+            )}
+            {activeTab === 'addresses' && (
+              <AddressSection
+                addresses={addresses}
+                loading={loadingAddresses}
+                onCreate={handleCreateAddress}
+                onDelete={handleDeleteAddress}
+                onSetDefault={handleSetDefaultAddress}
+              />
+            )}
+            {activeTab === 'settings' && (
+              <SettingsSection 
+                profile={userProfile} 
+                userId={tokenPayload?.sub}
+                onProfileUpdated={handleProfileUpdated}
+              />
+            )}
             {activeTab === 'payments' && (
-              <div className="flex flex-col items-center justify-center h-64 text-neutral-500 animate-in fade-in">
-                <CreditCard size={48} className="mb-4 opacity-20" />
-                <p>Aucun moyen de paiement enregistré</p>
-                <button className="mt-4 text-[#6aa200] font-bold text-sm hover:underline">Ajouter une carte</button>
-              </div>
+              <PaymentSection
+                paymentMethods={paymentMethods}
+                onAdd={handleAddPaymentMethod}
+                onRemove={handleRemovePaymentMethod}
+              />
             )}
           </div>
 

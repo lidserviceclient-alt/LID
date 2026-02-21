@@ -38,6 +38,7 @@ export default function NavMobile() {
                if (item.isLogo) {
                    return (
                       <div key={index} className="relative -top-8 flex-shrink-0 mx-2">
+
                           <Link to={item.path} className="flex flex-col items-center justify-center group">
                               <div className={cn(
                                   "w-16 h-16 rounded-full bg-[#6aa200] shadow-[0_8px_20px_rgba(106,162,0,0.4)] flex items-center justify-center border-[6px] border-white dark:border-neutral-950 transform transition-all duration-300 ease-out z-20",
@@ -60,6 +61,7 @@ export default function NavMobile() {
                           </Link>
                           
                           {/* Decorative curve behind the button (optional, handled by border trick usually) */}
+                          
                           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 bg-transparent rounded-full border-[6px] border-transparent shadow-none pointer-events-none" />
                       </div>
                    );
@@ -100,12 +102,6 @@ export default function NavMobile() {
                         )}
                       </div>
                       
-                      <span className={cn(
-                        "text-[10px] font-medium transition-all duration-300",
-                        isActive ? "opacity-100 translate-y-0 font-bold" : "opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0"
-                      )}>
-                        {item.label}
-                      </span>
                     </button>
                   )
                }
@@ -115,7 +111,7 @@ export default function NavMobile() {
                       key={index} 
                       to={item.path} 
                       className={cn(
-                          "flex flex-col items-center justify-center w-16 h-14 gap-1 transition-all duration-300 relative group",
+                          "flex flex-col items-center justify-center w-16 h-14 gap-13 transition-all duration-300 relative group",
                           isActive ? "text-[#6aa200]" : "text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
                       )}
                    >

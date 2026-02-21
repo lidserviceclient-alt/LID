@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, CreditCard, Smartphone, User, MapPin, Phone, Mail, ArrowRight, ShieldCheck, Lock, ChevronLeft, Loader2, Globe } from 'lucide-react';
@@ -6,6 +6,8 @@ import { cn } from '@/utils/cn';
 import { toast } from 'sonner';
 import { getCurrentUserPayload } from '@/services/authService.js';
 import { checkout } from '@/services/orderService.js';
+import { getCustomerAddresses } from '@/services/customerService.js';
+import { resolveBackendAssetUrl } from '@/services/categoryService';
 
 const formatCardNumber = (value) => {
   const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
@@ -37,7 +39,7 @@ const formatExpires = (value) => {
     );
 };
 
-export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, selectedSize, quantity, cartItems, onSuccess, shippingCost = 0, discountAmount = 0 }) {
+export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, selectedSize, quantity, cartItems, onSuccess, shippingCost = 0, discountAmount = 0, promoCode = "" }) {
   const [step, setStep] = useState(1); // 1: Info, 2: Payment, 3: Processing, 4: Success
   const [loadingStep, setLoadingStep] = useState(0); // 0: Init, 1: Connecting, 2: Verifying, 3: Approved
   const [orderNumber, setOrderNumber] = useState('');
@@ -59,6 +61,9 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
   });
 
   const [cardFocused, setCardFocused] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
  
   const isCartCheckout = cartItems && cartItems.length > 0;
 
@@ -79,6 +84,69 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
   const taxAmount = Math.round(finalTotal - (finalTotal / (1 + TAX_RATE)));
   const subTotalHT = finalTotal - taxAmount;
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const payload = getCurrentUserPayload();
+    if (!payload?.sub) return;
+    let active = true;
+    setLoadingAddresses(true);
+    getCustomerAddresses(payload.sub)
+      .then((list) => {
+        if (!active) return;
+        const addresses = Array.isArray(list) ? list : [];
+        setSavedAddresses(addresses);
+        const defaultAddress = addresses.find((addr) => addr?.isDefault);
+        if (defaultAddress) {
+          setSelectedAddressId(defaultAddress.id);
+          setFormData((prev) => ({
+            ...prev,
+            address: defaultAddress.addressLine || '',
+            city: defaultAddress.city || '',
+            zip: defaultAddress.postalCode || '',
+            phone: defaultAddress.phone || prev.phone
+          }));
+        }
+      })
+      .catch(() => {
+        if (active) setSavedAddresses([]);
+      })
+      .finally(() => {
+        if (active) setLoadingAddresses(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('paymentMethods');
+      if (!raw) return;
+      const methods = JSON.parse(raw);
+      if (!Array.isArray(methods) || methods.length === 0) return;
+      const method = methods[0];
+      if (method.type === 'mobile') {
+        setFormData((prev) => ({
+          ...prev,
+          paymentMethod: 'mobile',
+          mobilePhone: method.phone || prev.mobilePhone
+        }));
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          paymentMethod: 'card',
+          cardNumber: method.cardNumber || prev.cardNumber,
+          cardExpiry: method.expiry || prev.cardExpiry,
+          cardName: method.cardName || prev.cardName
+        }));
+      }
+    } catch {
+      return;
+    }
+  }, [isOpen]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     let formattedValue = value;
@@ -88,6 +156,20 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     if (name === 'cardCvc') formattedValue = value.replace(/\D/g, '').slice(0, 3); // Max 3 digits
 
     setFormData(prev => ({ ...prev, [name]: formattedValue }));
+  };
+
+  const handleAddressSelect = (e) => {
+    const addressId = e.target.value;
+    setSelectedAddressId(addressId);
+    const address = savedAddresses.find((addr) => `${addr?.id}` === `${addressId}`);
+    if (!address) return;
+    setFormData((prev) => ({
+      ...prev,
+      address: address.addressLine || '',
+      city: address.city || '',
+      zip: address.postalCode || '',
+      phone: address.phone || prev.phone
+    }));
   };
 
   const handleSubmitInfo = (e) => {
@@ -103,11 +185,28 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
       return;
     }
 
-    const items = isCartCheckout
-      ? cartItems.map((item) => ({ articleId: item.id, quantity: item.quantity }))
-      : [{ articleId: product?.id, quantity }];
+    const toArticleId = (value) => {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric) || numeric <= 0) return null;
+      return Math.trunc(numeric);
+    };
 
-    if (!items.every((i) => i.articleId && i.quantity > 0)) {
+    const buildItem = (item, qtyOverride) => {
+      const quantityValue = Number.isFinite(Number(qtyOverride)) ? Number(qtyOverride) : Number(item?.quantity);
+      if (!quantityValue || quantityValue <= 0) return null;
+      const referenceProduitPartenaire = item?.referenceProduitPartenaire || item?.referencePartenaire || item?.sku;
+      const articleId = item?.articleId ?? toArticleId(item?.id);
+      if (!articleId && !referenceProduitPartenaire) return null;
+      return { articleId: articleId ?? undefined, referenceProduitPartenaire: referenceProduitPartenaire ?? undefined, quantity: quantityValue };
+    };
+
+    const rawItems = isCartCheckout
+      ? cartItems.map((item) => buildItem(item))
+      : [buildItem(product, normalizedQuantity)];
+    const invalidCount = rawItems.filter((item) => !item).length;
+    const items = rawItems.filter(Boolean);
+
+    if (invalidCount > 0 || items.length === 0) {
       toast.error("Panier invalide.");
       return;
     }
@@ -129,6 +228,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
         phone: formData.phone,
         shippingAddress,
         notes: '',
+        promoCode: (promoCode || "").trim() || null,
         items,
         returnUrl,
         cancelUrl
@@ -186,7 +286,15 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                      {cartItems.map((item, index) => (
                        <div key={`${item.id}-${index}`} className="flex gap-4 items-center">
                           <div className="w-16 h-16 bg-white rounded-lg p-1 shadow-md flex items-center justify-center relative flex-shrink-0">
-                            <img src={item.image} alt={item.name} className="w-full h-full object-contain mix-blend-multiply" />
+                           <img
+                             src={resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png"}
+                             alt={item.name}
+                             className="w-full h-full object-contain mix-blend-multiply"
+                             onError={(e) => {
+                               e.currentTarget.onerror = null;
+                               e.currentTarget.src = "/imgs/logo.png";
+                             }}
+                           />
                             <span className="absolute -top-2 -right-2 w-5 h-5 bg-neutral-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-neutral-900">
                               {item.quantity}
                             </span>
@@ -202,7 +310,15 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                  ) : (
                    <div className="flex gap-6 items-start">
                       <div className="w-24 h-24 bg-white rounded-xl p-2 shadow-xl flex items-center justify-center relative group">
-                        <img src={product?.image} alt={product?.name} className="w-full h-full object-contain mix-blend-multiply" />
+                        <img
+                          src={resolveBackendAssetUrl(product?.image || product?.imageUrl) || "/imgs/logo.png"}
+                          alt={product?.name}
+                          className="w-full h-full object-contain mix-blend-multiply"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = "/imgs/logo.png";
+                          }}
+                        />
                         <span className="absolute -top-2 -right-2 w-6 h-6 bg-neutral-500 text-white text-xs font-bold flex items-center justify-center rounded-full border-2 border-neutral-900">
                           {quantity}
                         </span>
@@ -210,7 +326,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                       <div>
                         <h3 className="text-xl font-bold leading-tight mb-2">{product?.name}</h3>
                         <p className="text-neutral-400 text-sm mb-1">Taille: {selectedSize} • Couleur: {selectedColor}</p>
-                        <p className="text-2xl font-bold text-orange-500">{product?.price?.toLocaleString()} FCFA</p>
+                        <p className="text-2xl font-bold text-orange-500">{Number(product?.price || 0).toLocaleString()} FCFA</p>
                       </div>
                    </div>
                  )}
@@ -365,6 +481,22 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                            <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Email</label>
                            <input required type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium" placeholder="exemple@email.com" />
                         </div>
+
+                        {loadingAddresses ? (
+                          <div className="text-sm text-neutral-500">Chargement des adresses...</div>
+                        ) : savedAddresses.length > 0 ? (
+                          <div className="group">
+                            <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Adresse sauvegardée</label>
+                            <select value={selectedAddressId} onChange={handleAddressSelect} className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium">
+                              <option value="">Nouvelle adresse</option>
+                              {savedAddresses.map((addr) => (
+                                <option key={addr.id} value={addr.id}>
+                                  {[addr.type, addr.addressLine, addr.city].filter(Boolean).join(' · ')}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : null}
 
                         <div className="group">
                            <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Adresse</label>

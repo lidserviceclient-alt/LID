@@ -11,7 +11,7 @@ const CookieConsent = lazy(() => import('./components/CookieConsent.jsx'))
 const Home = lazy(() => import('./pages/Home.jsx'))
 const Catalogue = lazy(() => import('./pages/Catalogue.jsx'))
 const Cart = lazy(() => import('./pages/Cart.jsx'))
-const ProductDetails = lazy(() => import('./pages/ProductDetails.jsx'))
+const ProductDetails = lazy(() => import('./pages/ProductDetailsDb.jsx'))
 const Login = lazy(() => import('./pages/Login.jsx'))
 const Callback = lazy(() => import('./pages/Callback.jsx')) // OIDC Callback
 const Seller = lazy(() => import('./pages/Seller.jsx'))

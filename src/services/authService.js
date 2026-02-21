@@ -45,9 +45,18 @@ export const logout = async () => {
  * @returns {Promise<Object>} Les données du profil utilisateur.
  */
 export const getUserProfile = async (userId) => {
-  const { data } = await api.get(`/api/v1/customers/${userId}`);
+  const encodedUserId = encodeURIComponent(userId);
+
+  const { data } = await api.get(`/api/v1/customers/${encodedUserId}`);
   return data;
 };
+
+export const updateUserProfile = async (userId, payload) => {
+  const encodedUserId = encodeURIComponent(userId);
+  const { data } = await api.put(`/api/v1/customers/${encodedUserId}`, payload);
+  return data;
+};
+
 
 /**
  * Récupère les informations de l'utilisateur actuel à partir du token stocké.
