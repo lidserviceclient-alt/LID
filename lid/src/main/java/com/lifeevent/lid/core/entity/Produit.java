@@ -62,6 +62,12 @@ public class Produit extends UuidEntity {
     @Column(name = "date_creation")
     private LocalDateTime dateCreation;
 
+    @Column(name = "mis_en_avant")
+    private Boolean isFeatured = false;
+
+    @Column(name = "meilleur_vente")
+    private Boolean isBestSeller = false;
+
     @OneToOne(mappedBy = "produit", cascade = CascadeType.ALL)
     private Stock stock;
 
@@ -75,6 +81,12 @@ public class Produit extends UuidEntity {
     void onCreate() {
         if (dateCreation == null) {
             dateCreation = LocalDateTime.now();
+        }
+        if (isFeatured == null) {
+            isFeatured = false;
+        }
+        if (isBestSeller == null) {
+            isBestSeller = false;
         }
     }
 }

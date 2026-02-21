@@ -17,6 +17,15 @@ import com.lifeevent.lid.payment.enums.PaymentOperator;
 import com.lifeevent.lid.payment.service.PaymentService;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
+import com.lifeevent.lid.core.dto.OrderQuoteResponse;
+import com.lifeevent.lid.core.entity.CodePromo;
+import com.lifeevent.lid.core.entity.CodePromoUtilisation;
+import com.lifeevent.lid.core.entity.Utilisateur;
+import com.lifeevent.lid.core.enums.CibleCodePromo;
+import com.lifeevent.lid.core.enums.RoleUtilisateur;
+import com.lifeevent.lid.core.repository.CodePromoRepository;
+import com.lifeevent.lid.core.repository.CodePromoUtilisationRepository;
+import com.lifeevent.lid.core.repository.UtilisateurRepository;
 import com.lifeevent.lid.order.dto.*;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.entity.OrderArticle;
@@ -33,11 +42,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.Locale;
 
 @Service
 @Transactional
@@ -53,6 +64,138 @@ public class OrderServiceImpl implements OrderService {
     private final ArticleRepository articleRepository;
     private final PaymentService paymentService;
     private final PaydunyaProperties paydunyaProperties;
+    private final CodePromoRepository codePromoRepository;
+    private final CodePromoUtilisationRepository codePromoUtilisationRepository;
+    private final UtilisateurRepository utilisateurRepository;
+
+    private record PromoApplication(boolean applied, String code, BigDecimal discountAmount, String message, CodePromo promo, Utilisateur utilisateur) {
+    }
+
+    private PromoApplication applyPromoCode(String promoCode, BigDecimal subTotal, String email, String phone) {
+        String code = promoCode != null ? promoCode.trim() : "";
+        if (code.isBlank()) {
+            return new PromoApplication(false, null, BigDecimal.ZERO, null, null, null);
+        }
+        code = code.toUpperCase(Locale.ROOT);
+
+        CodePromo promo = codePromoRepository.findByCodeIgnoreCase(code).orElse(null);
+        if (promo == null) {
+            return new PromoApplication(false, code, BigDecimal.ZERO, "Code promo introuvable", null, null);
+        }
+        if (promo.getEstActif() == null || !promo.getEstActif()) {
+            return new PromoApplication(false, promo.getCode(), BigDecimal.ZERO, "Code promo inactif", null, null);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (promo.getDateDebut() != null && now.isBefore(promo.getDateDebut())) {
+            return new PromoApplication(false, promo.getCode(), BigDecimal.ZERO, "Code promo pas encore actif", null, null);
+        }
+        if (promo.getDateFin() != null && now.isAfter(promo.getDateFin())) {
+            return new PromoApplication(false, promo.getCode(), BigDecimal.ZERO, "Code promo expiré", null, null);
+        }
+
+        if (promo.getMontantMinCommande() != null && subTotal.compareTo(promo.getMontantMinCommande()) < 0) {
+            return new PromoApplication(false, promo.getCode(), BigDecimal.ZERO, "Montant minimum non atteint", null, null);
+        }
+
+        Utilisateur utilisateur = null;
+        String safeEmail = email != null ? email.trim() : "";
+        if (!safeEmail.isBlank()) {
+            utilisateur = utilisateurRepository.findByEmail(safeEmail).orElse(null);
+            if (utilisateur == null) {
+                utilisateur = new Utilisateur();
+                utilisateur.setEmail(safeEmail);
+                utilisateur.setEmailVerifie(Boolean.FALSE);
+                utilisateur.setRole(RoleUtilisateur.CLIENT);
+                if (phone != null && !phone.trim().isBlank()) {
+                    utilisateur.setTelephone(phone.trim());
+                }
+                utilisateur = utilisateurRepository.save(utilisateur);
+            }
+        }
+
+        if (promo.getUsageMax() != null && promo.getUsageMax() > 0) {
+            long used = codePromoUtilisationRepository.countByCodePromoId(promo.getId());
+            if (used >= promo.getUsageMax()) {
+                return new PromoApplication(false, promo.getCode(), BigDecimal.ZERO, "Code promo épuisé", null, utilisateur);
+            }
+        }
+
+        int perUserMax = promo.getUsageMaxParUtilisateur() != null ? promo.getUsageMaxParUtilisateur() : 1;
+        if (perUserMax > 0 && utilisateur != null) {
+            long usedByUser = codePromoUtilisationRepository.countByCodePromoIdAndUtilisateurId(promo.getId(), utilisateur.getId());
+            if (usedByUser >= perUserMax) {
+                return new PromoApplication(false, promo.getCode(), BigDecimal.ZERO, "Limite d’utilisation atteinte pour ce client", null, utilisateur);
+            }
+        }
+
+        CibleCodePromo cible = promo.getCible() != null ? promo.getCible() : CibleCodePromo.GLOBAL;
+        if (cible == CibleCodePromo.UTILISATEUR) {
+            if (utilisateur == null || promo.getUtilisateur() == null || !promo.getUtilisateur().getId().equals(utilisateur.getId())) {
+                return new PromoApplication(false, promo.getCode(), BigDecimal.ZERO, "Code promo non applicable à ce client", null, utilisateur);
+            }
+        }
+        if (cible == CibleCodePromo.BOUTIQUE) {
+            return new PromoApplication(false, promo.getCode(), BigDecimal.ZERO, "Code promo non applicable à cette commande", null, utilisateur);
+        }
+
+        BigDecimal percent = promo.getPourcentage() != null ? promo.getPourcentage() : BigDecimal.ZERO;
+        BigDecimal discount = subTotal.multiply(percent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        if (discount.compareTo(BigDecimal.ZERO) <= 0) {
+            return new PromoApplication(false, promo.getCode(), BigDecimal.ZERO, "Réduction nulle", null, utilisateur);
+        }
+        if (discount.compareTo(subTotal) > 0) discount = subTotal;
+
+        return new PromoApplication(true, promo.getCode(), discount, "Code promo appliqué", promo, utilisateur);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderQuoteResponse quoteCheckout(String customerId, CheckoutRequestDto request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Requête invalide");
+        }
+
+        BigDecimal subTotal = BigDecimal.ZERO;
+        if (request.getItems() != null && !request.getItems().isEmpty()) {
+            for (CheckoutItemDto item : request.getItems()) {
+                int qty = item == null || item.getQuantity() == null ? 0 : item.getQuantity();
+                if (qty <= 0) continue;
+                Article article = resolveCheckoutArticle(item);
+                if (article == null) continue;
+                double unit = article.getPrice() == null ? 0d : article.getPrice();
+                subTotal = subTotal.add(BigDecimal.valueOf(unit).multiply(BigDecimal.valueOf(qty)));
+            }
+        } else {
+            Cart cart = cartRepository.findByCustomer_userId(customerId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Cart", "customerId", customerId.toString()));
+            List<CartArticle> cartItems = cartArticleRepository.findByCart(cart);
+            if (cartItems.isEmpty()) {
+                throw new IllegalArgumentException("Le panier est vide");
+            }
+            for (CartArticle cartItem : cartItems) {
+                double unit = cartItem.getArticle().getPrice() == null ? 0d : cartItem.getArticle().getPrice();
+                subTotal = subTotal.add(BigDecimal.valueOf(unit).multiply(BigDecimal.valueOf(cartItem.getQuantity())));
+            }
+        }
+
+        if (subTotal.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Le panier est vide");
+        }
+
+        PromoApplication promo = applyPromoCode(request.getPromoCode(), subTotal, request.getEmail(), request.getPhone());
+        BigDecimal total = subTotal.subtract(promo.discountAmount());
+        if (total.compareTo(BigDecimal.ZERO) < 0) total = BigDecimal.ZERO;
+
+        return new OrderQuoteResponse(
+                subTotal.setScale(2, RoundingMode.HALF_UP),
+                promo.discountAmount().setScale(2, RoundingMode.HALF_UP),
+                total.setScale(2, RoundingMode.HALF_UP),
+                promo.applied(),
+                promo.code(),
+                promo.message()
+        );
+    }
     
     @Override
     public CheckoutResponseDto checkout(String customerId, CheckoutRequestDto request) {
@@ -73,18 +216,17 @@ public class OrderServiceImpl implements OrderService {
         });
 
         List<OrderArticle> orderArticles = new ArrayList<>();
-        double computedAmount = 0d;
+        BigDecimal subTotal = BigDecimal.ZERO;
         String currency = (request.getCurrency() == null || request.getCurrency().isBlank()) ? "XOF" : request.getCurrency();
 
         if (request.getItems() != null && !request.getItems().isEmpty()) {
             for (CheckoutItemDto item : request.getItems()) {
-                Long articleId = item == null ? null : item.getArticleId();
                 int qty = item == null || item.getQuantity() == null ? 0 : item.getQuantity();
-                if (articleId == null || qty <= 0) continue;
-                Article article = articleRepository.findById(articleId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Article", "id", String.valueOf(articleId)));
+                if (qty <= 0) continue;
+                Article article = resolveCheckoutArticle(item);
+                if (article == null) continue;
                 double unit = article.getPrice() == null ? 0d : article.getPrice();
-                computedAmount += unit * qty;
+                subTotal = subTotal.add(BigDecimal.valueOf(unit).multiply(BigDecimal.valueOf(qty)));
                 OrderArticle oa = OrderArticle.builder()
                         .article(article)
                         .quantity(qty)
@@ -101,7 +243,7 @@ public class OrderServiceImpl implements OrderService {
             }
             for (CartArticle cartItem : cartItems) {
                 double unit = cartItem.getArticle().getPrice() == null ? 0d : cartItem.getArticle().getPrice();
-                computedAmount += unit * cartItem.getQuantity();
+                subTotal = subTotal.add(BigDecimal.valueOf(unit).multiply(BigDecimal.valueOf(cartItem.getQuantity())));
                 OrderArticle oa = OrderArticle.builder()
                         .article(cartItem.getArticle())
                         .quantity(cartItem.getQuantity())
@@ -112,13 +254,21 @@ public class OrderServiceImpl implements OrderService {
             cartArticleRepository.deleteByCart(cart);
         }
 
-        if (orderArticles.isEmpty() || computedAmount <= 0d) {
+        if (orderArticles.isEmpty() || subTotal.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Le panier est vide");
         }
 
+        PromoApplication promo = applyPromoCode(request.getPromoCode(), subTotal, request.getEmail(), request.getPhone());
+        if (request.getPromoCode() != null && !request.getPromoCode().trim().isBlank() && !promo.applied()) {
+            throw new IllegalArgumentException(promo.message() != null ? promo.message() : "Code promo invalide");
+        }
+
+        BigDecimal total = subTotal.subtract(promo.discountAmount());
+        if (total.compareTo(BigDecimal.ZERO) < 0) total = BigDecimal.ZERO;
+
         Order order = Order.builder()
             .customer(customer)
-            .amount(computedAmount)
+            .amount(total.setScale(2, RoundingMode.HALF_UP).doubleValue())
             .currency(currency)
             .currentStatus(Status.PENDING)
             .statusHistory(new ArrayList<>())
@@ -143,6 +293,15 @@ public class OrderServiceImpl implements OrderService {
         savedOrder.getStatusHistory().add(history);
         
         orderRepository.save(savedOrder);
+
+        if (promo.applied() && promo.promo() != null && promo.utilisateur() != null && promo.discountAmount().compareTo(BigDecimal.ZERO) > 0) {
+            CodePromoUtilisation utilisation = new CodePromoUtilisation();
+            utilisation.setCodePromo(promo.promo());
+            utilisation.setUtilisateur(promo.utilisateur());
+            utilisation.setCommande(null);
+            utilisation.setMontantReduction(promo.discountAmount().setScale(2, RoundingMode.HALF_UP));
+            codePromoUtilisationRepository.save(utilisation);
+        }
 
         String fullName = java.util.stream.Stream.of(customer.getFirstName(), customer.getLastName())
                 .filter(v -> v != null && !v.isBlank())
@@ -264,6 +423,23 @@ public class OrderServiceImpl implements OrderService {
         
         // Mettre à jour le statut
         updateOrderStatus(orderId, Status.CANCELED, reason);
+    }
+
+    private Article resolveCheckoutArticle(CheckoutItemDto item) {
+        if (item == null) {
+            return null;
+        }
+        Long articleId = item.getArticleId();
+        if (articleId != null) {
+            return articleRepository.findById(articleId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Article", "id", String.valueOf(articleId)));
+        }
+        String reference = item.getReferenceProduitPartenaire();
+        if (reference != null && !reference.isBlank()) {
+            return articleRepository.findByReferenceProduitPartenaire(reference)
+                    .orElseThrow(() -> new ResourceNotFoundException("Article", "referenceProduitPartenaire", reference));
+        }
+        return null;
     }
     
     /**

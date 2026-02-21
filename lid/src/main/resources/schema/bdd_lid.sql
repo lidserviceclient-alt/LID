@@ -183,6 +183,31 @@ CREATE TABLE `systeme` (
   `date_mise_a_jour` DATETIME(6)
 );
 
+CREATE TABLE `blog_post` (
+  `id` CHAR(36) PRIMARY KEY NOT NULL,
+  `title` VARCHAR(200) NOT NULL,
+  `excerpt` TEXT,
+  `content` TEXT,
+  `image_url` VARCHAR(512),
+  `category` VARCHAR(100),
+  `date` DATETIME(6),
+  `author` VARCHAR(120),
+  `featured` BOOLEAN DEFAULT false,
+  `read_time` VARCHAR(50)
+);
+
+CREATE TABLE `ticket_event` (
+  `id` CHAR(36) PRIMARY KEY NOT NULL,
+  `title` VARCHAR(200) NOT NULL,
+  `date` DATETIME(6),
+  `location` VARCHAR(200),
+  `price` DECIMAL(12,2),
+  `image_url` VARCHAR(512),
+  `category` VARCHAR(100),
+  `available` BOOLEAN DEFAULT true,
+  `description` TEXT
+);
+
 CREATE UNIQUE INDEX `uk_utilisateur_email` ON `utilisateur` (`email`);
 
 CREATE UNIQUE INDEX `uk_auth_unique` ON `authentification` (`fournisseur`, `identifiant_fournisseur`);

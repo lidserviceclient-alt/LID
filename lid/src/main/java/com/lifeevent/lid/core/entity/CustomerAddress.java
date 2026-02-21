@@ -1,10 +1,7 @@
 package com.lifeevent.lid.core.entity;
 
-import com.lifeevent.lid.core.enums.NiveauCategorie;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
@@ -16,36 +13,38 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "categorie")
+@Table(name = "customer_address")
 @Getter
 @Setter
-public class Categorie extends UuidEntity {
+public class CustomerAddress extends UuidEntity {
 
-    @ManyToOne
-    @JoinColumn(name = "parent_id")
-    private Categorie parent;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "utilisateur_id", nullable = false)
+    private Utilisateur utilisateur;
 
-    @Column(name = "nom", nullable = false)
-    private String nom;
+    @Column(name = "type", length = 50)
+    private String type;
 
-    @Column(name = "slug", nullable = false)
-    private String slug;
+    @Column(name = "name", length = 150)
+    private String name;
 
-    @Column(name = "image_url", length = 512)
-    private String imageUrl;
+    @Column(name = "address_line", length = 255)
+    private String addressLine;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "niveau", nullable = false)
-    private NiveauCategorie niveau;
+    @Column(name = "city", length = 100)
+    private String city;
 
-    @Column(name = "ordre")
-    private Integer ordre = 0;
+    @Column(name = "postal_code", length = 20)
+    private String postalCode;
 
-    @Column(name = "est_active")
-    private Boolean estActive = true;
+    @Column(name = "country", length = 100)
+    private String country;
 
-    @Column(name = "is_featured")
-    private Boolean isFeatured = false;
+    @Column(name = "phone", length = 30)
+    private String phone;
+
+    @Column(name = "is_default")
+    private Boolean isDefault = false;
 
     @Column(name = "date_creation")
     private LocalDateTime dateCreation;
@@ -62,13 +61,16 @@ public class Categorie extends UuidEntity {
         if (dateMiseAJour == null) {
             dateMiseAJour = now;
         }
-        if (isFeatured == null) {
-            isFeatured = false;
+        if (isDefault == null) {
+            isDefault = false;
         }
     }
 
     @PreUpdate
     void onUpdate() {
         dateMiseAJour = LocalDateTime.now();
+        if (isDefault == null) {
+            isDefault = false;
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.lifeevent.lid.core.service;
 
 import com.lifeevent.lid.core.dto.BulkDeleteProductsResponse;
+import com.lifeevent.lid.core.dto.CatalogProductDto;
 import com.lifeevent.lid.core.dto.CreateProductRequest;
 import com.lifeevent.lid.core.dto.ProductSummaryDto;
 import com.lifeevent.lid.core.dto.UpdateProductRequest;
@@ -8,11 +9,14 @@ import com.lifeevent.lid.core.entity.*;
 import com.lifeevent.lid.core.enums.StatutProduit;
 import com.lifeevent.lid.core.enums.TypeMouvementStock;
 import com.lifeevent.lid.core.repository.*;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -48,25 +52,56 @@ public class ProductService {
         return produitRepository.findByStatutNot(StatutProduit.ARCHIVE, pageable).map(this::toSummary);
     }
 
+    @Transactional(readOnly = true)
+    public Page<CatalogProductDto> listCatalogProducts(Pageable pageable) {
+        return produitRepository.findByStatutNot(StatutProduit.ARCHIVE, pageable).map(this::toCatalogDto);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CatalogProductDto> listFeaturedCatalogProducts(Integer limit) {
+        int safeLimit = limit == null ? 12 : Math.max(1, Math.min(limit, 50));
+        Pageable pageable = PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "dateCreation"));
+        return produitRepository.findByIsFeaturedTrueAndStatutNot(StatutProduit.ARCHIVE, pageable)
+                .map(this::toCatalogDto)
+                .getContent();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CatalogProductDto> listBestSellerCatalogProducts(Integer limit) {
+        int safeLimit = limit == null ? 12 : Math.max(1, Math.min(limit, 50));
+        Pageable pageable = PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "dateCreation"));
+        return produitRepository.findByIsBestSellerTrueAndStatutNot(StatutProduit.ARCHIVE, pageable)
+                .map(this::toCatalogDto)
+                .getContent();
+    }
+
+    @Transactional(readOnly = true)
+    public CatalogProductDto getCatalogProduct(String id) {
+        Produit produit = produitRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+        if (produit.getStatut() == StatutProduit.ARCHIVE) {
+            throw new RuntimeException("Produit non trouvé");
+        }
+        return toCatalogDto(produit);
+    }
+
     @Transactional
     public ProductSummaryDto createProduct(CreateProductRequest request) {
         // 1. Resolve Boutique (default to first found if not specified)
         Boutique boutique = boutiqueRepository.findAll().stream().findFirst()
             .orElseThrow(() -> new RuntimeException("Aucune boutique trouvée. Veuillez en créer une d'abord."));
 
-        // 2. Resolve Category
-        String catId = request.getCategory();
-        if (catId == null && request.getCategories() != null && !request.getCategories().isEmpty()) {
-            catId = request.getCategories().get(0);
+        String catIdOrSlug = request.getCategory();
+        if ((catIdOrSlug == null || catIdOrSlug.isBlank()) && request.getCategories() != null && !request.getCategories().isEmpty()) {
+            catIdOrSlug = request.getCategories().get(0);
         }
-        
-        Categorie categorie = null;
-        if (catId != null) {
-            categorie = categorieRepository.findById(catId).orElse(null);
-        }
-        
-        if (categorie == null) {
-            // Fallback to first category
+
+        Categorie categorie;
+        if (catIdOrSlug != null && !catIdOrSlug.isBlank()) {
+            String categoryKey = catIdOrSlug;
+            categorie = resolveCategorie(categoryKey)
+                .orElseThrow(() -> new RuntimeException("Catégorie non trouvée: " + categoryKey));
+        } else {
             categorie = categorieRepository.findAll().stream().findFirst()
                 .orElseThrow(() -> new RuntimeException("Aucune catégorie trouvée. Veuillez en créer une d'abord."));
         }
@@ -83,6 +118,8 @@ public class ProductService {
         produit.setMarque(request.getBrand());
         produit.setPrix(request.getPrice());
         produit.setTva(request.getVat());
+        produit.setIsFeatured(Boolean.TRUE.equals(request.getIsFeatured()));
+        produit.setIsBestSeller(Boolean.TRUE.equals(request.getIsBestSeller()));
         
         try {
             if (request.getStatus() != null) {
@@ -153,15 +190,22 @@ public class ProductService {
             } catch (Exception ignored) {}
         }
 
-        // Support both categoryId and category (alias)
-        String catId = request.getCategoryId();
-        if (catId == null) {
-            catId = request.getCategory();
+        if (request.getIsFeatured() != null) {
+            produit.setIsFeatured(request.getIsFeatured());
+        }
+        if (request.getIsBestSeller() != null) {
+            produit.setIsBestSeller(request.getIsBestSeller());
         }
 
-        if (catId != null) {
-            Categorie categorie = categorieRepository.findById(catId)
-                    .orElseThrow(() -> new RuntimeException("Catégorie non trouvée"));
+        String catIdOrSlug = request.getCategoryId();
+        if (catIdOrSlug == null || catIdOrSlug.isBlank()) {
+            catIdOrSlug = request.getCategory();
+        }
+
+        if (catIdOrSlug != null && !catIdOrSlug.isBlank()) {
+            String categoryKey = catIdOrSlug;
+            Categorie categorie = resolveCategorie(categoryKey)
+                .orElseThrow(() -> new RuntimeException("Catégorie non trouvée: " + categoryKey));
             produit.setCategorie(categorie);
         }
         
@@ -259,7 +303,61 @@ public class ProductService {
             categoryName,
             produit.getPrix(),
             stockQty,
-            produit.getStatut() != null ? produit.getStatut().name() : "-"
+            produit.getStatut() != null ? produit.getStatut().name() : "-",
+            produit.getIsFeatured(),
+            produit.getIsBestSeller()
         );
+    }
+
+    private CatalogProductDto toCatalogDto(Produit produit) {
+        Categorie categorie = produit.getCategorie();
+        String categoryId = categorie != null ? categorie.getId() : null;
+        String categoryName = categorie != null ? categorie.getNom() : null;
+        String categorySlug = categorie != null ? categorie.getSlug() : null;
+
+        Integer stockQty = stockRepository.findByProduit(produit)
+                .map(Stock::getQuantiteDisponible)
+                .orElse(0);
+
+        String imageUrl = null;
+        List<ProduitImage> images = produit.getImages();
+        if (images != null && !images.isEmpty()) {
+            ProduitImage principal = null;
+            for (ProduitImage img : images) {
+                if (img != null && Boolean.TRUE.equals(img.getEstPrincipale())) {
+                    principal = img;
+                    break;
+                }
+            }
+            ProduitImage chosen = principal != null ? principal : images.get(0);
+            imageUrl = chosen != null ? chosen.getUrl() : null;
+        }
+
+        BigDecimal price = produit.getPrix() != null ? produit.getPrix() : BigDecimal.ZERO;
+
+        return new CatalogProductDto(
+                produit.getId(),
+                produit.getReferencePartenaire(),
+                produit.getNom(),
+                produit.getSlug(),
+                price,
+                produit.getMarque(),
+                categoryId,
+                categoryName,
+                categorySlug,
+                produit.getIsFeatured(),
+                produit.getIsBestSeller(),
+                imageUrl,
+                stockQty,
+                produit.getDateCreation()
+        );
+    }
+
+    private java.util.Optional<Categorie> resolveCategorie(String idOrSlug) {
+        if (idOrSlug == null) return java.util.Optional.empty();
+        String trimmed = idOrSlug.trim();
+        if (trimmed.isEmpty()) return java.util.Optional.empty();
+        return categorieRepository.findById(trimmed)
+            .or(() -> categorieRepository.findBySlug(trimmed.toLowerCase()));
     }
 }

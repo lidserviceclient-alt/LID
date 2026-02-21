@@ -1,5 +1,6 @@
 package com.lifeevent.lid.order.service;
 
+import com.lifeevent.lid.core.dto.OrderQuoteResponse;
 import com.lifeevent.lid.order.dto.CheckoutRequestDto;
 import com.lifeevent.lid.order.dto.CheckoutResponseDto;
 import com.lifeevent.lid.order.dto.OrderDetailDto;
@@ -17,6 +18,8 @@ public interface OrderService {
      * Initier un checkout : créer une commande et réserver le stock
      */
     CheckoutResponseDto checkout(String customerId, CheckoutRequestDto request);
+
+    OrderQuoteResponse quoteCheckout(String customerId, CheckoutRequestDto request);
     
     /**
      * Récupérer une commande par ID

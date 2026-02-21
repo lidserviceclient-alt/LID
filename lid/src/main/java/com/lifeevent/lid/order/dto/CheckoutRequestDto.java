@@ -46,6 +46,8 @@ public class CheckoutRequestDto {
      */
     private String notes;
 
+    private String promoCode;
+
     /**
      * Items à acheter (si le panier n'est pas stocké serveur)
      */

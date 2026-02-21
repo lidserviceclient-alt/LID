@@ -1,5 +1,6 @@
 package com.lifeevent.lid.order.controller;
 
+import com.lifeevent.lid.core.dto.OrderQuoteResponse;
 import com.lifeevent.lid.order.dto.CheckoutRequestDto;
 import com.lifeevent.lid.order.dto.CheckoutResponseDto;
 import com.lifeevent.lid.order.dto.OrderDetailDto;
@@ -26,6 +27,16 @@ public class OrderController implements IOrderController {
     ) {
         CheckoutResponseDto response = orderService.checkout(customerId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Override
+    @PostMapping("/checkout/quote")
+    public ResponseEntity<OrderQuoteResponse> quoteCheckout(
+            @RequestParam String customerId,
+            @RequestBody CheckoutRequestDto request
+    ) {
+        OrderQuoteResponse response = orderService.quoteCheckout(customerId, request);
+        return ResponseEntity.ok(response);
     }
     
     @Override

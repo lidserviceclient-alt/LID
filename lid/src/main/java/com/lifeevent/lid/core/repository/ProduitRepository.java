@@ -4,10 +4,12 @@ import com.lifeevent.lid.core.entity.Boutique;
 import com.lifeevent.lid.core.entity.Categorie;
 import com.lifeevent.lid.core.entity.Produit;
 import com.lifeevent.lid.core.enums.StatutProduit;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ProduitRepository extends JpaRepository<Produit, String> {
@@ -16,4 +18,10 @@ public interface ProduitRepository extends JpaRepository<Produit, String> {
     Page<Produit> findByStatutNot(StatutProduit statut, Pageable pageable);
     long countByStatut(StatutProduit statut);
     Optional<Produit> findByReferencePartenaireIgnoreCase(String referencePartenaire);
+
+    Page<Produit> findByIsFeaturedTrueAndStatutNot(StatutProduit statut, Pageable pageable);
+
+    List<Produit> findByIsFeaturedTrueAndStatutNot(StatutProduit statut, Sort sort);
+
+    Page<Produit> findByIsBestSellerTrueAndStatutNot(StatutProduit statut, Pageable pageable);
 }

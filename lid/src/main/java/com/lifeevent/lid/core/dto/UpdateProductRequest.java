@@ -18,6 +18,9 @@ public class UpdateProductRequest {
     private String brand;
     private String status; // ACTIVE, DRAFT, ARCHIVED or ACTIF, BROUILLON, ARCHIVE
 
+    private Boolean isFeatured;
+    private Boolean isBestSeller;
+
     @PositiveOrZero
     private BigDecimal price;
 
@@ -31,4 +34,3 @@ public class UpdateProductRequest {
     @PositiveOrZero
     private Integer stock; // quantite_disponible
 }
-

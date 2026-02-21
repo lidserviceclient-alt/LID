@@ -44,6 +44,26 @@ public class CategoryService {
     }
 
     @Transactional(readOnly = true)
+    public List<CategoryDto> listActive() {
+        Sort sort = Sort.by("ordre").ascending().and(Sort.by("nom").ascending());
+        return categorieRepository.findAll(sort).stream()
+                .filter(c -> Boolean.TRUE.equals(c.getEstActive()))
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CategoryDto> listFeaturedActive(Integer limit) {
+        Sort sort = Sort.by("ordre").ascending().and(Sort.by("nom").ascending());
+        int safeLimit = limit == null ? 12 : Math.max(1, Math.min(limit, 50));
+        return categorieRepository.findByIsFeaturedTrueAndEstActiveTrue(sort)
+                .stream()
+                .limit(safeLimit)
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public CategoryDto getById(String id) {
         Categorie categorie = categorieRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Categorie", "id", id));
@@ -191,6 +211,11 @@ public class CategoryService {
         categorie.setNiveau(niveau);
         categorie.setOrdre(request.getOrdre() != null ? request.getOrdre() : 0);
         categorie.setEstActive(request.getEstActive() != null ? request.getEstActive() : Boolean.TRUE);
+        if (request.getIsFeatured() != null) {
+            categorie.setIsFeatured(request.getIsFeatured());
+        } else if (categorie.getIsFeatured() == null) {
+            categorie.setIsFeatured(false);
+        }
         categorie.setParent(parent);
     }
 
@@ -206,6 +231,7 @@ public class CategoryService {
                 categorie.getNiveau(),
                 categorie.getOrdre(),
                 categorie.getEstActive(),
+                categorie.getIsFeatured(),
                 categorie.getDateCreation(),
                 categorie.getDateMiseAJour()
         );

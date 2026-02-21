@@ -11,6 +11,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CheckoutItemDto {
     private Long articleId;
+    private String referenceProduitPartenaire;
     private Integer quantity;
 }
-

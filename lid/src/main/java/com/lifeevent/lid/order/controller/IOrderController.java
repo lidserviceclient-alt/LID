@@ -3,6 +3,7 @@ package com.lifeevent.lid.order.controller;
 import com.lifeevent.lid.order.dto.CheckoutRequestDto;
 import com.lifeevent.lid.order.dto.CheckoutResponseDto;
 import com.lifeevent.lid.order.dto.OrderDetailDto;
+import com.lifeevent.lid.core.dto.OrderQuoteResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -43,6 +44,25 @@ public interface IOrderController {
             @RequestParam String customerId,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                 description = "Détails du checkout (articles à commander, adresse, etc)",
+                required = true,
+                content = @Content(schema = @Schema(implementation = CheckoutRequestDto.class))
+            )
+            @RequestBody CheckoutRequestDto request);
+
+    @Operation(summary = "Simuler un checkout (devis)", description = "Calcule sous-total, remise et total en tenant compte du code promo (CUSTOMER or ADMIN)")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Devis calculé"),
+        @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Can quote only own cart"),
+        @ApiResponse(responseCode = "400", description = "Requête invalide")
+    })
+    @PostMapping("/checkout/quote")
+    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
+    ResponseEntity<OrderQuoteResponse> quoteCheckout(
+            @Parameter(description = "ID du client", example = "1", required = true)
+            @RequestParam String customerId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Détails du devis (articles, code promo, etc)",
                 required = true,
                 content = @Content(schema = @Schema(implementation = CheckoutRequestDto.class))
             )

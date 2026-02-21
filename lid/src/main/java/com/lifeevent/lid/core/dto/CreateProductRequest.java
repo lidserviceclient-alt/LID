@@ -45,4 +45,8 @@ public class CreateProductRequest {
     private Integer stock;
 
     private String sku; // can be same as referenceProduitPartenaire
+
+    private Boolean isFeatured;
+
+    private Boolean isBestSeller;
 }

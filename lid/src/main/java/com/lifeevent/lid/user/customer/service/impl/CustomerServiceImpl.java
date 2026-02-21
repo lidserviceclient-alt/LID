@@ -39,6 +39,9 @@ public class CustomerServiceImpl implements CustomerService {
         utilisateur.setNom(dto.getLastName());
         utilisateur.setPrenom(dto.getFirstName());
         utilisateur.setAvatarUrl(dto.getAvatarUrl());
+        utilisateur.setTelephone(dto.getTelephone());
+        utilisateur.setVille(dto.getVille());
+        utilisateur.setPays(dto.getPays());
         utilisateur.setRole(RoleUtilisateur.CLIENT);
         // Note: Password/Auth is handled separately usually
         
@@ -77,6 +80,9 @@ public class CustomerServiceImpl implements CustomerService {
         if (dto.getFirstName() != null) utilisateur.setPrenom(dto.getFirstName());
         if (dto.getLastName() != null) utilisateur.setNom(dto.getLastName());
         if (dto.getAvatarUrl() != null) utilisateur.setAvatarUrl(dto.getAvatarUrl());
+        if (dto.getTelephone() != null) utilisateur.setTelephone(dto.getTelephone());
+        if (dto.getVille() != null) utilisateur.setVille(dto.getVille());
+        if (dto.getPays() != null) utilisateur.setPays(dto.getPays());
         
         if (dto.getEmail() != null && !dto.getEmail().equals(utilisateur.getEmail())) {
              if (utilisateurRepository.findByEmail(dto.getEmail()).isPresent()) {
@@ -111,6 +117,9 @@ public class CustomerServiceImpl implements CustomerService {
                 .firstName(utilisateur.getPrenom())
                 .lastName(utilisateur.getNom())
                 .avatarUrl(utilisateur.getAvatarUrl())
+                .telephone(utilisateur.getTelephone())
+                .ville(utilisateur.getVille())
+                .pays(utilisateur.getPays())
                 .createdAt(utilisateur.getDateCreation())
                 .build();
     }

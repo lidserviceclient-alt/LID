@@ -4,8 +4,11 @@ package com.lifeevent.lid.common.exception;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -18,6 +21,9 @@ import java.time.LocalDateTime;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @Value("${spring.profiles.active:}")
+    private String activeProfile;
 
     private ResponseEntity<ErrorResponseDto> buildErrorDto(Exception ex, WebRequest request, HttpStatus statusCode){
         return this.buildErrorDto(ex.getLocalizedMessage(), request, statusCode);
@@ -56,6 +62,18 @@ public class GlobalExceptionHandler {
             AuthorizationDeniedException.class
     })
     ResponseEntity<ErrorResponseDto> handleAccessDenied(Exception ex, WebRequest request) {
+        if (activeProfile != null && (activeProfile.contains("local") || activeProfile.contains("local-h2"))) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String principal = authentication != null ? authentication.getName() : "null";
+            String authorities = authentication != null
+                    ? authentication.getAuthorities().stream()
+                        .map(a -> a != null ? a.getAuthority() : null)
+                        .filter(a -> a != null && !a.isBlank())
+                        .collect(java.util.stream.Collectors.joining(","))
+                    : "";
+            String message = ex.getLocalizedMessage() + " (principal=" + principal + ", authorities=" + authorities + ")";
+            return this.buildErrorDto(message, request, HttpStatus.FORBIDDEN);
+        }
         return this.buildErrorDto(ex, request, HttpStatus.FORBIDDEN);
     }
 

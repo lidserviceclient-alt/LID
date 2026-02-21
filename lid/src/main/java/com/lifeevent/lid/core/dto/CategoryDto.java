@@ -14,8 +14,8 @@ public record CategoryDto(
         NiveauCategorie niveau,
         Integer ordre,
         Boolean estActive,
+        Boolean isFeatured,
         LocalDateTime dateCreation,
         LocalDateTime dateMiseAJour
 ) {
 }
-

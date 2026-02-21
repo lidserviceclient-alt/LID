@@ -11,10 +11,12 @@ public class ProductSummaryDto {
     private BigDecimal price;
     private Integer stock;
     private String status;
+    private Boolean isFeatured;
+    private Boolean isBestSeller;
 
     public ProductSummaryDto() {}
 
-    public ProductSummaryDto(String id, String sku, String name, String categoryId, String category, BigDecimal price, Integer stock, String status) {
+    public ProductSummaryDto(String id, String sku, String name, String categoryId, String category, BigDecimal price, Integer stock, String status, Boolean isFeatured, Boolean isBestSeller) {
         this.id = id;
         this.sku = sku;
         this.name = name;
@@ -23,6 +25,8 @@ public class ProductSummaryDto {
         this.price = price;
         this.stock = stock;
         this.status = status;
+        this.isFeatured = isFeatured;
+        this.isBestSeller = isBestSeller;
     }
 
     public String getId() {
@@ -87,5 +91,21 @@ public class ProductSummaryDto {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Boolean getIsFeatured() {
+        return isFeatured;
+    }
+
+    public void setIsFeatured(Boolean isFeatured) {
+        this.isFeatured = isFeatured;
+    }
+
+    public Boolean getIsBestSeller() {
+        return isBestSeller;
+    }
+
+    public void setIsBestSeller(Boolean isBestSeller) {
+        this.isBestSeller = isBestSeller;
     }
 }

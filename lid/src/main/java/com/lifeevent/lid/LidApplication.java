@@ -21,7 +21,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 		"com.lifeevent.lid.user",
 		"com.lifeevent.lid.cart",
 		"com.lifeevent.lid.order",
-		"com.lifeevent.lid.payment"
+		"com.lifeevent.lid.payment",
+		"com.lifeevent.lid.wishlist"
 })
 @EntityScan(basePackages = {
 		"com.lifeevent.lid.core.entity",
@@ -31,7 +32,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 		"com.lifeevent.lid.user",
 		"com.lifeevent.lid.cart",
 		"com.lifeevent.lid.order",
-		"com.lifeevent.lid.payment"
+		"com.lifeevent.lid.payment",
+		"com.lifeevent.lid.wishlist.entity"
 })
 @EnableJpaRepositories(basePackages = {
 		"com.lifeevent.lid.core.repository",
@@ -41,7 +43,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 		"com.lifeevent.lid.user",
 		"com.lifeevent.lid.cart",
 		"com.lifeevent.lid.order",
-		"com.lifeevent.lid.payment"
+		"com.lifeevent.lid.payment",
+		"com.lifeevent.lid.wishlist.repository"
 })
 public class LidApplication {
 
@@ -50,3 +53,4 @@ public class LidApplication {
 	}
 
 }
+ 

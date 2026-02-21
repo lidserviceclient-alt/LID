@@ -20,6 +20,8 @@ public class UpsertCategoryRequest {
 
     private Boolean estActive;
 
+    private Boolean isFeatured;
+
     private String parentId;
 
     public String getNom() {
@@ -77,5 +79,12 @@ public class UpsertCategoryRequest {
     public void setParentId(String parentId) {
         this.parentId = parentId;
     }
-}
 
+    public Boolean getIsFeatured() {
+        return isFeatured;
+    }
+
+    public void setIsFeatured(Boolean isFeatured) {
+        this.isFeatured = isFeatured;
+    }
+}

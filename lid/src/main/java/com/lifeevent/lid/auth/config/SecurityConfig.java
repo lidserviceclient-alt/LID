@@ -69,9 +69,9 @@ public class SecurityConfig {
         if (cors != null) {
             http.cors(corsSpec -> corsSpec.configurationSource(cors));
         }
-        return http
+                return http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/swagger-ui/**","/v3/api-docs/**","/actuator/**").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/actuator/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/v1/webhooks/**").permitAll()
                         .requestMatchers("/api/backoffice/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
