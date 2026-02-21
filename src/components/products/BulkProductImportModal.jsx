@@ -14,6 +14,14 @@ function normalizeNumber(value) {
   return Number(normalized);
 }
 
+function normalizeBoolean(value) {
+  const raw = `${value ?? ""}`.trim().toLowerCase();
+  if (!raw) return false;
+  if (raw === "1" || raw === "true" || raw === "yes" || raw === "y" || raw === "oui" || raw === "vrai") return true;
+  if (raw === "0" || raw === "false" || raw === "no" || raw === "n" || raw === "non" || raw === "faux") return false;
+  return false;
+}
+
 function splitRow(line) {
   const text = `${line ?? ""}`;
   const sep = text.includes(";") ? ";" : text.includes("\t") ? "\t" : ",";
@@ -22,9 +30,9 @@ function splitRow(line) {
 
 function buildTemplate(categories) {
   const firstCategory = Array.isArray(categories) && categories.length > 0 ? categories[0].id : "cat-001";
-  return `referenceProduitPartenaire;name;price;category;stock;brand
-REF-001;Produit A;15000;${firstCategory};10;Marque A
-REF-002;Produit B;25000;${firstCategory};5;`;
+  return `referenceProduitPartenaire;name;price;category;stock;brand;img;isFeatured;isBestSeller
+REF-001;Produit A;15000;${firstCategory};10;Marque A;;1;0
+REF-002;Produit B;25000;${firstCategory};5;;;0;1`;
 }
 
 function toBulkPayload(row) {
@@ -37,6 +45,8 @@ function toBulkPayload(row) {
     stock: Number.isFinite(Number(row.stock)) ? Math.trunc(Number(row.stock)) : 0,
     brand: row.brand || undefined,
     img: row.img || undefined,
+    isFeatured: Boolean(row.isFeatured),
+    isBestSeller: Boolean(row.isBestSeller),
   };
 }
 
@@ -74,6 +84,8 @@ export default function BulkProductImportModal({
         stock: "0",
         brand: "",
         img: "",
+        isFeatured: false,
+        isBestSeller: false,
       },
     ]);
     setImageRowIndex(null);
@@ -125,6 +137,8 @@ export default function BulkProductImportModal({
         stock: "0",
         brand: "",
         img: "",
+        isFeatured: false,
+        isBestSeller: false,
       },
     ]);
   };
@@ -147,18 +161,23 @@ export default function BulkProductImportModal({
       headerCells.includes("price") ||
       headerCells.includes("category");
 
-    const colIndex = (key, fallbackIdx) => {
-      const idx = headerCells.indexOf(key);
-      if (idx >= 0) return idx;
+    const colIndexAny = (keys, fallbackIdx) => {
+      for (const key of keys) {
+        const idx = headerCells.indexOf(key);
+        if (idx >= 0) return idx;
+      }
       return hasHeader ? -1 : fallbackIdx;
     };
 
-    const idxRef = colIndex("referenceproduitpartenaire", 0);
-    const idxName = colIndex("name", 1);
-    const idxPrice = colIndex("price", 2);
-    const idxCategory = colIndex("category", 3);
-    const idxStock = colIndex("stock", 4);
-    const idxBrand = colIndex("brand", 5);
+    const idxRef = colIndexAny(["referenceproduitpartenaire"], 0);
+    const idxName = colIndexAny(["name"], 1);
+    const idxPrice = colIndexAny(["price"], 2);
+    const idxCategory = colIndexAny(["category"], 3);
+    const idxStock = colIndexAny(["stock"], 4);
+    const idxBrand = colIndexAny(["brand"], 5);
+    const idxImg = colIndexAny(["img", "image", "imageurl", "image_url"], 6);
+    const idxFeatured = colIndexAny(["isfeatured", "featured", "mis_en_avant", "misenavant"], 7);
+    const idxBestSeller = colIndexAny(["isbestseller", "bestseller", "best_seller", "meilleur_vente", "meilleurvente"], 8);
     const start = hasHeader ? 1 : 0;
 
     const normalizeCategory = (value) => {
@@ -183,6 +202,9 @@ export default function BulkProductImportModal({
       const catRaw = idxCategory >= 0 ? cells[idxCategory] : "";
       const stockRaw = idxStock >= 0 ? cells[idxStock] : "";
       const brand = idxBrand >= 0 ? cells[idxBrand] : "";
+      const img = idxImg >= 0 ? cells[idxImg] : "";
+      const featuredRaw = idxFeatured >= 0 ? cells[idxFeatured] : "";
+      const bestSellerRaw = idxBestSeller >= 0 ? cells[idxBestSeller] : "";
 
       nextRows.push({
         referenceProduitPartenaire: ref,
@@ -191,7 +213,9 @@ export default function BulkProductImportModal({
         categoryId: normalizeCategory(catRaw),
         stock: stockRaw === "" ? "0" : stockRaw,
         brand,
-        img: "",
+        img,
+        isFeatured: normalizeBoolean(featuredRaw),
+        isBestSeller: normalizeBoolean(bestSellerRaw),
       });
     }
     if (nextRows.length === 0) return { nextRows: [], parseError: "Aucune ligne produit trouvée." };
@@ -372,7 +396,7 @@ export default function BulkProductImportModal({
           </div>
 
           <div className="overflow-auto rounded-lg border border-border">
-            <table className="min-w-[1100px] w-full text-sm">
+            <table className="min-w-[1350px] w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
                   <td className="p-2">Référence</td>
@@ -381,6 +405,8 @@ export default function BulkProductImportModal({
                   <td className="p-2">Prix</td>
                   <td className="p-2">Stock</td>
                   <td className="p-2">Marque</td>
+                  <td className="p-2 text-center">En phare</td>
+                  <td className="p-2 text-center">Best seller</td>
                   <td className="p-2">Image</td>
                   <td className="p-2 text-right">Action</td>
                 </tr>
@@ -443,6 +469,28 @@ export default function BulkProductImportModal({
                           onChange={(e) => setRowField(idx, "brand", e.target.value)}
                           placeholder="Marque"
                         />
+                      </td>
+                      <td className="p-2">
+                        <div className="flex justify-center pt-2">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(row.isFeatured)}
+                            onChange={(e) => setRowField(idx, "isFeatured", e.target.checked)}
+                            disabled={isSubmitting}
+                            aria-label="Produit en phare"
+                          />
+                        </div>
+                      </td>
+                      <td className="p-2">
+                        <div className="flex justify-center pt-2">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(row.isBestSeller)}
+                            onChange={(e) => setRowField(idx, "isBestSeller", e.target.checked)}
+                            disabled={isSubmitting}
+                            aria-label="Best seller"
+                          />
+                        </div>
                       </td>
                       <td className="p-2">
                         <div className="flex items-center gap-2">

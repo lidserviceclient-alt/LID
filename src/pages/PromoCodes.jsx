@@ -238,11 +238,39 @@ export default function PromoCodes() {
     e.preventDefault();
     setError("");
 
+    const trimmedCode = (formData.code || "").trim();
+    if (!trimmedCode) {
+      setError("Le code est obligatoire.");
+      return;
+    }
+
+    const pourcentageValue = Number(formData.pourcentage);
+    if (formData.pourcentage === "" || Number.isNaN(pourcentageValue)) {
+      setError("Le pourcentage est obligatoire.");
+      return;
+    }
+
+    if (formData.cible === "BOUTIQUE" && !formData.boutiqueId?.trim()) {
+      setError("Sélectionnez une boutique.");
+      return;
+    }
+
+    if (formData.cible === "UTILISATEUR" && !formData.utilisateurId?.trim()) {
+      setError("L'identifiant utilisateur est obligatoire.");
+      return;
+    }
+
+    const usageMaxParUtilisateurValue = Number(formData.usageMaxParUtilisateur);
+    if (Number.isNaN(usageMaxParUtilisateurValue) || usageMaxParUtilisateurValue < 1) {
+      setError("Le nombre d'usages max par utilisateur doit être >= 1.");
+      return;
+    }
+
     const cible = formData.cible;
     const payload = {
-      code: (formData.code || "").trim().toUpperCase(),
+      code: trimmedCode.toUpperCase(),
       description: formData.description?.trim() || null,
-      pourcentage: formData.pourcentage !== "" ? Number(formData.pourcentage) : null,
+      pourcentage: pourcentageValue,
       cible,
       boutiqueId: cible === "BOUTIQUE" ? formData.boutiqueId?.trim() || null : null,
       utilisateurId: cible === "UTILISATEUR" ? formData.utilisateurId?.trim() || null : null,
@@ -251,7 +279,7 @@ export default function PromoCodes() {
       dateFin: normalizeDateTimeForApi(formData.dateFin),
       usageMax: formData.usageMax !== "" ? Number(formData.usageMax) : null,
       usageMaxParUtilisateur:
-        formData.usageMaxParUtilisateur !== "" ? Number(formData.usageMaxParUtilisateur) : 1,
+        formData.usageMaxParUtilisateur !== "" ? usageMaxParUtilisateurValue : 1,
       estActif: Boolean(formData.estActif)
     };
 
@@ -300,7 +328,7 @@ export default function PromoCodes() {
     <div className="space-y-6">
       <SectionHeader
         title="Codes promo"
-        subtitle="CrÃ©ez, activez et suivez les utilisations."
+        subtitle="Créez, activez et suivez les utilisations."
         rightSlot={
           <Button onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
@@ -331,7 +359,7 @@ export default function PromoCodes() {
               <p className="font-semibold text-foreground">{new Intl.NumberFormat("fr-FR").format(stats?.totalUsages || 0)}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-widest text-muted-foreground">RÃ©duction</p>
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">Réduction</p>
               <p className="font-semibold text-foreground">{formatCurrency(stats?.totalReduction || 0)}</p>
             </div>
           </div>
@@ -380,7 +408,7 @@ export default function PromoCodes() {
           </div>
 
           <Button variant="outline" onClick={loadPromoCodes} disabled={isLoading}>
-            {isLoading ? "Chargement..." : "RafraÃ®chir"}
+            {isLoading ? "Chargement..." : "Rafraîchir"}
           </Button>
         </div>
 
@@ -393,9 +421,9 @@ export default function PromoCodes() {
               <TCell>Pourcentage</TCell>
               <TCell>Cible</TCell>
               <TCell>Boutique / Utilisateur</TCell>
-              <TCell>PÃ©riode</TCell>
+              <TCell>Période</TCell>
               <TCell>Usage</TCell>
-              <TCell>RÃ©duction</TCell>
+              <TCell>Réduction</TCell>
               <TCell>Statut</TCell>
               <TCell className="text-right">Actions</TCell>
             </TRow>
@@ -411,7 +439,7 @@ export default function PromoCodes() {
                     : "-";
               const period =
                 promo.dateDebut || promo.dateFin
-                  ? `${promo.dateDebut ? formatDateTime(promo.dateDebut) : "..." } â†’ ${promo.dateFin ? formatDateTime(promo.dateFin) : "..."}`
+                  ? `${promo.dateDebut ? formatDateTime(promo.dateDebut) : "..."} → ${promo.dateFin ? formatDateTime(promo.dateFin) : "..."}`
                   : "-";
               const usageMax = promo.usageMax !== null && promo.usageMax !== undefined ? promo.usageMax : null;
               const usage = usageMax ? `${promo.usageCount || 0} / ${usageMax}` : `${promo.usageCount || 0}`;
@@ -450,7 +478,7 @@ export default function PromoCodes() {
             {filtered.length === 0 && (
               <TRow>
                 <TCell colSpan={9} className="text-center text-sm text-muted-foreground py-10">
-                  {isLoading ? "Chargement..." : "Aucun code promo trouvÃ©."}
+                  {isLoading ? "Chargement..." : "Aucun code promo trouvé."}
                 </TCell>
               </TRow>
             )}
@@ -461,14 +489,14 @@ export default function PromoCodes() {
       <Modal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        title={currentPromo ? "Modifier le code promo" : "CrÃ©er un code promo"}
+        title={currentPromo ? "Modifier le code promo" : "Créer un code promo"}
         footer={
           <>
             <Button variant="outline" onClick={() => setIsFormOpen(false)}>
               Annuler
             </Button>
             <Button onClick={handleSubmit}>
-              {currentPromo ? "Enregistrer" : "CrÃ©er"}
+              {currentPromo ? "Enregistrer" : "Créer"}
             </Button>
           </>
         }
@@ -624,7 +652,7 @@ export default function PromoCodes() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="dateDebut">Date dÃ©but (optionnel)</Label>
+              <Label htmlFor="dateDebut">Date début (optionnel)</Label>
               <Input
                 id="dateDebut"
                 type="datetime-local"
@@ -650,7 +678,7 @@ export default function PromoCodes() {
                 <p className="font-medium text-foreground">Rappel</p>
                 <p>
                   Pour <strong>BOUTIQUE</strong> ou <strong>UTILISATEUR</strong>, renseignez le champ correspondant.
-                  La pÃ©riode (dÃ©but/fin) est optionnelle.
+                  La période (début/fin) est optionnelle.
                 </p>
               </div>
             </div>
@@ -681,7 +709,7 @@ export default function PromoCodes() {
           <div>
             <p className="font-medium text-foreground">Confirmer la suppression</p>
             <p className="text-sm text-muted-foreground mt-2">
-              Le code promo <strong>{currentPromo?.code}</strong> sera supprimÃ©. Les utilisations associÃ©es seront aussi supprimÃ©es.
+              Le code promo <strong>{currentPromo?.code}</strong> sera supprimé. Les utilisations associées seront aussi supprimées.
             </p>
           </div>
         </div>
@@ -689,4 +717,3 @@ export default function PromoCodes() {
     </div>
   );
 }
-

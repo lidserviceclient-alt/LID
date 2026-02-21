@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Filter, Edit2, Trash2, AlertCircle, Upload } from "lucide-react";
+import { Plus, Search, Filter, Edit2, Trash2, AlertCircle, Upload, Star, TrendingUp } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Badge from "../components/ui/Badge.jsx";
@@ -9,6 +9,7 @@ import Input from "../components/ui/Input.jsx";
 import Select from "../components/ui/Select.jsx";
 import Modal from "../components/ui/Modal.jsx";
 import Label from "../components/ui/Label.jsx";
+import Toggle from "../components/ui/Toggle.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import BulkProductImportModal from "../components/products/BulkProductImportModal.jsx";
 import { backofficeApi } from "../services/api.js";
@@ -60,7 +61,9 @@ export default function Products() {
     categoryId: "",
     price: 0,
     stock: 0,
-    status: "ACTIF"
+    status: "ACTIF",
+    isFeatured: false,
+    isBestSeller: false
   });
 
   const [bulkSaving, setBulkSaving] = useState(false);
@@ -135,7 +138,9 @@ export default function Products() {
       categoryId: product.categoryId || "",
       price: product.price ?? 0,
       stock: Number.isFinite(product.stock) ? product.stock : 0,
-      status: product.status || "ACTIF"
+      status: product.status || "ACTIF",
+      isFeatured: Boolean(product?.isFeatured),
+      isBestSeller: Boolean(product?.isBestSeller)
     });
     setIsFormOpen(true);
   };
@@ -143,6 +148,28 @@ export default function Products() {
   const handleOpenDelete = (product) => {
     setCurrentProduct(product);
     setIsDeleteOpen(true);
+  };
+
+  const handleToggleFeatured = async (product) => {
+    if (!product?.id) return;
+    const next = !Boolean(product?.isFeatured);
+    try {
+      await backofficeApi.updateProduct(product.id, { isFeatured: next });
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, isFeatured: next } : p)));
+    } catch (e) {
+      setError(e?.message || "Impossible de mettre à jour l’état en phare.");
+    }
+  };
+
+  const handleToggleBestSeller = async (product) => {
+    if (!product?.id) return;
+    const next = !Boolean(product?.isBestSeller);
+    try {
+      await backofficeApi.updateProduct(product.id, { isBestSeller: next });
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, isBestSeller: next } : p)));
+    } catch (e) {
+      setError(e?.message || "Impossible de mettre à jour l’état best seller.");
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -156,7 +183,9 @@ export default function Products() {
         status: formData.status,
         price: Number(formData.price),
         stock: Number(formData.stock),
-        categoryId: formData.categoryId
+        categoryId: formData.categoryId,
+        isFeatured: Boolean(formData.isFeatured),
+        isBestSeller: Boolean(formData.isBestSeller)
       };
 
       await backofficeApi.updateProduct(currentProduct.id, payload);
@@ -365,6 +394,8 @@ export default function Products() {
               <TCell>Catégorie</TCell>
               <TCell>Prix</TCell>
               <TCell>Stock</TCell>
+              <TCell>Phare</TCell>
+              <TCell>Best seller</TCell>
               <TCell>Statut</TCell>
               <TCell className="text-right">Actions</TCell>
             </TRow>
@@ -390,6 +421,34 @@ export default function Products() {
                       {Number.isFinite(product.stock) ? product.stock : 0}
                     </span>
                   </TCell>
+                  <TCell>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFeatured(product)}
+                      className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border transition-colors ${
+                        product.isFeatured
+                          ? "bg-yellow-50 border-yellow-200 text-yellow-600"
+                          : "bg-white border-gray-200 text-gray-400 hover:text-gray-600"
+                      }`}
+                      title={product.isFeatured ? "Retirer des produits en phare" : "Mettre en produit en phare"}
+                    >
+                      <Star className={product.isFeatured ? "fill-current" : ""} size={16} />
+                    </button>
+                  </TCell>
+                  <TCell>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleBestSeller(product)}
+                      className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border transition-colors ${
+                        product.isBestSeller
+                          ? "bg-blue-50 border-blue-200 text-blue-600"
+                          : "bg-white border-gray-200 text-gray-400 hover:text-gray-600"
+                      }`}
+                      title={product.isBestSeller ? "Retirer des best sellers" : "Mettre en best seller"}
+                    >
+                      <TrendingUp className={product.isBestSeller ? "fill-current" : ""} size={16} />
+                    </button>
+                  </TCell>
                   <TCell><Badge label={mapStatus(product.status)} /></TCell>
                   <TCell className="text-right">
                     <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -405,7 +464,7 @@ export default function Products() {
               ))
             ) : (
               <TRow>
-                <TCell colSpan={8} className="h-64 text-center">
+                <TCell colSpan={10} className="h-64 text-center">
                   <div className="flex flex-col items-center justify-center text-muted-foreground">
                     <Search className="h-8 w-8 mb-2 opacity-20" />
                     <p>Aucun produit trouvé</p>
@@ -511,6 +570,18 @@ export default function Products() {
                 { value: "BROUILLON", label: "Brouillon" },
                 { value: "ARCHIVE", label: "Archivé" }
               ]}
+            />
+          </div>
+          <div className="space-y-4">
+            <Toggle
+              label="Produit en phare"
+              checked={Boolean(formData.isFeatured)}
+              onChange={(next) => setFormData((prev) => ({ ...prev, isFeatured: next }))}
+            />
+            <Toggle
+              label="Best seller"
+              checked={Boolean(formData.isBestSeller)}
+              onChange={(next) => setFormData((prev) => ({ ...prev, isBestSeller: next }))}
             />
           </div>
         </form>

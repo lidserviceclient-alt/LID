@@ -21,6 +21,8 @@ import Finance from "./pages/Finance.jsx";
 import Categories from "./pages/Categories.jsx";
 import PromoCodes from "./pages/PromoCodes.jsx";
 import Messages from "./pages/Messages.jsx";
+import BlogPosts from "./pages/BlogPosts.jsx";
+import TicketEvents from "./pages/TicketEvents.jsx";
 import { isAuthenticated } from "./services/auth.js";
 
 function RequireAuth({ children }) {
@@ -51,6 +53,8 @@ export default function App() {
         <Route path="/products/create" element={<ProductCreate />} />
         <Route path="/categories" element={<Categories />} />
         <Route path="/promo-codes" element={<PromoCodes />} />
+        <Route path="/blog-posts" element={<BlogPosts />} />
+        <Route path="/ticket-events" element={<TicketEvents />} />
         <Route path="/customers" element={<Customers />} />
         <Route path="/users" element={<Users />} />
         <Route path="/users/:id" element={<UserDetail />} />

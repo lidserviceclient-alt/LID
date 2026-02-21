@@ -16,7 +16,9 @@ import {
   Store,
   Tag,
   BadgePercent,
-  MessageSquareText
+  MessageSquareText,
+  FileText,
+  Ticket
 } from "lucide-react";
 import { cn } from "../../utils/cn.js";
 
@@ -53,6 +55,13 @@ const navSections = [
     title: "Finance",
     items: [
       { label: "Paiements", to: "/finance", icon: Wallet }
+    ]
+  },
+  {
+    title: "Contenu",
+    items: [
+      { label: "Blog", to: "/blog-posts", icon: FileText },
+      { label: "Billetterie", to: "/ticket-events", icon: Ticket }
     ]
   },
   {

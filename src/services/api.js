@@ -226,6 +226,36 @@ export const backofficeApi = {
     request(`/api/backoffice/promo-codes/${id}`, {
       method: "DELETE"
     }),
+  blogPosts: () => request("/api/backoffice/blog-posts"),
+  createBlogPost: (payload) =>
+    request("/api/backoffice/blog-posts", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateBlogPost: (id, payload) =>
+    request(`/api/backoffice/blog-posts/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  deleteBlogPost: (id) =>
+    request(`/api/backoffice/blog-posts/${id}`, {
+      method: "DELETE"
+    }),
+  ticketEvents: () => request("/api/backoffice/tickets"),
+  createTicketEvent: (payload) =>
+    request("/api/backoffice/tickets", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateTicketEvent: (id, payload) =>
+    request(`/api/backoffice/tickets/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  deleteTicketEvent: (id) =>
+    request(`/api/backoffice/tickets/${id}`, {
+      method: "DELETE"
+    }),
   marketingOverview: (days = 30) => {
     const params = new URLSearchParams();
     if (days !== null && days !== undefined && `${days}`.trim() !== "") params.set("days", `${days}`);

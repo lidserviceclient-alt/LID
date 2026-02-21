@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search, Edit2, Trash2, AlertCircle, Upload } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, AlertCircle, Upload, Star } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Badge from "../components/ui/Badge.jsx";
@@ -167,6 +167,17 @@ export default function Categories() {
   const openDelete = (category) => {
     setCurrentCategory(category);
     setIsDeleteOpen(true);
+  };
+
+  const handleToggleFeatured = async (category) => {
+    if (!category?.id) return;
+    const next = !Boolean(category?.isFeatured);
+    try {
+      await backofficeApi.updateCategory(category.id, { isFeatured: next });
+      setCategories((prev) => prev.map((c) => (c.id === category.id ? { ...c, isFeatured: next } : c)));
+    } catch (err) {
+      setError(err?.message || "Impossible de mettre à jour l’état en phare.");
+    }
   };
 
   const openBulk = () => {
@@ -384,6 +395,7 @@ export default function Categories() {
               <TCell>Parent</TCell>
               <TCell>Slug</TCell>
               <TCell>Ordre</TCell>
+              <TCell>Phare</TCell>
               <TCell>Statut</TCell>
               <TCell>Mise à jour</TCell>
               <TCell className="text-right">Actions</TCell>
@@ -414,6 +426,20 @@ export default function Categories() {
                   <TCell className="font-mono text-xs">{category.slug}</TCell>
                   <TCell>{Number(category.ordre) || 0}</TCell>
                   <TCell>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFeatured(category)}
+                      className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border transition-colors ${
+                        category.isFeatured
+                          ? "bg-yellow-50 border-yellow-200 text-yellow-600"
+                          : "bg-white border-gray-200 text-gray-400 hover:text-gray-600"
+                      }`}
+                      title={category.isFeatured ? "Retirer des catégories en phare" : "Mettre en catégorie en phare"}
+                    >
+                      <Star className={category.isFeatured ? "fill-current" : ""} size={16} />
+                    </button>
+                  </TCell>
+                  <TCell>
                     <Badge label={statusLabel} variant={category.estActive ? "default" : "outline"} />
                   </TCell>
                   <TCell>{formatDateTime(category.dateMiseAJour || category.dateCreation)}</TCell>
@@ -433,7 +459,7 @@ export default function Categories() {
 
             {filtered.length === 0 && (
               <TRow>
-                <TCell colSpan={9} className="text-center text-sm text-muted-foreground py-10">
+                <TCell colSpan={10} className="text-center text-sm text-muted-foreground py-10">
                   {isLoading ? "Chargement..." : "Aucune catégorie trouvée."}
                 </TCell>
               </TRow>

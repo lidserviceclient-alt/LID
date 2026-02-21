@@ -7,6 +7,7 @@ import Label from "../components/ui/Label";
 import Button from "../components/ui/Button";
 import Select from "../components/ui/Select";
 import FileUpload from "../components/ui/FileUpload";
+import Toggle from "../components/ui/Toggle";
 import { backofficeApi } from "../services/api";
 
 export default function ProductCreate() {
@@ -27,7 +28,9 @@ export default function ProductCreate() {
     vat: 20,
     status: "ACTIVE", // ACTIVE, DRAFT, ARCHIVED
     category: "",
-    stock: 0
+    stock: 0,
+    isFeatured: false,
+    isBestSeller: false
   });
 
   useEffect(() => {
@@ -105,7 +108,9 @@ export default function ProductCreate() {
         vat,
         status: formData.status,
         category: formData.category,
-        stock
+        stock,
+        isFeatured: Boolean(formData.isFeatured),
+        isBestSeller: Boolean(formData.isBestSeller)
       };
 
       await backofficeApi.createProduct(payload);
@@ -338,6 +343,18 @@ export default function ProductCreate() {
                     { value: "DRAFT", label: "Brouillon" },
                     { value: "ARCHIVED", label: "Archivé" }
                   ]}
+                />
+              </div>
+              <div className="space-y-4">
+                <Toggle
+                  label="Produit en phare"
+                  checked={Boolean(formData.isFeatured)}
+                  onChange={(next) => setFormData((prev) => ({ ...prev, isFeatured: next }))}
+                />
+                <Toggle
+                  label="Best seller"
+                  checked={Boolean(formData.isBestSeller)}
+                  onChange={(next) => setFormData((prev) => ({ ...prev, isBestSeller: next }))}
                 />
               </div>
             </div>

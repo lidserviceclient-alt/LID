@@ -298,10 +298,10 @@ export default function Dashboard() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-foreground">Codes promo</p>
-                <p className="text-xs text-muted-foreground">Utilisations (pÃ©riode courante)</p>
+                <p className="text-xs text-muted-foreground">Utilisations (période courante)</p>
               </div>
               <Button variant="outline" size="sm" onClick={() => navigate("/promo-codes")}>
-                GÃ©rer
+                Gérer
               </Button>
             </div>
             <LineChart data={promoUsageSeriesState} className="h-24" />
