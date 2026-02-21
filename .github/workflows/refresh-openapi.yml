@@ -1,0 +1,57 @@
+name: Refresh OpenAPI Spec
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+    paths:
+      - lid/src/main/java/**
+      - lid/src/main/resources/**
+      - .github/workflows/refresh-openapi.yml
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download OpenAPI from deployed API
+        env:
+          LID_API_DOCS_URL: ${{ secrets.LID_API_DOCS_URL }}
+        run: |
+          test -n "$LID_API_DOCS_URL"
+
+          curl --fail-with-body --silent --show-error \
+            "$LID_API_DOCS_URL" \
+            --output /tmp/openapi.yaml
+
+          grep -q "^openapi:" /tmp/openapi.yaml
+          cp /tmp/openapi.yaml collection/openapi.yaml
+
+      - name: Commit updated OpenAPI file
+        id: commit
+        run: |
+          if git diff --quiet -- collection/openapi.yaml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add collection/openapi.yaml
+          git commit -m "chore(openapi): refresh generated spec"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push changes
+        if: steps.commit.outputs.changed == 'true'
+        run: |
+          git push
