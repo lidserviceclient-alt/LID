@@ -93,9 +93,13 @@ export default function Wishlist() {
               <div className="aspect-[4/5] bg-neutral-100 dark:bg-neutral-800 relative overflow-hidden">
                 <Link to={`/product/${product.id}`}>
                   <img 
-                    src={resolveBackendAssetUrl(product.image)} 
+                    src={resolveBackendAssetUrl(product.image) || "/imgs/logo.png"} 
                     alt={product.name}
                     className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = "/imgs/logo.png";
+                    }}
                   />
                 </Link>
                 

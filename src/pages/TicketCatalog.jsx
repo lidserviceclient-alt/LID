@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Search, Ticket, MapPin, Calendar, Star, TrendingUp, Music, Globe, Trophy, ShieldCheck, Mail, ArrowRight, Zap } from "lucide-react";
 import Barcode from "react-barcode";
-import { tickets, ticketCategories } from "@/assets/data/tickets";
+import { getTicketEvents } from "@/services/ticketService";
 import { useCart } from "@/features/cart/CartContext";
 import { useTheme } from "@/features/theme/theme-provider";
 import { toast } from "sonner";
@@ -47,15 +47,33 @@ const Marquee = () => {
 const ModernTicket = ({ ticket }) => {
     const { addToCart } = useCart();
     const { theme: appTheme } = useTheme();
-    const theme = getTheme(ticket.category);
-    const date = new Date(ticket.date);
-    const day = date.getDate();
-    const month = date.toLocaleDateString('fr-FR', { month: 'short' }).toUpperCase();
-    const time = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const theme = getTheme(ticket?.category);
+    const dateValue = ticket?.date ? new Date(ticket.date) : null;
+    const hasValidDate = Boolean(dateValue) && !Number.isNaN(dateValue.getTime());
+    const day = hasValidDate ? dateValue.getDate() : "--";
+    const month = hasValidDate ? dateValue.toLocaleDateString("fr-FR", { month: "short" }).toUpperCase() : "---";
+    const year = hasValidDate ? dateValue.getFullYear() : "";
+    const time = hasValidDate
+      ? dateValue.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+      : "--:--";
+
+    const priceNumber = Number(ticket?.price);
+    const hasPrice = Number.isFinite(priceNumber);
+    const priceLabel = hasPrice ? `${priceNumber.toLocaleString("fr-FR")} FCFA` : "—";
+
+    const safeImage = ticket?.image || "/imgs/wall-1.jpg";
+    const safeLocation = ticket?.location || "Lieu à confirmer";
 
     return (
         <div 
-            onClick={(e) => { e.stopPropagation(); addToCart({ ...ticket, type: 'ticket', name: ticket.title, brand: 'LID Events' }); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (ticket?.available === false) {
+                toast.error("Événement indisponible");
+                return;
+              }
+              addToCart({ ...ticket, price: hasPrice ? priceNumber : 0, type: "ticket", name: ticket.title, brand: "LID Events" });
+            }}
             className="group w-full max-w-[1000px] mx-auto relative cursor-pointer perspective-1000"
         >
             {/* Background Glow */}
@@ -66,9 +84,13 @@ const ModernTicket = ({ ticket }) => {
                 {/* Left: Image Area */}
                 <div className="w-full md:w-[280px] shrink-0 relative h-64 md:h-auto overflow-hidden">
                     <img 
-                        src={ticket.image} 
+                        src={safeImage} 
                         alt={ticket.title} 
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = "/imgs/wall-1.jpg";
+                        }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
                     
@@ -85,7 +107,7 @@ const ModernTicket = ({ ticket }) => {
                             <span className="text-5xl font-black leading-none tracking-tighter">{day}</span>
                             <div className="flex flex-col pb-1">
                                 <span className="text-xl font-bold leading-none">{month}</span>
-                                <span className="text-xs opacity-80">{date.getFullYear()}</span>
+                                <span className="text-xs opacity-80">{year}</span>
                             </div>
                         </div>
                     </div>
@@ -101,7 +123,7 @@ const ModernTicket = ({ ticket }) => {
                      <div className="relative z-10">
                         <div className="flex items-center gap-2 mb-2 opacity-60">
                             <MapPin className="w-4 h-4" />
-                            <span className="text-xs font-bold uppercase tracking-wider">{ticket.location}</span>
+                            <span className="text-xs font-bold uppercase tracking-wider">{safeLocation}</span>
                         </div>
                         
                         <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter leading-[0.9] mb-4 text-neutral-900 dark:text-white line-clamp-2">
@@ -128,7 +150,7 @@ const ModernTicket = ({ ticket }) => {
                              <span className="text-xs font-bold uppercase tracking-widest opacity-50">Vérifié par LID</span>
                          </div>
                          <div className="text-2xl font-black tracking-tight">
-                            {ticket.price.toLocaleString('fr-FR')} FCFA
+                            {priceLabel}
                          </div>
                      </div>
                 </div>
@@ -166,17 +188,62 @@ const ModernTicket = ({ ticket }) => {
 export default function TicketCatalog() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Tous");
+  const [events, setEvents] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const { scrollYProgress } = useScroll();
   const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
   const scale = useTransform(scrollYProgress, [0, 0.2], [1, 0.95]);
 
-  const filteredTickets = tickets.filter((ticket) => {
-    const matchesSearch = ticket.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "Tous" || ticket.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    setError("");
 
-  const featuredTicket = tickets[0]; // Just for demo, picking first as featured
+    getTicketEvents()
+      .then((list) => {
+        if (cancelled) return;
+        setEvents(Array.isArray(list) ? list : []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const message = err?.message || "Impossible de charger la billetterie.";
+        setError(message);
+        toast.error(message);
+        setEvents([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const categories = useMemo(() => {
+    const set = new Set();
+    (Array.isArray(events) ? events : []).forEach((ev) => {
+      const c = `${ev?.category || ""}`.trim();
+      if (c) set.add(c);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "fr"));
+  }, [events]);
+
+  const filteredTickets = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return (Array.isArray(events) ? events : []).filter((ticket) => {
+      const matchesSearch = !q || `${ticket.title || ""}`.toLowerCase().includes(q);
+      const matchesCategory = selectedCategory === "Tous" || ticket.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [events, searchQuery, selectedCategory]);
+
+  const featuredTicket = useMemo(() => {
+    const list = Array.isArray(events) ? events : [];
+    return list.find((t) => t?.available !== false) || list[0] || null;
+  }, [events]);
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-[#050505] text-neutral-900 dark:text-neutral-100 font-sans pb-20 selection:bg-purple-500 selection:text-white">
@@ -255,7 +322,7 @@ export default function TicketCatalog() {
                   Tous
                 </button>
                 <div className="w-px h-8 bg-neutral-200 dark:bg-neutral-800 mx-2"></div>
-                {ticketCategories.map((category) => (
+                {categories.map((category) => (
                   <button
                     key={category}
                     onClick={() => setSelectedCategory(category)}
@@ -284,7 +351,7 @@ export default function TicketCatalog() {
         </div>
 
         {/* Featured Section (If no search) */}
-        {!searchQuery && selectedCategory === "Tous" && (
+        {!error && !isLoading && featuredTicket && !searchQuery && selectedCategory === "Tous" && (
             <motion.div 
                 initial={{ opacity: 0, y: 40 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -319,7 +386,19 @@ export default function TicketCatalog() {
             </div>
 
             <AnimatePresence mode="popLayout">
-                {filteredTickets.length > 0 ? (
+                {error ? (
+                    <motion.div className="text-center py-32 opacity-60 bg-neutral-100 dark:bg-neutral-900 rounded-3xl border border-dashed border-neutral-300 dark:border-neutral-800">
+                        <Ticket className="w-16 h-16 mx-auto mb-6 text-neutral-400" />
+                        <h3 className="text-3xl font-black uppercase mb-2">Erreur</h3>
+                        <p className="text-neutral-500">{error}</p>
+                    </motion.div>
+                ) : isLoading ? (
+                    <motion.div className="text-center py-32 opacity-60 bg-neutral-100 dark:bg-neutral-900 rounded-3xl border border-dashed border-neutral-300 dark:border-neutral-800">
+                        <Ticket className="w-16 h-16 mx-auto mb-6 text-neutral-400" />
+                        <h3 className="text-3xl font-black uppercase mb-2">Chargement...</h3>
+                        <p className="text-neutral-500">Veuillez patienter</p>
+                    </motion.div>
+                ) : filteredTickets.length > 0 ? (
                     <div className="flex flex-col gap-16">
                         {filteredTickets.map((ticket, index) => (
                             <motion.div 

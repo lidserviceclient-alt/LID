@@ -2,12 +2,6 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { getAccessTokenPayload } from "@/services/auth";
 import { getCustomerWishlist, addCustomerWishlist, removeCustomerWishlist } from "@/services/customerService";
 
-const normalizeWishlistId = (value) => {
-  if (value === null || value === undefined) return null;
-  const id = `${value}`.trim();
-  return id ? id : null;
-};
-
 const WishlistContext = createContext({
   wishlistItems: [],
   addToWishlist: () => {},
@@ -19,28 +13,37 @@ const WishlistContext = createContext({
 
 const normalizeWishlistItem = (item) => {
   if (!item) return null;
-  const id = normalizeWishlistId(item.id ?? item.articleId ?? item.productId);
+  const rawId = item.productId ?? item.articleId ?? item.id;
+  const id = rawId === null || rawId === undefined ? "" : `${rawId}`.trim();
   if (!id) return null;
-  const name = item.name ?? item.articleName ?? item.title ?? "";
-  const image = item.imageUrl ?? item.image ?? item.articleImage ?? item.img ?? "";
+
+  const name = `${item.name ?? item.articleName ?? item.title ?? ""}`.trim();
+  const image =
+    [
+      item.image,
+      item.imageUrl,
+      item.articleImage,
+      item.img,
+      item.image_url,
+    ]
+      .map((v) => `${v ?? ""}`.trim())
+      .find(Boolean) || "";
+
   const rawPrice = item.price ?? item.amount ?? item.unitPrice;
-  const parsedPrice =
-    rawPrice === "" || rawPrice === null || rawPrice === undefined ? 0 : Number(`${rawPrice}`.replace(/\s+/g, ""));
-  const price = Number.isFinite(parsedPrice) ? parsedPrice : rawPrice;
+  const priceNum = Number(rawPrice);
+  const price = Number.isFinite(priceNum) ? priceNum : rawPrice;
+
   return { ...item, id, name, image, price };
 };
 
 const mergeWishlistItems = (localItems, remoteItems) => {
   const merged = new Map();
   for (const item of remoteItems) {
-    const id = normalizeWishlistId(item?.id);
-    if (id) merged.set(id, { ...item, id });
+    merged.set(item.id, item);
   }
   for (const item of localItems) {
-    const id = normalizeWishlistId(item?.id);
-    if (!id) continue;
-    if (!merged.has(id)) {
-      merged.set(id, { ...item, id });
+    if (!merged.has(item.id)) {
+      merged.set(item.id, item);
     }
   }
   return Array.from(merged.values());
@@ -78,8 +81,14 @@ export function WishlistProvider({ children }) {
           return mergeWishlistItems(normalizedLocal, normalizedApi);
         });
         for (const item of pendingAdds) {
-          await addCustomerWishlist(payload.sub, item.id);
+          try {
+            await addCustomerWishlist(payload.sub, item.id);
+          } catch {
+            // Ignore sync errors (offline / 403 / etc.)
+          }
         }
+      } catch {
+        // Ignore sync errors (offline / 403 / etc.)
       } finally {
         if (active) setHasSynced(true);
       }
@@ -93,7 +102,7 @@ export function WishlistProvider({ children }) {
     const normalized = normalizeWishlistItem(product);
     if (!normalized) return;
     setWishlistItems((prevItems) => {
-      if (prevItems.some((item) => normalizeWishlistId(item.id) === normalized.id)) {
+      if (prevItems.some((item) => item.id === normalized.id)) {
         return prevItems;
       }
       return [...prevItems, normalized];
@@ -105,29 +114,23 @@ export function WishlistProvider({ children }) {
   };
 
   const removeFromWishlist = (productId) => {
-    const normalizedId = normalizeWishlistId(productId);
-    if (!normalizedId) return;
-    setWishlistItems((prevItems) => prevItems.filter((item) => normalizeWishlistId(item.id) !== normalizedId));
+    setWishlistItems((prevItems) => prevItems.filter((item) => item.id !== productId));
     const payload = getAccessTokenPayload();
     if (payload?.sub) {
-      removeCustomerWishlist(payload.sub, normalizedId).catch(() => {});
+      removeCustomerWishlist(payload.sub, productId).catch(() => {});
     }
   };
 
   const isInWishlist = (productId) => {
-    const normalizedId = normalizeWishlistId(productId);
-    if (!normalizedId) return false;
-    return wishlistItems.some((item) => normalizeWishlistId(item.id) === normalizedId);
+    return wishlistItems.some((item) => item.id === productId);
   };
 
   const toggleWishlist = (product) => {
-    const normalized = normalizeWishlistItem(product);
-    if (!normalized) return false;
-    if (isInWishlist(normalized.id)) {
-      removeFromWishlist(normalized.id);
+    if (isInWishlist(product.id)) {
+      removeFromWishlist(product.id);
       return false; // Removed
     } else {
-      addToWishlist(normalized);
+      addToWishlist(product);
       return true; // Added
     }
   };

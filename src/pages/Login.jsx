@@ -158,7 +158,7 @@ export default function Login() {
       if (isDebug) {
         console.info('[AUTH] Login OK, access token présent:', Boolean(accessToken));
       }
-      navigate("/profile");
+      navigate("/");
     } catch (error) {
       console.error("Erreur lors de la connexion Google:", error);
       if (isDebug) {

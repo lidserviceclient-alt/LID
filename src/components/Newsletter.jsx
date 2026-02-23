@@ -2,21 +2,28 @@ import React, { useState } from "react";
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import { Mail, ArrowRight, Check } from "lucide-react";
+import { subscribeNewsletter } from "../services/newsletterService";
 
 export default function Newsletter() {
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState("inactif"); // inactif, chargement, succès
+  const [status, setStatus] = useState("idle"); // idle, loading, success
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email) return;
-    
+    const value = (email || "").trim();
+    if (!value) return;
+
+    setError("");
     setStatus("loading");
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await subscribeNewsletter(value);
       setStatus("success");
       setEmail("");
-    }, 1500);
+    } catch (err) {
+      setStatus("idle");
+      setError(err?.response?.data?.message || err?.message || "Erreur lors de l'inscription.");
+    }
   };
 
   return (
@@ -131,6 +138,12 @@ export default function Newsletter() {
                       </>
                     )}
                   </button>
+
+                  {error ? (
+                    <p className="text-sm text-red-600 dark:text-red-400">
+                      {error}
+                    </p>
+                  ) : null}
                 </form>
                 
                 <p className="mt-4 text-xs text-center text-neutral-400 dark:text-neutral-600">

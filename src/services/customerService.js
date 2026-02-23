@@ -27,33 +27,33 @@ export const getCustomerWishlist = async (customerId) => {
   return Array.isArray(data) ? data : [];
 };
 
-export const addCustomerWishlist = async (customerId, articleId) => {
+export const addCustomerWishlist = async (customerId, productId) => {
   const resolvedCustomerId = resolveCustomerId(customerId);
-  if (!resolvedCustomerId || !articleId) {
+  if (!resolvedCustomerId || !productId) {
     return null;
   }
-  const { data } = await api.post(`/api/v1/wishlist/${articleId}`, null, {
+  const { data } = await api.post(`/api/v1/wishlist/${productId}`, null, {
     params: { customerId: resolvedCustomerId }
   });
   return data;
 };
 
-export const removeCustomerWishlist = async (customerId, articleId) => {
+export const removeCustomerWishlist = async (customerId, productId) => {
   const resolvedCustomerId = resolveCustomerId(customerId);
-  if (!resolvedCustomerId || !articleId) {
+  if (!resolvedCustomerId || !productId) {
     return;
   }
-  await api.delete(`/api/v1/wishlist/${articleId}`, {
+  await api.delete(`/api/v1/wishlist/${productId}`, {
     params: { customerId: resolvedCustomerId }
   });
 };
 
-export const isCustomerWishlist = async (customerId, articleId) => {
+export const isCustomerWishlist = async (customerId, productId) => {
   const resolvedCustomerId = resolveCustomerId(customerId);
-  if (!resolvedCustomerId || !articleId) {
+  if (!resolvedCustomerId || !productId) {
     return false;
   }
-  const { data } = await api.get(`/api/v1/wishlist/${articleId}/exists`, {
+  const { data } = await api.get(`/api/v1/wishlist/${productId}/exists`, {
     params: { customerId: resolvedCustomerId }
   });
   return Boolean(data);

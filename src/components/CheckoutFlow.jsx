@@ -39,6 +39,16 @@ const formatExpires = (value) => {
     );
 };
 
+const formatMoney = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "0";
+  const hasDecimals = Math.abs(num - Math.trunc(num)) > 0.000001;
+  return num.toLocaleString("fr-FR", {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: hasDecimals ? 2 : 0
+  });
+};
+
 export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, selectedSize, quantity, cartItems, onSuccess, shippingCost = 0, discountAmount = 0, promoCode = "" }) {
   const [step, setStep] = useState(1); // 1: Info, 2: Payment, 3: Processing, 4: Success
   const [loadingStep, setLoadingStep] = useState(0); // 0: Init, 1: Connecting, 2: Verifying, 3: Approved
@@ -77,12 +87,11 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     : (Number(product?.price) || 0) * normalizedQuantity;
 
   // Calculate final total with shipping and discount
-  const finalTotal = itemsTotal + normalizedShippingCost - normalizedDiscountAmount;
+  const finalTotal = Math.max(0, itemsTotal + normalizedShippingCost - normalizedDiscountAmount);
 
   const TAX_RATE = 0.18; // 18% TVA Côte d'Ivoire
   // Calculate tax based on final total
   const taxAmount = Math.round(finalTotal - (finalTotal / (1 + TAX_RATE)));
-  const subTotalHT = finalTotal - taxAmount;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -228,6 +237,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
         phone: formData.phone,
         shippingAddress,
         notes: '',
+        shippingCost: normalizedShippingCost,
         promoCode: (promoCode || "").trim() || null,
         items,
         returnUrl,
@@ -302,7 +312,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                           <div className="flex-1 min-w-0">
                             <h4 className="font-bold text-sm leading-tight truncate">{item.name}</h4>
                             <p className="text-neutral-400 text-xs truncate">{item.size} • {item.color}</p>
-                            <p className="text-orange-500 font-bold text-sm">{(item.price * item.quantity).toLocaleString()} FCFA</p>
+                             <p className="text-orange-500 font-bold text-sm">{formatMoney((Number(item?.price) || 0) * (Number(item?.quantity) || 0))} FCFA</p>
                           </div>
                        </div>
                      ))}
@@ -326,40 +336,40 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                       <div>
                         <h3 className="text-xl font-bold leading-tight mb-2">{product?.name}</h3>
                         <p className="text-neutral-400 text-sm mb-1">Taille: {selectedSize} • Couleur: {selectedColor}</p>
-                        <p className="text-2xl font-bold text-orange-500">{Number(product?.price || 0).toLocaleString()} FCFA</p>
+                         <p className="text-2xl font-bold text-orange-500">{formatMoney(product?.price)} FCFA</p>
                       </div>
                    </div>
                  )}
 
-                 <div className="bg-white/5 rounded-2xl p-6 backdrop-blur-sm border border-white/10 space-y-3">
-                    <div className="flex justify-between text-neutral-300">
-                      <span>Sous-total (HT)</span>
-                      <span>{Number(subTotalHT).toLocaleString(undefined, { maximumFractionDigits: 0 })} FCFA</span>
-                    </div>
-                    <div className="flex justify-between text-neutral-300">
-                      <span>Livraison</span>
-                      {normalizedShippingCost === 0 ? (
-                        <span className="text-green-400 font-bold">GRATUIT</span>
-                      ) : (
-                        <span>{Number(normalizedShippingCost).toLocaleString()} FCFA</span>
-                      )}
-                    </div>
-                    {normalizedDiscountAmount > 0 && (
-                      <div className="flex justify-between text-green-400">
-                        <span>Réduction</span>
-                        <span>-{Number(normalizedDiscountAmount).toLocaleString()} FCFA</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-neutral-300">
-                      <span>TVA (18%)</span>
-                      <span>{Number(taxAmount).toLocaleString(undefined, { maximumFractionDigits: 0 })} FCFA</span>
-                    </div>
-                    <div className="h-px bg-white/10 my-4" />
-                    <div className="flex justify-between text-2xl font-bold">
-                      <span>Total TTC</span>
-                      <span>{Number(finalTotal).toLocaleString()} FCFA</span>
-                    </div>
-                 </div>
+                  <div className="bg-white/5 rounded-2xl p-6 backdrop-blur-sm border border-white/10 space-y-3">
+                     <div className="flex justify-between text-neutral-300">
+                       <span>Sous-total</span>
+                       <span>{formatMoney(itemsTotal)} FCFA</span>
+                     </div>
+                     <div className="flex justify-between text-neutral-300">
+                       <span>Livraison</span>
+                       {normalizedShippingCost === 0 ? (
+                         <span className="text-green-400 font-bold">GRATUIT</span>
+                       ) : (
+                        <span>{formatMoney(normalizedShippingCost)} FCFA</span>
+                       )}
+                     </div>
+                     {normalizedDiscountAmount > 0 && (
+                       <div className="flex justify-between text-green-400">
+                         <span>Réduction</span>
+                         <span>-{formatMoney(normalizedDiscountAmount)} FCFA</span>
+                       </div>
+                     )}
+                     <div className="flex justify-between text-neutral-300">
+                       <span>Dont TVA (18%)</span>
+                       <span>{formatMoney(taxAmount)} FCFA</span>
+                     </div>
+                     <div className="h-px bg-white/10 my-4" />
+                     <div className="flex justify-between text-2xl font-bold">
+                       <span>Total TTC</span>
+                       <span>{formatMoney(finalTotal)} FCFA</span>
+                     </div>
+                  </div>
               </div>
             </div>
 

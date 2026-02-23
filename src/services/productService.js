@@ -41,7 +41,7 @@ export async function getAllCatalogProducts({ pageSize = 500, maxPages = 200, co
 }
 
 export async function getCatalogProduct(id) {
-  const res = await api.get(`/api/v1/catalog/products/${encodeURIComponent(id)}`);
+  const res = await api.get(`/api/v1/catalog/products/${encodeURIComponent(id)}/details`);
   return res?.data;
 }
 

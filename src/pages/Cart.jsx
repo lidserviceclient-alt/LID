@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
@@ -11,41 +11,8 @@ import { toast } from "sonner";
 import CheckoutFlow from "../components/CheckoutFlow";
 import { getCurrentUserPayload, isAuthenticated } from "@/services/authService.js";
 import { quoteCheckout } from "@/services/orderService.js";
+import { getCatalogProductsPage, getFeaturedCatalogProducts } from "@/services/productService";
 import { resolveBackendAssetUrl } from "@/services/categoryService";
-
-// Mock Recommendations Data
-const recommendedProducts = [
-  {
-    id: 101,
-    name: "Chaussettes LID Pro",
-    brand: "LID Accessories",
-    price: 14.99,
-    image: "https://static.nike.com/a/images/t_PDP_1728_v1/f_auto,q_auto:eco/b1bcbca4-e853-4df7-b329-5be3c61ee057/everyday-cushioned-training-crew-socks-3-pairs-vlLbSG.png",
-    category: "Accessoires",
-    color: "Blanc",
-    size: "M"
-  },
-  {
-    id: 102,
-    name: "Casquette Urban",
-    brand: "LID Originals",
-    price: 29.99,
-    image: "https://static.nike.com/a/images/t_PDP_1728_v1/f_auto,q_auto:eco/e777c881-5b62-4250-92a6-362967f54cca/sportswear-heritage-86-adjustable-hat-q0r7xl.png",
-    category: "Accessoires",
-    color: "Noir",
-    size: "TU"
-  },
-  {
-    id: 103,
-    name: "Sac à dos Explorer",
-    brand: "Nike",
-    price: 45.00,
-    image: "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?q=80&w=1000&auto=format&fit=crop",
-    category: "Accessoires",
-    color: "Gris",
-    size: "TU"
-  }
-];
 
 export default function Cart() {
   const { cartItems, addToCart, removeFromCart, updateQuantity, cartTotal, clearCart } = useCart();
@@ -53,6 +20,8 @@ export default function Cart() {
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [shippingMethod, setShippingMethod] = useState("standard");
   const [showCheckout, setShowCheckout] = useState(false);
+  const [recommendations, setRecommendations] = useState([]);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const navigate = useNavigate();
 
   const FREE_SHIPPING_THRESHOLD = 10000;
@@ -134,6 +103,50 @@ export default function Cart() {
   const discountAmount = appliedPromo ? (Number(appliedPromo.discountAmount) || 0) : 0;
   const finalTotal = cartTotal - discountAmount + shippingCost;
   const progressToFreeShipping = Math.min((cartTotal / FREE_SHIPPING_THRESHOLD) * 100, 100);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      setIsLoadingRecommendations(true);
+      try {
+        let data = await getFeaturedCatalogProducts(12);
+        if (!Array.isArray(data) || data.length === 0) {
+          const page = await getCatalogProductsPage(0, 12);
+          data = Array.isArray(page?.content) ? page.content : [];
+        }
+
+        const normalized = (Array.isArray(data) ? data : [])
+          .filter((p) => p?.id)
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            brand: p.brand,
+            price: Number(p.price) || 0,
+            imageUrl: p.imageUrl || "",
+            referenceProduitPartenaire: p.referenceProduitPartenaire,
+          }))
+          .filter((p) => p?.id);
+
+        if (!cancelled) setRecommendations(normalized);
+      } catch {
+        if (!cancelled) setRecommendations([]);
+      } finally {
+        if (!cancelled) setIsLoadingRecommendations(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const recommendedProducts = useMemo(() => {
+    const cartIdSet = new Set((cartItems || []).map((item) => `${item?.id || ""}`));
+    return (recommendations || [])
+      .filter((p) => p?.id && !cartIdSet.has(`${p.id}`))
+      .slice(0, 3);
+  }, [cartItems, recommendations]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -248,9 +261,13 @@ export default function Cart() {
                       <div className="col-span-2 md:col-span-6 flex gap-4">
                         <Link to={`/product/${item.id}`} className="w-20 h-20 md:w-24 md:h-24 bg-neutral-100 dark:bg-neutral-800 rounded-xl overflow-hidden flex-shrink-0 p-2 cursor-pointer">
                           <img 
-                            src={resolveBackendAssetUrl(item?.image || item?.imageUrl)} 
+                            src={resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png"} 
                             alt={item.name} 
                             className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal group-hover:scale-105 transition-transform duration-500" 
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = "/imgs/logo.png";
+                            }}
                           />
                         </Link>
                         <div className="flex flex-col justify-between py-1">
@@ -325,14 +342,22 @@ export default function Cart() {
             <div className="pt-8">
               <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-4">Vous aimerez aussi</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {recommendedProducts.map(product => (
+                {(isLoadingRecommendations ? [] : recommendedProducts).map(product => (
                   <motion.div 
                     key={product.id}
                     whileHover={{ y: -5 }}
                     className="bg-white dark:bg-neutral-900 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 flex flex-col gap-3"
                   >
                     <div className="aspect-square bg-neutral-100 dark:bg-neutral-800 rounded-lg overflow-hidden p-4">
-                      <img src={product.image} alt={product.name} className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal" />
+                      <img
+                        src={resolveBackendAssetUrl(product?.imageUrl) || "/imgs/logo.png"}
+                        alt={product?.name || ""}
+                        className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = "/imgs/logo.png";
+                        }}
+                      />
                     </div>
                     <div>
                       <h4 className="font-medium text-neutral-900 dark:text-white line-clamp-1">{product.name}</h4>
@@ -341,7 +366,19 @@ export default function Cart() {
                     <div className="flex items-center justify-between mt-auto">
                       <span className="font-bold text-neutral-900 dark:text-white">{product.price.toLocaleString()} FCFA</span>
                       <button 
-                        onClick={() => addToCart({ ...product, quantity: 1 })}
+                        onClick={() =>
+                          addToCart({
+                            id: product.id,
+                            name: product.name,
+                            brand: product.brand,
+                            price: Number(product.price) || 0,
+                            quantity: 1,
+                            size: "Unique",
+                            color: "Standard",
+                            imageUrl: product.imageUrl,
+                            referenceProduitPartenaire: product.referenceProduitPartenaire
+                          })
+                        }
                         className="p-2 bg-orange-100 dark:bg-orange-900/20 text-orange-600 rounded-full hover:bg-orange-600 hover:text-white transition-colors"
                       >
                         <Plus size={16} />

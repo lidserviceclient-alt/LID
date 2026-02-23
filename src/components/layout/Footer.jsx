@@ -12,6 +12,7 @@ import {
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import Logo from '../Logo';
+import { subscribeNewsletter } from '../../services/newsletterService';
 
 export default function Footer() {
   const [email, setEmail] = useState('');
@@ -51,13 +52,20 @@ export default function Footer() {
     ],
   };
 
-  const handleSubscribe = () => {
-    if (!email || !email.includes('@')) {
+  const handleSubscribe = async () => {
+    const value = (email || '').trim();
+    if (!value || !value.includes('@')) {
       toast.error("Veuillez entrer une adresse email valide");
       return;
     }
-    toast.success("Merci de votre inscription à la newsletter !");
-    setEmail('');
+
+    try {
+      await subscribeNewsletter(value);
+      toast.success("Merci de votre inscription à la newsletter !");
+      setEmail('');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || "Impossible de s'inscrire à la newsletter.");
+    }
   };
 
   const handleSocialClick = (e, platform) => {

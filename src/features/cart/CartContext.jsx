@@ -37,17 +37,18 @@ export function CartProvider({ children }) {
   const addToCart = (product) => {
     playSuccessSound();
     toast.success("Ajouté au panier !");
+    const qtyToAdd = Math.max(1, Math.trunc(Number(product?.quantity) || 1));
     setCartItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id && item.color === product.color && item.size === product.size);
       
       if (existingItem) {
         return prevItems.map((item) =>
           item.id === product.id && item.color === product.color && item.size === product.size
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: item.quantity + qtyToAdd }
             : item
         );
       }
-      return [...prevItems, { ...product, quantity: 1 }];
+      return [...prevItems, { ...product, quantity: qtyToAdd }];
     });
   };
 
@@ -71,8 +72,13 @@ export function CartProvider({ children }) {
     setCartItems([]);
   };
 
-  const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
-  const cartCount = cartItems.reduce((count, item) => count + item.quantity, 0);
+  const cartTotal = cartItems.reduce((total, item) => {
+    const price = Number(item?.price);
+    const qty = Number(item?.quantity);
+    if (!Number.isFinite(price) || !Number.isFinite(qty)) return total;
+    return total + price * qty;
+  }, 0);
+  const cartCount = cartItems.reduce((count, item) => count + (Number(item?.quantity) || 0), 0);
 
   return (
     <CartContext.Provider

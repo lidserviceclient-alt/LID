@@ -16,6 +16,15 @@ import { cn } from "@/utils/cn";
 import { buildCategoryTree, getCatalogCategories, getFeaturedCatalogCategories, resolveBackendAssetUrl } from "@/services/categoryService";
 import { getBestSellerCatalogProducts, getCatalogProductsPage, getFeaturedCatalogProducts } from "@/services/productService";
 
+const CATEGORY_FALLBACK_IMAGE = "/imgs/wall-1.jpg";
+const CATEGORY_FALLBACK_BY_SLUG = {
+  homme: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1200&auto=format&fit=crop",
+  femme: "https://images.unsplash.com/photo-1520975916090-3105956dac38?q=80&w=1200&auto=format&fit=crop",
+  accessoires: "https://images.unsplash.com/photo-1523779105320-d1cd346ff52b?q=80&w=1200&auto=format&fit=crop",
+  sport: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1200&auto=format&fit=crop",
+  promo: "https://images.unsplash.com/photo-1555529669-2269763671c0?q=80&w=1200&auto=format&fit=crop"
+};
+
 // --- Mobile Specific Components ---
 const MobileSectionHeader = ({ title, linkTo, linkText = "Voir tout" }) => (
   <div className="flex justify-between items-end px-4 mb-4">
@@ -40,25 +49,30 @@ const DesktopSectionHeader = ({ title, linkTo, linkText = "Voir tout" }) => (
   </div>
 );
 
-const BentoCard = ({ title, image, count, link, className, large = false }) => (
-  <Link 
-    to={link} 
-    className={cn(
-      "group relative overflow-hidden rounded-3xl cursor-pointer", 
-      className
-    )}
-  >
+const BentoCard = ({ title, image_url, count, slug, className, large = false }) => {
+  const safeSlug = `${slug || ""}`.trim();
+  const to = safeSlug ? `/shop?category=${encodeURIComponent(safeSlug)}` : "/shop";
+
+  return (
+    <Link
+      to={to}
+      className={cn("group relative overflow-hidden rounded-3xl cursor-pointer", className)}
+    >
     <div className="absolute inset-0 bg-neutral-900/20 group-hover:bg-neutral-900/40 transition-colors duration-500 z-10" />
     <motion.img 
-      src={image} 
+      src={image_url || CATEGORY_FALLBACK_IMAGE} 
       alt={title} 
       width="800"
       height="600"
       className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 will-change-transform"
+      onError={(e) => {
+        e.currentTarget.onerror = null;
+        e.currentTarget.src = CATEGORY_FALLBACK_IMAGE;
+      }}
       whileHover={{ scale: 1.05 }}
     />
     
-    <div className="absolute inset-0 z-20 p-8 flex flex-col justify-between">
+    <div className="absolute inset-0 z-20 p-6 md:p-8 flex flex-col justify-between">
       <div className="flex justify-end">
         <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center opacity-0 -translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
            <ArrowUpRight className="text-white" size={20} />
@@ -66,7 +80,12 @@ const BentoCard = ({ title, image, count, link, className, large = false }) => (
       </div>
       
       <div>
-        <h3 className={cn("font-black text-white mb-2 leading-none", large ? "text-5xl" : "text-3xl")}>
+        <h3
+          className={cn(
+            "font-black text-white mb-2 leading-none",
+            large ? "text-3xl sm:text-4xl lg:text-5xl" : "text-xl sm:text-2xl lg:text-3xl"
+          )}
+        >
           {title}
         </h3>
         <div className="flex items-center gap-3 overflow-hidden">
@@ -81,9 +100,9 @@ const BentoCard = ({ title, image, count, link, className, large = false }) => (
         </div>
       </div>
     </div>
-  </Link>
-);
-
+    </Link>
+  );
+};
 export default function Home() {
   const [catalogCategories, setCatalogCategories] = useState([]);
   const [featuredCategories, setFeaturedCategories] = useState([]);
@@ -133,9 +152,11 @@ export default function Home() {
   const rootCategories = useMemo(() => {
     const roots = buildCategoryTree(catalogCategories);
     return roots
+      .filter((root) => root && root.estActive !== false)
       .map((root) => ({
         slug: `${root?.slug || root?.id || ""}`.trim(),
-        label: `${root?.nom || ""}`.trim()
+        label: `${root?.nom || ""}`.trim(),
+        imageUrl: `${root?.imageUrl || ""}`.trim()
       }))
       .filter((item) => item.slug && item.label);
   }, [catalogCategories]);
@@ -247,44 +268,44 @@ export default function Home() {
   }, [normalizedBestSellerProducts, mobileCategory]);
 
   const featuredBento = useMemo(() => {
-    const fallbackImage = "/imgs/wall-1.jpg";
-    const fallback = [
-      {
-        title: "Homme",
-        image: fallbackImage,
-        link: "/shop?category=homme",
-        count: ""
-      },
-      {
-        title: "Femme",
-        image: fallbackImage,
-        link: "/shop?category=femme",
-        count: ""
-      },
-      {
-        title: "Accessoires",
-        image: fallbackImage,
-        link: "/shop?category=accessoires",
-        count: ""
-      },
-      {
-        title: "Sport",
-        image: fallbackImage,
-        link: "/shop?category=sport",
-        count: ""
-      }
-    ];
+    const resolveCategoryImage = (slug, imageUrl) => {
+      const resolved = resolveBackendAssetUrl(imageUrl);
+      if (resolved) return resolved;
+      const key = `${slug || ""}`.trim().toLowerCase();
+      return CATEGORY_FALLBACK_BY_SLUG[key] || CATEGORY_FALLBACK_IMAGE;
+    };
 
-    const list = Array.isArray(featuredCategories) ? featuredCategories : [];
-    if (list.length === 0) return fallback;
+    const items = [];
+    const used = new Set();
 
-    return list.slice(0, 4).map((c) => ({
-      title: c.nom,
-      image: c.imageUrl ? resolveBackendAssetUrl(c.imageUrl) : fallbackImage,
-      link: c.slug ? `/shop?category=${encodeURIComponent(c.slug)}` : "/shop",
-      count: ""
-    }));
-  }, [featuredCategories]);
+    const add = (categoryLike) => {
+      if (!categoryLike) return;
+      const slug = `${categoryLike?.slug || ""}`.trim();
+      const title = `${categoryLike?.nom || categoryLike?.label || ""}`.trim();
+      if (!slug || !title) return;
+      if (used.has(slug)) return;
+      used.add(slug);
+      items.push({
+        title,
+        slug,
+        image_url: resolveCategoryImage(slug, categoryLike?.imageUrl),
+        count: ""
+      });
+    };
+
+    (Array.isArray(featuredCategories) ? featuredCategories : [])
+      .filter((c) => c && c.estActive !== false && (!c.niveau || c.niveau === "PRINCIPALE"))
+      .forEach(add);
+
+    (Array.isArray(rootCategories) ? rootCategories : []).forEach(add);
+
+    ["homme", "femme", "accessoires", "sport"].forEach((slug) => {
+      if (items.length >= 4) return;
+      add({ slug, label: slug.charAt(0).toUpperCase() + slug.slice(1) });
+    });
+
+    return items.slice(0, 4);
+  }, [featuredCategories, rootCategories]);
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950">
@@ -297,22 +318,7 @@ export default function Home() {
           <Hero />
         </div>
 
-        {/* Quick Categories (Horizontal Scroll) */}
-        <div className="pl-4 overflow-x-auto no-scrollbar">
-           <div className="flex gap-2.5 pb-2">
-             {quickCategories.map((cat, i) => (
-               <Link 
-                 key={i} 
-                 to={cat.slug ? `/shop?category=${encodeURIComponent(cat.slug)}` : "/shop"}
-                 className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-all border ${i === 0 ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-black' : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'}`}
-               >
-                 {cat.label}
-               </Link>
-             ))}
-           </div>
-        </div>
-
-        {/* Reassurance Grid (Compact) */}
+        {/* Reassurance Grid (Compact) - always visible on mobile */}
         <div className="px-4 grid grid-cols-2 gap-3">
            <div className="bg-neutral-50 dark:bg-neutral-900/50 p-3 rounded-xl border border-neutral-100 dark:border-neutral-800 flex items-center gap-3">
              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-600">
@@ -339,30 +345,45 @@ export default function Home() {
           <Offer />
         </div>
 
-        {mobileCategoryOptions.length > 1 ? (
-          <div className="pl-4 overflow-x-auto no-scrollbar">
-            <div className="flex gap-2.5 pb-1">
-              {mobileCategoryOptions.map((cat) => {
-                const isActive = mobileCategory === cat.slug;
-                return (
-                  <button
-                    key={cat.slug || cat.label}
-                    type="button"
-                    onClick={() => setMobileCategory(cat.slug)}
-                    className={cn(
-                      "whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-all border",
-                      isActive
-                        ? "bg-neutral-900 text-white border-neutral-900 dark:bg-white dark:text-black"
-                        : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400"
-                    )}
-                  >
-                    {cat.label}
-                  </button>
-                );
-              })}
+        {/* Categories Grid (Mobile) */}
+        <div>
+          <MobileSectionHeader title="Catégories" linkTo="/shop" />
+          <div className="px-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 auto-rows-[170px] sm:auto-rows-[220px]">
+              <BentoCard
+                title={featuredBento[0]?.title}
+                image_url={featuredBento[0]?.image_url}
+                count={featuredBento[0]?.count}
+                slug={featuredBento[0]?.slug}
+                className="col-span-2 sm:col-span-2"
+                large
+              />
+              <BentoCard
+                title={featuredBento[1]?.title}
+                image_url={featuredBento[1]?.image_url}
+                count={featuredBento[1]?.count}
+                slug={featuredBento[1]?.slug}
+                className="col-span-1"
+              />
+              <BentoCard
+                title={featuredBento[2]?.title}
+                image_url={featuredBento[2]?.image_url}
+                count={featuredBento[2]?.count}
+                slug={featuredBento[2]?.slug}
+                className="col-span-1"
+              />
+              <BentoCard
+                title={featuredBento[3]?.title}
+                image_url={featuredBento[3]?.image_url}
+                count={featuredBento[3]?.count}
+                slug={featuredBento[3]?.slug}
+                className="col-span-2 sm:col-span-2"
+                large
+              />
             </div>
           </div>
-        ) : null}
+        </div>
+
 
         {mobileFeaturedProducts.length > 0 ? (
           <div>
@@ -445,31 +466,31 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[400px]">
             <BentoCard 
               title={featuredBento[0]?.title} 
-              image={featuredBento[0]?.image} 
+              image_url={featuredBento[0]?.image_url} 
               count={featuredBento[0]?.count} 
-              link={featuredBento[0]?.link} 
+              slug={featuredBento[0]?.slug} 
               className="md:col-span-2"
               large
             />
             <BentoCard 
               title={featuredBento[1]?.title} 
-              image={featuredBento[1]?.image} 
+              image_url={featuredBento[1]?.image_url} 
               count={featuredBento[1]?.count} 
-              link={featuredBento[1]?.link} 
+              slug={featuredBento[1]?.slug} 
               className="md:col-span-1"
             />
             <BentoCard 
               title={featuredBento[2]?.title} 
-              image={featuredBento[2]?.image} 
+              image_url={featuredBento[2]?.image_url} 
               count={featuredBento[2]?.count} 
-              link={featuredBento[2]?.link} 
+              slug={featuredBento[2]?.slug}   
               className="md:col-span-1"
             />
             <BentoCard 
               title={featuredBento[3]?.title} 
-              image={featuredBento[3]?.image} 
+              image_url={featuredBento[3]?.image_url} 
               count={featuredBento[3]?.count} 
-              link={featuredBento[3]?.link} 
+              slug={featuredBento[3]?.slug}   
               className="md:col-span-2"
               large
             />
