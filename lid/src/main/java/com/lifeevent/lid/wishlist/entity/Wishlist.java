@@ -1,8 +1,6 @@
 package com.lifeevent.lid.wishlist.entity;
 
-import com.lifeevent.lid.article.entity.Article;
 import com.lifeevent.lid.common.entity.BaseEntity;
-import com.lifeevent.lid.user.customer.entity.Customer;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -14,18 +12,16 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "wishlist", uniqueConstraints = @UniqueConstraint(columnNames = {"customer_id", "article_id"}))
+@Table(name = "wishlist_product", uniqueConstraints = @UniqueConstraint(columnNames = {"customer_id", "product_id"}))
 public class Wishlist extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", nullable = false)
-    private Customer customer;
+    @Column(name = "customer_id", length = 128, nullable = false)
+    private String customerId;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "article_id", nullable = false)
-    private Article article;
+    @Column(name = "product_id", length = 36, nullable = false)
+    private String productId;
 }

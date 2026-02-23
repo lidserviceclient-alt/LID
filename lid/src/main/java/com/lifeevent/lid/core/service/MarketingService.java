@@ -5,26 +5,41 @@ import com.lifeevent.lid.core.dto.MarketingCampaignDto;
 import com.lifeevent.lid.core.dto.MarketingOverviewDto;
 import com.lifeevent.lid.core.dto.UpsertMarketingCampaignRequest;
 import com.lifeevent.lid.core.entity.MarketingCampaign;
+import com.lifeevent.lid.core.enums.MarketingAudience;
 import com.lifeevent.lid.core.enums.MarketingCampaignStatus;
+import com.lifeevent.lid.core.repository.MarketingCampaignDeliveryRepository;
 import com.lifeevent.lid.core.repository.MarketingCampaignRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
 @Service
 public class MarketingService {
 
     private final MarketingCampaignRepository marketingCampaignRepository;
+    private final MarketingCampaignDeliveryRepository marketingCampaignDeliveryRepository;
 
-    public MarketingService(MarketingCampaignRepository marketingCampaignRepository) {
+    public MarketingService(MarketingCampaignRepository marketingCampaignRepository, MarketingCampaignDeliveryRepository marketingCampaignDeliveryRepository) {
         this.marketingCampaignRepository = marketingCampaignRepository;
+        this.marketingCampaignDeliveryRepository = marketingCampaignDeliveryRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public MarketingCampaignDto getCampaign(String id) {
+        MarketingCampaign campaign = marketingCampaignRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Campagne introuvable"));
+        return toDto(campaign);
     }
 
     @Transactional(readOnly = true)
@@ -82,8 +97,32 @@ public class MarketingService {
     public MarketingCampaignDto update(String id, UpsertMarketingCampaignRequest request) {
         MarketingCampaign campaign = marketingCampaignRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Campagne introuvable"));
+
+        var oldType = campaign.getType();
+        var oldAudience = campaign.getAudience();
+
         apply(campaign, request);
+
+        boolean recipientsChanged = !Objects.equals(oldType, campaign.getType())
+                || !Objects.equals(oldAudience, campaign.getAudience());
+        boolean hasProgress = campaign.getSentCount() != null && campaign.getSentCount() > 0 && campaign.getSentAt() == null;
+
+        if (recipientsChanged && hasProgress) {
+            throw new ResponseStatusException(BAD_REQUEST, "Impossible de changer l'audience/le canal pendant l'envoi");
+        }
+
         campaign = marketingCampaignRepository.save(campaign);
+
+        if (recipientsChanged && campaign.getSentAt() == null && marketingCampaignDeliveryRepository.existsByCampaign_Id(campaign.getId())) {
+            marketingCampaignDeliveryRepository.deleteByCampaign_Id(campaign.getId());
+            campaign.setTargetCount(0L);
+            campaign.setSentCount(0L);
+            campaign.setFailedCount(0L);
+            campaign.setAttempts(0);
+            campaign.setNextRetryAt(null);
+            campaign.setLastError(null);
+            campaign = marketingCampaignRepository.save(campaign);
+        }
         return toDto(campaign);
     }
 
@@ -99,7 +138,16 @@ public class MarketingService {
         campaign.setName(request.getName().trim());
         campaign.setType(request.getType());
         campaign.setStatus(request.getStatus());
-        campaign.setSentCount(request.getSent() != null ? Math.max(0L, request.getSent()) : 0L);
+        campaign.setAudience(request.getAudience() != null ? request.getAudience()
+                : (campaign.getAudience() != null ? campaign.getAudience() : MarketingAudience.NEWSLETTER));
+        campaign.setSubject(trimToNull(request.getSubject()));
+        campaign.setContent(trimToNull(request.getContent()));
+        campaign.setScheduledAt(request.getScheduledAt());
+        if (request.getSent() != null) {
+            campaign.setSentCount(Math.max(0L, request.getSent()));
+        } else if (campaign.getSentCount() == null) {
+            campaign.setSentCount(0L);
+        }
         campaign.setOpenRate(request.getOpenRate());
         campaign.setClickRate(request.getClickRate());
         campaign.setRevenue(request.getRevenue());
@@ -112,13 +160,26 @@ public class MarketingService {
                 campaign.getName(),
                 campaign.getType(),
                 campaign.getStatus(),
+                campaign.getAudience(),
+                campaign.getSubject(),
+                campaign.getContent(),
+                campaign.getScheduledAt(),
+                campaign.getSentAt(),
+                campaign.getTargetCount() != null ? campaign.getTargetCount() : 0L,
                 campaign.getSentCount() != null ? campaign.getSentCount() : 0L,
+                campaign.getFailedCount() != null ? campaign.getFailedCount() : 0L,
                 campaign.getOpenRate(),
                 campaign.getClickRate(),
                 campaign.getRevenue(),
                 campaign.getBudgetSpent(),
-                campaign.getDateCreation()
+                campaign.getDateCreation(),
+                campaign.getLastError()
         );
     }
-}
 
+    private static String trimToNull(String value) {
+        if (value == null) return null;
+        String s = value.trim();
+        return s.isEmpty() ? null : s;
+    }
+}

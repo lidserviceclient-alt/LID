@@ -26,23 +26,23 @@ public class WishlistController implements IWishlistController {
     }
     
     @Override
-    @PostMapping("/{articleId}")
-    public ResponseEntity<WishlistDto> addToWishlist(@PathVariable Long articleId, @RequestParam String customerId) {
-        WishlistDto added = wishlistService.addToWishlist(customerId, articleId);
+    @PostMapping("/{productId}")
+    public ResponseEntity<WishlistDto> addToWishlist(@PathVariable String productId, @RequestParam String customerId) {
+        WishlistDto added = wishlistService.addToWishlist(customerId, productId);
         return ResponseEntity.status(HttpStatus.CREATED).body(added);
     }
     
     @Override
-    @DeleteMapping("/{articleId}")
-    public ResponseEntity<Void> removeFromWishlist(@PathVariable Long articleId, @RequestParam String customerId) {
-        wishlistService.removeFromWishlist(customerId, articleId);
+    @DeleteMapping("/{productId}")
+    public ResponseEntity<Void> removeFromWishlist(@PathVariable String productId, @RequestParam String customerId) {
+        wishlistService.removeFromWishlist(customerId, productId);
         return ResponseEntity.noContent().build();
     }
     
     @Override
-    @GetMapping("/{articleId}/exists")
-    public ResponseEntity<Boolean> isInWishlist(@PathVariable Long articleId, @RequestParam String customerId) {
-        boolean inWishlist = wishlistService.isInWishlist(customerId, articleId);
+    @GetMapping("/{productId}/exists")
+    public ResponseEntity<Boolean> isInWishlist(@PathVariable String productId, @RequestParam String customerId) {
+        boolean inWishlist = wishlistService.isInWishlist(customerId, productId);
         return ResponseEntity.ok(inWishlist);
     }
 }

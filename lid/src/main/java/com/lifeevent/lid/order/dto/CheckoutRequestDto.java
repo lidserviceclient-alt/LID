@@ -46,6 +46,11 @@ public class CheckoutRequestDto {
      */
     private String notes;
 
+    /**
+     * Frais de livraison (TTC) calculés côté front (optionnel).
+     */
+    private Double shippingCost;
+
     private String promoCode;
 
     /**

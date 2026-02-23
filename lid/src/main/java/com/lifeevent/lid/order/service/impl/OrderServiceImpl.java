@@ -5,6 +5,7 @@ import com.lifeevent.lid.cart.entity.CartArticle;
 import com.lifeevent.lid.cart.repository.CartArticleRepository;
 import com.lifeevent.lid.cart.repository.CartRepository;
 import com.lifeevent.lid.article.entity.Article;
+import com.lifeevent.lid.article.enumeration.ArticleStatus;
 import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
@@ -20,11 +21,14 @@ import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import com.lifeevent.lid.core.dto.OrderQuoteResponse;
 import com.lifeevent.lid.core.entity.CodePromo;
 import com.lifeevent.lid.core.entity.CodePromoUtilisation;
+import com.lifeevent.lid.core.entity.Produit;
 import com.lifeevent.lid.core.entity.Utilisateur;
 import com.lifeevent.lid.core.enums.CibleCodePromo;
 import com.lifeevent.lid.core.enums.RoleUtilisateur;
+import com.lifeevent.lid.core.enums.StatutProduit;
 import com.lifeevent.lid.core.repository.CodePromoRepository;
 import com.lifeevent.lid.core.repository.CodePromoUtilisationRepository;
+import com.lifeevent.lid.core.repository.ProduitRepository;
 import com.lifeevent.lid.core.repository.UtilisateurRepository;
 import com.lifeevent.lid.order.dto.*;
 import com.lifeevent.lid.order.entity.Order;
@@ -67,6 +71,7 @@ public class OrderServiceImpl implements OrderService {
     private final CodePromoRepository codePromoRepository;
     private final CodePromoUtilisationRepository codePromoUtilisationRepository;
     private final UtilisateurRepository utilisateurRepository;
+    private final ProduitRepository produitRepository;
 
     private record PromoApplication(boolean applied, String code, BigDecimal discountAmount, String message, CodePromo promo, Utilisateur utilisateur) {
     }
@@ -161,10 +166,9 @@ public class OrderServiceImpl implements OrderService {
             for (CheckoutItemDto item : request.getItems()) {
                 int qty = item == null || item.getQuantity() == null ? 0 : item.getQuantity();
                 if (qty <= 0) continue;
-                Article article = resolveCheckoutArticle(item);
-                if (article == null) continue;
-                double unit = article.getPrice() == null ? 0d : article.getPrice();
-                subTotal = subTotal.add(BigDecimal.valueOf(unit).multiply(BigDecimal.valueOf(qty)));
+                BigDecimal unit = resolveCheckoutUnitPrice(item);
+                if (unit == null) continue;
+                subTotal = subTotal.add(unit.multiply(BigDecimal.valueOf(qty)));
             }
         } else {
             Cart cart = cartRepository.findByCustomer_userId(customerId)
@@ -263,7 +267,10 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalArgumentException(promo.message() != null ? promo.message() : "Code promo invalide");
         }
 
-        BigDecimal total = subTotal.subtract(promo.discountAmount());
+        BigDecimal shippingCost = BigDecimal.valueOf(request.getShippingCost() != null ? request.getShippingCost() : 0d);
+        if (shippingCost.compareTo(BigDecimal.ZERO) < 0) shippingCost = BigDecimal.ZERO;
+
+        BigDecimal total = subTotal.subtract(promo.discountAmount()).add(shippingCost);
         if (total.compareTo(BigDecimal.ZERO) < 0) total = BigDecimal.ZERO;
 
         Order order = Order.builder()
@@ -436,12 +443,93 @@ public class OrderServiceImpl implements OrderService {
         }
         String reference = item.getReferenceProduitPartenaire();
         if (reference != null && !reference.isBlank()) {
-            return articleRepository.findByReferenceProduitPartenaire(reference)
+            Article existing = articleRepository.findByReferenceProduitPartenaire(reference).orElse(null);
+            if (existing != null) {
+                return existing;
+            }
+
+            Produit produit = produitRepository.findByReferencePartenaireIgnoreCase(reference)
                     .orElseThrow(() -> new ResourceNotFoundException("Article", "referenceProduitPartenaire", reference));
+
+            Article created = Article.builder()
+                    .referenceProduitPartenaire(reference)
+                    .name(produit.getNom() != null ? produit.getNom() : reference)
+                    .description(produit.getDescription())
+                    .img(resolveMainProductImage(produit))
+                    .brand(produit.getMarque())
+                    .price(produit.getPrix() != null ? produit.getPrix().doubleValue() : 0d)
+                    .vat(produit.getTva() != null ? produit.getTva().floatValue() : null)
+                    .status(mapProductStatus(produit.getStatut()))
+                    .referencePartner(produit.getBoutique() != null && produit.getBoutique().getPartenaire() != null
+                            ? produit.getBoutique().getPartenaire().getId()
+                            : null)
+                    .isFeatured(Boolean.TRUE.equals(produit.getIsFeatured()))
+                    .isBestSeller(Boolean.TRUE.equals(produit.getIsBestSeller()))
+                    .build();
+
+            return articleRepository.save(created);
         }
         return null;
     }
-    
+
+    private BigDecimal resolveCheckoutUnitPrice(CheckoutItemDto item) {
+        if (item == null) return null;
+
+        Long articleId = item.getArticleId();
+        if (articleId != null) {
+            Article article = articleRepository.findById(articleId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Article", "id", String.valueOf(articleId)));
+            double unit = article.getPrice() == null ? 0d : article.getPrice();
+            return BigDecimal.valueOf(unit);
+        }
+
+        String reference = item.getReferenceProduitPartenaire();
+        if (reference == null || reference.isBlank()) {
+            return null;
+        }
+
+        Article article = articleRepository.findByReferenceProduitPartenaire(reference).orElse(null);
+        if (article != null) {
+            double unit = article.getPrice() == null ? 0d : article.getPrice();
+            return BigDecimal.valueOf(unit);
+        }
+
+        Produit produit = produitRepository.findByReferencePartenaireIgnoreCase(reference).orElse(null);
+        if (produit != null) {
+            return produit.getPrix() != null ? produit.getPrix() : BigDecimal.ZERO;
+        }
+
+        throw new ResourceNotFoundException("Article", "referenceProduitPartenaire", reference);
+    }
+
+    private static ArticleStatus mapProductStatus(StatutProduit statut) {
+        if (statut == null) return ArticleStatus.ACTIVE;
+        return switch (statut) {
+            case ACTIF -> ArticleStatus.ACTIVE;
+            case BROUILLON -> ArticleStatus.INACTIVE;
+            case ARCHIVE -> ArticleStatus.DISCONTINUED;
+        };
+    }
+
+    private static String resolveMainProductImage(Produit produit) {
+        if (produit == null) return null;
+        var images = produit.getImages();
+        if (images == null || images.isEmpty()) return null;
+
+        com.lifeevent.lid.core.entity.ProduitImage principal = null;
+        for (var img : images) {
+            if (img != null && Boolean.TRUE.equals(img.getEstPrincipale())) {
+                principal = img;
+                break;
+            }
+        }
+        var chosen = principal != null ? principal : images.get(0);
+        String url = chosen != null ? chosen.getUrl() : null;
+        if (url == null) return null;
+        String trimmed = url.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+     
     /**
      * Mapper une entité Order vers un DTO OrderDetailDto
      */

@@ -4,6 +4,7 @@ import com.lifeevent.lid.core.dto.MarketingCampaignDto;
 import com.lifeevent.lid.core.dto.MarketingOverviewDto;
 import com.lifeevent.lid.core.dto.UpsertMarketingCampaignRequest;
 import com.lifeevent.lid.core.enums.MarketingCampaignStatus;
+import com.lifeevent.lid.core.service.MarketingAutomationService;
 import com.lifeevent.lid.core.service.MarketingService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -25,9 +26,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class MarketingController {
 
     private final MarketingService marketingService;
+    private final MarketingAutomationService marketingAutomationService;
 
-    public MarketingController(MarketingService marketingService) {
+    public MarketingController(MarketingService marketingService, MarketingAutomationService marketingAutomationService) {
         this.marketingService = marketingService;
+        this.marketingAutomationService = marketingAutomationService;
     }
 
     @GetMapping("/overview")
@@ -55,9 +58,13 @@ public class MarketingController {
         return marketingService.update(id, request);
     }
 
+    @PostMapping("/campaigns/{id}/send")
+    public MarketingCampaignDto sendNow(@PathVariable String id) {
+        return marketingAutomationService.queueSendNow(id);
+    }
+
     @DeleteMapping("/campaigns/{id}")
     public void delete(@PathVariable String id) {
         marketingService.delete(id);
     }
 }
-

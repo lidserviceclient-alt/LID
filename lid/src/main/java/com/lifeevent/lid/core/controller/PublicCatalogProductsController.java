@@ -1,6 +1,7 @@
 package com.lifeevent.lid.core.controller;
 
 import com.lifeevent.lid.core.dto.CatalogProductDto;
+import com.lifeevent.lid.core.dto.CatalogProductDetailsDto;
 import com.lifeevent.lid.core.service.ProductService;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.data.domain.Page;
@@ -49,5 +50,10 @@ public class PublicCatalogProductsController {
     @GetMapping("/{id}")
     public CatalogProductDto getProduct(@PathVariable String id) {
         return productService.getCatalogProduct(id);
+    }
+
+    @GetMapping("/{id}/details")
+    public CatalogProductDetailsDto getProductDetails(@PathVariable String id) {
+        return productService.getCatalogProductDetails(id);
     }
 }

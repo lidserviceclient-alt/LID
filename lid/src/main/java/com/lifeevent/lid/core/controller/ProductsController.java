@@ -83,11 +83,7 @@ public class ProductsController {
     @GetMapping("/{id}")
     public ProductSummaryDto getProduct(@PathVariable String id) {
         // Retourne un summary pour simplicité; peut être étendu si besoin
-        return productService.listProducts(PageRequest.of(0, 1))
-                .stream()
-                .filter(p -> p.getId().equals(id))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+        return productService.getProduct(id);
     }
 
     @PutMapping("/{id}")

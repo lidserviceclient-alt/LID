@@ -18,6 +18,10 @@ import com.lifeevent.lid.core.repository.AuthentificationRepository;
 import com.lifeevent.lid.core.repository.CategorieRepository;
 import com.lifeevent.lid.core.repository.ProduitRepository;
 import com.lifeevent.lid.core.repository.UtilisateurRepository;
+import com.lifeevent.lid.content.entity.BlogPost;
+import com.lifeevent.lid.content.entity.TicketEvent;
+import com.lifeevent.lid.content.repository.BlogPostRepository;
+import com.lifeevent.lid.content.repository.TicketEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -27,6 +31,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
@@ -43,12 +48,15 @@ public class LocalH2Seeder implements ApplicationRunner {
     private final BoutiqueRepository boutiqueRepository;
     private final CategorieRepository categorieRepository;
     private final ProduitRepository produitRepository;
+    private final BlogPostRepository blogPostRepository;
+    private final TicketEventRepository ticketEventRepository;
 
     @Override
     public void run(ApplicationArguments args) {
         Utilisateur admin = ensureAdmin();
         ensureCatalog();
         ensureCoreCatalog(admin);
+        ensureContent();
     }
 
     private Utilisateur ensureAdmin() {
@@ -86,7 +94,7 @@ public class LocalH2Seeder implements ApplicationRunner {
                         .name("Article Démo")
                         .price(1000d)
                         .vat(0.18f)
-                        .img("https://via.placeholder.com/300")
+                        .img("https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=800&auto=format&fit=crop")
                         .status(ArticleStatus.ACTIVE)
                         .categories(List.of(category))
                         .build()));
@@ -143,5 +151,57 @@ public class LocalH2Seeder implements ApplicationRunner {
                     p.setIsBestSeller(false);
                     return produitRepository.save(p);
                 });
+    }
+
+    private void ensureContent() {
+        if (blogPostRepository.count() == 0) {
+            BlogPost post1 = new BlogPost();
+            post1.setTitle("Les tendances e-commerce en 2026");
+            post1.setExcerpt("Paiement, livraison et expÃ©rience client : les Ã©volutions Ã  suivre pour booster vos ventes.");
+            post1.setContent("DÃ©couvrez les leviers concrets pour amÃ©liorer votre conversion, rÃ©duire vos abandons panier et fidÃ©liser vos clients.");
+            post1.setImageUrl("https://images.unsplash.com/photo-1523398002811-999ca8dec234?q=80&w=1200&auto=format&fit=crop");
+            post1.setCategory("Tendance");
+            post1.setDate(LocalDateTime.now().minusDays(3));
+            post1.setAuthor("LID");
+            post1.setFeatured(true);
+            post1.setReadTime("4 min");
+
+            BlogPost post2 = new BlogPost();
+            post2.setTitle("Comment optimiser votre logistique");
+            post2.setExcerpt("RÃ©duisez vos dÃ©lais et vos coÃ»ts avec une organisation simple et des KPIs pertinents.");
+            post2.setContent("Une logistique maÃ®trisÃ©e = clients satisfaits. Voici une mÃ©thode pas Ã  pas pour structurer vos expÃ©ditions.");
+            post2.setImageUrl("https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=1200&auto=format&fit=crop");
+            post2.setCategory("Logistique");
+            post2.setDate(LocalDateTime.now().minusDays(7));
+            post2.setAuthor("LID");
+            post2.setFeatured(false);
+            post2.setReadTime("5 min");
+
+            blogPostRepository.saveAll(List.of(post1, post2));
+        }
+
+        if (ticketEventRepository.count() == 0) {
+            TicketEvent event1 = new TicketEvent();
+            event1.setTitle("Concert Live â€” Abidjan");
+            event1.setDate(LocalDateTime.now().plusDays(10).withHour(20).withMinute(0).withSecond(0).withNano(0));
+            event1.setLocation("Palais de la Culture, Abidjan");
+            event1.setPrice(new BigDecimal("5000"));
+            event1.setImageUrl("https://images.unsplash.com/photo-1515165562835-c3b8b6b4c0ad?q=80&w=1200&auto=format&fit=crop");
+            event1.setCategory("Concert");
+            event1.setAvailable(true);
+            event1.setDescription("Une soirÃ©e exceptionnelle avec des artistes locaux et internationaux.");
+
+            TicketEvent event2 = new TicketEvent();
+            event2.setTitle("ConfÃ©rence Business â€” Distribution");
+            event2.setDate(LocalDateTime.now().plusDays(21).withHour(9).withMinute(30).withSecond(0).withNano(0));
+            event2.setLocation("Plateau, Abidjan");
+            event2.setPrice(new BigDecimal("15000"));
+            event2.setImageUrl("https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1200&auto=format&fit=crop");
+            event2.setCategory("ConfÃ©rence");
+            event2.setAvailable(true);
+            event2.setDescription("Networking, tendances marchÃ© et ateliers pour dÃ©velopper votre activitÃ©.");
+
+            ticketEventRepository.saveAll(List.of(event1, event2));
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.lifeevent.lid.wishlist.dto;
 
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,17 +15,23 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class WishlistDto {
     
-    private Long id;
+    /**
+     * Product id (UUID) from core catalog.
+     */
+    private String id;
+
+    /**
+     * Référence/SKU partenaire (utilisée pour checkout/promo si besoin).
+     */
+    private String referenceProduitPartenaire;
     
-    private Long articleId;
-    
-    private String articleName;
-    
-    private String articleImage;
-    
-    private Double price;
-    
-    private Boolean isFlashSale;
-    
+    private String name;
+
+    private String image;
+
+    private BigDecimal price;
+
     private Boolean isFeatured;
+
+    private Boolean isBestSeller;
 }

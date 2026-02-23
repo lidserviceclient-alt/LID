@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UtilisateurRepository extends JpaRepository<Utilisateur, String> {
@@ -29,4 +30,20 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, String
               )
             """)
     Page<Utilisateur> search(@Param("role") RoleUtilisateur role, @Param("q") String q, Pageable pageable);
+
+    @Query("""
+            select u.email from Utilisateur u
+            where u.role = com.lifeevent.lid.core.enums.RoleUtilisateur.CLIENT
+              and u.email is not null
+              and trim(u.email) <> ''
+            """)
+    List<String> findClientEmails();
+
+    @Query("""
+            select u.telephone from Utilisateur u
+            where u.role = com.lifeevent.lid.core.enums.RoleUtilisateur.CLIENT
+              and u.telephone is not null
+              and trim(u.telephone) <> ''
+            """)
+    List<String> findClientPhones();
 }

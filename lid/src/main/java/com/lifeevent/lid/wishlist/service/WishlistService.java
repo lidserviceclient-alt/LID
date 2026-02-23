@@ -17,15 +17,15 @@ public interface WishlistService {
     /**
      * Ajouter un article à la wishlist
      */
-    WishlistDto addToWishlist(String customerId, Long articleId);
+    WishlistDto addToWishlist(String customerId, String productId);
     
     /**
      * Retirer un article de la wishlist
      */
-    void removeFromWishlist(String customerId, Long articleId);
+    void removeFromWishlist(String customerId, String productId);
     
     /**
      * Vérifier si un article est en wishlist
      */
-    boolean isInWishlist(String customerId, Long articleId);
+    boolean isInWishlist(String customerId, String productId);
 }

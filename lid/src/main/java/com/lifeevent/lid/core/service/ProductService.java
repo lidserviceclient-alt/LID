@@ -1,7 +1,9 @@
 package com.lifeevent.lid.core.service;
 
+import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.core.dto.BulkDeleteProductsResponse;
 import com.lifeevent.lid.core.dto.CatalogProductDto;
+import com.lifeevent.lid.core.dto.CatalogProductDetailsDto;
 import com.lifeevent.lid.core.dto.CreateProductRequest;
 import com.lifeevent.lid.core.dto.ProductSummaryDto;
 import com.lifeevent.lid.core.dto.UpdateProductRequest;
@@ -49,7 +51,7 @@ public class ProductService {
     }
 
     public Page<ProductSummaryDto> listProducts(Pageable pageable) {
-        return produitRepository.findByStatutNot(StatutProduit.ARCHIVE, pageable).map(this::toSummary);
+        return produitRepository.findAll(pageable).map(this::toSummary);
     }
 
     @Transactional(readOnly = true)
@@ -78,11 +80,61 @@ public class ProductService {
     @Transactional(readOnly = true)
     public CatalogProductDto getCatalogProduct(String id) {
         Produit produit = produitRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+                .orElseThrow(() -> new ResourceNotFoundException("Produit", "id", id));
         if (produit.getStatut() == StatutProduit.ARCHIVE) {
-            throw new RuntimeException("Produit non trouvé");
+            throw new ResourceNotFoundException("Produit", "id", id);
         }
         return toCatalogDto(produit);
+    }
+
+    @Transactional(readOnly = true)
+    public CatalogProductDetailsDto getCatalogProductDetails(String id) {
+        Produit produit = produitRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Produit", "id", id));
+        if (produit.getStatut() == StatutProduit.ARCHIVE) {
+            throw new ResourceNotFoundException("Produit", "id", id);
+        }
+
+        Categorie categorie = produit.getCategorie();
+        String categoryId = categorie != null ? categorie.getId() : null;
+        String categoryName = categorie != null ? categorie.getNom() : null;
+        String categorySlug = categorie != null ? categorie.getSlug() : null;
+
+        Integer stockQty = stockRepository.findByProduit(produit)
+                .map(Stock::getQuantiteDisponible)
+                .orElse(0);
+
+        List<String> imageUrls = resolveImageUrls(produit);
+        String mainImage = imageUrls.isEmpty() ? null : imageUrls.get(0);
+
+        BigDecimal price = produit.getPrix() != null ? produit.getPrix() : BigDecimal.ZERO;
+
+        return new CatalogProductDetailsDto(
+                produit.getId(),
+                produit.getReferencePartenaire(),
+                produit.getNom(),
+                produit.getSlug(),
+                price,
+                produit.getMarque(),
+                produit.getDescription(),
+                produit.getTva(),
+                categoryId,
+                categoryName,
+                categorySlug,
+                produit.getIsFeatured(),
+                produit.getIsBestSeller(),
+                mainImage,
+                imageUrls,
+                stockQty,
+                produit.getDateCreation()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public ProductSummaryDto getProduct(String id) {
+        Produit produit = produitRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Produit", "id", id));
+        return toSummary(produit);
     }
 
     @Transactional
@@ -100,7 +152,7 @@ public class ProductService {
         if (catIdOrSlug != null && !catIdOrSlug.isBlank()) {
             String categoryKey = catIdOrSlug;
             categorie = resolveCategorie(categoryKey)
-                .orElseThrow(() -> new RuntimeException("Catégorie non trouvée: " + categoryKey));
+                .orElseThrow(() -> new ResourceNotFoundException("Categorie", "idOrSlug", categoryKey));
         } else {
             categorie = categorieRepository.findAll().stream().findFirst()
                 .orElseThrow(() -> new RuntimeException("Aucune catégorie trouvée. Veuillez en créer une d'abord."));
@@ -160,7 +212,7 @@ public class ProductService {
     @Transactional
     public ProductSummaryDto updateProduct(String id, UpdateProductRequest request) {
         Produit produit = produitRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+                .orElseThrow(() -> new ResourceNotFoundException("Produit", "id", id));
         Integer previousStock = stockRepository.findByProduit(produit)
                 .map(Stock::getQuantiteDisponible)
                 .orElse(0);
@@ -205,7 +257,7 @@ public class ProductService {
         if (catIdOrSlug != null && !catIdOrSlug.isBlank()) {
             String categoryKey = catIdOrSlug;
             Categorie categorie = resolveCategorie(categoryKey)
-                .orElseThrow(() -> new RuntimeException("Catégorie non trouvée: " + categoryKey));
+                .orElseThrow(() -> new ResourceNotFoundException("Categorie", "idOrSlug", categoryKey));
             produit.setCategorie(categorie);
         }
         
@@ -255,7 +307,7 @@ public class ProductService {
     @Transactional
     public void deleteProduct(String id) {
         Produit produit = produitRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Produit non trouvé"));
+                .orElseThrow(() -> new ResourceNotFoundException("Produit", "id", id));
 
         produit.setStatut(StatutProduit.ARCHIVE);
         produitRepository.save(produit);
@@ -351,6 +403,34 @@ public class ProductService {
                 stockQty,
                 produit.getDateCreation()
         );
+    }
+
+    private static List<String> resolveImageUrls(Produit produit) {
+        List<ProduitImage> images = produit != null ? produit.getImages() : null;
+        if (images == null || images.isEmpty()) return List.of();
+
+        ProduitImage principal = null;
+        for (ProduitImage img : images) {
+            if (img != null && Boolean.TRUE.equals(img.getEstPrincipale())) {
+                principal = img;
+                break;
+            }
+        }
+
+        java.util.LinkedHashSet<String> urls = new java.util.LinkedHashSet<>();
+        if (principal != null && principal.getUrl() != null && !principal.getUrl().isBlank()) {
+            urls.add(principal.getUrl());
+        }
+        for (ProduitImage img : images) {
+            if (img == null) continue;
+            String url = img.getUrl();
+            if (url == null) continue;
+            String trimmed = url.trim();
+            if (trimmed.isEmpty()) continue;
+            urls.add(trimmed);
+        }
+
+        return new java.util.ArrayList<>(urls);
     }
 
     private java.util.Optional<Categorie> resolveCategorie(String idOrSlug) {

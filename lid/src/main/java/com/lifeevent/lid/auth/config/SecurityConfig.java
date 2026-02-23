@@ -77,6 +77,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/backoffice/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/partners/register/**", "/api/v1/catalog/**").permitAll()
                         .requestMatchers("/api/v1/articles/search/**").permitAll()
+                        .requestMatchers("/api/v1/newsletter/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 ->

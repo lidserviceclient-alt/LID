@@ -18,6 +18,16 @@ public interface MarketingCampaignRepository extends JpaRepository<MarketingCamp
     Page<MarketingCampaign> findByStatus(MarketingCampaignStatus status, Pageable pageable);
 
     @Query("""
+            select c from MarketingCampaign c
+            where c.status = com.lifeevent.lid.core.enums.MarketingCampaignStatus.SCHEDULED
+              and c.sentAt is null
+              and (c.scheduledAt is null or c.scheduledAt <= :now)
+              and (c.nextRetryAt is null or c.nextRetryAt <= :now)
+            order by c.dateCreation asc
+            """)
+    List<MarketingCampaign> findDueCampaigns(@Param("now") LocalDateTime now, Pageable pageable);
+
+    @Query("""
             select coalesce(sum(c.revenue), 0) from MarketingCampaign c
             where (:from is null or c.dateCreation >= :from)
             """)
@@ -43,4 +53,3 @@ public interface MarketingCampaignRepository extends JpaRepository<MarketingCamp
             """)
     List<TypeRevenueAgg> revenueByTypeFrom(@Param("from") LocalDateTime from);
 }
-
