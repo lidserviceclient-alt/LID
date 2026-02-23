@@ -276,8 +276,32 @@ export const backofficeApi = {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
+  sendMarketingCampaign: (id) =>
+    request(`/api/backoffice/marketing/campaigns/${id}/send`, {
+      method: "POST"
+    }),
   deleteMarketingCampaign: (id) =>
     request(`/api/backoffice/marketing/campaigns/${id}`, {
+      method: "DELETE"
+    }),
+  newsletterStats: () => request("/api/backoffice/marketing/newsletter/stats"),
+  newsletterSubscribers: (page = 0, size = 20, status = "", q = "") => {
+    const params = new URLSearchParams({ page, size });
+    if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    return request(`/api/backoffice/marketing/newsletter/subscribers?${params.toString()}`);
+  },
+  createNewsletterSubscriber: (payload) =>
+    request("/api/backoffice/marketing/newsletter/subscribers", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  unsubscribeNewsletterSubscriber: (id) =>
+    request(`/api/backoffice/marketing/newsletter/subscribers/${id}/unsubscribe`, {
+      method: "POST"
+    }),
+  deleteNewsletterSubscriber: (id) =>
+    request(`/api/backoffice/marketing/newsletter/subscribers/${id}`, {
       method: "DELETE"
     }),
   loyaltyOverview: () => request("/api/backoffice/loyalty/overview"),

@@ -213,7 +213,7 @@ export default function BlogPosts() {
         <SectionHeader
           title="Blog"
           subtitle="Gérez les articles publiés sur le site"
-          actions={
+          rightSlot={
             <div className="flex gap-2">
               <Button onClick={openCreate}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -225,15 +225,18 @@ export default function BlogPosts() {
 
         <Card className="p-0 overflow-hidden">
           <div className="p-4 border-b bg-muted/30 grid gap-4 md:grid-cols-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-              <Input
-                placeholder="Rechercher titre, auteur..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+          <div className="relative w-full">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y- text-muted-foreground pointer-events-none"
+              size={16}
+            />
+            <Input
+              placeholder="Rechercher titre, auteur..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
             <div className="space-y-2">
               <p className="text-sm font-medium">Catégorie</p>
               <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>

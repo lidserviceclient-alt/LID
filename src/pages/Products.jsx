@@ -35,6 +35,18 @@ const mapStatus = (status) => {
   }
 };
 
+const DEFAULT_ADVANCED_FILTERS = {
+  priceMin: "",
+  priceMax: "",
+  stockMin: "",
+  stockMax: "",
+  featured: "ALL", // ALL | YES | NO
+  bestSeller: "ALL", // ALL | YES | NO
+  stockState: "ALL", // ALL | IN | OUT | LOW
+  lowStockThreshold: "10",
+  sort: "DEFAULT" // DEFAULT | NAME_ASC | NAME_DESC | PRICE_ASC | PRICE_DESC | STOCK_ASC | STOCK_DESC
+};
+
 export default function Products() {
   const navigate = useNavigate();
   // --- State Management ---
@@ -45,6 +57,7 @@ export default function Products() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [advancedFilters, setAdvancedFilters] = useState(DEFAULT_ADVANCED_FILTERS);
   
   // Modal States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -52,6 +65,8 @@ export default function Products() {
   const [currentProduct, setCurrentProduct] = useState(null); // null = create mode, object = edit mode
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [advancedDraft, setAdvancedDraft] = useState(DEFAULT_ADVANCED_FILTERS);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -90,9 +105,51 @@ export default function Products() {
     reload();
   }, []);
 
+  const hasActiveAdvancedFilters = useMemo(() => {
+    const f = advancedFilters || DEFAULT_ADVANCED_FILTERS;
+    return Boolean(
+      `${f.priceMin || ""}`.trim() ||
+      `${f.priceMax || ""}`.trim() ||
+      `${f.stockMin || ""}`.trim() ||
+      `${f.stockMax || ""}`.trim() ||
+      (f.featured && f.featured !== "ALL") ||
+      (f.bestSeller && f.bestSeller !== "ALL") ||
+      (f.stockState && f.stockState !== "ALL") ||
+      (f.sort && f.sort !== "DEFAULT")
+    );
+  }, [advancedFilters]);
+
+  const openAdvancedFilters = () => {
+    setAdvancedDraft(advancedFilters || DEFAULT_ADVANCED_FILTERS);
+    setIsAdvancedOpen(true);
+  };
+
+  const resetAllFilters = () => {
+    setSearchQuery("");
+    setCategoryFilter("");
+    setStatusFilter("");
+    setAdvancedFilters(DEFAULT_ADVANCED_FILTERS);
+    setSelectedIds(new Set());
+  };
+
   // --- Derived State (Filtering) ---
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
+    const f = advancedFilters || DEFAULT_ADVANCED_FILTERS;
+
+    const parseMaybeNumber = (value) => {
+      const raw = `${value ?? ""}`.trim();
+      if (!raw) return null;
+      const num = Number(raw);
+      return Number.isFinite(num) ? num : null;
+    };
+
+    const minPrice = parseMaybeNumber(f.priceMin);
+    const maxPrice = parseMaybeNumber(f.priceMax);
+    const minStock = parseMaybeNumber(f.stockMin);
+    const maxStock = parseMaybeNumber(f.stockMax);
+    const threshold = parseMaybeNumber(f.lowStockThreshold) ?? 10;
+
+    const result = products.filter((product) => {
       const name = `${product?.name || ""}`.toLowerCase();
       const sku = `${product?.sku || ""}`.toLowerCase();
       const id = `${product?.id || ""}`.toLowerCase();
@@ -103,11 +160,49 @@ export default function Products() {
         id.includes(searchQuery.toLowerCase());
       
       const matchesCategory = !categoryFilter || product.categoryId === categoryFilter;
-      const matchesStatus = !statusFilter || product.status === statusFilter;
+      const matchesStatus = statusFilter ? product.status === statusFilter : product.status !== "ARCHIVE";
 
-      return matchesSearch && matchesCategory && matchesStatus;
+      if (!(matchesSearch && matchesCategory && matchesStatus)) return false;
+
+      const priceRaw = Number(product?.price);
+      const price = Number.isFinite(priceRaw) ? priceRaw : 0;
+      const stockRaw = Number(product?.stock);
+      const stock = Number.isFinite(stockRaw) ? stockRaw : 0;
+
+      if (minPrice !== null && price < minPrice) return false;
+      if (maxPrice !== null && price > maxPrice) return false;
+      if (minStock !== null && stock < minStock) return false;
+      if (maxStock !== null && stock > maxStock) return false;
+
+      if (f.featured === "YES" && !Boolean(product?.isFeatured)) return false;
+      if (f.featured === "NO" && Boolean(product?.isFeatured)) return false;
+      if (f.bestSeller === "YES" && !Boolean(product?.isBestSeller)) return false;
+      if (f.bestSeller === "NO" && Boolean(product?.isBestSeller)) return false;
+
+      if (f.stockState === "IN" && stock <= 0) return false;
+      if (f.stockState === "OUT" && stock > 0) return false;
+      if (f.stockState === "LOW" && !(stock > 0 && stock < threshold)) return false;
+
+      return true;
     });
-  }, [products, searchQuery, categoryFilter, statusFilter]);
+
+    switch (f.sort) {
+      case "NAME_ASC":
+        return result.sort((a, b) => `${a?.name || ""}`.localeCompare(`${b?.name || ""}`, "fr"));
+      case "NAME_DESC":
+        return result.sort((a, b) => `${b?.name || ""}`.localeCompare(`${a?.name || ""}`, "fr"));
+      case "PRICE_ASC":
+        return result.sort((a, b) => Number(a?.price || 0) - Number(b?.price || 0));
+      case "PRICE_DESC":
+        return result.sort((a, b) => Number(b?.price || 0) - Number(a?.price || 0));
+      case "STOCK_ASC":
+        return result.sort((a, b) => Number(a?.stock || 0) - Number(b?.stock || 0));
+      case "STOCK_DESC":
+        return result.sort((a, b) => Number(b?.stock || 0) - Number(a?.stock || 0));
+      default:
+        return result;
+    }
+  }, [products, searchQuery, categoryFilter, statusFilter, advancedFilters]);
 
   const visibleIds = useMemo(() => filteredProducts.map((p) => p.id), [filteredProducts]);
   const allVisibleSelected = useMemo(() => {
@@ -267,10 +362,11 @@ export default function Products() {
 
   // --- Statistics ---
   const stats = useMemo(() => {
-    const totalSKU = products.length;
-    const lowStock = products.filter(p => Number(p?.stock || 0) < 10).length;
-    const activeProducts = products.filter(p => p?.status === "ACTIF").length;
-    const stockValue = products.reduce((acc, p) => {
+    const base = products.filter((p) => p?.status !== "ARCHIVE");
+    const totalSKU = base.length;
+    const lowStock = base.filter(p => Number(p?.stock || 0) < 10).length;
+    const activeProducts = base.filter(p => p?.status === "ACTIF").length;
+    const stockValue = base.reduce((acc, p) => {
       const price = Number(p?.price || 0);
       const qty = Number(p?.stock || 0);
       if (!Number.isFinite(price) || !Number.isFinite(qty)) return acc;
@@ -297,10 +393,18 @@ export default function Products() {
             <Button variant="outline" onClick={reload} disabled={loading}>
               {loading ? "Chargement..." : "Rafraîchir"}
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" onClick={openAdvancedFilters} className="relative">
               <Filter className="mr-2 h-4 w-4" />
               Filtres avancés
+              {hasActiveAdvancedFilters ? (
+                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background" />
+              ) : null}
             </Button>
+            {(searchQuery || categoryFilter || statusFilter || hasActiveAdvancedFilters) ? (
+              <Button variant="outline" onClick={resetAllFilters}>
+                Réinitialiser
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={openBulk} className="gap-2">
               <Upload className="h-4 w-4" />
               Ajout en masse
@@ -468,12 +572,7 @@ export default function Products() {
                   <div className="flex flex-col items-center justify-center text-muted-foreground">
                     <Search className="h-8 w-8 mb-2 opacity-20" />
                     <p>Aucun produit trouvé</p>
-                    <Button variant="link" onClick={() => {
-                      setSearchQuery("");
-                      setCategoryFilter("");
-                      setStatusFilter("");
-                      setSelectedIds(new Set());
-                    }}>
+                    <Button variant="link" onClick={resetAllFilters}>
                       Réinitialiser les filtres
                     </Button>
                   </div>
@@ -647,6 +746,154 @@ export default function Products() {
               {bulkDeleteError}
             </div>
           ) : null}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isAdvancedOpen}
+        onClose={() => setIsAdvancedOpen(false)}
+        title="Filtres avancés"
+        size="lg"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAdvancedDraft(DEFAULT_ADVANCED_FILTERS);
+              }}
+            >
+              Réinitialiser
+            </Button>
+            <Button variant="outline" onClick={() => setIsAdvancedOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={() => {
+                setAdvancedFilters(advancedDraft || DEFAULT_ADVANCED_FILTERS);
+                setIsAdvancedOpen(false);
+              }}
+            >
+              Appliquer
+            </Button>
+          </>
+        }
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="space-y-2">
+            <Label htmlFor="adv_price_min">Prix min (FCFA)</Label>
+            <Input
+              id="adv_price_min"
+              type="number"
+              value={advancedDraft.priceMin}
+              onChange={(e) => setAdvancedDraft((prev) => ({ ...prev, priceMin: e.target.value }))}
+              placeholder="0"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="adv_price_max">Prix max (FCFA)</Label>
+            <Input
+              id="adv_price_max"
+              type="number"
+              value={advancedDraft.priceMax}
+              onChange={(e) => setAdvancedDraft((prev) => ({ ...prev, priceMax: e.target.value }))}
+              placeholder="999999"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="adv_stock_min">Stock min</Label>
+            <Input
+              id="adv_stock_min"
+              type="number"
+              value={advancedDraft.stockMin}
+              onChange={(e) => setAdvancedDraft((prev) => ({ ...prev, stockMin: e.target.value }))}
+              placeholder="0"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="adv_stock_max">Stock max</Label>
+            <Input
+              id="adv_stock_max"
+              type="number"
+              value={advancedDraft.stockMax}
+              onChange={(e) => setAdvancedDraft((prev) => ({ ...prev, stockMax: e.target.value }))}
+              placeholder="999999"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="adv_featured">Produit en phare</Label>
+            <Select
+              id="adv_featured"
+              value={advancedDraft.featured}
+              onChange={(e) => setAdvancedDraft((prev) => ({ ...prev, featured: e.target.value }))}
+              options={[
+                { value: "ALL", label: "Tous" },
+                { value: "YES", label: "Oui" },
+                { value: "NO", label: "Non" }
+              ]}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="adv_bestseller">Best seller</Label>
+            <Select
+              id="adv_bestseller"
+              value={advancedDraft.bestSeller}
+              onChange={(e) => setAdvancedDraft((prev) => ({ ...prev, bestSeller: e.target.value }))}
+              options={[
+                { value: "ALL", label: "Tous" },
+                { value: "YES", label: "Oui" },
+                { value: "NO", label: "Non" }
+              ]}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="adv_stock_state">Stock</Label>
+            <Select
+              id="adv_stock_state"
+              value={advancedDraft.stockState}
+              onChange={(e) => setAdvancedDraft((prev) => ({ ...prev, stockState: e.target.value }))}
+              options={[
+                { value: "ALL", label: "Tous" },
+                { value: "IN", label: "En stock" },
+                { value: "OUT", label: "Rupture" },
+                { value: "LOW", label: "Stock faible" }
+              ]}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="adv_low_stock">Seuil stock faible</Label>
+            <Input
+              id="adv_low_stock"
+              type="number"
+              value={advancedDraft.lowStockThreshold}
+              onChange={(e) => setAdvancedDraft((prev) => ({ ...prev, lowStockThreshold: e.target.value }))}
+              placeholder="10"
+            />
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="adv_sort">Tri</Label>
+            <Select
+              id="adv_sort"
+              value={advancedDraft.sort}
+              onChange={(e) => setAdvancedDraft((prev) => ({ ...prev, sort: e.target.value }))}
+              options={[
+                { value: "DEFAULT", label: "Par défaut" },
+                { value: "NAME_ASC", label: "Nom (A → Z)" },
+                { value: "NAME_DESC", label: "Nom (Z → A)" },
+                { value: "PRICE_ASC", label: "Prix (croissant)" },
+                { value: "PRICE_DESC", label: "Prix (décroissant)" },
+                { value: "STOCK_ASC", label: "Stock (croissant)" },
+                { value: "STOCK_DESC", label: "Stock (décroissant)" }
+              ]}
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-lg border border-muted bg-muted/30 p-4 text-sm text-muted-foreground">
+          Les filtres avancés s'appliquent à la liste chargée (ici: 200 produits). Pour des catalogues plus grands, on peut ajouter une pagination et/ou des filtres côté backend.
         </div>
       </Modal>
     </div>

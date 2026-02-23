@@ -173,7 +173,17 @@ export default function Categories() {
     if (!category?.id) return;
     const next = !Boolean(category?.isFeatured);
     try {
-      await backofficeApi.updateCategory(category.id, { isFeatured: next });
+      const payload = {
+        nom: category.nom || "",
+        slug: category.slug || "",
+        imageUrl: category.imageUrl || null,
+        niveau: category.niveau || "PRINCIPALE",
+        parentId: category.parentId || null,
+        ordre: Number.isFinite(Number(category.ordre)) ? Number(category.ordre) : 0,
+        estActive: Boolean(category.estActive),
+        isFeatured: next
+      };
+      await backofficeApi.updateCategory(category.id, payload);
       setCategories((prev) => prev.map((c) => (c.id === category.id ? { ...c, isFeatured: next } : c)));
     } catch (err) {
       setError(err?.message || "Impossible de mettre à jour l’état en phare.");
@@ -210,13 +220,19 @@ export default function Categories() {
     e.preventDefault();
     setError("");
 
-    const isParentCategory = formData.niveau === "PRINCIPALE" && !`${formData.parentId || ""}`.trim();
+    const trimmedParentId = `${formData.parentId || ""}`.trim();
+    if (formData.niveau !== "PRINCIPALE" && !trimmedParentId) {
+      setError("Parent obligatoire pour une sous-catÃ©gorie.");
+      return;
+    }
+
+    const isParentCategory = formData.niveau === "PRINCIPALE" && !trimmedParentId;
     const payload = {
       nom: formData.nom,
       slug: formData.slug?.trim() ? formData.slug.trim() : slugify(formData.nom),
       imageUrl: isParentCategory ? formData.imageUrl?.trim() || null : null,
       niveau: formData.niveau,
-      parentId: formData.parentId?.trim() || null,
+      parentId: trimmedParentId || null,
       ordre: Number.isFinite(Number(formData.ordre)) ? Number(formData.ordre) : 0,
       estActive: Boolean(formData.estActive)
     };

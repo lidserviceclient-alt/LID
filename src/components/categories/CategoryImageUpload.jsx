@@ -3,6 +3,19 @@ import { Upload, X } from "lucide-react";
 import Button from "../ui/Button.jsx";
 import { backofficeApi } from "../../services/api.js";
 
+const API_BASE_URL = import.meta.env.VITE_BACKOFFICE_API_URL || "http://localhost:9000";
+
+function resolveBackendUrl(value) {
+  const raw = `${value || ""}`.trim();
+  if (!raw) return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  try {
+    return new URL(raw, API_BASE_URL).toString();
+  } catch {
+    return raw;
+  }
+}
+
 export default function CategoryImageUpload({ value, onChange, disabled }) {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -32,7 +45,15 @@ export default function CategoryImageUpload({ value, onChange, disabled }) {
     <div className="space-y-2">
       <div className="flex items-center gap-3">
         {value ? (
-          <img src={value} alt="" className="h-12 w-12 rounded object-cover border border-border" />
+          <img
+            src={resolveBackendUrl(value)}
+            alt=""
+            className="h-12 w-12 rounded object-cover border border-border"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = "/imgs/wall-1.jpg";
+            }}
+          />
         ) : (
           <div className="h-12 w-12 rounded border border-dashed border-border bg-muted/30" />
         )}
