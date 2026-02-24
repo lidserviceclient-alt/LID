@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
@@ -12,24 +12,88 @@ import {
   Linkedin,
   Bookmark
 } from "lucide-react";
-import { BLOG_POSTS } from "../assets/data/blog";
 import Newsletter from "../components/Newsletter";
+import { getBlogPost, getBlogPosts } from "../services/blogService";
 
 export default function BlogDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
-  const post = BLOG_POSTS.find(p => p.id === parseInt(id));
+  const [post, setPost] = useState(null);
+  const [relatedPosts, setRelatedPosts] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
   
   // Scroll to top on mount or id change
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [id]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!id) {
+      setPost(null);
+      return;
+    }
+    setIsLoading(true);
+    setLoadError("");
+    getBlogPost(id)
+      .then((data) => {
+        if (cancelled) return;
+        setPost(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setPost(null);
+        setLoadError(err?.message || "Article introuvable");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getBlogPosts()
+      .then((list) => {
+        if (cancelled) return;
+        const items = Array.isArray(list) ? list : [];
+        const related = items
+          .filter((p) => p?.category && post?.category && p.category === post.category && p.id !== post.id)
+          .slice(0, 3);
+        setRelatedPosts(related);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRelatedPosts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [post?.category, post?.id]);
+
+  const contentText = useMemo(() => {
+    const content = `${post?.content || ""}`.trim();
+    if (content) return content;
+    const excerpt = `${post?.excerpt || ""}`.trim();
+    return excerpt;
+  }, [post?.content, post?.excerpt]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-neutral-950">
+        <div className="w-12 h-12 border-4 border-neutral-200 border-t-[#6aa200] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (!post) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-neutral-950">
-        <h2 className="text-2xl font-bold mb-4 dark:text-white">Article introuvable</h2>
+        <h2 className="text-2xl font-bold mb-4 dark:text-white">{loadError || "Article introuvable"}</h2>
         <Link to="/blog" className="text-[#6aa200] hover:underline">
           Retour au blog
         </Link>
@@ -37,19 +101,13 @@ export default function BlogDetails() {
     );
   }
 
-  // Find related posts (same category, excluding current)
-  const relatedPosts = BLOG_POSTS
-    .filter(p => p.category === post.category && p.id !== post.id)
-    .slice(0, 3);
-
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 font-sans">
       
-      {/* --- Progress Bar (Optional Idea) --- */}
       <motion.div 
         className="fixed top-0 left-0 right-0 h-1 bg-[#6aa200] origin-left z-50"
         style={{ scaleX: 0 }} 
-        animate={{ scaleX: 1 }} // This would need scroll hook for real implementation
+        animate={{ scaleX: 1 }}
       />
 
       {/* --- Header / Hero --- */}
@@ -109,39 +167,8 @@ export default function BlogDetails() {
             {post.excerpt}
           </p>
 
-          {/* Simulated Content Content */}
           <div className="space-y-6 text-neutral-800 dark:text-neutral-200">
-            <p>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
-              Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-            </p>
-            
-            <h2 className="text-2xl font-bold mt-8 mb-4 text-black dark:text-white">L'importance du détail</h2>
-            <p>
-              Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. 
-              Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-            </p>
-
-            <blockquote className="border-l-4 border-[#6aa200] pl-6 italic text-xl my-8 text-neutral-600 dark:text-neutral-400">
-              "La mode se démode, le style jamais." — Coco Chanel
-            </blockquote>
-
-            <img 
-              src="https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1000&auto=format&fit=crop" 
-              alt="Fashion detail" 
-              className="w-full h-80 object-cover rounded-2xl my-8"
-            />
-
-            <h2 className="text-2xl font-bold mt-8 mb-4 text-black dark:text-white">Comment adopter ce style ?</h2>
-            <p>
-              Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam.
-              Eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.
-            </p>
-            <ul className="list-disc pl-6 space-y-2 marker:text-[#6aa200]">
-              <li>Choisissez des pièces de qualité</li>
-              <li>Osez les mélanges de textures</li>
-              <li>N'oubliez pas les accessoires</li>
-            </ul>
+            <p className="whitespace-pre-wrap">{contentText}</p>
           </div>
         </article>
 

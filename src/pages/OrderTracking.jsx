@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Package, Truck, MapPin, CheckCircle, Clock, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import { trackOrder } from "@/services/trackingService";
 
 // Mock Map Component
 const DeliveryMap = ({ status }) => {
@@ -79,36 +80,99 @@ const DeliveryMap = ({ status }) => {
   );
 };
 
+const statusKeyFromBackend = (value) => {
+  const s = `${value || ""}`.trim().toUpperCase();
+  if (s === "PENDING") return "pending";
+  if (s === "PAID" || s === "PROCESSING") return "processing";
+  if (s === "READY_TO_DELIVER") return "shipped";
+  if (s === "DELIVERY_IN_PROGRESS") return "out_for_delivery";
+  if (s === "DELIVERED") return "delivered";
+  return "pending";
+};
+
+const stepIndexFromBackend = (value) => {
+  const s = `${value || ""}`.trim().toUpperCase();
+  if (s === "PENDING") return 0;
+  if (s === "PAID" || s === "PROCESSING") return 1;
+  if (s === "READY_TO_DELIVER") return 2;
+  if (s === "DELIVERY_IN_PROGRESS") return 3;
+  if (s === "DELIVERED") return 4;
+  return 0;
+};
+
+const formatStepDate = (value) => {
+  if (!value) return "-";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return `${value}`;
+  return d.toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
+};
+
 export default function OrderTracking() {
   const [orderId, setOrderId] = useState("");
   const [trackingData, setTrackingData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleTrack = (e) => {
+  const handleTrack = async (e) => {
     e.preventDefault();
-    if (!orderId) {
+    const ref = (orderId || "").trim();
+    if (!ref) {
       toast.error("Veuillez entrer un numéro de commande");
       return;
     }
 
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const data = await trackOrder(ref);
+      const currentStatus = data?.currentStatus || "PENDING";
+      const idx = stepIndexFromBackend(currentStatus);
+
+      const history = Array.isArray(data?.statusHistory) ? data.statusHistory : [];
+      const dateByStatus = new Map(
+        history
+          .filter((h) => h?.status && h?.changedAt)
+          .map((h) => [`${h.status}`.toUpperCase(), h.changedAt])
+      );
+
+      const eta = data?.deliveryDate
+        ? new Date(data.deliveryDate).toLocaleDateString("fr-FR", { dateStyle: "medium" })
+        : "-";
+
+      const statusKey = statusKeyFromBackend(currentStatus);
+      const location =
+        statusKey === "pending"
+          ? "Commande enregistrée"
+          : statusKey === "processing"
+            ? "Préparation en cours"
+            : statusKey === "shipped"
+              ? "En transit"
+              : statusKey === "out_for_delivery"
+                ? "En cours de livraison"
+                : "Livré";
+
       setTrackingData({
-        id: orderId,
-        status: "shipped", // processing, shipped, out_for_delivery, delivered
-        eta: "12 Jan 2026",
-        location: "En transit - Abidjan Nord",
+        id: data?.orderNumber || ref,
+        status: statusKey,
+        eta,
+        location,
         timeline: [
-          { status: "Commande confirmée", date: "08 Jan, 10:30", done: true },
-          { status: "Préparation en cours", date: "08 Jan, 14:00", done: true },
-          { status: "Expédié", date: "09 Jan, 09:15", done: true },
-          { status: "En livraison", date: "Estimé 12 Jan", done: false },
-          { status: "Livré", date: "-", done: false },
+          { status: "Commande confirmée", date: formatStepDate(dateByStatus.get("PENDING") || data?.updatedAt), done: idx >= 0 },
+          { status: "Préparation en cours", date: formatStepDate(dateByStatus.get("PROCESSING") || dateByStatus.get("PAID")), done: idx >= 1 },
+          { status: "Expédié", date: formatStepDate(dateByStatus.get("READY_TO_DELIVER")), done: idx >= 2 },
+          { status: "En livraison", date: formatStepDate(dateByStatus.get("DELIVERY_IN_PROGRESS")), done: idx >= 3 },
+          { status: "Livré", date: formatStepDate(dateByStatus.get("DELIVERED")), done: idx >= 4 }
         ]
       });
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.errorMessage ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Impossible de récupérer le suivi."
+      );
+      setTrackingData(null);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -172,7 +236,11 @@ export default function OrderTracking() {
                     <h3 className="text-sm font-medium text-neutral-500 uppercase tracking-wider">Statut Actuel</h3>
                     <p className="text-2xl font-bold mt-1 flex items-center gap-2">
                       <Truck className="text-[#6aa200]" />
-                      {trackingData.status === 'shipped' && "En Transit vers le Hub"}
+                      {trackingData.status === "pending" && "Commande confirmée"}
+                      {trackingData.status === "processing" && "Préparation en cours"}
+                      {trackingData.status === "shipped" && "Expédiée"}
+                      {trackingData.status === "out_for_delivery" && "En livraison"}
+                      {trackingData.status === "delivered" && "Livrée"}
                     </p>
                   </div>
                   <div className="mt-8">

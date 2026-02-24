@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Search, Ticket, MapPin, Calendar, Star, TrendingUp, Music, Globe, Trophy, ShieldCheck, Mail, ArrowRight, Zap } from "lucide-react";
 import Barcode from "react-barcode";
@@ -47,6 +48,7 @@ const Marquee = () => {
 const ModernTicket = ({ ticket }) => {
     const { addToCart } = useCart();
     const { theme: appTheme } = useTheme();
+    const navigate = useNavigate();
     const theme = getTheme(ticket?.category);
     const dateValue = ticket?.date ? new Date(ticket.date) : null;
     const hasValidDate = Boolean(dateValue) && !Number.isNaN(dateValue.getTime());
@@ -65,15 +67,8 @@ const ModernTicket = ({ ticket }) => {
     const safeLocation = ticket?.location || "Lieu à confirmer";
 
     return (
-        <div 
-            onClick={(e) => {
-              e.stopPropagation();
-              if (ticket?.available === false) {
-                toast.error("Événement indisponible");
-                return;
-              }
-              addToCart({ ...ticket, price: hasPrice ? priceNumber : 0, type: "ticket", name: ticket.title, brand: "LID Events" });
-            }}
+        <div
+            onClick={() => navigate(`/tickets/${encodeURIComponent(ticket.id)}`)}
             className="group w-full max-w-[1000px] mx-auto relative cursor-pointer perspective-1000"
         >
             {/* Background Glow */}
@@ -142,15 +137,41 @@ const ModernTicket = ({ ticket }) => {
                         </div>
                      </div>
 
-                     <div className="mt-6 pt-6 border-t border-dashed border-gray-200 dark:border-white/10 flex items-center justify-between">
+                     <div className="mt-6 pt-6 border-t border-dashed border-gray-200 dark:border-white/10 flex items-center justify-between gap-4">
                          <div className="flex items-center gap-3">
                              <div className="w-8 h-8 rounded-full bg-black dark:bg-white flex items-center justify-center text-white dark:text-black">
                                  <div className="w-2 h-2 rounded-full bg-current animate-pulse"></div>
                              </div>
                              <span className="text-xs font-bold uppercase tracking-widest opacity-50">Vérifié par LID</span>
                          </div>
-                         <div className="text-2xl font-black tracking-tight">
-                            {priceLabel}
+                         <div className="flex items-center gap-3">
+                           <div className="text-2xl font-black tracking-tight whitespace-nowrap">
+                              {priceLabel}
+                           </div>
+                           <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (ticket?.available === false) {
+                                  toast.error("Événement indisponible");
+                                  return;
+                                }
+                                addToCart({
+                                  ...ticket,
+                                  price: hasPrice ? priceNumber : 0,
+                                  type: "ticket",
+                                  name: ticket.title,
+                                  brand: "LID Events"
+                                });
+                                toast.success("Ajouté au panier");
+                              }}
+                              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-black text-white dark:bg-white dark:text-black text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={ticket?.available === false}
+                           >
+                              <Zap className="w-4 h-4" />
+                              Ajouter
+                           </button>
                          </div>
                      </div>
                 </div>

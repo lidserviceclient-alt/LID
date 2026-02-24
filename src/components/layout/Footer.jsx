@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
 import { 
@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import Logo from '../Logo';
 import { subscribeNewsletter } from '../../services/newsletterService';
+import { getCatalogCategories } from '../../services/categoryService';
 
 export default function Footer() {
   const [email, setEmail] = useState('');
@@ -28,15 +29,41 @@ export default function Footer() {
   const opacity = useTransform(scrollYProgress, [0, 0.5], [0, 1]);
   const springY = useSpring(y, { stiffness: 100, damping: 30 });
 
+  const [footerCategories, setFooterCategories] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCatalogCategories()
+      .then((list) => {
+        if (cancelled) return;
+        const items = (Array.isArray(list) ? list : [])
+          .filter((c) => c && c.estActive !== false && (!c.niveau || c.niveau === "PRINCIPALE"))
+          .slice(0, 4)
+          .map((c) => ({
+            name: `${c?.nom || ""}`.trim(),
+            path: `/shop?category=${encodeURIComponent(`${c?.slug}`.trim())}`
+          }))
+          .filter((it) => it.name && it.path);
+        setFooterCategories(items);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFooterCategories([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const collectionsLinks = footerCategories.length > 0
+    ? footerCategories
+    : [
+        { name: "Nouveautés", path: "/catalogue" },
+        { name: "Blog", path: "/blog" },
+      ];
+
   const links = {
-    collections: [
-      { name: "Nouveautés", path: "/catalogue?sort=newest" },
-      { name: "Streetwear", path: "/catalogue?category=streetwear" },
-      { name: "Minimalist", path: "/catalogue?category=minimalist" },
-      { name: "Accessoires", path: "/catalogue?category=accessories" },
-      { name: "Éditions Limitées", path: "/catalogue?tag=limited" },
-      { name: "Blog", path: "/blog" },
-    ],
+    collections: collectionsLinks,
     aide: [
        { name: "Centre d'aide", path: "/help" },
        { name: "Livraisons", path: "/delivery" },
@@ -261,7 +288,6 @@ export default function Footer() {
                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                  <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
                </div>
-               <span className="text-neutral-400">Systems Normal</span>
              </div>
              <motion.button 
                whileHover={{ scale: 1.05 }}
@@ -269,7 +295,7 @@ export default function Footer() {
                className="flex items-center gap-2 hover:text-white transition-colors"
              >
                <Globe size={16} />
-               <span>FR (EUR)</span>
+               <span>FR (FCFA)</span>
              </motion.button>
           </div>
         </motion.div>

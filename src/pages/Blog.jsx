@@ -1,9 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Search, 
   Clock, 
-  Tag, 
   ArrowUpRight, 
   ChevronRight, 
   User,
@@ -11,69 +10,123 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Newsletter from "../components/Newsletter";
-import { BLOG_POSTS, CATEGORIES } from "../assets/data/blog";
+import { getBlogPosts } from "../services/blogService";
 
 export default function BlogPage() {
   const [activeCategory, setActiveCategory] = useState("Tout");
   const [searchQuery, setSearchQuery] = useState("");
+  const [posts, setPosts] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
-  const filteredPosts = BLOG_POSTS.filter(post => {
-    const matchesCategory = activeCategory === "Tout" || post.category === activeCategory;
-    const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          post.excerpt.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    setLoadError("");
+    getBlogPosts()
+      .then((list) => {
+        if (cancelled) return;
+        setPosts(Array.isArray(list) ? list : []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setPosts([]);
+        setLoadError(err?.message || "Impossible de charger les articles");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const featuredPost = BLOG_POSTS.find(p => p.featured);
+  const categories = useMemo(() => {
+    const set = new Set(["Tout"]);
+    for (const post of Array.isArray(posts) ? posts : []) {
+      const category = `${post?.category || ""}`.trim();
+      if (category) set.add(category);
+    }
+    return Array.from(set);
+  }, [posts]);
+
+  const filteredPosts = useMemo(() => {
+    const query = `${searchQuery || ""}`.trim().toLowerCase();
+    return (Array.isArray(posts) ? posts : []).filter((post) => {
+      const category = `${post?.category || ""}`.trim();
+      const title = `${post?.title || ""}`.trim().toLowerCase();
+      const excerpt = `${post?.excerpt || ""}`.trim().toLowerCase();
+      const matchesCategory = activeCategory === "Tout" || category === activeCategory;
+      const matchesSearch = !query || title.includes(query) || excerpt.includes(query);
+      return matchesCategory && matchesSearch;
+    });
+  }, [posts, activeCategory, searchQuery]);
+
+  const featuredPost = useMemo(() => {
+    const list = Array.isArray(posts) ? posts : [];
+    return list.find((p) => p?.featured) || list[0] || null;
+  }, [posts]);
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 font-sans">
       
       {/* --- Hero Section --- */}
-      <section className="relative w-full h-[60vh] min-h-[500px] overflow-hidden">
-        <div className="absolute inset-0">
-          <img 
-            src={featuredPost.image} 
-            alt={featuredPost.title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
-        </div>
+      {featuredPost ? (
+        <section className="relative w-full h-[60vh] min-h-[500px] overflow-hidden">
+          <div className="absolute inset-0">
+            <img 
+              src={featuredPost.image} 
+              alt={featuredPost.title}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+          </div>
 
-        <div className="relative h-full max-w-7xl mx-auto px-6 flex flex-col justify-end pb-16">
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="max-w-3xl"
-          >
-            <div className="flex items-center gap-4 mb-6">
-              <span className="px-3 py-1 bg-[#6aa200] text-white text-xs font-bold uppercase tracking-wider rounded-full">
-                À la une
-              </span>
-              <span className="text-neutral-300 text-sm font-medium flex items-center gap-2">
-                <Calendar size={14} /> {featuredPost.date}
-              </span>
-            </div>
-            
-            <h1 className="text-4xl md:text-6xl font-black text-white leading-tight mb-6">
-              {featuredPost.title}
-            </h1>
-            
-            <p className="text-lg text-neutral-300 mb-8 max-w-xl line-clamp-2">
-              {featuredPost.excerpt}
-            </p>
-
-            <Link 
-              to={`/blog/${featuredPost.id}`}
-              className="inline-flex items-center gap-3 px-8 py-4 bg-white text-black font-bold uppercase tracking-wide rounded-full hover:bg-[#6aa200] hover:text-white transition-all duration-300 group"
+          <div className="relative h-full max-w-7xl mx-auto px-6 flex flex-col justify-end pb-16">
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="max-w-3xl"
             >
-              Lire l'article
-              <ArrowUpRight size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-            </Link>
-          </motion.div>
-        </div>
-      </section>
+              <div className="flex items-center gap-4 mb-6">
+                <span className="px-3 py-1 bg-[#6aa200] text-white text-xs font-bold uppercase tracking-wider rounded-full">
+                  À la une
+                </span>
+                <span className="text-neutral-300 text-sm font-medium flex items-center gap-2">
+                  <Calendar size={14} /> {featuredPost.date}
+                </span>
+              </div>
+              
+              <h1 className="text-4xl md:text-6xl font-black text-white leading-tight mb-6">
+                {featuredPost.title}
+              </h1>
+              
+              <p className="text-lg text-neutral-300 mb-8 max-w-xl line-clamp-2">
+                {featuredPost.excerpt}
+              </p>
+
+              <Link 
+                to={`/blog/${featuredPost.id}`}
+                className="inline-flex items-center gap-3 px-8 py-4 bg-white text-black font-bold uppercase tracking-wide rounded-full hover:bg-[#6aa200] hover:text-white transition-all duration-300 group"
+              >
+                Lire l'article
+                <ArrowUpRight size={18} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+              </Link>
+            </motion.div>
+          </div>
+        </section>
+      ) : (
+        <section className="relative w-full h-[40vh] min-h-[260px] flex items-center justify-center bg-neutral-100 dark:bg-neutral-900">
+          <div className="text-center px-6">
+            <h1 className="text-3xl md:text-4xl font-black text-neutral-900 dark:text-white">Blog LID</h1>
+            <p className="text-neutral-500 dark:text-neutral-400 mt-2">
+              {isLoading ? "Chargement des articles..." : "Aucun article disponible pour le moment."}
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* --- Controls & Grid --- */}
       <section className="py-16 px-6 max-w-7xl mx-auto">
@@ -83,7 +136,7 @@ export default function BlogPage() {
           
           {/* Categories */}
           <div className="flex items-center gap-2 overflow-x-auto pb-4 md:pb-0 w-full md:w-auto no-scrollbar">
-            {CATEGORIES.map(cat => (
+            {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
@@ -114,7 +167,11 @@ export default function BlogPage() {
         </div>
 
         {/* Posts Grid */}
-        {filteredPosts.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-12 h-12 border-4 border-neutral-200 border-t-[#6aa200] rounded-full animate-spin" />
+          </div>
+        ) : filteredPosts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredPosts.map((post, index) => (
               <motion.article 
@@ -185,8 +242,12 @@ export default function BlogPage() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neutral-100 dark:bg-neutral-900 text-neutral-400 mb-4">
               <Search size={32} />
             </div>
-            <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">Aucun article trouvé</h3>
-            <p className="text-neutral-500 dark:text-neutral-400">Essayez de modifier vos filtres ou votre recherche.</p>
+            <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">
+              {loadError || "Aucun article trouvé"}
+            </h3>
+            <p className="text-neutral-500 dark:text-neutral-400">
+              {loadError ? "Impossible de récupérer les articles pour le moment." : "Essayez de modifier vos filtres ou votre recherche."}
+            </p>
             <button 
               onClick={() => { setActiveCategory("Tout"); setSearchQuery(""); }}
               className="mt-6 text-[#6aa200] font-bold hover:underline"
