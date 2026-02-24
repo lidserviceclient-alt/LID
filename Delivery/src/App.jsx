@@ -1,34 +1,34 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { lazy, Suspense } from 'react'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { AnimatePresence } from 'framer-motion'
+
+const HomePage = lazy(() => import('./pages/HomePage.jsx'))
+const ExplorePage = lazy(() => import('./pages/ExplorePage.jsx'))
+const LoginPage = lazy(() => import('./pages/LoginPage.jsx'))
+
+function LoadingScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center px-6">
+      <div className="lid-card rounded-2xl px-6 py-4 text-sm text-slate-600">Chargement de l'interface LID...</div>
+    </div>
+  )
+}
 
 function App() {
-  const [count, setCount] = useState(0)
+  const location = useLocation()
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1 className="text-3xl font-bold underline">Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <Suspense fallback={<LoadingScreen />}>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={<HomePage />} />
+          <Route path="/explore" element={<ExplorePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="*" element={<Navigate to="/home" replace />} />
+        </Routes>
+      </AnimatePresence>
+    </Suspense>
   )
 }
 

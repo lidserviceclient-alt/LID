@@ -1,3 +1,43 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
+@import "tailwindcss";
+
+:root {
+  --lid-bg-0: #f4f6fb;
+  --lid-bg-1: #e8edf8;
+  --lid-ink: #101727;
+  --lid-muted: #5f6b84;
+  --lid-accent: #ff7a1a;
+  --lid-accent-soft: #ffe1cc;
+  --lid-line: #dbe2f0;
+  --lid-card: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Manrope', sans-serif;
+  color: var(--lid-ink);
+  background:
+    radial-gradient(1200px 560px at 0% 0%, #fef4e9 0%, transparent 60%),
+    radial-gradient(1000px 580px at 100% 0%, #e8f3ff 0%, transparent 60%),
+    linear-gradient(180deg, var(--lid-bg-0) 0%, var(--lid-bg-1) 100%);
+}
+
+.font-display {
+  font-family: 'Sora', sans-serif;
+}
+
+.lid-card {
+  background: var(--lid-card);
+  border: 1px solid var(--lid-line);
+  box-shadow: 0 10px 28px rgba(16, 23, 39, 0.08);
+}
