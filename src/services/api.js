@@ -1,21 +1,22 @@
-import { clearAccessToken, getAccessToken } from "./auth.js";
+﻿﻿import { clearAccessToken, getAccessToken } from "./auth.js";
 
-const BASE_URL = import.meta.env.VITE_BACKOFFICE_API_URL || "http://localhost:9000";
+const BASE_URL = import.meta.env.VITE_BACKOFFICE_API_URL || "http://localhost:8080";
 
 async function request(path, options = {}) {
   const accessToken = getAccessToken();
+  const { headers: optionHeaders, ...restOptions } = options || {};
   let res;
   try {
     res = await fetch(`${BASE_URL}${path}`, {
       headers: {
         "Content-Type": "application/json",
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        ...(options.headers || {})
+        ...(optionHeaders || {})
       },
-      ...options
+      ...restOptions
     });
   } catch {
-    throw new Error(`API indisponible. Vérifie que le backend tourne sur ${BASE_URL}.`);
+    throw new Error(`API indisponible. VÃ©rifie que le backend tourne sur ${BASE_URL}.`);
   }
 
   if (!res.ok) {
@@ -38,7 +39,7 @@ async function request(path, options = {}) {
           window.location.href = "/login";
         }
       }
-      throw new Error("Session expirée ou accès refusé. Merci de vous reconnecter.");
+      throw new Error("Session expirÃ©e ou accÃ¨s refusÃ©. Merci de vous reconnecter.");
     }
 
     throw new Error(message);
@@ -56,17 +57,18 @@ async function request(path, options = {}) {
 
 async function requestBlob(path, options = {}) {
   const accessToken = getAccessToken();
+  const { headers: optionHeaders, ...restOptions } = options || {};
   let res;
   try {
     res = await fetch(`${BASE_URL}${path}`, {
       headers: {
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        ...(options.headers || {})
+        ...(optionHeaders || {})
       },
-      ...options
+      ...restOptions
     });
   } catch {
-    throw new Error(`API indisponible. Vérifie que le backend tourne sur ${BASE_URL}.`);
+    throw new Error(`API indisponible. VÃ©rifie que le backend tourne sur ${BASE_URL}.`);
   }
 
   if (!res.ok) {
@@ -89,7 +91,7 @@ async function requestBlob(path, options = {}) {
           window.location.href = "/login";
         }
       }
-      throw new Error("Session expirée ou accès refusé. Merci de vous reconnecter.");
+      throw new Error("Session expirÃ©e ou accÃ¨s refusÃ©. Merci de vous reconnecter.");
     }
 
     throw new Error(message);
@@ -100,17 +102,18 @@ async function requestBlob(path, options = {}) {
 
 async function requestForm(path, options = {}) {
   const accessToken = getAccessToken();
+  const { headers: optionHeaders, ...restOptions } = options || {};
   let res;
   try {
     res = await fetch(`${BASE_URL}${path}`, {
       headers: {
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        ...(options.headers || {})
+        ...(optionHeaders || {})
       },
-      ...options
+      ...restOptions
     });
   } catch {
-    throw new Error(`API indisponible. Vérifie que le backend tourne sur ${BASE_URL}.`);
+    throw new Error(`API indisponible. VÃ©rifie que le backend tourne sur ${BASE_URL}.`);
   }
 
   if (!res.ok) {
@@ -133,7 +136,7 @@ async function requestForm(path, options = {}) {
           window.location.href = "/login";
         }
       }
-      throw new Error("Session expirée ou accès refusé. Merci de vous reconnecter.");
+      throw new Error("Session expirÃ©e ou accÃ¨s refusÃ©. Merci de vous reconnecter.");
     }
 
     throw new Error(message);
@@ -154,6 +157,11 @@ export const backofficeApi = {
     request("/api/v1/auth/login/local", {
       method: "POST",
       body: JSON.stringify({ email, password })
+    }),
+  verifyAdminMfa: (mfaTokenId, code) =>
+    request("/api/v1/auth/login/local/verify", {
+      method: "POST",
+      body: JSON.stringify({ mfaTokenId, code })
     }),
   overview: (days) => {
     const params = new URLSearchParams();
@@ -306,6 +314,30 @@ export const backofficeApi = {
     }),
   loyaltyOverview: () => request("/api/backoffice/loyalty/overview"),
   loyaltyTiers: () => request("/api/backoffice/loyalty/tiers"),
+  loyaltyCustomers: (limit = 10) => request(`/api/backoffice/loyalty/customers?limit=${encodeURIComponent(limit)}`),
+  loyaltyCustomersPage: (q = "", page = 0, size = 10) =>
+    request(
+      `/api/backoffice/loyalty/customers?q=${encodeURIComponent(q || "")}&page=${encodeURIComponent(page)}&size=${encodeURIComponent(size)}`
+    ),
+  loyaltyCustomer: (userId) => request(`/api/backoffice/loyalty/customers/${encodeURIComponent(userId)}`),
+  loyaltyCustomerTransactions: (userId, page = 0, size = 20) =>
+    request(
+      `/api/backoffice/loyalty/customers/${encodeURIComponent(userId)}/transactions?page=${encodeURIComponent(page)}&size=${encodeURIComponent(size)}`
+    ),
+  adjustLoyaltyPoints: (userId, payload) =>
+    request(`/api/backoffice/loyalty/customers/${encodeURIComponent(userId)}/adjust`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  createLoyaltyTier: (payload) =>
+    request("/api/backoffice/loyalty/tiers", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  deleteLoyaltyTier: (id) =>
+    request(`/api/backoffice/loyalty/tiers/${encodeURIComponent(id)}`, {
+      method: "DELETE"
+    }),
   loyaltyConfig: () => request("/api/backoffice/loyalty/config"),
   updateLoyaltyConfig: (payload) =>
     request("/api/backoffice/loyalty/config", {
@@ -394,6 +426,28 @@ export const backofficeApi = {
     request(`/api/backoffice/products/${id}`, {
       method: "DELETE"
     }),
+  productReviews: (page = 0, size = 20, status = "", q = "", productId = "", userId = "") => {
+    const params = new URLSearchParams({ page, size });
+    if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    if (productId) params.set("productId", productId);
+    if (userId) params.set("userId", userId);
+    return request(`/api/backoffice/product-reviews?${params.toString()}`);
+  },
+  productReview: (id) => request(`/api/backoffice/product-reviews/${encodeURIComponent(id)}`),
+  updateProductReview: (id, payload) =>
+    request(`/api/backoffice/product-reviews/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  validateProductReview: (id) =>
+    request(`/api/backoffice/product-reviews/${encodeURIComponent(id)}/validate`, { method: "POST" }),
+  unvalidateProductReview: (id) =>
+    request(`/api/backoffice/product-reviews/${encodeURIComponent(id)}/unvalidate`, { method: "POST" }),
+  restoreProductReview: (id) =>
+    request(`/api/backoffice/product-reviews/${encodeURIComponent(id)}/restore`, { method: "POST" }),
+  deleteProductReview: (id) =>
+    request(`/api/backoffice/product-reviews/${encodeURIComponent(id)}`, { method: "DELETE" }),
   customers: (page = 0, size = 20) => {
     const params = new URLSearchParams({ page, size });
     return request(`/api/backoffice/customers?${params.toString()}`);
@@ -410,6 +464,11 @@ export const backofficeApi = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  createCourier: (payload) =>
+    request("/api/backoffice/users/couriers", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   updateUser: (id, payload) =>
     request(`/api/backoffice/users/${id}`, {
       method: "PUT",
@@ -418,6 +477,64 @@ export const backofficeApi = {
   deleteUser: (id) =>
     request(`/api/backoffice/users/${id}`, {
       method: "DELETE"
+    }),
+  blockUser: (id) =>
+    request(`/api/backoffice/users/${id}/block`, {
+      method: "POST"
+    }),
+  unblockUser: (id) =>
+    request(`/api/backoffice/users/${id}/unblock`, {
+      method: "POST"
+    }),
+  freeShippingRules: () => request("/api/backoffice/free-shipping-rules"),
+  createFreeShippingRule: (payload) =>
+    request("/api/backoffice/free-shipping-rules", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateFreeShippingRule: (id, payload) =>
+    request(`/api/backoffice/free-shipping-rules/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  deleteFreeShippingRule: (id) =>
+    request(`/api/backoffice/free-shipping-rules/${id}`, {
+      method: "DELETE"
+    }),
+  enableFreeShippingRule: (id) =>
+    request(`/api/backoffice/free-shipping-rules/${id}/enable`, {
+      method: "POST"
+    }),
+  disableFreeShippingRule: (id) =>
+    request(`/api/backoffice/free-shipping-rules/${id}/disable`, {
+      method: "POST"
+    }),
+  shippingMethods: () => request("/api/backoffice/shipping-methods"),
+  createShippingMethod: (payload) =>
+    request("/api/backoffice/shipping-methods", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateShippingMethod: (id, payload) =>
+    request(`/api/backoffice/shipping-methods/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  deleteShippingMethod: (id) =>
+    request(`/api/backoffice/shipping-methods/${id}`, {
+      method: "DELETE"
+    }),
+  enableShippingMethod: (id) =>
+    request(`/api/backoffice/shipping-methods/${id}/enable`, {
+      method: "POST"
+    }),
+  disableShippingMethod: (id) =>
+    request(`/api/backoffice/shipping-methods/${id}/disable`, {
+      method: "POST"
+    }),
+  setDefaultShippingMethod: (id) =>
+    request(`/api/backoffice/shipping-methods/${id}/default`, {
+      method: "POST"
     }),
   logisticsKpis: (days = 30) => {
     const params = new URLSearchParams();
@@ -467,10 +584,67 @@ export const backofficeApi = {
     const qs = params.toString();
     return request(`/api/backoffice/notifications/count${qs ? `?${qs}` : ""}`);
   },
+  securitySettings: () => request("/api/backoffice/security/settings"),
+  updateSecuritySettings: (payload) =>
+    request("/api/backoffice/security/settings", {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  securityActivityExportCsv: (size = 500) => {
+    const params = new URLSearchParams();
+    if (size !== null && size !== undefined && `${size}`.trim() !== "") params.set("size", `${size}`);
+    return requestBlob(`/api/backoffice/security/activity/export?${params.toString()}`, {
+      headers: { Accept: "text/csv" }
+    });
+  },
+  appConfig: () => request("/api/backoffice/app-config"),
+  updateAppConfig: (payload) =>
+    request("/api/backoffice/app-config", {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  socialLinks: () => request("/api/backoffice/app-config/social-links"),
+  createSocialLink: (payload) =>
+    request("/api/backoffice/app-config/social-links", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateSocialLink: (id, payload) =>
+    request(`/api/backoffice/app-config/social-links/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  deleteSocialLink: (id) =>
+    request(`/api/backoffice/app-config/social-links/${id}`, {
+      method: "DELETE"
+    }),
+  notificationPreferences: () => request("/api/backoffice/notification-preferences"),
+  updateNotificationPreferences: (payload) =>
+    request("/api/backoffice/notification-preferences", {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  integrations: () => request("/api/backoffice/integrations"),
+  updateIntegrations: (payload) =>
+    request("/api/backoffice/integrations", {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  recipients: ({ segment = "CLIENT", roles = [], q = "", limit = 200 } = {}) => {
+    const params = new URLSearchParams();
+    if (segment) params.set("segment", segment);
+    for (const r of roles || []) {
+      if (r) params.append("roles", r);
+    }
+    if (q) params.set("q", q);
+    if (limit !== null && limit !== undefined) params.set("limit", `${limit}`);
+    return request(`/api/backoffice/recipients?${params.toString()}`);
+  },
   messages: (page = 0, size = 20) => {
     const params = new URLSearchParams({ page, size });
     return request(`/api/backoffice/messages?${params.toString()}`);
   },
+  message: (id) => request(`/api/backoffice/messages/${id}`),
   createMessage: (payload) =>
     request("/api/backoffice/messages", {
       method: "POST",
@@ -485,3 +659,4 @@ export const backofficeApi = {
       method: "DELETE"
     })
 };
+

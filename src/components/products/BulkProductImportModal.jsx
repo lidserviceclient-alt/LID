@@ -10,8 +10,34 @@ import FileUpload from "../ui/FileUpload.jsx";
 function normalizeNumber(value) {
   const raw = `${value ?? ""}`.trim();
   if (!raw) return NaN;
-  const normalized = raw.replace(/\s+/g, "").replace(",", ".");
-  return Number(normalized);
+  let s = raw.replace(/\s+/g, "");
+  const lastDot = s.lastIndexOf(".");
+  const lastComma = s.lastIndexOf(",");
+  if (lastDot >= 0 && lastComma >= 0) {
+    const decimalSep = lastDot > lastComma ? "." : ",";
+    const thousandSep = decimalSep === "." ? "," : ".";
+    s = s.split(thousandSep).join("");
+    if (decimalSep === ",") s = s.replace(",", ".");
+  } else if (lastComma >= 0) {
+    const parts = s.split(",");
+    if (parts.length === 2) {
+      const frac = parts[1] ?? "";
+      if (frac.length <= 2) s = `${parts[0].replace(/[.]/g, "")}.${frac}`;
+      else s = parts.join("");
+    } else {
+      s = parts.join("");
+    }
+  } else if (lastDot >= 0) {
+    const parts = s.split(".");
+    if (parts.length === 2) {
+      const frac = parts[1] ?? "";
+      if (frac.length <= 2) s = `${parts[0].replace(/[,]/g, "")}.${frac}`;
+      else s = parts.join("");
+    } else {
+      s = parts.join("");
+    }
+  }
+  return Number(s);
 }
 
 function normalizeBoolean(value) {
@@ -22,25 +48,62 @@ function normalizeBoolean(value) {
   return false;
 }
 
-function splitRow(line) {
+function detectDelimiter(line) {
   const text = `${line ?? ""}`;
-  const sep = text.includes(";") ? ";" : text.includes("\t") ? "\t" : ",";
-  return text.split(sep).map((v) => `${v}`.trim());
+  const semi = (text.match(/;/g) || []).length;
+  const tab = (text.match(/\t/g) || []).length;
+  const comma = (text.match(/,/g) || []).length;
+  if (semi >= tab && semi >= comma) return ";";
+  if (tab >= semi && tab >= comma) return "\t";
+  return ",";
+}
+
+function parseDelimitedLine(line, sep) {
+  const text = `${line ?? ""}`;
+  const out = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (inQuotes && text[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (!inQuotes && ch === sep) {
+      out.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  out.push(current.trim());
+  return out;
 }
 
 function buildTemplate(categories) {
   const firstCategory = Array.isArray(categories) && categories.length > 0 ? categories[0].id : "cat-001";
-  return `referenceProduitPartenaire;name;price;category;stock;brand;img;isFeatured;isBestSeller
-REF-001;Produit A;15000;${firstCategory};10;Marque A;;1;0
-REF-002;Produit B;25000;${firstCategory};5;;;0;1`;
+  return `referenceProduitPartenaire;name;description;category;price;stock;brand;img;isFeatured;isBestSeller
+REF-001;Produit A;Description A;${firstCategory};15000;10;Marque A;;1;0
+REF-002;Produit B;;${firstCategory};25000;5;;;0;1`;
 }
 
 function toBulkPayload(row) {
+  const price = normalizeNumber(row.price);
+  const vatRaw = `${row.vat ?? ""}`.trim();
+  const vat = vatRaw === "" ? undefined : normalizeNumber(vatRaw);
   return {
     referenceProduitPartenaire: row.referenceProduitPartenaire,
-    sku: row.referenceProduitPartenaire,
+    ean: `${row.ean || ""}`.trim() || undefined,
+    description: `${row.description || ""}`.trim() || undefined,
     name: row.name,
-    price: Number(row.price),
+    price: Number.isFinite(price) ? price : undefined,
+    vat: Number.isFinite(vat) ? vat : undefined,
+    status: `${row.status || ""}`.trim().toUpperCase() || undefined,
     category: row.categoryId || undefined,
     stock: Number.isFinite(Number(row.stock)) ? Math.trunc(Number(row.stock)) : 0,
     brand: row.brand || undefined,
@@ -78,8 +141,12 @@ export default function BulkProductImportModal({
     setRows([
       {
         referenceProduitPartenaire: "",
+        ean: "",
         name: "",
+        description: "",
         price: "",
+        vat: "",
+        status: "ACTIVE",
         categoryId: "",
         stock: "0",
         brand: "",
@@ -101,10 +168,20 @@ export default function BulkProductImportModal({
     const errs = {};
     if (!`${row.referenceProduitPartenaire || ""}`.trim()) errs.referenceProduitPartenaire = "Référence requise";
     if (!`${row.name || ""}`.trim()) errs.name = "Nom requis";
+    if (!`${row.categoryId || ""}`.trim()) errs.categoryId = "Catégorie requise";
     const price = normalizeNumber(row.price);
     if (!Number.isFinite(price)) errs.price = "Prix invalide";
     const stock = `${row.stock ?? ""}`.trim() === "" ? 0 : normalizeNumber(row.stock);
     if (!Number.isFinite(stock) || stock < 0) errs.stock = "Stock invalide";
+    const vatRaw = `${row.vat ?? ""}`.trim();
+    if (vatRaw !== "") {
+      const vat = normalizeNumber(vatRaw);
+      if (!Number.isFinite(vat) || vat < 0) errs.vat = "TVA invalide";
+    }
+    const statusRaw = `${row.status || ""}`.trim();
+    if (statusRaw && !["ACTIVE", "DRAFT", "ARCHIVED"].includes(statusRaw.toUpperCase())) {
+      errs.status = "Statut invalide";
+    }
     return errs;
   };
 
@@ -131,8 +208,12 @@ export default function BulkProductImportModal({
       ...prev,
       {
         referenceProduitPartenaire: "",
+        ean: "",
         name: "",
+        description: "",
         price: "",
+        vat: "",
+        status: "ACTIVE",
         categoryId: "",
         stock: "0",
         brand: "",
@@ -154,7 +235,8 @@ export default function BulkProductImportModal({
     const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     if (lines.length === 0) return { nextRows: [], parseError: "Colle au moins une ligne." };
 
-    const headerCells = splitRow(lines[0]).map((h) => h.toLowerCase());
+    const sep = detectDelimiter(lines[0]);
+    const headerCells = parseDelimitedLine(lines[0], sep).map((h) => h.toLowerCase());
     const hasHeader =
       headerCells.includes("name") ||
       headerCells.includes("referenceproduitpartenaire") ||
@@ -170,15 +252,29 @@ export default function BulkProductImportModal({
     };
 
     const idxRef = colIndexAny(["referenceproduitpartenaire"], 0);
+    const idxEan = colIndexAny(["ean"], -1);
     const idxName = colIndexAny(["name"], 1);
-    const idxPrice = colIndexAny(["price"], 2);
+    const idxDescription = colIndexAny(["description", "desc"], 2);
+    const idxPrice = colIndexAny(["price"], 4);
+    const idxVat = colIndexAny(["vat", "tva"], -1);
+    const idxStatus = colIndexAny(["status", "statut"], -1);
     const idxCategory = colIndexAny(["category"], 3);
-    const idxStock = colIndexAny(["stock"], 4);
-    const idxBrand = colIndexAny(["brand"], 5);
-    const idxImg = colIndexAny(["img", "image", "imageurl", "image_url"], 6);
-    const idxFeatured = colIndexAny(["isfeatured", "featured", "mis_en_avant", "misenavant"], 7);
-    const idxBestSeller = colIndexAny(["isbestseller", "bestseller", "best_seller", "meilleur_vente", "meilleurvente"], 8);
+    const idxCategories = colIndexAny(["categories", "categoryids", "category_ids"], -1);
+    const idxStock = colIndexAny(["stock"], 5);
+    const idxBrand = colIndexAny(["brand", "marque"], 6);
+    const idxImg = colIndexAny(["img", "image", "imageurl", "image_url"], 7);
+    const idxFeatured = colIndexAny(["isfeatured", "featured", "mis_en_avant", "misenavant"], 8);
+    const idxBestSeller = colIndexAny(["isbestseller", "bestseller", "best_seller", "meilleur_vente", "meilleurvente"], 9);
     const start = hasHeader ? 1 : 0;
+    if (hasHeader) {
+      const missing = [];
+      if (idxRef < 0) missing.push("referenceProduitPartenaire");
+      if (idxName < 0) missing.push("name");
+      if (idxPrice < 0) missing.push("price");
+      if (missing.length) {
+        return { nextRows: [], parseError: `Colonnes manquantes: ${missing.join(", ")}.` };
+      }
+    }
 
     const normalizeCategory = (value) => {
       const v = `${value || ""}`.trim();
@@ -195,22 +291,35 @@ export default function BulkProductImportModal({
 
     const nextRows = [];
     for (let i = start; i < lines.length; i++) {
-      const cells = splitRow(lines[i]);
+      const cells = parseDelimitedLine(lines[i], sep);
       const ref = idxRef >= 0 ? cells[idxRef] : "";
+      const ean = idxEan >= 0 ? cells[idxEan] : "";
       const name = idxName >= 0 ? cells[idxName] : "";
+      const description = idxDescription >= 0 ? cells[idxDescription] : "";
       const priceRaw = idxPrice >= 0 ? cells[idxPrice] : "";
+      const vatRaw = idxVat >= 0 ? cells[idxVat] : "";
+      const statusRaw = idxStatus >= 0 ? cells[idxStatus] : "";
       const catRaw = idxCategory >= 0 ? cells[idxCategory] : "";
+      const categoriesRaw = idxCategories >= 0 ? cells[idxCategories] : "";
       const stockRaw = idxStock >= 0 ? cells[idxStock] : "";
       const brand = idxBrand >= 0 ? cells[idxBrand] : "";
       const img = idxImg >= 0 ? cells[idxImg] : "";
       const featuredRaw = idxFeatured >= 0 ? cells[idxFeatured] : "";
       const bestSellerRaw = idxBestSeller >= 0 ? cells[idxBestSeller] : "";
 
+      const categoryKey = `${catRaw || ""}`.trim()
+        ? catRaw
+        : `${categoriesRaw || ""}`.split(/[|,;]/)[0] || "";
+
       nextRows.push({
         referenceProduitPartenaire: ref,
+        ean,
         name,
+        description,
         price: priceRaw,
-        categoryId: normalizeCategory(catRaw),
+        vat: vatRaw,
+        status: statusRaw || "ACTIVE",
+        categoryId: normalizeCategory(categoryKey),
         stock: stockRaw === "" ? "0" : stockRaw,
         brand,
         img,
@@ -316,6 +425,12 @@ export default function BulkProductImportModal({
                 onChange={(e) => setImportText(e.target.value)}
                 spellCheck={false}
               />
+              <div className="text-xs text-muted-foreground">
+                - Séparateur colonnes: ; (CSV). Valeurs avec ; à entourer de guillemets.
+                - Prix/TVA acceptent 15000, 15 000, 15.000, 15000,50.
+                - Catégorie: utiliser l’ID, le slug ou le nom (une seule catégorie).
+                - EAN: généré automatiquement si vide.
+              </div>
               <div className="flex justify-end">
                 <Button variant="outline" size="sm" onClick={importFromText} disabled={isSubmitting}>
                   Appliquer dans le tableau
@@ -401,6 +516,7 @@ export default function BulkProductImportModal({
                 <tr>
                   <td className="p-2">Référence</td>
                   <td className="p-2">Nom</td>
+                  <td className="p-2">Description</td>
                   <td className="p-2">Catégorie</td>
                   <td className="p-2">Prix</td>
                   <td className="p-2">Stock</td>
@@ -437,11 +553,20 @@ export default function BulkProductImportModal({
                         {errs.name ? <div className="mt-1 text-xs text-destructive">{errs.name}</div> : null}
                       </td>
                       <td className="p-2">
+                        <Input
+                          value={row.description}
+                          onChange={(e) => setRowField(idx, "description", e.target.value)}
+                          placeholder="Description"
+                        />
+                      </td>
+                      <td className="p-2">
                         <Select
                           value={row.categoryId}
                           onChange={(e) => setRowField(idx, "categoryId", e.target.value)}
                           options={categoryOptions}
+                          className={errs.categoryId ? "border-destructive" : ""}
                         />
+                        {errs.categoryId ? <div className="mt-1 text-xs text-destructive">{errs.categoryId}</div> : null}
                       </td>
                       <td className="p-2">
                         <Input

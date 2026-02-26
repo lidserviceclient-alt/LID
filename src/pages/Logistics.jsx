@@ -34,6 +34,12 @@ function toShipmentStatusLabel(status) {
   return status || "-";
 }
 
+function buildQrUrl(data, size = 96) {
+  const safe = String(data || "").trim();
+  if (!safe) return null;
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(safe)}`;
+}
+
 function loadCarriers() {
   try {
     const raw = localStorage.getItem(CARRIERS_STORAGE_KEY);
@@ -82,6 +88,11 @@ export default function Logistics() {
   const [delivered, setDelivered] = useState([]);
   const [deliveredLoading, setDeliveredLoading] = useState(true);
   const [deliveredError, setDeliveredError] = useState("");
+
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrModalValue, setQrModalValue] = useState("");
+  const [qrModalTitle, setQrModalTitle] = useState("");
+  const [qrCopyState, setQrCopyState] = useState("");
 
   useEffect(() => {
     backofficeApi
@@ -152,10 +163,50 @@ export default function Logistics() {
       orderId: s.orderId || "-",
       carrier: s.carrier || "-",
       status: toShipmentStatusLabel(s.status),
+      rawStatus: s.status || "",
       eta: formatEta(s.eta),
-      cost: formatMoney(s.cost)
+      cost: formatMoney(s.cost),
+      qr: s?.id && s.status !== "LIVREE" ? `SHIP:${s.id}` : null
     }));
   }, [shipmentsPage]);
+
+  async function copyToClipboard(value) {
+    const text = String(value || "").trim();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setQrCopyState("Copié");
+    } catch {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+        setQrCopyState("Copié");
+      } catch {
+        setQrCopyState("Impossible");
+      }
+    }
+  }
+
+  function openQrModal(value, title) {
+    setQrModalValue(String(value || "").trim());
+    setQrModalTitle(String(title || "").trim());
+    setQrCopyState("");
+    setQrModalOpen(true);
+  }
+
+  function closeQrModal() {
+    setQrModalOpen(false);
+    setQrModalValue("");
+    setQrModalTitle("");
+    setQrCopyState("");
+  }
 
   const meta = useMemo(() => {
     const totalPages = Number.isFinite(shipmentsPage?.totalPages) ? shipmentsPage.totalPages : 1;
@@ -350,6 +401,7 @@ export default function Logistics() {
               <TCell>Statut</TCell>
               <TCell>ETA</TCell>
               <TCell>Coût</TCell>
+              <TCell>QR</TCell>
             </TRow>
           </THead>
           <tbody>
@@ -361,10 +413,12 @@ export default function Logistics() {
                 <TCell />
                 <TCell />
                 <TCell />
+                <TCell />
               </TRow>
             ) : rows.length === 0 ? (
               <TRow>
                 <TCell className="text-muted-foreground text-sm">Aucune expédition.</TCell>
+                <TCell />
                 <TCell />
                 <TCell />
                 <TCell />
@@ -382,6 +436,25 @@ export default function Logistics() {
                   </TCell>
                   <TCell>{item.eta}</TCell>
                   <TCell>{item.cost}</TCell>
+                  <TCell>
+                    {item.qr ? (
+                      <button
+                        type="button"
+                        onClick={() => openQrModal(item.qr, item.orderId)}
+                        className="rounded-md border border-border bg-white p-1 hover:bg-muted/30"
+                      >
+                        <img
+                          src={buildQrUrl(item.qr, 84)}
+                          alt={`QR ${item.orderId}`}
+                          className="h-12 w-12"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                        />
+                      </button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
+                  </TCell>
                 </TRow>
               ))
             )}
@@ -471,6 +544,43 @@ export default function Logistics() {
           </tbody>
         </Table>
       </Card>
+
+      <Modal
+        isOpen={qrModalOpen}
+        onClose={closeQrModal}
+        title={qrModalTitle ? `QR - ${qrModalTitle}` : "QR"}
+        size="md"
+        footer={
+          <>
+            <Button variant="outline" onClick={closeQrModal}>
+              Fermer
+            </Button>
+            <Button
+              onClick={() => copyToClipboard(qrModalValue)}
+              disabled={!qrModalValue}
+            >
+              {qrCopyState ? qrCopyState : "Copier le code"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-center">
+            {qrModalValue ? (
+              <img
+                src={buildQrUrl(qrModalValue, 260)}
+                alt="QR"
+                className="h-64 w-64 rounded-xl border border-border bg-white"
+                referrerPolicy="no-referrer"
+              />
+            ) : null}
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Saisie manuelle</p>
+            <Input value={qrModalValue} readOnly />
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={isCarriersOpen}

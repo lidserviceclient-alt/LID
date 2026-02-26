@@ -301,7 +301,7 @@ export default function ProductCreate() {
                 <Input 
                   id="ean" 
                   name="ean" 
-                  placeholder="1234567890123" 
+                  placeholder="Auto" 
                   value={formData.ean} 
                   onChange={handleChange}
                 />

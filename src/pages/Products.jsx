@@ -72,6 +72,7 @@ export default function Products() {
   const [formData, setFormData] = useState({
     id: "",
     sku: "",
+    ean: "",
     name: "",
     categoryId: "",
     price: 0,
@@ -86,6 +87,9 @@ export default function Products() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [bulkDeleteError, setBulkDeleteError] = useState("");
   const [bulkDeleteSaving, setBulkDeleteSaving] = useState(false);
+  const [flashProductId, setFlashProductId] = useState("");
+  const [flashSavingId, setFlashSavingId] = useState("");
+  const [flashError, setFlashError] = useState("");
 
   const reload = async () => {
     setLoading(true);
@@ -229,6 +233,7 @@ export default function Products() {
     setFormData({
       id: product.id,
       sku: product.sku || "",
+      ean: product.ean || "",
       name: product.name || "",
       categoryId: product.categoryId || "",
       price: product.price ?? 0,
@@ -279,6 +284,7 @@ export default function Products() {
         price: Number(formData.price),
         stock: Number(formData.stock),
         categoryId: formData.categoryId,
+        ean: `${formData.ean || ""}`.trim(),
         isFeatured: Boolean(formData.isFeatured),
         isBestSeller: Boolean(formData.isBestSeller)
       };
@@ -375,6 +381,35 @@ export default function Products() {
     return { totalSKU, lowStock, activeProducts, stockValue };
   }, [products]);
 
+  const flashProducts = useMemo(() => {
+    return products.filter((p) => p?.status !== "ARCHIVE" && Boolean(p?.isFeatured));
+  }, [products]);
+
+  const availableFlashProducts = useMemo(() => {
+    return products
+      .filter((p) => p?.status !== "ARCHIVE" && !Boolean(p?.isFeatured))
+      .map((p) => ({
+        value: p.id,
+        label: `${p?.name || "Produit"}${p?.sku ? ` · ${p.sku}` : ""}`
+      }));
+  }, [products]);
+
+  const setFeatured = async (id, value) => {
+    if (!id) return;
+    if (flashSavingId) return;
+    setFlashError("");
+    setFlashSavingId(id);
+    try {
+      await backofficeApi.updateProduct(id, { isFeatured: value });
+      await reload();
+      setFlashProductId("");
+    } catch (e) {
+      setFlashError(e?.message || "Impossible de mettre à jour la vente flash.");
+    } finally {
+      setFlashSavingId("");
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {error && (
@@ -445,6 +480,62 @@ export default function Products() {
         </Card>
       </div>
 
+      <Card className="space-y-4">
+        <SectionHeader title="Ventes flash" subtitle="Produits mis en avant dans le frontend." />
+        {flashError ? <div className="text-sm text-red-600">{flashError}</div> : null}
+
+        <div className="grid gap-3 md:grid-cols-[1fr_auto] items-end">
+          <Select
+            value={flashProductId}
+            onChange={(e) => setFlashProductId(e.target.value)}
+            options={[
+              { value: "", label: "Choisir un produit" },
+              ...availableFlashProducts
+            ]}
+          />
+          <Button
+            type="button"
+            onClick={() => setFeatured(flashProductId, true)}
+            disabled={!flashProductId || Boolean(flashSavingId)}
+            className="gap-2"
+          >
+            <Star className="h-4 w-4" />
+            Ajouter
+          </Button>
+        </div>
+
+        <div className="space-y-2 text-sm text-muted-foreground">
+          <div className="font-semibold text-foreground">Produits en ventes flash</div>
+          {flashProducts.length === 0 ? (
+            <div>Aucun produit.</div>
+          ) : (
+            flashProducts.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-input bg-background/60 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <div className="font-semibold text-foreground truncate">{p?.name || "-"}</div>
+                  <div className="text-xs text-muted-foreground truncate">{p?.sku || p?.id}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:block text-xs text-muted-foreground">{formatCurrency(p?.price)}</div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFeatured(p.id, false)}
+                    disabled={flashSavingId === p.id}
+                  >
+                    {flashSavingId === p.id ? "Retrait…" : "Retirer"}
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
+
       <Card className="p-0 overflow-hidden">
         {/* Toolbar */}
         <div className="p-4 border-b bg-muted/30 flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -494,6 +585,7 @@ export default function Products() {
                 />
               </TCell>
               <TCell>SKU</TCell>
+              <TCell>EAN</TCell>
               <TCell>Nom</TCell>
               <TCell>Catégorie</TCell>
               <TCell>Prix</TCell>
@@ -517,6 +609,7 @@ export default function Products() {
                     />
                   </TCell>
                   <TCell className="font-mono text-xs font-medium text-muted-foreground">{product.sku || product.id}</TCell>
+                  <TCell className="font-mono text-xs text-muted-foreground">{product.ean || "-"}</TCell>
                   <TCell className="font-medium text-foreground">{product.name}</TCell>
                   <TCell>{product.category || "-"}</TCell>
                   <TCell>{formatCurrency(product.price)}</TCell>
@@ -568,7 +661,7 @@ export default function Products() {
               ))
             ) : (
               <TRow>
-                <TCell colSpan={10} className="h-64 text-center">
+                <TCell colSpan={11} className="h-64 text-center">
                   <div className="flex flex-col items-center justify-center text-muted-foreground">
                     <Search className="h-8 w-8 mb-2 opacity-20" />
                     <p>Aucun produit trouvé</p>
@@ -613,6 +706,15 @@ export default function Products() {
                 value={formData.sku || formData.id} 
                 disabled
                 required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ean">EAN</Label>
+              <Input
+                id="ean"
+                value={formData.ean}
+                onChange={(e) => setFormData({ ...formData, ean: e.target.value })}
+                placeholder="Auto"
               />
             </div>
             <div className="space-y-2">

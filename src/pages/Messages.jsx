@@ -4,6 +4,7 @@ import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Button from "../components/ui/Button.jsx";
 import Input from "../components/ui/Input.jsx";
+import Select from "../components/ui/Select.jsx";
 import Label from "../components/ui/Label.jsx";
 import Badge from "../components/ui/Badge.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
@@ -38,6 +39,10 @@ export default function Messages() {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [recipients, setRecipients] = useState("ahobautfrederick@gmail.com, eeeeee@lid.local");
+  const [segment, setSegment] = useState("CLIENT");
+  const [segmentQuery, setSegmentQuery] = useState("");
+  const [segmentRoles, setSegmentRoles] = useState(["ADMIN", "SUPER_ADMIN", "IT", "LIVREUR", "PARTENAIRE"]);
+  const [segmentLoading, setSegmentLoading] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -62,6 +67,41 @@ export default function Messages() {
       .map((x) => x.trim())
       .filter(Boolean);
   }, [recipients]);
+
+  const toggleRole = (role) => {
+    setSegmentRoles((prev) => {
+      const set = new Set(prev || []);
+      if (set.has(role)) set.delete(role);
+      else set.add(role);
+      return Array.from(set);
+    });
+  };
+
+  async function addRecipientsFromSegment() {
+    setSegmentLoading(true);
+    setError("");
+    try {
+      const roles = segment === "TEAM" ? segmentRoles : [];
+      const list = await backofficeApi.recipients({
+        segment,
+        roles,
+        q: segmentQuery.trim(),
+        limit: 500
+      });
+      const toAdd = Array.isArray(list) ? list : [];
+      const merged = new Set(recipientsList.map((x) => x.toLowerCase()));
+      for (const e of toAdd) {
+        const v = `${e || ""}`.trim().toLowerCase();
+        if (!v) continue;
+        merged.add(v);
+      }
+      setRecipients(Array.from(merged).join(", "));
+    } catch (e) {
+      setError(e?.message || "Impossible de charger les destinataires.");
+    } finally {
+      setSegmentLoading(false);
+    }
+  }
 
   async function send() {
     setSending(true);
@@ -117,6 +157,49 @@ export default function Messages() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1 space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Destinataires</Label>
+              <Button variant="outline" size="sm" type="button" onClick={addRecipientsFromSegment} disabled={segmentLoading}>
+                {segmentLoading ? "Ajout…" : "Ajouter"}
+              </Button>
+            </div>
+
+            <div className="grid gap-2">
+              <Select
+                value={segment}
+                onChange={(e) => setSegment(e.target.value)}
+                options={[
+                  { value: "VISITOR", label: "Visiteurs (newsletter)" },
+                  { value: "CLIENT", label: "Clients" },
+                  { value: "TEAM", label: "Équipe" }
+                ]}
+              />
+
+              {segment === "TEAM" ? (
+                <div className="grid grid-cols-2 gap-2 rounded-lg border border-input bg-background px-3 py-2 text-xs text-muted-foreground">
+                  {["ADMIN", "SUPER_ADMIN", "IT", "LIVREUR", "PARTENAIRE"].map((r) => (
+                    <label key={r} className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={(segmentRoles || []).includes(r)}
+                        onChange={() => toggleRole(r)}
+                        className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                      />
+                      <span>{r}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+
+              <Input
+                placeholder="Filtrer (email, nom, prénom)…"
+                value={segmentQuery}
+                onChange={(e) => setSegmentQuery(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="recipients">Destinataires (CSV)</Label>
             <Input id="recipients" value={recipients} onChange={(e) => setRecipients(e.target.value)} />

@@ -220,7 +220,7 @@ export default function TicketEvents() {
         <SectionHeader
           title="Billetterie"
           subtitle="Gérez les événements et leurs disponibilités"
-          actions={
+          rightSlot={
             <div className="flex gap-2">
               <Button onClick={openCreate}>
                 <Plus className="mr-2 h-4 w-4" />

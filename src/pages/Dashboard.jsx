@@ -7,8 +7,7 @@ import {
   lowStock,
   topProducts,
   analyticsSeries,
-  promoUsageSeries,
-  teamActivity
+  promoUsageSeries
 } from "../data/mockData.js";
 import { backofficeApi } from "../services/api.js";
 import Card from "../components/ui/Card.jsx";
@@ -69,6 +68,8 @@ export default function Dashboard() {
   const [promoUsageSeriesState, setPromoUsageSeriesState] = useState(promoUsageSeries);
   const [lowStockState, setLowStockState] = useState(lowStock);
   const [topProductsState, setTopProductsState] = useState(topProducts);
+  const [teamActivityState, setTeamActivityState] = useState([]);
+  const [teamProductivityState, setTeamProductivityState] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
@@ -148,6 +149,9 @@ export default function Dashboard() {
           }))
         );
       }
+
+      setTeamActivityState(Array.isArray(data?.teamActivity) ? data.teamActivity : []);
+      setTeamProductivityState(data?.teamProductivity || null);
     } catch {
       // keep mock data on failure
     } finally {
@@ -159,6 +163,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadOverview();
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      loadOverview();
+    }, 30000);
+    return () => clearInterval(t);
   }, []);
 
   const downloadReport = () => {
@@ -395,9 +406,46 @@ export default function Dashboard() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 space-y-6">
           <SectionHeader title="Activité équipe" subtitle="Actions récentes" />
+          {teamProductivityState ? (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border border-border bg-muted/20 p-3">
+                <div className="text-xs text-muted-foreground">Tâches complétées</div>
+                <div className="text-lg font-semibold text-foreground">{teamProductivityState.tasksCompleted}</div>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/20 p-3">
+                <div className="text-xs text-muted-foreground">Membres actifs</div>
+                <div className="text-lg font-semibold text-foreground">{teamProductivityState.activeMembers}</div>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/20 p-3">
+                <div className="text-xs text-muted-foreground">Top performer</div>
+                <div className="text-lg font-semibold text-foreground">{teamProductivityState.topPerformer || "-"}</div>
+              </div>
+            </div>
+          ) : null}
+
+          {Array.isArray(teamProductivityState?.performances) && teamProductivityState.performances.length ? (
+            <div className="rounded-lg border border-border bg-muted/10 p-3">
+              <div className="text-xs font-semibold text-foreground">Performances individuelles</div>
+              <div className="mt-2 space-y-2">
+                {teamProductivityState.performances.slice(0, 5).map((p) => (
+                  <div key={p.actor} className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-foreground truncate">{p.name || p.actor}</div>
+                      <div className="text-xs text-muted-foreground">{p.role || "-"}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-foreground">{p.tasksCompleted}</div>
+                      <div className="text-xs text-muted-foreground">{Math.round((p.successRate || 0) * 100)}%</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="space-y-4">
-            {teamActivity.map((item) => (
-              <div key={item.name} className="flex items-center justify-between border-b border-border pb-2 last:border-0 last:pb-0">
+            {(teamActivityState.length ? teamActivityState : []).map((item, idx) => (
+              <div key={`${item.name}-${idx}`} className="flex items-center justify-between border-b border-border pb-2 last:border-0 last:pb-0">
                 <div>
                   <p className="text-sm font-semibold text-foreground">{item.name}</p>
                   <p className="text-xs text-muted-foreground">{item.role} • {item.action}</p>
@@ -405,6 +453,7 @@ export default function Dashboard() {
                 <span className="text-xs text-muted-foreground">{item.time}</span>
               </div>
             ))}
+            {teamActivityState.length === 0 ? <div className="text-sm text-muted-foreground">Aucune activité récente.</div> : null}
           </div>
         </Card>
 

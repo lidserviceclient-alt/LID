@@ -170,6 +170,7 @@ export default function ForgotPassword() {
                   icon={Mail}
                   type="email" 
                   placeholder="nom@lid-distribution.com" 
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required 
@@ -194,6 +195,7 @@ export default function ForgotPassword() {
                       key={i}
                       type="text"
                       maxLength={1}
+                      autoComplete={i === 0 ? "one-time-code" : "off"}
                       className="w-12 h-14 text-center text-xl font-bold rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
                       value={codeDigits[i]}
                       onChange={(e) => handleCodeChange(i, e.target.value)}
@@ -218,6 +220,7 @@ export default function ForgotPassword() {
                 icon={Key}
                 type="password" 
                 placeholder="••••••••" 
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required 
@@ -227,6 +230,7 @@ export default function ForgotPassword() {
                 icon={Key}
                 type="password" 
                 placeholder="••••••••" 
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required 

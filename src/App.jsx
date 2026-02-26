@@ -21,6 +21,8 @@ import Finance from "./pages/Finance.jsx";
 import Categories from "./pages/Categories.jsx";
 import PromoCodes from "./pages/PromoCodes.jsx";
 import Messages from "./pages/Messages.jsx";
+import ContactRequests from "./pages/ContactRequests.jsx";
+import ProductReviews from "./pages/ProductReviews.jsx";
 import BlogPosts from "./pages/BlogPosts.jsx";
 import TicketEvents from "./pages/TicketEvents.jsx";
 import { isAuthenticated } from "./services/auth.js";
@@ -64,6 +66,8 @@ export default function App() {
         <Route path="/loyalty" element={<Loyalty />} />
         <Route path="/finance" element={<Finance />} />
         <Route path="/messages" element={<Messages />} />
+        <Route path="/contacts" element={<ContactRequests />} />
+        <Route path="/product-reviews" element={<ProductReviews />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
 

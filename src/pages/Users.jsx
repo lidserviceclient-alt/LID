@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Edit2, Trash2, AlertCircle } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, AlertCircle, Ban, CheckCircle2 } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Badge from "../components/ui/Badge.jsx";
@@ -14,6 +14,7 @@ import { backofficeApi } from "../services/api.js";
 
 const roles = [
   { value: "CLIENT", label: "Client" },
+  { value: "LIVREUR", label: "Livreur" },
   { value: "PARTENAIRE", label: "Partenaire" },
   { value: "ADMIN", label: "Admin" },
   { value: "SUPER_ADMIN", label: "Super Admin" },
@@ -36,6 +37,7 @@ export default function Users() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  const [blockingId, setBlockingId] = useState("");
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -90,6 +92,10 @@ export default function Users() {
       };
     });
   }, [users]);
+
+  const blockedUsers = useMemo(() => {
+    return rows.filter((u) => Boolean(u?.blocked));
+  }, [rows]);
 
   const openCreate = () => {
     setCurrentUser(null);
@@ -159,6 +165,38 @@ export default function Users() {
       setError(err?.message || "Impossible de supprimer l'utilisateur.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const block = async (u) => {
+    if (!u?.id) return;
+    const confirm = window.confirm("Bloquer cet utilisateur ?");
+    if (!confirm) return;
+    setBlockingId(u.id);
+    setError("");
+    try {
+      await backofficeApi.blockUser(u.id);
+      await load();
+    } catch (err) {
+      setError(err?.message || "Impossible de bloquer l'utilisateur.");
+    } finally {
+      setBlockingId("");
+    }
+  };
+
+  const unblock = async (u) => {
+    if (!u?.id) return;
+    const confirm = window.confirm("Débloquer cet utilisateur ?");
+    if (!confirm) return;
+    setBlockingId(u.id);
+    setError("");
+    try {
+      await backofficeApi.unblockUser(u.id);
+      await load();
+    } catch (err) {
+      setError(err?.message || "Impossible de débloquer l'utilisateur.");
+    } finally {
+      setBlockingId("");
     }
   };
 
@@ -243,7 +281,10 @@ export default function Users() {
                 <TRow key={u.id} className="group hover:bg-muted/50 transition-colors">
                   <TCell>
                     <div>
-                      <div className="font-semibold text-foreground">{u.displayName}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="font-semibold text-foreground">{u.displayName}</div>
+                        {u.blocked ? <Badge label="Bloqué" variant="destructive" /> : null}
+                      </div>
                       <div className="text-xs text-muted-foreground">{u.email}</div>
                       <div className="text-xs text-muted-foreground font-mono">{u.id}</div>
                     </div>
@@ -259,6 +300,27 @@ export default function Users() {
                   <TCell>{formatDate(u.dateCreation)}</TCell>
                   <TCell className="text-right">
                     <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {u.blocked ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          onClick={() => unblock(u)}
+                          disabled={blockingId === u.id}
+                        >
+                          <CheckCircle2 className="h-4 w-4 text-slate-500 hover:text-emerald-600" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          onClick={() => block(u)}
+                          disabled={blockingId === u.id}
+                        >
+                          <Ban className="h-4 w-4 text-slate-500 hover:text-destructive" />
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" type="button" onClick={() => openEdit(u)}>
                         <Edit2 className="h-4 w-4 text-slate-500 hover:text-primary" />
                       </Button>
@@ -272,6 +334,30 @@ export default function Users() {
             )}
           </tbody>
         </Table>
+      </Card>
+
+      <Card className="space-y-4">
+        <SectionHeader title="Utilisateurs bloqués" subtitle="Comptes désactivés (login refusé)." />
+        {blockedUsers.length === 0 ? (
+          <div className="text-sm text-muted-foreground">Aucun utilisateur bloqué.</div>
+        ) : (
+          <div className="space-y-2">
+            {blockedUsers.map((u) => (
+              <div
+                key={u.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-input bg-background/60 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <div className="font-semibold text-foreground truncate">{u.displayName}</div>
+                  <div className="text-xs text-muted-foreground truncate">{u.email}</div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => unblock(u)} disabled={blockingId === u.id}>
+                  {blockingId === u.id ? "Déblocage…" : "Débloquer"}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       <Modal

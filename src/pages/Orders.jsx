@@ -44,6 +44,22 @@ const mapStatus = (status) => {
   }
 };
 
+const mapShipmentStatus = (status) => {
+  if (!status) return "-";
+  switch (status) {
+    case "EN_PREPARATION":
+      return "En préparation";
+    case "EN_COURS":
+      return "Remis au livreur";
+    case "LIVREE":
+      return "Livrée";
+    case "ECHEC":
+      return "Échec";
+    default:
+      return status;
+  }
+};
+
 const statusMapping = {
   Toutes: "",
   Nouvelles: "CREEE",
@@ -62,6 +78,11 @@ export default function Orders() {
   const [size, setSize] = useState(20);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [courierModalOpen, setCourierModalOpen] = useState(false);
+  const [courierLoading, setCourierLoading] = useState(false);
+  const [courierError, setCourierError] = useState("");
+  const [courierDetail, setCourierDetail] = useState(null);
+  const [courierFallback, setCourierFallback] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
@@ -123,6 +144,12 @@ export default function Orders() {
       total: formatCurrency(order.total),
       status: mapStatus(order.status),
       rawStatus: order.status,
+      shipmentStatus: mapShipmentStatus(order.shipmentStatus),
+      courierReference: order.courierReference || "-",
+      courierName: order.courierName || "",
+      courierPhone: order.courierPhone || "",
+      courierUser: order.courierUser || "",
+      courierScannedAt: order.courierScannedAt || null,
       date: formatDate(order.dateCreation)
     }));
   }, [ordersPage]);
@@ -160,6 +187,53 @@ export default function Orders() {
       .filter((l) => l.productId && Number.isFinite(l.quantity) && l.quantity > 0)
       .map((l) => ({ ...l, quantity: Math.trunc(l.quantity) }));
   }, [createForm.lines]);
+
+  const openCourier = async (order) => {
+    const fallback = {
+      courierReference: order?.courierReference || "-",
+      courierName: order?.courierName || "",
+      courierPhone: order?.courierPhone || "",
+      courierUser: order?.courierUser || "",
+      courierScannedAt: order?.courierScannedAt || null,
+    };
+    setCourierFallback(fallback);
+    setCourierDetail(null);
+    setCourierError("");
+    setCourierLoading(true);
+    setCourierModalOpen(true);
+
+    const key = `${fallback.courierUser || fallback.courierReference || ""}`.trim();
+    if (!key || key === "-") {
+      setCourierLoading(false);
+      return;
+    }
+
+    try {
+      const direct = await backofficeApi.user(key);
+      if (direct?.id) {
+        setCourierDetail(direct);
+        return;
+      }
+    } catch {}
+
+    try {
+      const rolesToTry = ["LIVREUR", ""];
+      for (const role of rolesToTry) {
+        const pageResult = await backofficeApi.users(0, 20, role, key);
+        const list = Array.isArray(pageResult?.content) ? pageResult.content : [];
+        const match = list.find((u) => u?.id === key || `${u?.email || ""}`.trim().toLowerCase() === key.toLowerCase());
+        const picked = match || list[0];
+        if (picked?.id) {
+          setCourierDetail(picked);
+          return;
+        }
+      }
+    } catch (e) {
+      setCourierError(e?.message || "Impossible de charger les infos du livreur.");
+    } finally {
+      setCourierLoading(false);
+    }
+  };
 
   async function ensureCreateData() {
     const [custRes, prodRes] = await Promise.all([
@@ -297,11 +371,11 @@ export default function Orders() {
   }
 
   function exportCsv() {
-    const header = ["Commande", "Client", "Articles", "Canal", "Total", "Statut", "Date"];
+    const header = ["Commande", "Client", "Articles", "Canal", "Total", "Statut", "Livraison", "Livreur", "Date"];
     const csvRows = [
       header.join(";"),
       ...rows.map((r) =>
-        [r.id, r.customer, r.items, r.channel, r.total, r.status, r.date]
+        [r.id, r.customer, r.items, r.channel, r.total, r.status, r.shipmentStatus, r.courierReference, r.date]
           .map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`)
           .join(";")
       )
@@ -387,6 +461,8 @@ export default function Orders() {
               <TCell>Canal</TCell>
               <TCell>Total</TCell>
               <TCell>Statut</TCell>
+              <TCell>Livraison</TCell>
+              <TCell>Livreur</TCell>
               <TCell>Date</TCell>
               <TCell className="text-right">Actions</TCell>
             </TRow>
@@ -395,6 +471,8 @@ export default function Orders() {
             {loading ? (
               <TRow>
                 <TCell className="text-muted-foreground text-sm">Chargement…</TCell>
+                <TCell />
+                <TCell />
                 <TCell />
                 <TCell />
                 <TCell />
@@ -413,6 +491,8 @@ export default function Orders() {
                 <TCell />
                 <TCell />
                 <TCell />
+                <TCell />
+                <TCell />
               </TRow>
             ) : (
               rows.map((order) => (
@@ -424,6 +504,20 @@ export default function Orders() {
                   <TCell>{order.total}</TCell>
                   <TCell>
                     <Badge label={order.status} />
+                  </TCell>
+                  <TCell>
+                    <Badge label={order.shipmentStatus} />
+                  </TCell>
+                  <TCell>
+                    <button type="button" onClick={() => openCourier(order)} className="w-full text-left">
+                      <div className="font-semibold text-foreground">{order.courierName || order.courierReference}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {[order.courierPhone, order.courierUser].filter(Boolean).join(" • ") || "-"}
+                      </div>
+                      {order.courierScannedAt ? (
+                        <div className="text-xs text-muted-foreground">Scan: {formatDate(order.courierScannedAt)}</div>
+                      ) : null}
+                    </button>
                   </TCell>
                   <TCell>{order.date}</TCell>
                   <TCell className="text-right">
@@ -487,6 +581,85 @@ export default function Orders() {
           </div>
         </div>
       </Card>
+
+      <Modal
+        isOpen={courierModalOpen}
+        onClose={() => {
+          setCourierModalOpen(false);
+          setCourierError("");
+          setCourierDetail(null);
+          setCourierFallback(null);
+          setCourierLoading(false);
+        }}
+        title="Informations livreur"
+        size="lg"
+        footer={
+          <Button
+            variant="outline"
+            onClick={() => {
+              setCourierModalOpen(false);
+              setCourierError("");
+              setCourierDetail(null);
+              setCourierFallback(null);
+              setCourierLoading(false);
+            }}
+          >
+            Fermer
+          </Button>
+        }
+      >
+        {courierLoading ? (
+          <div className="text-sm text-muted-foreground">Chargement…</div>
+        ) : courierError ? (
+          <div className="text-sm text-red-600">{courierError}</div>
+        ) : courierDetail ? (
+          <div className="space-y-3 text-sm">
+            <div>
+              <div className="text-xs text-muted-foreground">Nom</div>
+              <div className="font-semibold text-foreground">
+                {`${courierDetail?.prenom || ""} ${courierDetail?.nom || ""}`.trim() || "-"}
+              </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <div className="text-xs text-muted-foreground">Email</div>
+                <div className="font-semibold text-foreground">{courierDetail?.email || "-"}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Téléphone</div>
+                <div className="font-semibold text-foreground">{courierDetail?.telephone || "-"}</div>
+              </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <div className="text-xs text-muted-foreground">Rôle</div>
+                <div className="font-semibold text-foreground">{courierDetail?.role || "-"}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">ID</div>
+                <div className="font-mono text-xs text-muted-foreground">{courierDetail?.id || "-"}</div>
+              </div>
+            </div>
+          </div>
+        ) : courierFallback ? (
+          <div className="space-y-3 text-sm">
+            <div className="text-xs text-muted-foreground">Aucun compte correspondant trouvé.</div>
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <div className="font-semibold text-foreground">{courierFallback.courierName || "-"}</div>
+              <div className="text-xs text-muted-foreground">
+                {[courierFallback.courierPhone, courierFallback.courierUser || courierFallback.courierReference]
+                  .filter(Boolean)
+                  .join(" • ") || "-"}
+              </div>
+              {courierFallback.courierScannedAt ? (
+                <div className="text-xs text-muted-foreground">Scan: {formatDate(courierFallback.courierScannedAt)}</div>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">Aucune information.</div>
+        )}
+      </Modal>
 
       <Modal
         isOpen={isFilterOpen}

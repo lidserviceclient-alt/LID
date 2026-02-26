@@ -59,7 +59,7 @@ export default function Customers() {
     }
   }, [searchParams, setSearchParams]);
 
-  useEffect(() => {
+  async function loadCustomers() {
     backofficeApi
       .customers(0, 50)
       .then((data) => {
@@ -68,7 +68,7 @@ export default function Customers() {
             data.content.map((customer) => ({
               id: customer.id,
               name: customer.name,
-              tier: getTier(customer.spent),
+              tier: customer.loyaltyTier || getTier(customer.spent),
               orders: customer.orders,
               spent: formatCurrency(customer.spent),
               lastOrder: formatDate(customer.lastOrder)
@@ -79,6 +79,13 @@ export default function Customers() {
       .catch(() => {
         // keep mock data
       });
+  }
+
+  useEffect(() => {
+    loadCustomers();
+    const onFocus = () => loadCustomers();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
   const handleSubmit = async (e) => {
@@ -90,7 +97,7 @@ export default function Customers() {
         {
           id: created.id,
           name: created.name,
-          tier: getTier(created.spent),
+          tier: created.loyaltyTier || getTier(created.spent),
           orders: created.orders,
           spent: formatCurrency(created.spent),
           lastOrder: formatDate(created.lastOrder)
@@ -119,10 +126,15 @@ export default function Customers() {
         title="Clients"
         subtitle="Fidélisez et segmentez vos meilleurs acheteurs."
         rightSlot={
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Ajouter un client
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={loadCustomers}>
+              Rafraîchir
+            </Button>
+            <Button onClick={() => setIsModalOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Ajouter un client
+            </Button>
+          </div>
         }
       />
 

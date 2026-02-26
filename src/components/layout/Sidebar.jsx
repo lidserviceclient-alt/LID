@@ -47,6 +47,7 @@ const navSections = [
     items: [
       { label: "Clients", to: "/customers", icon: Users },
       { label: "Fidélité", to: "/loyalty", icon: BadgeCheck },
+      { label: "Avis produits", to: "/product-reviews", icon: MessageSquareText },
       { label: "Marketing", to: "/marketing", icon: Megaphone },
       { label: "Codes promo", to: "/promo-codes", icon: BadgePercent }
     ]
@@ -68,7 +69,8 @@ const navSections = [
     title: "Administration",
     items: [
       { label: "Utilisateurs", to: "/users", icon: Users },
-      { label: "Messages", to: "/messages", icon: MessageSquareText }
+      { label: "Messages", to: "/messages", icon: MessageSquareText },
+      { label: "Contacts", to: "/contacts", icon: Inbox }
     ]
   },
   {

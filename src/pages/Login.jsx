@@ -13,6 +13,9 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mfaTokenId, setMfaTokenId] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [devCode, setDevCode] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
@@ -24,12 +27,27 @@ export default function Login() {
     setError("");
 
     try {
-      const response = await backofficeApi.loginLocal(email.trim(), password);
-      if (!response?.accessToken) {
-        throw new Error("Réponse invalide du serveur.");
+      if (mfaTokenId) {
+        const response = await backofficeApi.verifyAdminMfa(mfaTokenId, mfaCode.trim());
+        if (!response?.accessToken) {
+          throw new Error("Réponse invalide du serveur.");
+        }
+        setAccessToken(response.accessToken);
+        navigate(from, { replace: true });
+      } else {
+        const response = await backofficeApi.loginLocal(email.trim(), password);
+        if (response?.mfaRequired) {
+          setMfaTokenId(response?.mfaTokenId || "");
+          setDevCode(response?.devCode || "");
+          setMfaCode("");
+          return;
+        }
+        if (!response?.accessToken) {
+          throw new Error("Réponse invalide du serveur.");
+        }
+        setAccessToken(response.accessToken);
+        navigate(from, { replace: true });
       }
-      setAccessToken(response.accessToken);
-      navigate(from, { replace: true });
     } catch (err) {
       setError(err?.message || "Connexion impossible.");
     } finally {
@@ -103,52 +121,95 @@ export default function Login() {
                   </div>
                   <Input
                     id="email"
+                    name="email"
                     placeholder="admin@lid.ci"
                     type="email"
+                    autoComplete="username"
                     className="pl-10 h-12 bg-muted/30 border-border/60 focus:bg-background transition-all"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    disabled={Boolean(mfaTokenId)}
                     required
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-foreground/80">Mot de passe</Label>
-                  <a 
-                    href="/forgot-password" 
-                    className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
-                  >
-                    Mot de passe oublié ?
-                  </a>
-                </div>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  </div>
+              {mfaTokenId ? (
+                <div className="space-y-2">
+                  <Label htmlFor="mfaCode" className="text-foreground/80">Code de connexion</Label>
                   <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    className="pl-10 pr-10 h-12 bg-muted/30 border-border/60 focus:bg-background transition-all"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    id="mfaCode"
+                    name="mfaCode"
+                    inputMode="numeric"
+                    placeholder="123456"
+                    autoComplete="one-time-code"
+                    className="h-12 bg-muted/30 border-border/60 focus:bg-background transition-all"
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value)}
                     required
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
+                  <div className="text-xs text-muted-foreground">
+                    Un code a été envoyé par email.
+                    {devCode ? ` Code (dev): ${devCode}` : ""}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10"
+                      onClick={() => {
+                        if (isLoading) return;
+                        setMfaTokenId("");
+                        setMfaCode("");
+                        setDevCode("");
+                        setPassword("");
+                        setError("");
+                      }}
+                    >
+                      Retour
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-foreground/80">Mot de passe</Label>
+                    <a
+                      href="/forgot-password"
+                      className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                    >
+                      Mot de passe oublié ?
+                    </a>
+                  </div>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Lock className="h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    </div>
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      autoComplete="current-password"
+                      className="pl-10 pr-10 h-12 bg-muted/30 border-border/60 focus:bg-background transition-all"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <Button 
@@ -160,7 +221,7 @@ export default function Login() {
                 <div className="h-5 w-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  Accéder au Backoffice
+                  {mfaTokenId ? "Valider le code" : "Accéder au Backoffice"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               )}
