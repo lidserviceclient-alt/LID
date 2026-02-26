@@ -5,10 +5,14 @@ import java.math.BigDecimal;
 public record OrderQuoteResponse(
         BigDecimal subTotal,
         BigDecimal discountAmount,
+        BigDecimal loyaltyDiscountAmount,
         BigDecimal total,
         boolean promoApplied,
         String promoCode,
-        String promoMessage
+        String promoMessage,
+        boolean loyaltyApplied,
+        String loyaltyTier,
+        BigDecimal loyaltyDiscountPercent,
+        Integer loyaltyPoints
 ) {
 }
-

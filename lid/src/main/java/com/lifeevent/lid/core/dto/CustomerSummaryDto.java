@@ -11,10 +11,12 @@ public class CustomerSummaryDto {
     private long orders;
     private BigDecimal spent;
     private LocalDateTime lastOrder;
+    private Integer loyaltyPoints;
+    private String loyaltyTier;
 
     public CustomerSummaryDto() {}
 
-    public CustomerSummaryDto(String id, String name, String email, String role, long orders, BigDecimal spent, LocalDateTime lastOrder) {
+    public CustomerSummaryDto(String id, String name, String email, String role, long orders, BigDecimal spent, LocalDateTime lastOrder, Integer loyaltyPoints, String loyaltyTier) {
         this.id = id;
         this.name = name;
         this.email = email;
@@ -22,6 +24,8 @@ public class CustomerSummaryDto {
         this.orders = orders;
         this.spent = spent;
         this.lastOrder = lastOrder;
+        this.loyaltyPoints = loyaltyPoints;
+        this.loyaltyTier = loyaltyTier;
     }
 
     public String getId() {
@@ -78,5 +82,21 @@ public class CustomerSummaryDto {
 
     public void setLastOrder(LocalDateTime lastOrder) {
         this.lastOrder = lastOrder;
+    }
+
+    public Integer getLoyaltyPoints() {
+        return loyaltyPoints;
+    }
+
+    public void setLoyaltyPoints(Integer loyaltyPoints) {
+        this.loyaltyPoints = loyaltyPoints;
+    }
+
+    public String getLoyaltyTier() {
+        return loyaltyTier;
+    }
+
+    public void setLoyaltyTier(String loyaltyTier) {
+        this.loyaltyTier = loyaltyTier;
     }
 }

@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
@@ -40,5 +41,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM Order o WHERE o.customer.userId = :customerId AND o.currentStatus = :status")
     @EntityGraph(attributePaths = {"customer"})
     List<Order> findByCustomerAndStatus(@Param("customerId") String customerId, @Param("status") Status status);
+
+    @EntityGraph(attributePaths = {"customer", "statusHistory"})
+    Optional<Order> findWithCustomerAndStatusHistoryById(Long id);
+
+    @EntityGraph(attributePaths = {"customer", "statusHistory"})
+    Optional<Order> findWithCustomerAndStatusHistoryByTrackingNumber(String trackingNumber);
+
+    @EntityGraph(attributePaths = {"customer", "articles", "articles.article"})
+    Optional<Order> findWithCustomerAndArticlesById(Long id);
 }
 

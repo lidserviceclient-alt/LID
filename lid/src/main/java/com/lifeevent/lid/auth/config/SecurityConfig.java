@@ -22,6 +22,7 @@ import org.springframework.security.oauth2.server.resource.web.DefaultBearerToke
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
@@ -46,6 +47,10 @@ public class SecurityConfig {
     @Value("${spring.profiles.active:}")
     private String activeProfile;
 
+    public boolean isLocalProfile() {
+        return activeProfile != null && activeProfile.toLowerCase().contains("local");
+    }
+
     @Bean
     @Order(1)
     SecurityFilterChain authChain(HttpSecurity http, ObjectProvider<CorsConfigurationSource> corsProvider) throws Exception {
@@ -69,17 +74,30 @@ public class SecurityConfig {
         if (cors != null) {
             http.cors(corsSpec -> corsSpec.configurationSource(cors));
         }
-                return http
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/actuator/**").permitAll()
-                        .requestMatchers("/uploads/**").permitAll()
-                        .requestMatchers("/api/v1/webhooks/**").permitAll()
-                        .requestMatchers("/api/backoffice/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers("/api/v1/partners/register/**", "/api/v1/catalog/**").permitAll()
-                        .requestMatchers("/api/v1/articles/search/**").permitAll()
-                        .requestMatchers("/api/v1/newsletter/**").permitAll()
-                        .anyRequest().authenticated()
-                )
+        boolean isLocal = activeProfile != null && activeProfile.toLowerCase().contains("local");
+        return http
+                .authorizeHttpRequests(auth -> {
+                        auth.requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/actuator/**").permitAll();
+                        auth.requestMatchers("/uploads/**").permitAll();
+                        auth.requestMatchers("/api/v1/webhooks/**").permitAll();
+                        auth.requestMatchers("/api/v1/payments/verify/**").permitAll();
+                        auth.requestMatchers("/api/v1/tickets/**").permitAll();
+                        auth.requestMatchers("/api/v1/public/orders/tracking/**").permitAll();
+                        auth.requestMatchers("/api/v1/public/returns/**").permitAll();
+                        auth.requestMatchers("/api/v1/public/app-config").permitAll();
+                        auth.requestMatchers("/api/v1/public/contact").permitAll();
+                        auth.requestMatchers("/api/backoffice/logistics/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "IT", "LIVREUR");
+                        auth.requestMatchers("/api/backoffice/notifications/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "IT", "LIVREUR");
+                        auth.requestMatchers("/api/backoffice/**").hasAnyRole("ADMIN", "SUPER_ADMIN");
+                        auth.requestMatchers("/api/v1/partners/register/**", "/api/v1/catalog/**").permitAll();
+                        auth.requestMatchers("/api/v1/articles/search/**").permitAll();
+                        auth.requestMatchers("/api/v1/newsletter/**").permitAll();
+                        if (isLocal) {
+                            auth.requestMatchers("/api/v1/checkout/**").permitAll();
+                            auth.requestMatchers(HttpMethod.GET, "/api/v1/articles/**").permitAll();
+                        }
+                        auth.anyRequest().authenticated();
+                })
                 .oauth2ResourceServer(oauth2 ->
                         oauth2.jwt(jwt -> jwt
                                 .decoder(lidApplicationDecoder)
@@ -164,7 +182,7 @@ public class SecurityConfig {
         CorsConfiguration cors = new CorsConfiguration();
 
         // Autorise localhost/127.0.0.1 sur n'importe quel port (4200, 3000, etc.)
-        cors.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
+        cors.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*", "http://*:*", "https://*:*"));
 
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("*"));

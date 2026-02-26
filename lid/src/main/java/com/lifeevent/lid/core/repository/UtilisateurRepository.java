@@ -46,4 +46,18 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, String
               and trim(u.telephone) <> ''
             """)
     List<String> findClientPhones();
+
+    @Query("""
+            select distinct u.email from Utilisateur u
+            where u.email is not null
+              and trim(u.email) <> ''
+              and u.role in :roles
+              and (
+                :q is null
+                or lower(u.email) like concat('%', lower(:q), '%')
+                or lower(coalesce(u.nom, '')) like concat('%', lower(:q), '%')
+                or lower(coalesce(u.prenom, '')) like concat('%', lower(:q), '%')
+              )
+            """)
+    List<String> findEmailsByRoles(@Param("roles") List<RoleUtilisateur> roles, @Param("q") String q, Pageable pageable);
 }

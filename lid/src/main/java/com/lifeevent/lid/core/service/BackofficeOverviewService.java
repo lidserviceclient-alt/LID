@@ -1,9 +1,13 @@
 package com.lifeevent.lid.core.service;
 
 import com.lifeevent.lid.core.dto.BackofficeOverviewDto;
+import com.lifeevent.lid.core.dto.BackofficeActivityDto;
 import com.lifeevent.lid.core.dto.LowStockItemDto;
 import com.lifeevent.lid.core.dto.OrderPipelineStepDto;
 import com.lifeevent.lid.core.dto.OrderSummaryDto;
+import com.lifeevent.lid.core.dto.TeamActivityItemDto;
+import com.lifeevent.lid.core.dto.TeamMemberPerformanceDto;
+import com.lifeevent.lid.core.dto.TeamProductivityDto;
 import com.lifeevent.lid.core.dto.TopProductDto;
 import com.lifeevent.lid.core.entity.Commande;
 import com.lifeevent.lid.core.entity.CommandeLigne;
@@ -15,6 +19,8 @@ import com.lifeevent.lid.core.repository.CodePromoUtilisationRepository;
 import com.lifeevent.lid.core.repository.CommandeLigneRepository;
 import com.lifeevent.lid.core.repository.CommandeRepository;
 import com.lifeevent.lid.core.repository.StockRepository;
+import com.lifeevent.lid.core.repository.UtilisateurRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -22,10 +28,12 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class BackofficeOverviewService {
@@ -41,6 +49,8 @@ public class BackofficeOverviewService {
     private final CommandeLigneRepository commandeLigneRepository;
     private final StockRepository stockRepository;
     private final CodePromoUtilisationRepository promoUtilisationRepository;
+    private final BackofficeActivityService backofficeActivityService;
+    private final UtilisateurRepository utilisateurRepository;
 
     public BackofficeOverviewService(
             DashboardService dashboardService,
@@ -48,7 +58,9 @@ public class BackofficeOverviewService {
             CommandeRepository commandeRepository,
             CommandeLigneRepository commandeLigneRepository,
             StockRepository stockRepository,
-            CodePromoUtilisationRepository promoUtilisationRepository
+            CodePromoUtilisationRepository promoUtilisationRepository,
+            BackofficeActivityService backofficeActivityService,
+            UtilisateurRepository utilisateurRepository
     ) {
         this.dashboardService = dashboardService;
         this.orderService = orderService;
@@ -56,6 +68,8 @@ public class BackofficeOverviewService {
         this.commandeLigneRepository = commandeLigneRepository;
         this.stockRepository = stockRepository;
         this.promoUtilisationRepository = promoUtilisationRepository;
+        this.backofficeActivityService = backofficeActivityService;
+        this.utilisateurRepository = utilisateurRepository;
     }
 
     public BackofficeOverviewDto getOverview() {
@@ -65,6 +79,8 @@ public class BackofficeOverviewService {
     public BackofficeOverviewDto getOverview(Integer seriesDays) {
         int days = normalizeSeriesDays(seriesDays);
         List<OrderSummaryDto> recentOrders = orderService.recentOrders();
+        LocalDateTime since = LocalDateTime.now().minusDays(days);
+        TeamBundle teamBundle = buildTeamBundle(since);
 
         return new BackofficeOverviewDto(
                 dashboardService.getDashboard(),
@@ -73,7 +89,9 @@ public class BackofficeOverviewService {
                 buildAnalyticsSeries(days),
                 buildPromoUsageSeries(days),
                 buildLowStock(DEFAULT_LOW_STOCK_THRESHOLD),
-                buildTopProducts(DEFAULT_TOP_PRODUCTS)
+                buildTopProducts(DEFAULT_TOP_PRODUCTS),
+                teamBundle.activity(),
+                teamBundle.productivity()
         );
     }
 
@@ -230,5 +248,118 @@ public class BackofficeOverviewService {
 
         int pct = delta.setScale(0, RoundingMode.HALF_UP).intValue();
         return (pct >= 0 ? "+" : "") + pct + "%";
+    }
+
+    private TeamBundle buildTeamBundle(LocalDateTime since) {
+        List<BackofficeActivityDto> recent = backofficeActivityService
+                .list(since, PageRequest.of(0, 50))
+                .getContent();
+
+        List<TeamActivityItemDto> items = recent.stream()
+                .filter(Objects::nonNull)
+                .map((a) -> new TeamActivityItemDto(
+                        resolveDisplayName(a.actor()),
+                        resolveRoleLabel(a.actor()),
+                        resolveAction(a),
+                        toRelativeTime(a.createdAt())
+                ))
+                .toList();
+
+        Map<String, MemberAgg> byActor = new HashMap<>();
+        for (BackofficeActivityDto a : recent) {
+            if (a == null) continue;
+            String actor = a.actor();
+            if (actor == null || actor.isBlank()) actor = "system";
+            MemberAgg agg = byActor.computeIfAbsent(actor, k -> new MemberAgg());
+            agg.tasks++;
+            if (a.status() != null && a.status() >= 400) {
+                agg.errors++;
+            }
+            if (agg.lastActiveAt == null || (a.createdAt() != null && a.createdAt().isAfter(agg.lastActiveAt))) {
+                agg.lastActiveAt = a.createdAt();
+            }
+        }
+
+        List<TeamMemberPerformanceDto> performances = byActor.entrySet().stream()
+                .map((e) -> {
+                    String actor = e.getKey();
+                    MemberAgg agg = e.getValue();
+                    long tasks = agg == null ? 0 : agg.tasks;
+                    long errors = agg == null ? 0 : agg.errors;
+                    double success = tasks <= 0 ? 1.0 : (double) Math.max(tasks - errors, 0) / (double) tasks;
+                    return new TeamMemberPerformanceDto(
+                            actor,
+                            resolveDisplayName(actor),
+                            resolveRoleLabel(actor),
+                            tasks,
+                            errors,
+                            success,
+                            agg == null ? null : agg.lastActiveAt
+                    );
+                })
+                .sorted((a, b) -> Long.compare(b.tasksCompleted(), a.tasksCompleted()))
+                .limit(10)
+                .toList();
+
+        long totalTasks = performances.stream().mapToLong(TeamMemberPerformanceDto::tasksCompleted).sum();
+        long totalErrors = performances.stream().mapToLong(TeamMemberPerformanceDto::errors).sum();
+        long activeMembers = performances.stream().filter((p) -> p.tasksCompleted() > 0).count();
+        String top = performances.isEmpty() ? null : performances.get(0).name();
+
+        TeamProductivityDto productivity = new TeamProductivityDto(
+                totalTasks,
+                totalErrors,
+                activeMembers,
+                top,
+                performances
+        );
+
+        return new TeamBundle(items, productivity);
+    }
+
+    private String resolveDisplayName(String actor) {
+        if (actor == null || actor.isBlank()) return "system";
+        return utilisateurRepository.findByEmail(actor)
+                .map((u) -> {
+                    String name = (u.getPrenom() == null ? "" : u.getPrenom()) + " " + (u.getNom() == null ? "" : u.getNom());
+                    String trimmed = name.trim();
+                    return trimmed.isEmpty() ? actor : trimmed;
+                })
+                .orElse(actor);
+    }
+
+    private String resolveRoleLabel(String actor) {
+        if (actor == null || actor.isBlank()) return "-";
+        return utilisateurRepository.findByEmail(actor)
+                .map((u) -> u.getRole() == null ? "-" : u.getRole().name())
+                .orElse("-");
+    }
+
+    private static String resolveAction(BackofficeActivityDto a) {
+        if (a == null) return "-";
+        if (a.summary() != null && !a.summary().isBlank()) return a.summary();
+        String path = a.path() == null ? "" : a.path();
+        String method = a.method() == null ? "" : a.method();
+        return (method + " " + path).trim();
+    }
+
+    private static String toRelativeTime(LocalDateTime t) {
+        if (t == null) return "-";
+        long minutes = t.until(LocalDateTime.now(), ChronoUnit.MINUTES);
+        if (minutes < 1) return "À l’instant";
+        if (minutes < 60) return "Il y a " + minutes + " min";
+        long hours = minutes / 60;
+        if (hours < 24) return "Il y a " + hours + " h";
+        long days = hours / 24;
+        return "Il y a " + days + " j";
+    }
+
+    private record TeamBundle(List<TeamActivityItemDto> activity, TeamProductivityDto productivity) {
+    }
+
+    private static final class MemberAgg {
+        private long tasks = 0;
+        private long errors = 0;
+        private LocalDateTime lastActiveAt = null;
     }
 }

@@ -63,4 +63,5 @@ public class CheckoutRequestDto {
      */
     private String returnUrl;
     private String cancelUrl;
+    private String paymentProvider;
 }

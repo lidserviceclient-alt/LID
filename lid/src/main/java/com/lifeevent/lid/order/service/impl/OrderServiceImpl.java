@@ -19,6 +19,7 @@ import com.lifeevent.lid.payment.service.PaymentService;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import com.lifeevent.lid.core.dto.OrderQuoteResponse;
+import com.lifeevent.lid.core.service.LoyaltyService;
 import com.lifeevent.lid.core.entity.CodePromo;
 import com.lifeevent.lid.core.entity.CodePromoUtilisation;
 import com.lifeevent.lid.core.entity.Produit;
@@ -29,6 +30,7 @@ import com.lifeevent.lid.core.enums.StatutProduit;
 import com.lifeevent.lid.core.repository.CodePromoRepository;
 import com.lifeevent.lid.core.repository.CodePromoUtilisationRepository;
 import com.lifeevent.lid.core.repository.ProduitRepository;
+import com.lifeevent.lid.core.repository.StockRepository;
 import com.lifeevent.lid.core.repository.UtilisateurRepository;
 import com.lifeevent.lid.order.dto.*;
 import com.lifeevent.lid.order.entity.Order;
@@ -49,7 +51,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.Locale;
@@ -72,6 +76,9 @@ public class OrderServiceImpl implements OrderService {
     private final CodePromoUtilisationRepository codePromoUtilisationRepository;
     private final UtilisateurRepository utilisateurRepository;
     private final ProduitRepository produitRepository;
+    private final LoyaltyService loyaltyService;
+    private final StockRepository coreStockRepository;
+    private final com.lifeevent.lid.stock.repository.StockRepository articleStockRepository;
 
     private record PromoApplication(boolean applied, String code, BigDecimal discountAmount, String message, CodePromo promo, Utilisateur utilisateur) {
     }
@@ -161,6 +168,18 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalArgumentException("Requête invalide");
         }
 
+        if (request.getItems() != null && !request.getItems().isEmpty()) {
+            validateStockForCheckoutItems(request.getItems());
+        } else {
+            Cart cart = cartRepository.findByCustomer_userId(customerId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Cart", "customerId", customerId.toString()));
+            List<CartArticle> cartItems = cartArticleRepository.findByCart(cart);
+            if (cartItems.isEmpty()) {
+                throw new IllegalArgumentException("Le panier est vide");
+            }
+            validateStockForCartItems(cartItems);
+        }
+
         BigDecimal subTotal = BigDecimal.ZERO;
         if (request.getItems() != null && !request.getItems().isEmpty()) {
             for (CheckoutItemDto item : request.getItems()) {
@@ -188,16 +207,22 @@ public class OrderServiceImpl implements OrderService {
         }
 
         PromoApplication promo = applyPromoCode(request.getPromoCode(), subTotal, request.getEmail(), request.getPhone());
-        BigDecimal total = subTotal.subtract(promo.discountAmount());
+        LoyaltyService.LoyaltyPricing loyaltyPricing = loyaltyService.quotePricingForEmail(request.getEmail(), subTotal, promo.applied());
+        BigDecimal total = subTotal.subtract(promo.discountAmount()).subtract(loyaltyPricing.discountAmount());
         if (total.compareTo(BigDecimal.ZERO) < 0) total = BigDecimal.ZERO;
 
         return new OrderQuoteResponse(
                 subTotal.setScale(2, RoundingMode.HALF_UP),
                 promo.discountAmount().setScale(2, RoundingMode.HALF_UP),
+                loyaltyPricing.discountAmount().setScale(2, RoundingMode.HALF_UP),
                 total.setScale(2, RoundingMode.HALF_UP),
                 promo.applied(),
                 promo.code(),
-                promo.message()
+                promo.message(),
+                loyaltyPricing.applied(),
+                loyaltyPricing.tierName(),
+                loyaltyPricing.discountPercent().setScale(2, RoundingMode.HALF_UP),
+                loyaltyPricing.points()
         );
     }
     
@@ -224,6 +249,7 @@ public class OrderServiceImpl implements OrderService {
         String currency = (request.getCurrency() == null || request.getCurrency().isBlank()) ? "XOF" : request.getCurrency();
 
         if (request.getItems() != null && !request.getItems().isEmpty()) {
+            validateStockForCheckoutItems(request.getItems());
             for (CheckoutItemDto item : request.getItems()) {
                 int qty = item == null || item.getQuantity() == null ? 0 : item.getQuantity();
                 if (qty <= 0) continue;
@@ -245,6 +271,7 @@ public class OrderServiceImpl implements OrderService {
             if (cartItems.isEmpty()) {
                 throw new IllegalArgumentException("Le panier est vide");
             }
+            validateStockForCartItems(cartItems);
             for (CartArticle cartItem : cartItems) {
                 double unit = cartItem.getArticle().getPrice() == null ? 0d : cartItem.getArticle().getPrice();
                 subTotal = subTotal.add(BigDecimal.valueOf(unit).multiply(BigDecimal.valueOf(cartItem.getQuantity())));
@@ -267,10 +294,12 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalArgumentException(promo.message() != null ? promo.message() : "Code promo invalide");
         }
 
+        LoyaltyService.LoyaltyPricing loyaltyPricing = loyaltyService.quotePricingForEmail(request.getEmail(), subTotal, promo.applied());
+
         BigDecimal shippingCost = BigDecimal.valueOf(request.getShippingCost() != null ? request.getShippingCost() : 0d);
         if (shippingCost.compareTo(BigDecimal.ZERO) < 0) shippingCost = BigDecimal.ZERO;
 
-        BigDecimal total = subTotal.subtract(promo.discountAmount()).add(shippingCost);
+        BigDecimal total = subTotal.subtract(promo.discountAmount()).subtract(loyaltyPricing.discountAmount()).add(shippingCost);
         if (total.compareTo(BigDecimal.ZERO) < 0) total = BigDecimal.ZERO;
 
         Order order = Order.builder()
@@ -315,7 +344,10 @@ public class OrderServiceImpl implements OrderService {
                 .collect(Collectors.joining(" "));
         if (fullName.isBlank()) fullName = customer.getEmail();
         String email = request.getEmail() != null && !request.getEmail().isBlank() ? request.getEmail() : customer.getEmail();
-        String phone = request.getPhone() != null && !request.getPhone().isBlank() ? request.getPhone() : "+225000000000";
+        String phone = request.getPhone() == null ? "" : request.getPhone().trim();
+        if (phone.isBlank()) {
+            throw new IllegalArgumentException("Numéro de téléphone requis");
+        }
 
         List<PaymentItemDto> paymentItems = savedOrder.getArticles().stream()
                 .map(oa -> PaymentItemDto.builder()
@@ -339,7 +371,7 @@ public class OrderServiceImpl implements OrderService {
                 ? request.getCancelUrl()
                 : paydunyaProperties.getCancelUrl();
 
-        PaymentResponseDto payment = paymentService.createPayment(CreatePaymentRequestDto.builder()
+        CreatePaymentRequestDto paymentRequest = CreatePaymentRequestDto.builder()
                 .orderId(savedOrder.getId())
                 .amount(BigDecimal.valueOf(savedOrder.getAmount()))
                 .description("Paiement commande ORD-" + savedOrder.getId())
@@ -351,7 +383,12 @@ public class OrderServiceImpl implements OrderService {
                 .cancelUrl(cancelUrl)
                 .items(paymentItems)
                 .taxes(List.of(tva))
-                .build());
+                .build();
+
+        String provider = request.getPaymentProvider() == null ? "" : request.getPaymentProvider().trim();
+        PaymentResponseDto payment = "LOCAL".equalsIgnoreCase(provider)
+                ? paymentService.createLocalPayment(paymentRequest)
+                : paymentService.createPayment(paymentRequest);
 
         return CheckoutResponseDto.builder()
                 .orderId(savedOrder.getId())
@@ -470,6 +507,85 @@ public class OrderServiceImpl implements OrderService {
             return articleRepository.save(created);
         }
         return null;
+    }
+
+    private void validateStockForCheckoutItems(List<CheckoutItemDto> items) {
+        Map<Long, Integer> qtyByArticleId = new HashMap<>();
+        Map<String, Integer> qtyByReference = new HashMap<>();
+
+        for (CheckoutItemDto item : items) {
+            int qty = item == null || item.getQuantity() == null ? 0 : item.getQuantity();
+            if (qty <= 0) continue;
+
+            Long articleId = item.getArticleId();
+            if (articleId != null) {
+                qtyByArticleId.put(articleId, (qtyByArticleId.getOrDefault(articleId, 0) + qty));
+                continue;
+            }
+
+            String ref = item.getReferenceProduitPartenaire();
+            if (ref != null && !ref.trim().isBlank()) {
+                String key = ref.trim();
+                qtyByReference.put(key, (qtyByReference.getOrDefault(key, 0) + qty));
+            }
+        }
+
+        for (var entry : qtyByArticleId.entrySet()) {
+            Long articleId = entry.getKey();
+            int needed = entry.getValue() == null ? 0 : entry.getValue();
+            if (needed <= 0) continue;
+
+            Article article = articleRepository.findById(articleId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Article", "id", String.valueOf(articleId)));
+            if (article.getStatus() != null && article.getStatus() != ArticleStatus.ACTIVE) {
+                throw new IllegalArgumentException("Article indisponible");
+            }
+            int available = articleStockRepository.sumAvailableByArticleId(articleId);
+            if (available < needed) {
+                throw new IllegalArgumentException("Stock insuffisant");
+            }
+        }
+
+        for (var entry : qtyByReference.entrySet()) {
+            String ref = entry.getKey();
+            int needed = entry.getValue() == null ? 0 : entry.getValue();
+            if (needed <= 0) continue;
+
+            Produit produit = produitRepository.findByReferencePartenaireIgnoreCase(ref)
+                    .orElseThrow(() -> new ResourceNotFoundException("Produit", "reference", ref));
+            com.lifeevent.lid.core.entity.Stock stock = coreStockRepository.findByProduit(produit).orElse(null);
+            int available = stock != null && stock.getQuantiteDisponible() != null ? stock.getQuantiteDisponible() : 0;
+            if (available < needed) {
+                throw new IllegalArgumentException("Stock insuffisant");
+            }
+        }
+    }
+
+    private void validateStockForCartItems(List<CartArticle> cartItems) {
+        Map<Long, Integer> qtyByArticleId = new HashMap<>();
+        for (CartArticle cartItem : cartItems) {
+            if (cartItem == null || cartItem.getArticle() == null || cartItem.getArticle().getId() == null) continue;
+            int qty = cartItem.getQuantity() == null ? 0 : cartItem.getQuantity();
+            if (qty <= 0) continue;
+            Long id = cartItem.getArticle().getId();
+            qtyByArticleId.put(id, qtyByArticleId.getOrDefault(id, 0) + qty);
+        }
+
+        for (var entry : qtyByArticleId.entrySet()) {
+            Long articleId = entry.getKey();
+            int needed = entry.getValue() == null ? 0 : entry.getValue();
+            if (needed <= 0) continue;
+
+            Article article = articleRepository.findById(articleId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Article", "id", String.valueOf(articleId)));
+            if (article.getStatus() != null && article.getStatus() != ArticleStatus.ACTIVE) {
+                throw new IllegalArgumentException("Article indisponible");
+            }
+            int available = articleStockRepository.sumAvailableByArticleId(articleId);
+            if (available < needed) {
+                throw new IllegalArgumentException("Stock insuffisant");
+            }
+        }
     }
 
     private BigDecimal resolveCheckoutUnitPrice(CheckoutItemDto item) {

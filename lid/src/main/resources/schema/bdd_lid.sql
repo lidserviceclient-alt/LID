@@ -5,7 +5,7 @@ CREATE TABLE `utilisateur` (
   `prenom` VARCHAR(255),
   `email` VARCHAR(255) NOT NULL,
   `email_verifie` BOOLEAN DEFAULT false,
-  `role` ENUM ('CLIENT', 'IT', 'SUSPENDU', 'SUPPRIME', 'PARTENAIRE', 'ADMIN', 'SUPER_ADMIN') NOT NULL,
+  `role` ENUM ('CLIENT', 'LIVREUR', 'IT', 'SUSPENDU', 'SUPPRIME', 'PARTENAIRE', 'ADMIN', 'SUPER_ADMIN') NOT NULL,
   `telephone` VARCHAR(30),
   `ville` VARCHAR(100),
   `pays` VARCHAR(100),
@@ -51,6 +51,7 @@ CREATE TABLE `produit` (
   `boutique_id` CHAR(36) NOT NULL,
   `categorie_id` CHAR(36) NOT NULL,
   `reference_partenaire` VARCHAR(255) NOT NULL,
+  `ean` VARCHAR(32),
   `nom` VARCHAR(255) NOT NULL,
   `slug` VARCHAR(255) NOT NULL,
   `description` TEXT,
@@ -217,6 +218,7 @@ CREATE UNIQUE INDEX `uk_categorie_slug` ON `categorie` (`slug`);
 CREATE UNIQUE INDEX `uk_produit_slug` ON `produit` (`slug`);
 
 CREATE UNIQUE INDEX `uk_produit_ref` ON `produit` (`reference_partenaire`);
+CREATE UNIQUE INDEX `uk_produit_ean` ON `produit` (`ean`);
 
 CREATE UNIQUE INDEX `uk_commentaire_unique` ON `commentaire_produit` (`produit_id`, `utilisateur_id`);
 

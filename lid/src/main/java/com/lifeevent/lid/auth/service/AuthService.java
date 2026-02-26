@@ -6,6 +6,7 @@ import com.lifeevent.lid.auth.dto.RefreshResponse;
 import com.lifeevent.lid.auth.dto.ResetPasswordRequest;
 import com.lifeevent.lid.auth.dto.UserJwt;
 import com.lifeevent.lid.auth.entity.PasswordResetToken;
+import com.lifeevent.lid.auth.enums.OneTimeCodePurpose;
 import com.lifeevent.lid.auth.entity.RefreshToken;
 import com.lifeevent.lid.auth.repository.PasswordResetTokenRepository;
 import com.lifeevent.lid.core.entity.Authentification;
@@ -14,6 +15,7 @@ import com.lifeevent.lid.core.enums.FournisseurAuth;
 import com.lifeevent.lid.core.enums.RoleUtilisateur;
 import com.lifeevent.lid.core.repository.AuthentificationRepository;
 import com.lifeevent.lid.core.repository.UtilisateurRepository;
+import com.lifeevent.lid.core.service.BackofficeSecuritySettingsService;
 import com.lifeevent.lid.cart.service.CartService;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
@@ -52,6 +54,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final CustomerRepository customerRepository;
     private final CartService cartService;
+    private final BackofficeSecuritySettingsService backofficeSecuritySettingsService;
 
     @Value("${config.security.app.refresh-ttl-days}")
     private int refreshTtlDays;
@@ -127,6 +130,10 @@ public class AuthService {
             authentificationRepository.save(auth);
         }
 
+        if (Boolean.TRUE.equals(utilisateur.getBlocked())) {
+            throw new IllegalArgumentException("Compte bloqué");
+        }
+
         ensureCustomerAndCart(utilisateur);
 
         // Generate Tokens
@@ -138,7 +145,7 @@ public class AuthService {
         RefreshToken refreshToken = refreshTokenService.create(utilisateur.getId());
         setRefreshCookie(response, refreshToken.getId());
 
-        return new AuthResponse(accessToken);
+        return new AuthResponse(accessToken, Boolean.FALSE, null, null);
     }
 
     private void ensureCustomerAndCart(Utilisateur utilisateur) {
@@ -161,12 +168,19 @@ public class AuthService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse loginLocal(LoginRequest request) {
         Utilisateur utilisateur = utilisateurRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Identifiants invalides"));
 
-        if (utilisateur.getRole() != RoleUtilisateur.ADMIN && utilisateur.getRole() != RoleUtilisateur.SUPER_ADMIN) {
+        if (Boolean.TRUE.equals(utilisateur.getBlocked())) {
+            throw new IllegalArgumentException("Compte bloqué");
+        }
+
+        if (utilisateur.getRole() != RoleUtilisateur.ADMIN
+                && utilisateur.getRole() != RoleUtilisateur.SUPER_ADMIN
+                && utilisateur.getRole() != RoleUtilisateur.IT
+                && utilisateur.getRole() != RoleUtilisateur.LIVREUR) {
             throw new IllegalArgumentException("Accès refusé");
         }
 
@@ -189,10 +203,69 @@ public class AuthService {
             throw new IllegalArgumentException("Identifiants invalides");
         }
 
+        boolean isAdmin = utilisateur.getRole() == RoleUtilisateur.ADMIN || utilisateur.getRole() == RoleUtilisateur.SUPER_ADMIN;
+        if (isAdmin && backofficeSecuritySettingsService.isAdmin2faEnabled()) {
+            passwordResetTokenRepository.findByUtilisateurAndPurposeAndUsedFalse(utilisateur, OneTimeCodePurpose.ADMIN_LOGIN_2FA)
+                    .ifPresent(token -> {
+                        token.setUsed(true);
+                        passwordResetTokenRepository.save(token);
+                    });
+
+            String code = generateResetCode();
+            PasswordResetToken token = PasswordResetToken.builder()
+                    .code(code)
+                    .purpose(OneTimeCodePurpose.ADMIN_LOGIN_2FA)
+                    .utilisateur(utilisateur)
+                    .expiryDate(LocalDateTime.now().plusMinutes(10))
+                    .used(false)
+                    .build();
+            PasswordResetToken saved = passwordResetTokenRepository.save(token);
+            emailService.sendAdminLoginCode(utilisateur.getEmail(), code);
+            boolean isLocal = activeProfile != null && activeProfile.contains("local");
+            return new AuthResponse(null, Boolean.TRUE, saved.getId().toString(), isLocal ? code : null);
+        }
+
         List<String> roles = List.of(mapRole(utilisateur.getRole()));
         UserJwt userJwt = mapToUserJwt(utilisateur);
         String accessToken = jwtService.generateAccessToken(userJwt, roles);
-        return new AuthResponse(accessToken);
+        return new AuthResponse(accessToken, Boolean.FALSE, null, null);
+    }
+
+    @Transactional
+    public AuthResponse verifyAdminMfa(String mfaTokenId, String code) {
+        String normalizedCode = normalizeSixDigitCode(code);
+        if (normalizedCode == null) {
+            throw new IllegalArgumentException("Code invalide");
+        }
+        UUID id;
+        try {
+            id = UUID.fromString(mfaTokenId);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Code invalide");
+        }
+        PasswordResetToken token = passwordResetTokenRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Code invalide"));
+        if (token.getPurpose() != OneTimeCodePurpose.ADMIN_LOGIN_2FA) {
+            throw new IllegalArgumentException("Code invalide");
+        }
+        if (token.isUsed() || token.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Code expiré");
+        }
+        if (!normalizedCode.equals(token.getCode())) {
+            throw new IllegalArgumentException("Code invalide");
+        }
+        Utilisateur utilisateur = token.getUtilisateur();
+        boolean isAdmin = utilisateur.getRole() == RoleUtilisateur.ADMIN || utilisateur.getRole() == RoleUtilisateur.SUPER_ADMIN;
+        if (!isAdmin) {
+            throw new IllegalArgumentException("Accès refusé");
+        }
+        token.setUsed(true);
+        passwordResetTokenRepository.save(token);
+
+        List<String> roles = List.of(mapRole(utilisateur.getRole()));
+        UserJwt userJwt = mapToUserJwt(utilisateur);
+        String accessToken = jwtService.generateAccessToken(userJwt, roles);
+        return new AuthResponse(accessToken, Boolean.FALSE, null, null);
     }
 
     @Transactional(readOnly = true)
@@ -201,6 +274,10 @@ public class AuthService {
         
         Utilisateur utilisateur = utilisateurRepository.findById(rt.getUserId())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        if (Boolean.TRUE.equals(utilisateur.getBlocked())) {
+            throw new IllegalArgumentException("Compte bloqué");
+        }
         
         List<String> roles = List.of(mapRole(utilisateur.getRole()));
         UserJwt userJwt = mapToUserJwt(utilisateur);
@@ -241,7 +318,7 @@ public class AuthService {
         if (utilisateur == null) {
             return null;
         }
-        passwordResetTokenRepository.findByUtilisateurAndUsedFalse(utilisateur)
+        passwordResetTokenRepository.findByUtilisateurAndPurposeAndUsedFalse(utilisateur, OneTimeCodePurpose.PASSWORD_RESET)
                 .ifPresent(token -> {
                     token.setUsed(true);
                     passwordResetTokenRepository.save(token);
@@ -250,6 +327,7 @@ public class AuthService {
         String code = generateResetCode();
         PasswordResetToken token = PasswordResetToken.builder()
                 .code(code)
+                .purpose(OneTimeCodePurpose.PASSWORD_RESET)
                 .utilisateur(utilisateur)
                 .expiryDate(LocalDateTime.now().plusMinutes(resetCodeTtlMinutes))
                 .used(false)
@@ -264,7 +342,11 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public void verifyResetCode(String code) {
-        PasswordResetToken token = passwordResetTokenRepository.findByCode(code)
+        String normalizedCode = normalizeSixDigitCode(code);
+        if (normalizedCode == null) {
+            throw new IllegalArgumentException("Code invalide");
+        }
+        PasswordResetToken token = passwordResetTokenRepository.findByCodeAndPurpose(normalizedCode, OneTimeCodePurpose.PASSWORD_RESET)
                 .orElseThrow(() -> new IllegalArgumentException("Code invalide"));
         if (token.isUsed() || token.getExpiryDate().isBefore(LocalDateTime.now())) {
             throw new IllegalArgumentException("Code expiré");
@@ -273,7 +355,11 @@ public class AuthService {
 
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
-        PasswordResetToken token = passwordResetTokenRepository.findByCode(request.getCode())
+        String normalizedCode = normalizeSixDigitCode(request.getCode());
+        if (normalizedCode == null) {
+            throw new IllegalArgumentException("Code invalide");
+        }
+        PasswordResetToken token = passwordResetTokenRepository.findByCodeAndPurpose(normalizedCode, OneTimeCodePurpose.PASSWORD_RESET)
                 .orElseThrow(() -> new IllegalArgumentException("Code invalide"));
         if (token.isUsed() || token.getExpiryDate().isBefore(LocalDateTime.now())) {
             throw new IllegalArgumentException("Code expiré");
@@ -329,5 +415,19 @@ public class AuthService {
     private String generateResetCode() {
         int code = SECURE_RANDOM.nextInt(1_000_000);
         return String.format("%06d", code);
+    }
+
+    private static String normalizeSixDigitCode(String raw) {
+        if (raw == null) return null;
+        String digits = raw.replaceAll("\\D", "");
+        if (digits.isBlank()) return null;
+        if (digits.length() > 6) return null;
+        try {
+            int value = Integer.parseInt(digits);
+            if (value < 0 || value > 999_999) return null;
+            return String.format("%06d", value);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 }

@@ -43,4 +43,28 @@ public class Livraison extends UuidEntity {
 
     @Column(name = "date_livraison")
     private LocalDateTime dateLivraison;
+
+    @Column(name = "livreur_reference", length = 150)
+    private String livreurReference;
+
+    @Column(name = "livreur_nom", length = 150)
+    private String livreurNom;
+
+    @Column(name = "livreur_telephone", length = 30)
+    private String livreurTelephone;
+
+    @Column(name = "livreur_utilisateur", length = 150)
+    private String livreurUtilisateur;
+
+    @Column(name = "date_scan_livreur")
+    private LocalDateTime dateScanLivreur;
+
+    @Column(name = "code_remise", length = 4)
+    private String codeRemise;
+
+    @Column(name = "date_code_remise")
+    private LocalDateTime dateCodeRemise;
+
+    @Column(name = "date_mail_expedition")
+    private LocalDateTime dateMailExpedition;
 }

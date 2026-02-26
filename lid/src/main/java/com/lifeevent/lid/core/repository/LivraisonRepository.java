@@ -16,6 +16,7 @@ import java.util.Optional;
 
 public interface LivraisonRepository extends JpaRepository<Livraison, String> {
     Optional<Livraison> findByCommande(Commande commande);
+    Optional<Livraison> findByCommande_Id(String commandeId);
 
     @Query("""
             select l from Livraison l

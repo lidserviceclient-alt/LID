@@ -1,5 +1,6 @@
 package com.lifeevent.lid.auth.entity;
 
+import com.lifeevent.lid.auth.enums.OneTimeCodePurpose;
 import com.lifeevent.lid.common.entity.BaseEntity;
 import com.lifeevent.lid.core.entity.Utilisateur;
 import jakarta.persistence.*;
@@ -24,6 +25,10 @@ public class PasswordResetToken extends BaseEntity {
 
     @Column(nullable = false)
     private String code;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private OneTimeCodePurpose purpose;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "utilisateur_id", nullable = false)

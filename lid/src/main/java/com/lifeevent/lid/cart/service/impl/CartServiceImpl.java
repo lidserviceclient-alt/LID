@@ -13,6 +13,7 @@ import com.lifeevent.lid.cart.repository.CartArticleRepository;
 import com.lifeevent.lid.cart.repository.CartRepository;
 import com.lifeevent.lid.cart.service.CartService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.stock.repository.StockRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.mapper.CustomerMapper;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
@@ -36,6 +37,7 @@ public class CartServiceImpl implements CartService {
     private final CartArticleRepository cartArticleRepository;
     private final CustomerRepository customerRepository;
     private final ArticleRepository articleRepository;
+    private final StockRepository stockRepository;
     private final CartMapper cartMapper;
     private final CartArticleMapper cartArticleMapper;
     private final CustomerMapper customerMapper;
@@ -76,16 +78,28 @@ public class CartServiceImpl implements CartService {
         if(ArticleStatus.INACTIVE.equals(article.getStatus()))
                 throw new RuntimeException("Article is not available");
         
+        int available = stockRepository.sumAvailableByArticleId(articleId);
+        if (available <= 0) {
+            throw new RuntimeException("Rupture de stock");
+        }
+
 
         CartArticle existingCartArticle = cartArticleRepository.findByCartAndArticle(cart, article)
             .orElse(null);
         
         if (existingCartArticle != null) {
-            existingCartArticle.setQuantity(existingCartArticle.getQuantity() + 1);
+            int nextQty = existingCartArticle.getQuantity() + 1;
+            if (nextQty > available) {
+                throw new RuntimeException("Quantité insuffisante en stock");
+            }
+            existingCartArticle.setQuantity(nextQty);
             cartArticleRepository.save(existingCartArticle);
             log.info("Quantité de l'article {} augmentée à {}", articleId, existingCartArticle.getQuantity());
         } else {
             // Sinon, ajouter une nouvelle ligne de panier
+            if (available < 1) {
+                throw new RuntimeException("Rupture de stock");
+            }
             CartArticle cartArticle = CartArticle.builder()
                 .cart(cart)
                 .article(article)

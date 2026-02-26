@@ -2,6 +2,7 @@ package com.lifeevent.lid.core.enums;
 
 public enum RoleUtilisateur {
     CLIENT,
+    LIVREUR,
     IT,
     SUSPENDU,
     SUPPRIME,

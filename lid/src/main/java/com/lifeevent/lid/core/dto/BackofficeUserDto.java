@@ -12,6 +12,7 @@ public record BackofficeUserDto(
         String prenom,
         String email,
         Boolean emailVerifie,
+        Boolean blocked,
         RoleUtilisateur role,
         String telephone,
         String ville,
@@ -21,4 +22,3 @@ public record BackofficeUserDto(
         List<BackofficeUserAuthDto> authentifications
 ) {
 }
-

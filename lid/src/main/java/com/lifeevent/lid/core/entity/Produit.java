@@ -37,6 +37,9 @@ public class Produit extends UuidEntity {
     @Column(name = "reference_partenaire", nullable = false)
     private String referencePartenaire;
 
+    @Column(name = "ean", unique = true)
+    private String ean;
+
     @Column(name = "nom", nullable = false)
     private String nom;
 

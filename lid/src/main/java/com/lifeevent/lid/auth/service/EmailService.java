@@ -40,4 +40,53 @@ public class EmailService {
             throw ex;
         }
     }
+
+    public void sendAdminLoginCode(String to, String code) {
+        boolean isLocal = activeProfile != null && activeProfile.contains("local");
+        if (isLocal) {
+            log.info("Admin login code (dev) for {}: {}", to, code);
+        }
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setFrom(fromEmail);
+        message.setSubject("Code de connexion (Admin)");
+        message.setText("Votre code de connexion est : " + code);
+        try {
+            mailSender.send(message);
+        } catch (Exception ex) {
+            if (isLocal) {
+                log.warn("Mail not sent in local profile: {}", ex.getMessage());
+                return;
+            }
+            throw ex;
+        }
+    }
+
+    public void sendShippingDeliveryCode(String to, String orderId, String code) {
+        boolean isLocal = activeProfile != null && activeProfile.contains("local");
+        if (isLocal) {
+            log.info("Delivery code (dev) for {} order {}: {}", to, orderId, code);
+        }
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setFrom(fromEmail);
+        message.setSubject("Commande en cours d'expédition");
+        String safeOrder = orderId == null ? "-" : orderId;
+        message.setText("""
+Votre commande %s est en cours d'expédition.
+
+Code de livraison (4 chiffres) : %s
+
+Veuillez communiquer ce code au livreur pour confirmer la livraison.
+""".formatted(safeOrder, code));
+        try {
+            mailSender.send(message);
+        } catch (Exception ex) {
+            if (isLocal) {
+                log.warn("Mail not sent in local profile: {}", ex.getMessage());
+                return;
+            }
+            throw ex;
+        }
+    }
 }

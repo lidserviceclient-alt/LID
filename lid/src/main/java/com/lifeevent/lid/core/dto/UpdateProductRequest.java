@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class UpdateProductRequest {
     private String name;
+    private String ean;
     private String description;
     private String brand;
     private String status; // ACTIVE, DRAFT, ARCHIVED or ACTIF, BROUILLON, ARCHIVE

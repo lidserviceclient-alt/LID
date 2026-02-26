@@ -184,10 +184,15 @@ public class OrderService {
         return new OrderQuoteResponse(
                 subTotal,
                 promo.discountAmount(),
+                BigDecimal.ZERO,
                 total,
                 promo.applied(),
                 promo.code(),
-                promo.message()
+                promo.message(),
+                false,
+                null,
+                BigDecimal.ZERO,
+                0
         );
     }
 
@@ -215,7 +220,9 @@ public class OrderService {
             if (livraison.getTransporteur() == null || livraison.getTransporteur().isBlank()) {
                 livraison.setTransporteur("Transporteur");
             }
-            livraison.setStatut(StatutLivraison.EN_COURS);
+            if (livraison.getStatut() == null) {
+                livraison.setStatut(StatutLivraison.EN_PREPARATION);
+            }
             if (livraison.getDateLivraisonEstimee() == null) {
                 livraison.setDateLivraisonEstimee(java.time.LocalDate.now().plusDays(2));
             }
@@ -316,17 +323,37 @@ public class OrderService {
 
         int items = (int) commandeLigneRepository.countByCommandeId(commande.getId());
 
+        var livraison = livraisonRepository != null ? livraisonRepository.findByCommande(commande).orElse(null) : null;
+        String shipmentStatus = livraison != null && livraison.getStatut() != null ? livraison.getStatut().name() : null;
+        String courierReference = livraison != null ? trimToNull(livraison.getLivreurReference()) : null;
+        String courierName = livraison != null ? trimToNull(livraison.getLivreurNom()) : null;
+        String courierPhone = livraison != null ? trimToNull(livraison.getLivreurTelephone()) : null;
+        String courierUser = livraison != null ? trimToNull(livraison.getLivreurUtilisateur()) : null;
+        java.time.LocalDateTime courierScannedAt = livraison != null ? livraison.getDateScanLivreur() : null;
+
         return new OrderSummaryDto(
             commande.getId(),
             name.isBlank() ? "-" : name,
             items,
             commande.getMontantTotal(),
             commande.getStatut() != null ? commande.getStatut().name() : "-",
+            shipmentStatus,
+            courierReference,
+            courierName,
+            courierPhone,
+            courierUser,
+            courierScannedAt,
             commande.getDateCreation()
         );
     }
 
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) return null;
+        String s = value.trim();
+        return s.isEmpty() ? null : s;
     }
 }

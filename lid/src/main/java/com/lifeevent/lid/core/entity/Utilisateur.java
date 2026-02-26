@@ -34,6 +34,9 @@ public class Utilisateur extends UuidEntity {
     @Column(name = "email_verifie")
     private Boolean emailVerifie = false;
 
+    @Column(name = "blocked", nullable = false)
+    private Boolean blocked = false;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
     private RoleUtilisateur role;
@@ -61,6 +64,9 @@ public class Utilisateur extends UuidEntity {
         }
         if (dateMiseAJour == null) {
             dateMiseAJour = now;
+        }
+        if (blocked == null) {
+            blocked = false;
         }
     }
 

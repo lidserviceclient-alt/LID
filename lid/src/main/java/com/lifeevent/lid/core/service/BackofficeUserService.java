@@ -5,6 +5,7 @@ import com.lifeevent.lid.auth.repository.RefreshTokenRepository;
 import com.lifeevent.lid.core.dto.BackofficeUserAuthDto;
 import com.lifeevent.lid.core.dto.BackofficeUserDto;
 import com.lifeevent.lid.core.dto.CreateBackofficeUserRequest;
+import com.lifeevent.lid.core.dto.CreateCourierAccountRequest;
 import com.lifeevent.lid.core.dto.UpdateBackofficeUserRequest;
 import com.lifeevent.lid.core.entity.Authentification;
 import com.lifeevent.lid.core.entity.Utilisateur;
@@ -14,6 +15,7 @@ import com.lifeevent.lid.core.repository.AuthentificationRepository;
 import com.lifeevent.lid.core.repository.UtilisateurRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -33,17 +35,20 @@ public class BackofficeUserService {
     private final AuthentificationRepository authentificationRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public BackofficeUserService(
             UtilisateurRepository utilisateurRepository,
             AuthentificationRepository authentificationRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
-            RefreshTokenRepository refreshTokenRepository
+            RefreshTokenRepository refreshTokenRepository,
+            PasswordEncoder passwordEncoder
     ) {
         this.utilisateurRepository = utilisateurRepository;
         this.authentificationRepository = authentificationRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional(readOnly = true)
@@ -79,6 +84,33 @@ public class BackofficeUserService {
         u.setPays(request.pays());
 
         Utilisateur saved = utilisateurRepository.save(u);
+        return toDto(saved);
+    }
+
+    @Transactional
+    public BackofficeUserDto createCourierAccount(CreateCourierAccountRequest request) {
+        String email = request.email().trim().toLowerCase(Locale.ROOT);
+        if (utilisateurRepository.findByEmail(email).isPresent()) {
+            throw new ResponseStatusException(CONFLICT, "Email deja utilise");
+        }
+
+        Utilisateur u = new Utilisateur();
+        u.setNom(request.nom());
+        u.setPrenom(request.prenom());
+        u.setEmail(email);
+        u.setEmailVerifie(Boolean.TRUE);
+        u.setRole(RoleUtilisateur.LIVREUR);
+        u.setTelephone(request.telephone());
+
+        Utilisateur saved = utilisateurRepository.save(u);
+
+        Authentification auth = new Authentification();
+        auth.setUtilisateur(saved);
+        auth.setFournisseur(FournisseurAuth.LOCAL);
+        auth.setIdentifiantFournisseur(email);
+        auth.setMotDePasseHash(passwordEncoder.encode(request.password()));
+        authentificationRepository.save(auth);
+
         return toDto(saved);
     }
 
@@ -132,6 +164,24 @@ public class BackofficeUserService {
         utilisateurRepository.save(u);
     }
 
+    @Transactional
+    public BackofficeUserDto block(String id) {
+        Utilisateur u = utilisateurRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Utilisateur introuvable."));
+        u.setBlocked(true);
+        utilisateurRepository.save(u);
+        return toDto(u);
+    }
+
+    @Transactional
+    public BackofficeUserDto unblock(String id) {
+        Utilisateur u = utilisateurRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Utilisateur introuvable."));
+        u.setBlocked(false);
+        utilisateurRepository.save(u);
+        return toDto(u);
+    }
+
     private void updateLocalAuthIdentifier(Utilisateur utilisateur, String oldEmail, String newEmail) {
         List<Authentification> auths = authentificationRepository.findAllByUtilisateur(utilisateur);
         boolean changed = false;
@@ -162,6 +212,7 @@ public class BackofficeUserService {
                 u.getPrenom(),
                 u.getEmail(),
                 u.getEmailVerifie(),
+                u.getBlocked(),
                 u.getRole(),
                 u.getTelephone(),
                 u.getVille(),

@@ -9,6 +9,8 @@ public record BackofficeOverviewDto(
         List<Integer> analyticsSeries,
         List<Integer> promoUsageSeries,
         List<LowStockItemDto> lowStock,
-        List<TopProductDto> topProducts
+        List<TopProductDto> topProducts,
+        List<TeamActivityItemDto> teamActivity,
+        TeamProductivityDto teamProductivity
 ) {
 }

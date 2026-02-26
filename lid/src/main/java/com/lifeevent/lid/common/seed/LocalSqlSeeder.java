@@ -51,6 +51,7 @@ public class LocalSqlSeeder implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        ensureCourierRoleEnum();
         if (!enabled) {
             log.info("DB seed disabled (config.seed.enabled=false).");
             return;
@@ -65,6 +66,16 @@ public class LocalSqlSeeder implements ApplicationRunner {
 
         ensureAdminPassword();
         ensureDemoCustomer();
+    }
+
+    private void ensureCourierRoleEnum() {
+        try {
+            jdbcTemplate.execute(
+                    "alter table utilisateur modify column role enum ('CLIENT','LIVREUR','IT','SUSPENDU','SUPPRIME','PARTENAIRE','ADMIN','SUPER_ADMIN') not null"
+            );
+        } catch (Exception ex) {
+            log.debug("Unable to ensure LIVREUR role enum: {}", ex.getMessage());
+        }
     }
 
     private boolean hasAnyRows(String table) {

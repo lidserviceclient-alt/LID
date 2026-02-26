@@ -2,6 +2,7 @@ package com.lifeevent.lid.core.controller;
 
 import com.lifeevent.lid.core.dto.BackofficeUserDto;
 import com.lifeevent.lid.core.dto.CreateBackofficeUserRequest;
+import com.lifeevent.lid.core.dto.CreateCourierAccountRequest;
 import com.lifeevent.lid.core.dto.UpdateBackofficeUserRequest;
 import com.lifeevent.lid.core.enums.RoleUtilisateur;
 import com.lifeevent.lid.core.service.BackofficeUserService;
@@ -42,6 +43,11 @@ public class BackofficeUsersController {
         return userService.create(request);
     }
 
+    @PostMapping("/couriers")
+    public BackofficeUserDto createCourier(@Valid @RequestBody CreateCourierAccountRequest request) {
+        return userService.createCourierAccount(request);
+    }
+
     @PutMapping("/{id}")
     public BackofficeUserDto update(@PathVariable String id, @Valid @RequestBody UpdateBackofficeUserRequest request) {
         return userService.update(id, request);
@@ -51,5 +57,14 @@ public class BackofficeUsersController {
     public void delete(@PathVariable String id) {
         userService.delete(id);
     }
-}
 
+    @PostMapping("/{id}/block")
+    public BackofficeUserDto block(@PathVariable String id) {
+        return userService.block(id);
+    }
+
+    @PostMapping("/{id}/unblock")
+    public BackofficeUserDto unblock(@PathVariable String id) {
+        return userService.unblock(id);
+    }
+}

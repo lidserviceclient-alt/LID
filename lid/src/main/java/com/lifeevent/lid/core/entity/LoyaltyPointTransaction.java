@@ -20,16 +20,27 @@ import java.time.LocalDateTime;
 @Setter
 public class LoyaltyPointTransaction extends UuidEntity {
 
+    public enum Type {
+        ORDER,
+        ADJUSTMENT
+    }
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "utilisateur_id", nullable = false)
     private Utilisateur utilisateur;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "commande_id", nullable = false)
+    @ManyToOne(optional = true)
+    @JoinColumn(name = "commande_id", nullable = true)
     private Commande commande;
 
     @Column(name = "points", nullable = false)
     private Integer points;
+
+    @Column(name = "type", nullable = false, length = 20)
+    private String type;
+
+    @Column(name = "reason", length = 255)
+    private String reason;
 
     @Column(name = "date_creation")
     private LocalDateTime dateCreation;
@@ -37,6 +48,6 @@ public class LoyaltyPointTransaction extends UuidEntity {
     @PrePersist
     void onCreate() {
         if (dateCreation == null) dateCreation = LocalDateTime.now();
+        if (type == null || type.isBlank()) type = Type.ORDER.name();
     }
 }
-

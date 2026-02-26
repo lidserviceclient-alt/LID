@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
@@ -35,19 +36,22 @@ public class ProductService {
     private final CategorieRepository categorieRepository;
     private final ProduitImageRepository produitImageRepository;
     private final StockMouvementRepository stockMouvementRepository;
+    private final EanService eanService;
 
     public ProductService(ProduitRepository produitRepository, 
                           StockRepository stockRepository,
                           BoutiqueRepository boutiqueRepository,
                           CategorieRepository categorieRepository,
                           ProduitImageRepository produitImageRepository,
-                          StockMouvementRepository stockMouvementRepository) {
+                          StockMouvementRepository stockMouvementRepository,
+                          EanService eanService) {
         this.produitRepository = produitRepository;
         this.stockRepository = stockRepository;
         this.boutiqueRepository = boutiqueRepository;
         this.categorieRepository = categorieRepository;
         this.produitImageRepository = produitImageRepository;
         this.stockMouvementRepository = stockMouvementRepository;
+        this.eanService = eanService;
     }
 
     public Page<ProductSummaryDto> listProducts(Pageable pageable) {
@@ -57,6 +61,28 @@ public class ProductService {
     @Transactional(readOnly = true)
     public Page<CatalogProductDto> listCatalogProducts(Pageable pageable) {
         return produitRepository.findByStatutNot(StatutProduit.ARCHIVE, pageable).map(this::toCatalogDto);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CatalogProductDto> searchCatalogProducts(Pageable pageable, String q, List<String> categoryTokens) {
+        String query = q == null ? null : q.trim();
+        if (query != null && query.isBlank()) query = null;
+
+        List<String> cats = null;
+        if (categoryTokens != null && !categoryTokens.isEmpty()) {
+            cats = categoryTokens.stream()
+                    .map((v) -> v == null ? "" : v.trim())
+                    .filter((v) -> !v.isBlank())
+                    .map((v) -> v.toLowerCase(Locale.ROOT))
+                    .toList();
+            if (cats.isEmpty()) cats = null;
+        }
+
+        if (query == null && cats == null) {
+            return listCatalogProducts(pageable);
+        }
+
+        return produitRepository.searchCatalog(StatutProduit.ARCHIVE, query, cats, pageable).map(this::toCatalogDto);
     }
 
     @Transactional(readOnly = true)
@@ -73,6 +99,15 @@ public class ProductService {
         int safeLimit = limit == null ? 12 : Math.max(1, Math.min(limit, 50));
         Pageable pageable = PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "dateCreation"));
         return produitRepository.findByIsBestSellerTrueAndStatutNot(StatutProduit.ARCHIVE, pageable)
+                .map(this::toCatalogDto)
+                .getContent();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CatalogProductDto> listLatestCatalogProducts(Integer limit) {
+        int safeLimit = limit == null ? 20 : Math.max(1, Math.min(limit, 50));
+        Pageable pageable = PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "dateCreation"));
+        return produitRepository.findByStatutNot(StatutProduit.ARCHIVE, pageable)
                 .map(this::toCatalogDto)
                 .getContent();
     }
@@ -145,7 +180,12 @@ public class ProductService {
 
         String catIdOrSlug = request.getCategory();
         if ((catIdOrSlug == null || catIdOrSlug.isBlank()) && request.getCategories() != null && !request.getCategories().isEmpty()) {
-            catIdOrSlug = request.getCategories().get(0);
+            for (String value : request.getCategories()) {
+                if (value != null && !value.isBlank()) {
+                    catIdOrSlug = value;
+                    break;
+                }
+            }
         }
 
         Categorie categorie;
@@ -159,11 +199,23 @@ public class ProductService {
         }
 
         // 3. Create Product
+        String sku = request.getSku() != null && !request.getSku().isBlank()
+                ? request.getSku().trim()
+                : request.getReferenceProduitPartenaire().trim();
+        if (sku.isBlank()) {
+            throw new IllegalArgumentException("SKU requis.");
+        }
+        if (produitRepository.findByReferencePartenaireIgnoreCase(sku).isPresent()) {
+            throw new IllegalArgumentException("SKU déjà utilisé.");
+        }
+        String ean = eanService.ensureValidOrGenerate(sku, request.getEan());
+
         Produit produit = new Produit();
         produit.setBoutique(boutique);
         produit.setCategorie(categorie);
         produit.setNom(request.getName());
-        produit.setReferencePartenaire(request.getReferenceProduitPartenaire());
+        produit.setReferencePartenaire(sku);
+        produit.setEan(ean);
         // Simple slug generation
         produit.setSlug(request.getName().toLowerCase().replace(" ", "-") + "-" + UUID.randomUUID().toString().substring(0, 8));
         produit.setDescription(request.getDescription());
@@ -217,8 +269,27 @@ public class ProductService {
                 .map(Stock::getQuantiteDisponible)
                 .orElse(0);
 
+        if (request.getReferencePartenaire() != null && !request.getReferencePartenaire().isBlank()) {
+            String currentSku = produit.getReferencePartenaire() == null ? "" : produit.getReferencePartenaire().trim();
+            String nextSku = request.getReferencePartenaire().trim();
+            if (!nextSku.equalsIgnoreCase(currentSku)) {
+                throw new IllegalArgumentException("Le SKU ne peut pas être modifié.");
+            }
+        }
+
         if (request.getName() != null) {
             produit.setNom(request.getName());
+        }
+        if (request.getEan() != null) {
+            String next = request.getEan().trim();
+            if (next.isEmpty()) {
+                produit.setEan(eanService.regenerate(produit.getReferencePartenaire()));
+            } else {
+                String current = produit.getEan() == null ? "" : produit.getEan().trim();
+                if (!next.equals(current)) {
+                    produit.setEan(eanService.ensureValidOrGenerate(produit.getReferencePartenaire(), next));
+                }
+            }
         }
         if (request.getDescription() != null) {
             produit.setDescription(request.getDescription());
@@ -261,10 +332,6 @@ public class ProductService {
             produit.setCategorie(categorie);
         }
         
-        if (request.getReferencePartenaire() != null) {
-            produit.setReferencePartenaire(request.getReferencePartenaire());
-        }
-
         produit = produitRepository.save(produit);
 
         if (request.getStock() != null) {
@@ -347,9 +414,15 @@ public class ProductService {
         Stock stock = stockRepository.findByProduit(produit).orElse(null);
         Integer stockQty = stock != null ? stock.getQuantiteDisponible() : 0;
 
+        if (produit.getEan() == null || produit.getEan().trim().isEmpty()) {
+            produit.setEan(eanService.regenerate(produit.getReferencePartenaire()));
+            produitRepository.save(produit);
+        }
+
         return new ProductSummaryDto(
             produit.getId(),
             produit.getReferencePartenaire(),
+            produit.getEan(),
             produit.getNom(),
             categoryId,
             categoryName,

@@ -118,6 +118,15 @@ public class MarketingAutomationService {
             processDeliveries(campaign, batchLimit);
             syncCampaignCountsAndStatus(campaign);
         } catch (Exception ex) {
+            if (ex instanceof ResponseStatusException rse && rse.getStatusCode().is4xxClientError()) {
+                campaign.setStatus(MarketingCampaignStatus.ACTIVE);
+                campaign.setScheduledAt(null);
+                campaign.setLastError(rse.getReason() != null ? rse.getReason() : ex.getMessage());
+                campaign.setNextRetryAt(null);
+                marketingCampaignRepository.save(campaign);
+                return;
+            }
+
             int attempts = campaign.getAttempts() == null ? 0 : campaign.getAttempts();
             attempts += 1;
             campaign.setAttempts(attempts);

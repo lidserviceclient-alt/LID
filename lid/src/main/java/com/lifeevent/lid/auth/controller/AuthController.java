@@ -7,6 +7,7 @@ import com.lifeevent.lid.auth.dto.LoginRequest;
 import com.lifeevent.lid.auth.dto.RefreshResponse;
 import com.lifeevent.lid.auth.dto.ResetPasswordRequest;
 import com.lifeevent.lid.auth.dto.VerifyResetCodeRequest;
+import com.lifeevent.lid.auth.dto.VerifyAdminMfaRequest;
 import com.lifeevent.lid.auth.service.AuthService;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,6 +39,11 @@ public class AuthController implements IAuthController {
     @PostMapping("/login/local")
     public AuthResponse loginLocal(@Valid @RequestBody LoginRequest request) {
         return authService.loginLocal(request);
+    }
+
+    @PostMapping("/login/local/verify")
+    public AuthResponse verifyAdminMfa(@Valid @RequestBody VerifyAdminMfaRequest request) {
+        return authService.verifyAdminMfa(request.mfaTokenId(), request.code());
     }
 
     @Override

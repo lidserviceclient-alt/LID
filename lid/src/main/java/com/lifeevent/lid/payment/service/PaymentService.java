@@ -3,7 +3,6 @@ package com.lifeevent.lid.payment.service;
 import com.lifeevent.lid.payment.dto.CreatePaymentRequestDto;
 import com.lifeevent.lid.payment.dto.PaymentResponseDto;
 import com.lifeevent.lid.payment.dto.PaymentStatusResponseDto;
-import com.lifeevent.lid.payment.entity.Payment;
 
 import java.util.List;
 
@@ -16,6 +15,8 @@ public interface PaymentService {
      * Crée une facture de paiement et retourne l'URL de redirection PayDunya
      */
     PaymentResponseDto createPayment(CreatePaymentRequestDto request);
+
+    PaymentResponseDto createLocalPayment(CreatePaymentRequestDto request);
     
     /**
      * Vérifie le statut d'un paiement via le token

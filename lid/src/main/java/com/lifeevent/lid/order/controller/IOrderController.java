@@ -38,7 +38,7 @@ public interface IOrderController {
         @ApiResponse(responseCode = "400", description = "Requête invalide")
     })
     @PostMapping("/checkout")
-    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
+    @PreAuthorize("@securityConfig.isLocalProfile() or (hasRole('CUSTOMER') and #customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     ResponseEntity<CheckoutResponseDto> checkout(
             @Parameter(description = "ID du client", example = "1", required = true)
             @RequestParam String customerId,
@@ -57,7 +57,7 @@ public interface IOrderController {
         @ApiResponse(responseCode = "400", description = "Requête invalide")
     })
     @PostMapping("/checkout/quote")
-    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
+    @PreAuthorize("@securityConfig.isLocalProfile() or (hasRole('CUSTOMER') and #customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     ResponseEntity<OrderQuoteResponse> quoteCheckout(
             @Parameter(description = "ID du client", example = "1", required = true)
             @RequestParam String customerId,

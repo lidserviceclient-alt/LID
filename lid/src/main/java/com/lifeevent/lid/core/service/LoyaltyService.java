@@ -1,8 +1,12 @@
 package com.lifeevent.lid.core.service;
 
 import com.lifeevent.lid.core.dto.LoyaltyConfigDto;
+import com.lifeevent.lid.core.dto.LoyaltyCustomerDto;
 import com.lifeevent.lid.core.dto.LoyaltyOverviewDto;
 import com.lifeevent.lid.core.dto.LoyaltyTierDto;
+import com.lifeevent.lid.core.dto.LoyaltyTxDto;
+import com.lifeevent.lid.core.dto.CreateLoyaltyTierRequest;
+import com.lifeevent.lid.core.dto.AdjustLoyaltyPointsRequest;
 import com.lifeevent.lid.core.dto.UpdateLoyaltyTierRequest;
 import com.lifeevent.lid.core.dto.UpsertLoyaltyConfigRequest;
 import com.lifeevent.lid.core.entity.Commande;
@@ -20,11 +24,18 @@ import com.lifeevent.lid.core.repository.LoyaltyTierRepository;
 import com.lifeevent.lid.core.repository.UtilisateurRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class LoyaltyService {
@@ -32,6 +43,7 @@ public class LoyaltyService {
     private static final BigDecimal DEFAULT_POINTS_PER_FCFA = new BigDecimal("0.001");
     private static final BigDecimal DEFAULT_VALUE_PER_POINT = new BigDecimal("0.10");
     private static final int DEFAULT_RETENTION_DAYS = 30;
+    private static final Pattern DISCOUNT_PERCENT_PATTERN = Pattern.compile("(-?\\s*\\d{1,2}(?:[\\.,]\\d{1,2})?)\\s*%");
 
     private final LoyaltyConfigRepository loyaltyConfigRepository;
     private final LoyaltyTierRepository loyaltyTierRepository;
@@ -54,6 +66,15 @@ public class LoyaltyService {
         this.utilisateurRepository = utilisateurRepository;
     }
 
+    public record LoyaltyPricing(
+            boolean applied,
+            String tierName,
+            BigDecimal discountPercent,
+            BigDecimal discountAmount,
+            int points
+    ) {
+    }
+
     @Transactional
     public LoyaltyOverviewDto overview() {
         LoyaltyConfig config = ensureConfig();
@@ -62,13 +83,8 @@ public class LoyaltyService {
         long points = customerLoyaltyRepository.sumAllPoints();
         BigDecimal value = BigDecimal.valueOf(points).multiply(config.getValuePerPointFcfa()).setScale(0, RoundingMode.HALF_UP);
 
-        List<LoyaltyTier> tiers = loyaltyTierRepository.findAllByOrderByRankOrderAscMinPointsAsc();
-        int vipThreshold = tiers.stream()
-                .filter(t -> t.getRankOrder() != null && t.getRankOrder() >= 2)
-                .map(LoyaltyTier::getMinPoints)
-                .filter(v -> v != null)
-                .min(Integer::compareTo)
-                .orElse(0);
+        List<LoyaltyTier> tiers = loadTiersOrdered();
+        int vipThreshold = tiers.size() >= 2 && tiers.get(1).getMinPoints() != null ? tiers.get(1).getMinPoints() : 0;
         long vipMembers = customerLoyaltyRepository.countByPointsAtLeast(vipThreshold);
 
         LocalDateTime from = LocalDateTime.now().minusDays(Math.max(1, config.getRetentionDays()));
@@ -79,24 +95,186 @@ public class LoyaltyService {
         return new LoyaltyOverviewDto(vipMembers, points, value, round1(retention));
     }
 
+    @Transactional(readOnly = true)
+    public java.util.List<LoyaltyCustomerDto> topCustomers(int limit) {
+        ensureDefaultTiers();
+        int size = Math.max(1, Math.min(limit, 50));
+        List<CustomerLoyalty> list = customerLoyaltyRepository.findAll(
+                PageRequest.of(0, size, Sort.by(Sort.Direction.DESC, "points").and(Sort.by(Sort.Direction.DESC, "dateMiseAJour")))
+        ).getContent();
+
+        return list.stream()
+                .filter((c) -> c != null && c.getUtilisateur() != null && c.getUtilisateur().getRole() == RoleUtilisateur.CLIENT)
+                .map((c) -> {
+                    int points = c.getPoints() == null ? 0 : c.getPoints();
+                    LoyaltyTier tier = resolveTierForPoints(points);
+                    Utilisateur u = c.getUtilisateur();
+                    return new LoyaltyCustomerDto(
+                            u.getId(),
+                            u.getEmail(),
+                            u.getTelephone(),
+                            points,
+                            tier != null ? tier.getName() : null
+                    );
+                })
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<LoyaltyCustomerDto> searchCustomers(String q, int page, int size) {
+        ensureDefaultTiers();
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(size, 50));
+        Page<CustomerLoyalty> res = customerLoyaltyRepository.search(q != null && !q.isBlank() ? q.trim() : null,
+                PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "points").and(Sort.by(Sort.Direction.DESC, "dateMiseAJour"))));
+
+        return res.map((c) -> {
+            Utilisateur u = c.getUtilisateur();
+            int points = c.getPoints() == null ? 0 : c.getPoints();
+            LoyaltyTier tier = resolveTierForPoints(points);
+            return new LoyaltyCustomerDto(
+                    u.getId(),
+                    u.getEmail(),
+                    u.getTelephone(),
+                    points,
+                    tier != null ? tier.getName() : null
+            );
+        });
+    }
+
+    @Transactional
+    public LoyaltyTierDto createTier(CreateLoyaltyTierRequest request) {
+        ensureDefaultTiers();
+        String name = request.getName() != null ? request.getName().trim() : "";
+        if (name.isBlank()) throw new RuntimeException("Nom obligatoire");
+        if (request.getMinPoints() == null || request.getMinPoints() < 0) throw new RuntimeException("Points requis invalides");
+        loyaltyTierRepository.findByNameIgnoreCase(name).ifPresent((existing) -> {
+            throw new RuntimeException("Ce niveau existe déjà");
+        });
+
+        LoyaltyTier tier = new LoyaltyTier();
+        tier.setName(name);
+        tier.setMinPoints(request.getMinPoints());
+        tier.setBenefits(request.getBenefits() != null && !request.getBenefits().trim().isBlank() ? request.getBenefits().trim() : null);
+        tier.setRankOrder(0);
+        tier = loyaltyTierRepository.save(tier);
+        normalizeRanks();
+
+        return new LoyaltyTierDto(tier.getId(), tier.getName(), tier.getMinPoints(), 0L, tier.getBenefits());
+    }
+
+    @Transactional
+    public void deleteTier(String id) {
+        if (id == null || id.isBlank()) throw new RuntimeException("Niveau introuvable");
+        LoyaltyTier tier = loyaltyTierRepository.findById(id).orElseThrow(() -> new RuntimeException("Niveau introuvable"));
+        long count = loyaltyTierRepository.count();
+        if (count <= 1) throw new RuntimeException("Impossible de supprimer le dernier niveau");
+        loyaltyTierRepository.delete(tier);
+        normalizeRanks();
+    }
+
+    @Transactional
+    public LoyaltyCustomerDto getCustomer(String userId) {
+        if (userId == null || userId.isBlank()) throw new RuntimeException("Client introuvable");
+        Utilisateur u = utilisateurRepository.findById(userId).orElseThrow(() -> new RuntimeException("Client introuvable"));
+        if (u.getRole() != RoleUtilisateur.CLIENT) throw new RuntimeException("Client introuvable");
+
+        CustomerLoyalty loyalty = customerLoyaltyRepository.findByUtilisateurId(u.getId()).orElseGet(() -> {
+            CustomerLoyalty cl = new CustomerLoyalty();
+            cl.setUtilisateur(u);
+            cl.setPoints(0);
+            cl.setDateMiseAJour(java.time.LocalDateTime.now());
+            return customerLoyaltyRepository.save(cl);
+        });
+
+        int points = loyalty.getPoints() == null ? 0 : loyalty.getPoints();
+        LoyaltyTier tier = resolveTierForPoints(points);
+        return new LoyaltyCustomerDto(u.getId(), u.getEmail(), u.getTelephone(), points, tier != null ? tier.getName() : null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<LoyaltyTxDto> listTransactions(String userId, int page, int size) {
+        if (userId == null || userId.isBlank()) throw new RuntimeException("Client introuvable");
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(size, 50));
+        Page<LoyaltyPointTransaction> txs = loyaltyPointTransactionRepository.findByUtilisateurIdOrderByDateCreationDesc(
+                userId,
+                PageRequest.of(safePage, safeSize)
+        );
+        return txs.map((tx) -> new LoyaltyTxDto(
+                tx.getId(),
+                tx.getType(),
+                tx.getPoints(),
+                tx.getReason(),
+                tx.getCommande() != null ? tx.getCommande().getId() : null,
+                tx.getDateCreation()
+        ));
+    }
+
+    @Transactional
+    public LoyaltyCustomerDto adjustPoints(String userId, AdjustLoyaltyPointsRequest request) {
+        if (request == null || request.getDeltaPoints() == null) throw new RuntimeException("Requête invalide");
+        int delta = request.getDeltaPoints();
+        if (delta == 0) throw new RuntimeException("Delta invalide");
+
+        CustomerLoyalty loyalty = customerLoyaltyRepository.findByUtilisateurId(userId).orElseThrow(() -> new RuntimeException("Client introuvable"));
+        int current = loyalty.getPoints() == null ? 0 : loyalty.getPoints();
+        int next = current + delta;
+        if (next < 0) throw new RuntimeException("Points insuffisants");
+
+        loyalty.setPoints(next);
+        loyalty.setDateMiseAJour(java.time.LocalDateTime.now());
+        customerLoyaltyRepository.save(loyalty);
+
+        LoyaltyPointTransaction tx = new LoyaltyPointTransaction();
+        tx.setUtilisateur(loyalty.getUtilisateur());
+        tx.setCommande(null);
+        tx.setPoints(delta);
+        tx.setType(LoyaltyPointTransaction.Type.ADJUSTMENT.name());
+        String reason = request.getReason() != null ? request.getReason().trim() : "";
+        tx.setReason(reason.isBlank() ? null : reason);
+        loyaltyPointTransactionRepository.save(tx);
+
+        return getCustomer(userId);
+    }
+
+    @Transactional(readOnly = true)
+    public LoyaltyPricing quotePricingForEmail(String email, BigDecimal subTotal, boolean promoApplied) {
+        if (promoApplied) return new LoyaltyPricing(false, null, BigDecimal.ZERO, BigDecimal.ZERO, 0);
+        if (subTotal == null || subTotal.compareTo(BigDecimal.ZERO) <= 0) return new LoyaltyPricing(false, null, BigDecimal.ZERO, BigDecimal.ZERO, 0);
+        String safeEmail = email == null ? "" : email.trim();
+        if (safeEmail.isBlank()) return new LoyaltyPricing(false, null, BigDecimal.ZERO, BigDecimal.ZERO, 0);
+
+        ensureDefaultTiers();
+        Utilisateur u = utilisateurRepository.findByEmail(safeEmail).orElse(null);
+        if (u == null || u.getId() == null) return new LoyaltyPricing(false, null, BigDecimal.ZERO, BigDecimal.ZERO, 0);
+
+        CustomerLoyalty loyalty = customerLoyaltyRepository.findByUtilisateurId(u.getId()).orElse(null);
+        int points = loyalty != null && loyalty.getPoints() != null ? loyalty.getPoints() : 0;
+
+        LoyaltyTier tier = resolveTierForPoints(points);
+        if (tier == null) return new LoyaltyPricing(false, null, BigDecimal.ZERO, BigDecimal.ZERO, points);
+
+        BigDecimal percent = parseDiscountPercent(tier.getBenefits());
+        if (percent.compareTo(BigDecimal.ZERO) <= 0) return new LoyaltyPricing(false, tier.getName(), BigDecimal.ZERO, BigDecimal.ZERO, points);
+
+        BigDecimal discount = subTotal.multiply(percent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        if (discount.compareTo(BigDecimal.ZERO) <= 0) return new LoyaltyPricing(false, tier.getName(), percent, BigDecimal.ZERO, points);
+        if (discount.compareTo(subTotal) > 0) discount = subTotal;
+
+        return new LoyaltyPricing(true, tier.getName(), percent, discount, points);
+    }
+
     @Transactional
     public List<LoyaltyTierDto> listTiers() {
         ensureDefaultTiers();
-        List<LoyaltyTier> tiers = loyaltyTierRepository.findAllByOrderByRankOrderAscMinPointsAsc();
-        for (int i = 0; i < tiers.size(); i++) {
-            LoyaltyTier current = tiers.get(i);
-            Integer max = (i + 1 < tiers.size()) ? tiers.get(i + 1).getMinPoints() : null;
-            long members = customerLoyaltyRepository.countByPointsRange(current.getMinPoints(), max);
-            current.setBenefits(current.getBenefits());
-        }
-
+        List<LoyaltyTier> tiers = loadTiersOrdered();
         return tiers.stream()
                 .map((t) -> {
                     Integer max = null;
-                    List<LoyaltyTier> ordered = tiers;
-                    int idx = ordered.indexOf(t);
-                    if (idx >= 0 && idx + 1 < ordered.size()) {
-                        max = ordered.get(idx + 1).getMinPoints();
+                    int idx = tiers.indexOf(t);
+                    if (idx >= 0 && idx + 1 < tiers.size()) {
+                        max = tiers.get(idx + 1).getMinPoints();
                     }
                     long members = customerLoyaltyRepository.countByPointsRange(t.getMinPoints(), max);
                     return new LoyaltyTierDto(t.getId(), t.getName(), t.getMinPoints(), members, t.getBenefits());
@@ -148,7 +326,8 @@ public class LoyaltyService {
         tier.setBenefits(request.getBenefits() != null && !request.getBenefits().trim().isBlank() ? request.getBenefits().trim() : null);
         tier = loyaltyTierRepository.save(tier);
 
-        List<LoyaltyTier> ordered = loyaltyTierRepository.findAllByOrderByRankOrderAscMinPointsAsc();
+        normalizeRanks();
+        List<LoyaltyTier> ordered = loadTiersOrdered();
         Integer max = null;
         int idx = ordered.indexOf(tier);
         if (idx >= 0 && idx + 1 < ordered.size()) max = ordered.get(idx + 1).getMinPoints();
@@ -186,7 +365,72 @@ public class LoyaltyService {
         tx.setUtilisateur(client);
         tx.setCommande(commande);
         tx.setPoints(points);
+        tx.setType(LoyaltyPointTransaction.Type.ORDER.name());
+        tx.setReason("Commande livrée");
         loyaltyPointTransactionRepository.save(tx);
+    }
+
+    private LoyaltyTier resolveTierForPoints(int points) {
+        List<LoyaltyTier> tiers = loadTiersOrdered();
+        LoyaltyTier best = null;
+        for (LoyaltyTier t : tiers) {
+            if (t == null || t.getMinPoints() == null) continue;
+            if (points < t.getMinPoints()) continue;
+            best = t;
+        }
+        return best;
+    }
+
+    @Transactional(readOnly = true)
+    public String tierNameForPoints(int points) {
+        ensureDefaultTiers();
+        LoyaltyTier tier = resolveTierForPoints(points);
+        return tier != null ? tier.getName() : null;
+    }
+
+    private List<LoyaltyTier> loadTiersOrdered() {
+        List<LoyaltyTier> tiers = new ArrayList<>(loyaltyTierRepository.findAll());
+        tiers.sort(Comparator
+                .comparing(LoyaltyTier::getMinPoints, Comparator.nullsLast(Integer::compareTo))
+                .thenComparing(LoyaltyTier::getRankOrder, Comparator.nullsLast(Integer::compareTo))
+                .thenComparing(LoyaltyTier::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
+        return tiers;
+    }
+
+    private void normalizeRanks() {
+        List<LoyaltyTier> tiers = loadTiersOrdered();
+        boolean changed = false;
+        for (int i = 0; i < tiers.size(); i++) {
+            LoyaltyTier t = tiers.get(i);
+            int desired = i + 1;
+            if (t.getRankOrder() == null || t.getRankOrder() != desired) {
+                t.setRankOrder(desired);
+                changed = true;
+            }
+        }
+        if (changed) {
+            loyaltyTierRepository.saveAll(tiers);
+        }
+    }
+
+    private static BigDecimal parseDiscountPercent(String benefits) {
+        String text = benefits == null ? "" : benefits;
+        Matcher m = DISCOUNT_PERCENT_PATTERN.matcher(text);
+        BigDecimal best = BigDecimal.ZERO;
+        while (m.find()) {
+            String raw = m.group(1);
+            if (raw == null) continue;
+            String normalized = raw.replace(" ", "").replace(",", ".");
+            if (normalized.startsWith("-")) normalized = normalized.substring(1);
+            try {
+                BigDecimal v = new BigDecimal(normalized);
+                if (v.compareTo(best) > 0) best = v;
+            } catch (Exception ignored) {
+            }
+        }
+        if (best.compareTo(BigDecimal.ZERO) < 0) return BigDecimal.ZERO;
+        if (best.compareTo(BigDecimal.valueOf(100)) > 0) return BigDecimal.valueOf(100);
+        return best;
     }
 
     private LoyaltyConfig ensureConfig() {
