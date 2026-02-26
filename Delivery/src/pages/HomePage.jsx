@@ -1,157 +1,239 @@
 import { motion } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, RefreshCw } from 'lucide-react'
 
-function HomePage() {
-  const navigate = useNavigate()
+import { getKpis, getShipments } from '../services/logistics'
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }}
-      transition={{ duration: 0.34, ease: 'easeOut' }}
-      className="min-h-screen px-4 py-6 sm:px-6 lg:px-8"
-    >
-      <div className="mx-auto max-w-6xl space-y-6">
-        <header className="lid-card rounded-3xl p-5 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-sm text-slate-500">LID Operations</p>
-              <h1 className="font-display mt-1 text-3xl font-semibold tracking-tight text-slate-900">
-                Tableau de bord livraison
-              </h1>
-              <p className="mt-2 text-sm text-slate-500">Suivi en temps reel des courses, statuts et activite terrain.</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => navigate('/explore')}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
-              >
-                Explore
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/login')}
-                className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
-              >
-                Connexion
-              </button>
-            </div>
-          </div>
+const MotionDiv = motion.div
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <article className="rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="text-xs text-slate-500">Courses en cours</p>
-              <p className="font-display mt-1 text-2xl font-semibold">12</p>
-            </article>
-            <article className="rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="text-xs text-slate-500">Taux de reussite</p>
-              <p className="font-display mt-1 text-2xl font-semibold">97.4%</p>
-            </article>
-            <article className="rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="text-xs text-slate-500">Revenu journalier</p>
-              <p className="font-display mt-1 text-2xl font-semibold">$245.00</p>
-            </article>
-            <article className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-xs text-emerald-700">Statut flotte</p>
-              <p className="font-display mt-1 text-2xl font-semibold text-emerald-800">Operationnel</p>
-            </article>
-          </div>
-        </header>
+const STATUS_KEY = 'lid_delivery_status'
 
-        <main className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <section className="space-y-6">
-            <article className="lid-card rounded-3xl p-5 sm:p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-display text-xl font-semibold">Suivi en cours</h2>
-                <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">In Transit</span>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs text-slate-500">Tracking ID</p>
-                <p className="font-display text-xl font-semibold">PAQ-327-P21</p>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl bg-white p-3">
-                    <p className="text-xs text-slate-500">Depart</p>
-                    <p className="text-sm font-semibold text-slate-800">15, Idumota RD</p>
-                  </div>
-                  <div className="rounded-xl bg-white p-3">
-                    <p className="text-xs text-slate-500">Destination</p>
-                    <p className="text-sm font-semibold text-slate-800">21, Ikeja Lagos</p>
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
-                    <span>Received</span>
-                    <span>In Transit</span>
-                    <span>Delivered</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-3 w-3 rounded-full border-2 border-slate-900 bg-white" />
-                    <span className="h-[2px] flex-1 bg-slate-900" />
-                    <span className="h-3 w-3 rounded-full border-2 border-slate-900 bg-white" />
-                    <span className="h-[2px] flex-1 bg-slate-300" />
-                    <span className="h-3 w-3 rounded-full bg-slate-300" />
-                  </div>
-                </div>
-              </div>
-            </article>
-
-            <article className="lid-card rounded-3xl p-5 sm:p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-display text-xl font-semibold">Activites recentes</h2>
-                <button className="text-xs font-semibold text-slate-500">Voir tout</button>
-              </div>
-
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-slate-800">PAQ-401-A36</p>
-                    <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">Completed</span>
-                  </div>
-                  <p className="mt-1 text-sm text-slate-500">iPhone 17 Pro Max 256G</p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-slate-800">PAQ-412-C11</p>
-                    <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-700">In Transit</span>
-                  </div>
-                  <p className="mt-1 text-sm text-slate-500">Samsung 75\" OLED Display</p>
-                </div>
-              </div>
-            </article>
-          </section>
-
-          <aside className="space-y-6">
-            <article className="lid-card rounded-3xl p-5 sm:p-6">
-              <h2 className="font-display text-xl font-semibold">Delivery Details</h2>
-              <div className="mt-4 space-y-2 text-sm">
-                <div className="flex items-center justify-between"><span className="text-slate-500">Receiver</span><span className="font-semibold">John Doe</span></div>
-                <div className="flex items-center justify-between"><span className="text-slate-500">Address</span><span className="font-semibold">12, Palm Groove</span></div>
-                <div className="flex items-center justify-between"><span className="text-slate-500">Contact</span><span className="font-semibold">+234 - 123 - 201 - 419</span></div>
-                <div className="flex items-center justify-between"><span className="text-slate-500">Item</span><span className="font-semibold">Samsung 75\" OLED</span></div>
-                <div className="flex items-center justify-between"><span className="text-slate-500">Note</span><span className="font-semibold text-red-500">Fragile</span></div>
-              </div>
-              <button className="mt-4 w-full rounded-xl bg-slate-950 py-3 text-sm font-semibold text-white">Track Shipping</button>
-            </article>
-
-            <article className="lid-card rounded-3xl p-5 sm:p-6">
-              <h2 className="font-display text-xl font-semibold">Historique</h2>
-              <div className="mt-4 space-y-3 text-sm text-slate-600">
-                <div className="grid grid-cols-[70px_1fr] gap-3"><span className="font-semibold text-slate-900">9:30</span><p>Le colis est arrive au centre de tri local.</p></div>
-                <div className="grid grid-cols-[70px_1fr] gap-3"><span className="font-semibold text-slate-900">12:00</span><p>Le colis est sorti en livraison. ETA: 26 Jan.</p></div>
-                <div className="grid grid-cols-[70px_1fr] gap-3"><span className="font-semibold text-slate-900">15:45</span><p>Le colis est en traitement au hub regional.</p></div>
-              </div>
-            </article>
-          </aside>
-        </main>
-      </div>
-    </motion.div>
-  )
+function getSavedStatus() {
+  try {
+    const s = localStorage.getItem(STATUS_KEY)
+    return s || 'AVAILABLE'
+  } catch {
+    return 'AVAILABLE'
+  }
 }
 
-export default HomePage
+function saveStatus(value) {
+  try {
+    localStorage.setItem(STATUS_KEY, value)
+  } catch {
+    // ignore
+  }
+}
+
+function formatNumber(value) {
+  if (value === null || value === undefined) return '-'
+  const n = Number(value)
+  if (!Number.isFinite(n)) return `${value}`
+  return new Intl.NumberFormat('fr-FR').format(n)
+}
+
+function toCourierStatusUi(value) {
+  const s = `${value || ''}`.trim().toUpperCase()
+  if (s === 'AVAILABLE') return { label: 'Disponible', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+  if (s === 'DELIVERING') return { label: 'En livraison', className: 'bg-sky-50 text-sky-700 border-sky-200' }
+  if (s === 'OFFLINE') return { label: 'Hors ligne', className: 'bg-slate-100 text-slate-700 border-slate-200' }
+  return { label: 'Disponible', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+}
+
+function toShipmentStatusUi(status) {
+  const s = `${status || ''}`.trim().toUpperCase()
+  if (s === 'EN_PREPARATION') return { label: 'À récupérer', className: 'bg-slate-100 text-slate-700' }
+  if (s === 'EN_COURS') return { label: 'En cours', className: 'bg-sky-100 text-sky-700' }
+  if (s === 'LIVREE') return { label: 'Livrée', className: 'bg-emerald-100 text-emerald-700' }
+  if (s === 'ECHEC') return { label: 'Échec', className: 'bg-rose-100 text-rose-700' }
+  return { label: s || '-', className: 'bg-slate-100 text-slate-700' }
+}
+
+export default function HomePage() {
+  const navigate = useNavigate()
+  const [courierStatus, setCourierStatus] = useState(getSavedStatus())
+  const [kpis, setKpis] = useState(null)
+  const [active, setActive] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const courierStatusUi = useMemo(() => toCourierStatusUi(courierStatus), [courierStatus])
+
+  const load = async () => {
+    setIsLoading(true)
+    setError('')
+    try {
+      const [k, page] = await Promise.all([
+        getKpis(30),
+        getShipments({ page: 0, size: 4, status: 'EN_COURS' }),
+      ])
+      setKpis(k || null)
+      setActive(Array.isArray(page?.content) ? page.content : [])
+    } catch (err) {
+      setKpis(null)
+      setActive([])
+      setError(err?.message || 'Impossible de charger le tableau de bord.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  const updateStatus = (next) => {
+    setCourierStatus(next)
+    saveStatus(next)
+  }
+
+  return (
+    <MotionDiv
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className="space-y-4"
+    >
+      {error ? (
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+          {error}
+        </div>
+      ) : null}
+
+      <section className="lid-card rounded-[28px] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Aujourd’hui</p>
+            <p className="font-display mt-1 text-xl font-semibold text-slate-900">Tableau de bord</p>
+            <p className="mt-1 text-xs text-slate-500">Pensé mobile : rapide, lisible, actionnable.</p>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <span className={`rounded-full border px-3 py-1 text-[11px] font-bold ${courierStatusUi.className}`}>
+              {courierStatusUi.label}
+            </span>
+            <button
+              type="button"
+              onClick={load}
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+            >
+              <RefreshCw size={16} />
+              {isLoading ? '...' : 'Maj'}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {[
+            { key: 'AVAILABLE', label: 'Disponible' },
+            { key: 'DELIVERING', label: 'En livraison' },
+            { key: 'OFFLINE', label: 'Hors ligne' },
+          ].map((o) => {
+            const active = courierStatus === o.key
+            return (
+              <button
+                key={o.key}
+                type="button"
+                onClick={() => updateStatus(o.key)}
+                className={`rounded-2xl border px-3 py-2 text-xs font-bold transition ${
+                  active
+                    ? 'border-[var(--lid-accent)] bg-[var(--lid-accent-soft)] text-[var(--lid-accent)]'
+                    : 'border-slate-200 bg-white/70 text-slate-700 hover:bg-white'
+                }`}
+              >
+                {o.label}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">En cours</p>
+            <p className="font-display mt-1 text-2xl font-semibold text-slate-900">
+              {formatNumber(kpis?.inTransitCount)}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Délai</p>
+            <p className="font-display mt-1 text-2xl font-semibold text-slate-900">
+              {formatNumber(kpis?.avgDelayDays)}j
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Coût</p>
+            <p className="font-display mt-1 text-2xl font-semibold text-slate-900">{kpis?.avgCost ?? '-'}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={() => navigate('/deliveries?status=EN_PREPARATION')}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-3xl bg-[var(--lid-accent)] px-4 py-3 text-sm font-semibold text-white"
+          >
+            Commencer la tournée
+            <ArrowRight size={18} />
+          </button>
+          <Link
+            to="/map"
+            className="inline-flex items-center justify-center rounded-3xl border border-slate-200 bg-white/70 px-4 py-3 text-sm font-semibold text-slate-800"
+          >
+            Carte
+          </Link>
+        </div>
+      </section>
+
+      <section className="lid-card rounded-[28px] p-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="font-display text-lg font-semibold text-slate-900">Missions actives</p>
+            <p className="mt-1 text-xs text-slate-500">Dernières livraisons EN_COURS.</p>
+          </div>
+          <Link to="/deliveries?status=EN_COURS" className="text-xs font-bold text-[var(--lid-accent)]">
+            Voir tout
+          </Link>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {active.length === 0 && !isLoading ? (
+            <div className="rounded-[28px] border border-slate-200 bg-white/70 p-6 text-sm text-slate-500">
+              Aucune mission en cours.
+            </div>
+          ) : (
+            active.map((s) => {
+              const badge = toShipmentStatusUi(s?.status)
+              return (
+                <Link
+                  key={s?.id}
+                  to={`/deliveries/${encodeURIComponent(s.id)}`}
+                  className="block rounded-[28px] border border-slate-200 bg-white/70 p-4 transition hover:bg-white"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">{s?.trackingId || s?.id}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Cmd <span className="font-semibold text-slate-700">{s?.orderId || '-'}</span>
+                        {s?.carrier ? (
+                          <>
+                            {' '}
+                            • <span className="font-semibold text-slate-700">{s.carrier}</span>
+                          </>
+                        ) : null}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold ${badge.className}`}>
+                      {badge.label}
+                    </span>
+                  </div>
+                </Link>
+              )
+            })
+          )}
+        </div>
+      </section>
+    </MotionDiv>
+  )
+}

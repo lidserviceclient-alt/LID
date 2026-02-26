@@ -1,95 +1,137 @@
 import { motion } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { ArrowRight, Eye, EyeOff, Lock, Mail } from 'lucide-react'
 
-const heroImage =
-  'https://images.unsplash.com/photo-1556740758-90de374c12ad?auto=format&fit=crop&w=1600&q=80'
+import { loginLocal } from '../services/auth'
 
-function LoginPage() {
+const MotionDiv = motion.div
+
+function getRedirectTo(state) {
+  const from = state?.from
+  if (!from) return '/home'
+  if (typeof from !== 'string') return '/home'
+  if (!from.startsWith('/')) return '/home'
+  return from
+}
+
+export default function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
 
-  const handleSubmit = (event) => {
+  const redirectTo = useMemo(() => getRedirectTo(location.state), [location.state])
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  const canSubmit = email.trim() && password
+
+  const onSubmit = async (event) => {
     event.preventDefault()
-    navigate('/home')
+    if (isLoading) return
+    setError('')
+    setIsLoading(true)
+    try {
+      await loginLocal(email.trim(), password)
+      navigate(redirectTo, { replace: true })
+    } catch (err) {
+      setError(err?.message || 'Identifiants invalides.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
+    <MotionDiv
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }}
-      transition={{ duration: 0.34, ease: 'easeOut' }}
-      className="min-h-screen px-4 py-6 sm:px-6"
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className="min-h-dvh bg-noise"
     >
-      <div className="mx-auto grid min-h-[84vh] max-w-5xl overflow-hidden rounded-[28px] lid-card lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="relative hidden lg:block">
-          <img src={heroImage} alt="Delivery team" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/25 to-black/70" />
-          <div className="absolute inset-x-8 top-8 text-white">
-            <p className="font-display text-3xl font-semibold">LID</p>
-            <p className="text-xs text-white/80">Portail livreur securise</p>
+      <div className="mx-auto min-h-dvh max-w-[430px] px-4 pb-safe pt-safe">
+        <header className="pt-7">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/70 px-3 py-1 text-[11px] font-bold text-slate-700">
+            <span className="h-2 w-2 rounded-full bg-[var(--lid-accent)]" />
+            Accès livreur
           </div>
-          <div className="absolute inset-x-8 bottom-10 text-white">
-            <h1 className="font-display text-4xl font-semibold leading-tight">Connexion livreur</h1>
-            <p className="mt-3 text-sm text-white/80">Accede a tes missions, statut terrain et historique de livraisons.</p>
-          </div>
-        </section>
+          <h1 className="font-display mt-4 text-3xl font-semibold tracking-tight text-slate-950">LID Delivery</h1>
+          <p className="mt-2 text-sm text-slate-600">
+            Connexion rapide pour consulter tes missions et activer le suivi carte.
+          </p>
+        </header>
 
-        <section className="flex flex-col justify-center bg-white px-6 py-8 sm:px-10">
-          <div className="mb-8 lg:hidden">
-            <p className="font-display text-3xl font-semibold text-slate-900">LID</p>
-            <p className="text-xs text-slate-500">Portail livreur securise</p>
-          </div>
-
-          <h2 className="font-display text-3xl font-semibold text-slate-900">Se connecter</h2>
-          <p className="mt-2 text-sm text-slate-500">Saisis tes identifiants professionnels.</p>
-
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <section className="mt-6 lid-card rounded-[32px] p-4">
+          <form onSubmit={onSubmit} className="space-y-3">
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700">Email professionnel</label>
-              <input
-                type="email"
-                required
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-orange-400"
-                placeholder="livreur@lid.com"
-              />
+              <label className="text-xs font-semibold text-slate-700">Email</label>
+              <div className="mt-1.5 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/70 px-3 py-2 focus-within:border-[var(--lid-accent)]">
+                <Mail size={18} className="text-slate-400" />
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="ex: rider@lid.com"
+                  className="h-7 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                  required
+                />
+              </div>
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700">Mot de passe</label>
-              <input
-                type="password"
-                required
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-orange-400"
-                placeholder="••••••••"
-              />
+              <label className="text-xs font-semibold text-slate-700">Mot de passe</label>
+              <div className="mt-1.5 flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/70 px-3 py-2 focus-within:border-[var(--lid-accent)]">
+                <Lock size={18} className="text-slate-400" />
+                <input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  className="h-7 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-white/70 hover:text-slate-700"
+                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs">
-              <label className="inline-flex items-center gap-2 text-slate-500">
-                <input type="checkbox" className="h-3.5 w-3.5 rounded border-slate-300" />
-                Rester connecte
-              </label>
-              <button type="button" className="font-semibold text-slate-700">
-                Mot de passe oublie
-              </button>
-            </div>
-
-            <button type="submit" className="w-full rounded-xl bg-slate-950 py-3 text-sm font-semibold text-white">
-              Me connecter
-            </button>
+            {error ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                {error}
+              </div>
+            ) : null}
 
             <button
-              type="button"
-              onClick={() => navigate('/explore')}
-              className="w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700"
+              type="submit"
+              disabled={!canSubmit || isLoading}
+              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-3xl bg-[var(--lid-accent)] px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(106,162,0,0.22)] disabled:opacity-40"
             >
-              Retour Explore
+              {isLoading ? 'Connexion…' : 'Se connecter'}
+              <ArrowRight size={18} />
             </button>
           </form>
+
+          <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-500">
+            <Link to="/explore" className="font-semibold text-slate-700 hover:text-slate-900">
+              Présentation
+            </Link>
+            <span className="text-slate-400">© LID</span>
+          </div>
         </section>
       </div>
-    </motion.div>
+    </MotionDiv>
   )
 }
 
-export default LoginPage
