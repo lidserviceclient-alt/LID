@@ -6,13 +6,13 @@ import { ArrowRight, TicketPercent, X } from "lucide-react";
 import { cn } from "@/utils/cn";
 import CheckoutFlow from "./CheckoutFlow";
 import { resolveBackendAssetUrl } from "@/services/categoryService";
-import { getBestSellerCatalogProducts, getFeaturedCatalogProducts } from "@/services/productService";
+import { useFlashSaleProduct } from "@/features/flashSale/useFlashSaleProduct";
 
 export default function Offer({ className, onClose }) {
   const [particles, setParticles] = useState([]);
   const [isFlipped, setIsFlipped] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [offerProduct, setOfferProduct] = useState(null);
+  const { data: offerProduct } = useFlashSaleProduct(1);
 
   const offerImageSrc = useMemo(() => {
     const raw = offerProduct?.imageUrl || offerProduct?.image;
@@ -37,24 +37,7 @@ export default function Offer({ className, onClose }) {
     setParticles(newParticles);
   }, []); // Empty dependency array ensures this runs once on mount
 
-  useEffect(() => {
-    let cancelled = false;
-
-    Promise.all([
-      getFeaturedCatalogProducts(1).catch(() => []),
-      getBestSellerCatalogProducts(1).catch(() => [])
-    ]).then(([featured, bestsellers]) => {
-      if (cancelled) return;
-      const pick =
-        (Array.isArray(featured) && featured.length > 0 ? featured[0] : null) ||
-        (Array.isArray(bestsellers) && bestsellers.length > 0 ? bestsellers[0] : null);
-      setOfferProduct(pick || null);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  if (!offerProduct) return null;
 
   return (
     <section className={cn("w-full py-12 md:py-24 bg-neutral-950 text-white overflow-hidden relative rounded-3xl mx-auto max-w-full perspective-1000 bg-[url('/imgs/wall-1.jpg')] bg-cover bg-center bg-no-repeat", className)}>

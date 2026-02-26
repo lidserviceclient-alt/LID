@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
 import { 
@@ -14,10 +14,12 @@ import { toast } from 'sonner';
 import Logo from '../Logo';
 import { subscribeNewsletter } from '../../services/newsletterService';
 import { getCatalogCategories } from '../../services/categoryService';
+import { useAppConfig } from '@/features/appConfig/useAppConfig.js';
 
 export default function Footer() {
   const [email, setEmail] = useState('');
   const containerRef = useRef(null);
+  const { data: appConfig } = useAppConfig();
   
   // Parallax Effect for Background
   const { scrollYProgress } = useScroll({
@@ -36,14 +38,34 @@ export default function Footer() {
     getCatalogCategories()
       .then((list) => {
         if (cancelled) return;
-        const items = (Array.isArray(list) ? list : [])
-          .filter((c) => c && c.estActive !== false && (!c.niveau || c.niveau === "PRINCIPALE"))
+        const all = Array.isArray(list) ? list : [];
+        const pick = (arr) =>
+          arr
+            .filter((c) => c && c.estActive !== false)
+            .map((c) => ({
+              name: `${c?.nom || ""}`.trim(),
+              token: `${(c?.slug || c?.id || "")}`.trim(),
+              niveau: `${c?.niveau || ""}`.trim(),
+              ordre: Number(c?.ordre) || 0,
+              dateCreation: c?.dateCreation || null
+            }))
+            .filter((c) => c.name && c.token);
+
+        const subSub = pick(all).filter((c) => c.niveau === "SOUS_SOUS_CATEGORIE");
+        const fallbackSubs = pick(all).filter((c) => c.niveau === "SOUS_CATEGORIE");
+
+        const chosen = (subSub.length >= 4 ? subSub : subSub.concat(fallbackSubs))
+          .sort((a, b) => {
+            if (a.ordre !== b.ordre) return a.ordre - b.ordre;
+            return a.name.localeCompare(b.name, "fr");
+          })
           .slice(0, 4)
           .map((c) => ({
-            name: `${c?.nom || ""}`.trim(),
-            path: `/shop?category=${encodeURIComponent(`${c?.slug}`.trim())}`
-          }))
-          .filter((it) => it.name && it.path);
+            name: c.name,
+            path: `/shop?category=${encodeURIComponent(c.token)}&sort=featured`
+          }));
+
+        const items = chosen.filter((it) => it.name && it.path && !it.path.includes("category=&"));
         setFooterCategories(items);
       })
       .catch(() => {
@@ -58,7 +80,8 @@ export default function Footer() {
   const collectionsLinks = footerCategories.length > 0
     ? footerCategories
     : [
-        { name: "Nouveautés", path: "/catalogue" },
+        { name: "Nouveautés", path: "/shop?sort=newest" },
+        { name: "Boutique", path: "/shop" },
         { name: "Blog", path: "/blog" },
       ];
 
@@ -95,9 +118,28 @@ export default function Footer() {
     }
   };
 
+  const socialIconMap = {
+    INSTAGRAM: Instagram,
+    X: Twitter,
+    TWITTER: Twitter,
+    FACEBOOK: Facebook,
+    LINKEDIN: Linkedin,
+    WEBSITE: Globe
+  };
+
+  const socials = useMemo(() => {
+    const raw = Array.isArray(appConfig?.socialLinks) ? appConfig.socialLinks : [];
+    return raw
+      .map((s) => ({
+        platform: `${s?.platform || ''}`.trim().toUpperCase(),
+        url: `${s?.url || ''}`.trim()
+      }))
+      .filter((s) => s.platform && s.url);
+  }, [appConfig?.socialLinks]);
+
   const handleSocialClick = (e, platform) => {
     e.preventDefault();
-    toast.info(`La page ${platform} sera bientôt disponible`);
+    toast.info(`Le lien ${platform} n'est pas configuré`);
   };
 
   const handleLanguageClick = () => {
@@ -201,24 +243,33 @@ export default function Footer() {
           </motion.div>
 
           <motion.div variants={itemVariants} className="flex gap-4">
-             {[
-               { Icon: Instagram, name: "Instagram" },
-               { Icon: Twitter, name: "Twitter" },
-               { Icon: Facebook, name: "Facebook" },
-               { Icon: Linkedin, name: "Linkedin" }
-             ].map(({ Icon, name }, i) => (
-               <motion.a 
-                 key={i} 
-                 href="#" 
-                 onClick={(e) => handleSocialClick(e, name)}
-                 aria-label={`Suivez-nous sur ${name}`}
-                 whileHover={{ scale: 1.1, rotate: 5, backgroundColor: "#6aa200", borderColor: "#6aa200", color: "#fff" }}
-                 whileTap={{ scale: 0.95 }}
-                 className="p-3 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-400 transition-colors duration-300"
-               >
-                 <Icon size={20} strokeWidth={1.5} />
-               </motion.a>
-             ))}
+            {(socials.length
+              ? socials
+              : [
+                  { platform: "INSTAGRAM", url: "" },
+                  { platform: "X", url: "" },
+                  { platform: "FACEBOOK", url: "" },
+                  { platform: "LINKEDIN", url: "" }
+                ]
+            ).map(({ platform, url }, i) => {
+              const Icon = socialIconMap[platform] || Globe;
+              const label = platform === "X" ? "X" : platform.charAt(0) + platform.slice(1).toLowerCase();
+              return (
+                <motion.a
+                  key={i}
+                  href={url || "#"}
+                  target={url ? "_blank" : undefined}
+                  rel={url ? "noreferrer" : undefined}
+                  onClick={url ? undefined : (e) => handleSocialClick(e, label)}
+                  aria-label={`Suivez-nous sur ${label}`}
+                  whileHover={{ scale: 1.1, rotate: 5, backgroundColor: "#6aa200", borderColor: "#6aa200", color: "#fff" }}
+                  whileTap={{ scale: 0.95 }}
+                  className="p-3 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-400 transition-colors duration-300"
+                >
+                  <Icon size={20} strokeWidth={1.5} />
+                </motion.a>
+              );
+            })}
           </motion.div>
         </div>
 
@@ -243,7 +294,7 @@ export default function Footer() {
                <Logo size="lg" />
             </div>
             <p className="text-neutral-500 text-lg leading-relaxed max-w-sm">
-              LID est une plateforme de commerce nouvelle génération. Nous curons le meilleur du design, de la mode et de la technologie.
+              {`${appConfig?.slogan || ""}`.trim() || "LID est une plateforme de commerce nouvelle génération. Nous curons le meilleur du design, de la mode et de la technologie."}
             </p>
           </motion.div>
 

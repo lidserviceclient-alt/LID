@@ -11,7 +11,7 @@ export default function PaymentSuccess() {
   const [state, setState] = useState({ loading: true, ok: false, message: '' });
 
   useEffect(() => {
-    const token = params.get('token') || '';
+    const token = (params.get('token') || params.get('invoice_token') || params.get('invoiceToken') || '').trim();
     if (!token) {
       setState({ loading: false, ok: false, message: 'Token de paiement manquant.' });
       return;
@@ -24,6 +24,13 @@ export default function PaymentSuccess() {
         const status = `${data?.status || ''}`.toUpperCase();
         if (status === 'COMPLETED') {
           clearCart();
+          if (data?.postPaymentSyncOk === false) {
+            const extra = data?.coreOrderId ? ` (commande: ${data.coreOrderId})` : '';
+            const err = data?.postPaymentSyncError ? `: ${data.postPaymentSyncError}` : '';
+            setState({ loading: false, ok: true, message: `Paiement confirmé, mais le traitement interne a échoué${extra}${err}` });
+            return;
+          }
+
           setState({ loading: false, ok: true, message: 'Paiement confirmé. Merci !' });
           setTimeout(() => navigate('/profile?tab=orders', { replace: true }), 800);
           return;
@@ -34,9 +41,15 @@ export default function PaymentSuccess() {
         }
         setState({ loading: false, ok: false, message: 'Paiement non confirmé.' });
       })
-      .catch(() => {
+      .catch((err) => {
         if (!mounted) return;
-        setState({ loading: false, ok: false, message: 'Impossible de vérifier le paiement.' });
+        const message =
+          err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          err?.response?.data?.errorMessage ||
+          err?.message ||
+          'Impossible de vérifier le paiement.';
+        setState({ loading: false, ok: false, message });
       });
 
     return () => {
@@ -76,4 +89,3 @@ export default function PaymentSuccess() {
     </div>
   );
 }
-

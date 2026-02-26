@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -48,7 +48,7 @@ const normalizeSortParam = (value) => {
   if (v === "newest" || v === "nouveautes" || v === "nouveautés") return "newest";
   if (v === "price-asc" || v === "prix-asc" || v === "prixcroissant") return "price-asc";
   if (v === "price-desc" || v === "prix-desc" || v === "prixdecroissant") return "price-desc";
-  if (v === "reviews" || v === "avis" || v === "avis-clients") return "reviews";
+  if (v === "reviews" || v === "avis" || v === "avis-clients") return "featured";
   if (v === "bestsellers" || v === "best-sellers" || v === "trending") return "featured";
   return "featured";
 };
@@ -543,14 +543,19 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
           <button 
              onClick={(e) => {
                e.preventDefault();
+               if (Number(product?.stock) <= 0) {
+                 toast.error("Produit en rupture de stock");
+                 return;
+               }
                addToCart({ ...product, size: product.sizes?.[0] || 'Unique' });
                toast.success("Ajouté au panier");
              }}
              className="w-full py-2 sm:py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs sm:text-sm rounded-full shadow-sm hover:shadow transition-all flex items-center justify-center gap-1.5 sm:gap-2 active:scale-95"
+             disabled={Number(product?.stock) <= 0}
            >
              <ShoppingBag size={14} className="sm:w-4 sm:h-4" />
-             <span className="hidden sm:inline">Ajouter au panier</span>
-             <span className="inline sm:hidden">Ajouter</span>
+             <span className="hidden sm:inline">{Number(product?.stock) <= 0 ? "Rupture" : "Ajouter au panier"}</span>
+             <span className="inline sm:hidden">{Number(product?.stock) <= 0 ? "Rupture" : "Ajouter"}</span>
            </button>
         </div>
       </div>
@@ -561,7 +566,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
 export default function Catalog({ showFilters = true, showHeader = true, limit = null }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchParamsString = searchParams.toString();
-  const searchQuery = searchParams.get('q') || '';
+  const searchQuery = (searchParams.get('q') || '').trim();
   const categoryParam = searchParams.get('category');
   const sortParam = searchParams.get('sort');
 
@@ -570,21 +575,30 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadedPages, setLoadedPages] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalElements, setTotalElements] = useState(0);
   const [loadError, setLoadError] = useState("");
+  const [isSortOpen, setIsSortOpen] = useState(false);
 
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedBrands, setSelectedBrands] = useState([]);
+  const prevCategoryParamRef = useRef(categoryParam);
+  const sortMenuRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
+    setIsLoadingMore(false);
     setIsLoading(true);
     setLoadError("");
+    setCatalogProducts([]);
+    setLoadedPages(0);
+    setTotalPages(1);
     fetchPage(0)
-      .then(({ content, pages }) => {
+      .then(({ content, pages, total }) => {
         if (cancelled) return;
         setCatalogProducts(Array.isArray(content) ? content : []);
         setLoadedPages(1);
         setTotalPages(Math.max(1, pages));
+        setTotalElements(Math.max(0, Number(total) || 0));
       })
       .catch((err) => {
         if (cancelled) return;
@@ -592,6 +606,7 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
         setCatalogProducts([]);
         setLoadedPages(0);
         setTotalPages(1);
+        setTotalElements(0);
       })
       .finally(() => {
         if (cancelled) return;
@@ -600,7 +615,27 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [categoryParam, searchQuery, sortParam]);
+
+  useEffect(() => {
+    const prev = prevCategoryParamRef.current;
+    if (prev === categoryParam) return;
+    prevCategoryParamRef.current = categoryParam;
+    if (!categoryParam) return;
+
+    setSelectedBrands([]);
+    setSelectedColors([]);
+    setSelectedPriceRange(null);
+    setMinRating(null);
+    setSortBy("featured");
+    setIsMobileFiltersOpen(false);
+
+    const nextParams = new URLSearchParams(searchParamsString);
+    if (nextParams.has("q")) nextParams.delete("q");
+    if (nextParams.toString() !== searchParamsString) {
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [categoryParam, searchParamsString, setSearchParams]);
 
   useEffect(() => {
     if (limit) return;
@@ -640,6 +675,36 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
   const [visibleCount, setVisibleCount] = useState(40);
   const [favNotification, setFavNotification] = useState({ show: false, product: null, isAdding: true });
 
+  useEffect(() => {
+    const saved = `${localStorage.getItem("lid_shop_view") || ""}`.trim();
+    if (saved === "grid" || saved === "list") setViewMode(saved);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("lid_shop_view", viewMode);
+  }, [viewMode]);
+
+  useEffect(() => {
+    if (!isSortOpen) return;
+    const onDown = (e) => {
+      const el = sortMenuRef.current;
+      if (!el) return;
+      if (el.contains(e.target)) return;
+      setIsSortOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setIsSortOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown, { passive: true });
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [isSortOpen]);
+
   const pageSize = 80;
   const hasMorePages = loadedPages < totalPages;
 
@@ -655,10 +720,14 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
   };
 
   const fetchPage = async (page) => {
-    const data = await getCatalogProductsPage(page, pageSize);
+    const category = `${categoryParam || ""}`.trim() || (selectedCategories.length > 0 ? selectedCategories.join(",") : "");
+    const normalizedSort = normalizeSortParam(sortParam);
+    const sortKey = normalizedSort === "featured" ? "" : normalizedSort;
+    const data = await getCatalogProductsPage(page, pageSize, { q: searchQuery, category, sortKey });
     const content = Array.isArray(data?.content) ? data.content : [];
     const pages = Number.isFinite(Number(data?.totalPages)) ? Number(data.totalPages) : 1;
-    return { content, pages };
+    const total = Number.isFinite(Number(data?.totalElements)) ? Number(data.totalElements) : content.length;
+    return { content, pages, total };
   };
 
   const handleWishlistToggle = (product, isAdding) => {
@@ -806,6 +875,49 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
 
   useEffect(() => {
     if (limit) return;
+    if (selectedCategories.length === 0) return;
+    if (filteredProducts.length > 0) return;
+    if (!hasMorePages || isLoadingMore) return;
+
+    let cancelled = false;
+
+    (async () => {
+      setIsLoadingMore(true);
+      try {
+        const maxExtraPages = 10;
+        let page = loadedPages;
+        let loaded = 0;
+
+        while (!cancelled && page < totalPages && loaded < maxExtraPages) {
+          const { content } = await fetchPage(page);
+          if (cancelled) return;
+
+          setCatalogProducts((prev) => mergeUniqueById(prev, content));
+          page += 1;
+          loaded += 1;
+          setLoadedPages(page);
+
+          const hasMatchInNewPage = (Array.isArray(content) ? content : []).some((p) => {
+            const slug = `${p?.categorySlug || ""}`.trim();
+            const name = `${p?.categoryName || ""}`.trim();
+            const id = `${p?.categoryId || ""}`.trim();
+            return selectedCategories.includes(slug) || selectedCategories.includes(name) || selectedCategories.includes(id);
+          });
+          if (hasMatchInNewPage) break;
+        }
+      } catch {
+      } finally {
+        if (!cancelled) setIsLoadingMore(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filteredProducts.length, hasMorePages, isLoadingMore, limit, loadedPages, selectedCategories, totalPages]);
+
+  useEffect(() => {
+    if (limit) return;
     const base = viewMode === "list" ? 20 : 40;
     setVisibleCount(Math.min(base, filteredProducts.length));
   }, [limit, viewMode, filteredProducts.length, selectedCategories, selectedBrands, selectedColors, selectedPriceRange, minRating, sortBy, searchQuery]);
@@ -817,6 +929,17 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
     setSelectedPriceRange(null);
     setMinRating(null);
   };
+
+  const resetHeaderFilters = () => {
+    setSelectedBrands([]);
+    setSelectedColors([]);
+    setSelectedPriceRange(null);
+    setMinRating(null);
+    setSortBy("featured");
+  };
+
+  const hasHeaderFilters =
+    selectedBrands.length > 0 || selectedColors.length > 0 || selectedPriceRange !== null || minRating !== null || sortBy !== "featured";
 
   const displayedProducts = useMemo(() => {
     if (limit) return filteredProducts.slice(0, limit);
@@ -888,6 +1011,11 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
                   </span>
                   <span className="font-medium hidden sm:inline">résultats</span>
                   <span className="font-medium sm:hidden">res.</span>
+                  {totalElements > 0 && filteredProducts.length !== totalElements ? (
+                    <span className="text-xs text-neutral-400 dark:text-neutral-500 hidden sm:inline">
+                      sur {totalElements}
+                    </span>
+                  ) : null}
                 </div>
 
                 {/* Mobile Filter Button (Visible only on lg and below) */}
@@ -904,27 +1032,44 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
               <div className="flex items-center gap-2 flex-shrink-0">
                 
                 {/* Sort Dropdown */}
-                <div className="relative group">
-                  <button className="flex items-center gap-2 text-xs sm:text-sm px-3 py-2 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-sm transition-all whitespace-nowrap">
+                {hasHeaderFilters ? (
+                  <button
+                    onClick={resetHeaderFilters}
+                    className="hidden sm:flex items-center gap-2 text-xs sm:text-sm px-3 py-2 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-sm transition-all whitespace-nowrap"
+                  >
+                    Réinitialiser
+                  </button>
+                ) : null}
+
+                <div ref={sortMenuRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsSortOpen((v) => !v)}
+                    aria-haspopup="menu"
+                    aria-expanded={isSortOpen}
+                    className="flex items-center gap-2 text-xs sm:text-sm px-3 py-2 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-sm transition-all whitespace-nowrap"
+                  >
                     <span className="text-neutral-500 dark:text-neutral-400 hidden sm:inline">Trier par:</span>
                     <span className="font-bold text-neutral-900 dark:text-white">
-                      {sortBy === 'featured' ? 'Pertinence' : sortBy === 'price-asc' ? 'Prix croissant' : sortBy === 'price-desc' ? 'Prix décroissant' : sortBy === 'newest' ? 'Nouveautés' : 'Avis'}
+                      {sortBy === 'featured' ? 'Pertinence' : sortBy === 'price-asc' ? 'Prix croissant' : sortBy === 'price-desc' ? 'Prix décroissant' : 'Nouveautés'}
                     </span>
-                    <ChevronDown size={14} className="text-neutral-400" />
+                    <ChevronDown size={14} className={`text-neutral-400 transition-transform ${isSortOpen ? "rotate-180" : ""}`} />
                   </button>
                   
                   {/* Dropdown Menu */}
-                  <div className="absolute right-0 top-[calc(100%+0.5rem)] w-56 bg-white dark:bg-neutral-900 rounded-2xl shadow-xl shadow-neutral-200/50 dark:shadow-black/50 border border-neutral-100 dark:border-neutral-800 hidden group-hover:block p-1.5 z-50 transform origin-top-right transition-all">
+                  <div className={`absolute right-0 top-[calc(100%+0.5rem)] w-56 bg-white dark:bg-neutral-900 rounded-2xl shadow-xl shadow-neutral-200/50 dark:shadow-black/50 border border-neutral-100 dark:border-neutral-800 p-1.5 z-50 transform origin-top-right transition-all ${isSortOpen ? "block" : "hidden"}`}>
                     {[
                        { label: 'Pertinence', value: 'featured' },
                        { label: 'Nouveautés', value: 'newest' },
                        { label: 'Prix croissant', value: 'price-asc' },
                        { label: 'Prix décroissant', value: 'price-desc' },
-                       { label: 'Avis clients', value: 'reviews' },
                     ].map(opt => (
                       <button 
                         key={opt.value}
-                        onClick={() => setSortBy(opt.value)}
+                        onClick={() => {
+                          setSortBy(opt.value);
+                          setIsSortOpen(false);
+                        }}
                         className={`w-full text-left px-3 py-2.5 text-sm rounded-xl transition-colors flex items-center justify-between group/item ${
                           sortBy === opt.value 
                             ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white font-bold' 
@@ -1035,7 +1180,7 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
                  </div>
                )}
 
-               {!limit && displayedProducts.length > 0 && (displayedProducts.length < filteredProducts.length || hasMorePages) ? (
+              {!limit && (displayedProducts.length > 0 || hasMorePages) && (displayedProducts.length < filteredProducts.length || hasMorePages) ? (
                  <div className="mt-10 flex flex-col items-center gap-3">
                    <button
                      onClick={handleLoadMore}

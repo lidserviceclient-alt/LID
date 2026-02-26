@@ -13,19 +13,63 @@ import { getCurrentUserPayload, isAuthenticated } from "@/services/authService.j
 import { quoteCheckout } from "@/services/orderService.js";
 import { getCatalogProductsPage, getFeaturedCatalogProducts } from "@/services/productService";
 import { resolveBackendAssetUrl } from "@/services/categoryService";
+import { useAppConfig } from "@/features/appConfig/useAppConfig";
 
 export default function Cart() {
   const { cartItems, addToCart, removeFromCart, updateQuantity, cartTotal, clearCart } = useCart();
+  const { data: appConfig } = useAppConfig();
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState(null);
-  const [shippingMethod, setShippingMethod] = useState("standard");
+  const [loyaltyPricing, setLoyaltyPricing] = useState({ applied: false, tier: "", percent: 0, discountAmount: 0, points: 0 });
+  const [shippingMethod, setShippingMethod] = useState("STANDARD");
   const [showCheckout, setShowCheckout] = useState(false);
   const [recommendations, setRecommendations] = useState([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const navigate = useNavigate();
 
-  const FREE_SHIPPING_THRESHOLD = 10000;
-  const shippingCost = shippingMethod === "express" ? 6500 : (cartTotal >= FREE_SHIPPING_THRESHOLD ? 0 : 3250);
+  const freeShipping = appConfig?.freeShipping;
+  const configuredShippingMethods = useMemo(() => {
+    const list = Array.isArray(appConfig?.shippingMethods) ? appConfig.shippingMethods : [];
+    return list.filter((m) => m?.code && m?.label);
+  }, [appConfig?.shippingMethods]);
+  const freeShippingThreshold = useMemo(() => {
+    const raw = freeShipping?.thresholdAmount;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [freeShipping?.thresholdAmount]);
+  const isFreeShippingEnabled = Boolean(freeShipping?.enabled) && Boolean(freeShippingThreshold);
+  const fallbackShippingMethods = useMemo(
+    () => [
+      { code: "STANDARD", label: "Standard", description: "3-5 jours ouvrables", costAmount: 3250, enabled: true, isDefault: true, sortOrder: 0 },
+      { code: "EXPRESS", label: "Express", description: "24-48h", costAmount: 6500, enabled: true, isDefault: false, sortOrder: 1 }
+    ],
+    []
+  );
+  const shippingMethods = useMemo(() => {
+    const list = configuredShippingMethods.length ? configuredShippingMethods : fallbackShippingMethods;
+    return list.filter((m) => Boolean(m?.enabled));
+  }, [configuredShippingMethods, fallbackShippingMethods]);
+  const defaultShippingCode = useMemo(() => {
+    const found = shippingMethods.find((m) => Boolean(m?.isDefault)) || shippingMethods[0];
+    return found?.code || "STANDARD";
+  }, [shippingMethods]);
+  useEffect(() => {
+    if (!shippingMethods.some((m) => m?.code === shippingMethod)) {
+      setShippingMethod(defaultShippingCode);
+    }
+  }, [defaultShippingCode, shippingMethod, shippingMethods]);
+  const selectedShippingMethod = useMemo(() => {
+    return shippingMethods.find((m) => m?.code === shippingMethod) || shippingMethods[0] || null;
+  }, [shippingMethod, shippingMethods]);
+  const selectedBaseCost = useMemo(() => {
+    const n = Number(selectedShippingMethod?.costAmount);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }, [selectedShippingMethod?.costAmount]);
+  const isStandardSelected = `${selectedShippingMethod?.code || ""}`.toUpperCase() === "STANDARD";
+  const shippingCost =
+    isStandardSelected && isFreeShippingEnabled && cartTotal >= freeShippingThreshold
+      ? 0
+      : selectedBaseCost;
   
   const handleCheckout = () => {
     if (!isAuthenticated()) {
@@ -101,8 +145,20 @@ export default function Cart() {
   };
 
   const discountAmount = appliedPromo ? (Number(appliedPromo.discountAmount) || 0) : 0;
-  const finalTotal = cartTotal - discountAmount + shippingCost;
-  const progressToFreeShipping = Math.min((cartTotal / FREE_SHIPPING_THRESHOLD) * 100, 100);
+  const loyaltyDiscountAmount = appliedPromo ? 0 : (Number(loyaltyPricing?.discountAmount) || 0);
+  const finalTotal = cartTotal - discountAmount - loyaltyDiscountAmount + shippingCost;
+  const remainingToFreeShipping = isFreeShippingEnabled ? Math.max(freeShippingThreshold - cartTotal, 0) : 0;
+  const progressToFreeShipping = isFreeShippingEnabled ? Math.min((cartTotal / freeShippingThreshold) * 100, 100) : 0;
+  const freeShippingMessage = useMemo(() => {
+    if (!isFreeShippingEnabled) return "";
+    const remaining = remainingToFreeShipping.toLocaleString();
+    const threshold = freeShippingThreshold.toLocaleString();
+    if (cartTotal >= freeShippingThreshold) {
+      return `${freeShipping?.unlockedMessage || "Livraison gratuite débloquée ! 🎉"}`.trim();
+    }
+    const tpl = `${freeShipping?.progressMessageTemplate || "Plus que {remaining} FCFA pour la livraison gratuite"}`.trim();
+    return tpl.replaceAll("{remaining}", remaining).replaceAll("{threshold}", threshold);
+  }, [cartTotal, freeShipping?.progressMessageTemplate, freeShipping?.unlockedMessage, freeShippingThreshold, isFreeShippingEnabled, remainingToFreeShipping]);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,6 +196,66 @@ export default function Cart() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!isAuthenticated()) {
+          if (!cancelled) setLoyaltyPricing({ applied: false, tier: "", percent: 0, discountAmount: 0, points: 0 });
+          return;
+        }
+        if (appliedPromo) {
+          if (!cancelled) setLoyaltyPricing({ applied: false, tier: "", percent: 0, discountAmount: 0, points: 0 });
+          return;
+        }
+        const payload = getCurrentUserPayload();
+        if (!payload?.sub) {
+          if (!cancelled) setLoyaltyPricing({ applied: false, tier: "", percent: 0, discountAmount: 0, points: 0 });
+          return;
+        }
+        const toArticleId = (value) => {
+          const numeric = Number(value);
+          if (!Number.isFinite(numeric) || numeric <= 0) return null;
+          return Math.trunc(numeric);
+        };
+        const items = cartItems
+          .map((item) => {
+            const quantity = Number(item?.quantity) || 0;
+            if (quantity <= 0) return null;
+            const referenceProduitPartenaire = item?.referenceProduitPartenaire || item?.referencePartenaire || item?.sku;
+            const articleId = item?.articleId ?? toArticleId(item?.id);
+            if (!articleId && !referenceProduitPartenaire) return null;
+            return { articleId: articleId ?? undefined, referenceProduitPartenaire: referenceProduitPartenaire ?? undefined, quantity };
+          })
+          .filter(Boolean);
+        if (items.length === 0) {
+          if (!cancelled) setLoyaltyPricing({ applied: false, tier: "", percent: 0, discountAmount: 0, points: 0 });
+          return;
+        }
+        const res = await quoteCheckout(payload.sub, {
+          currency: "XOF",
+          email: payload?.email || "",
+          phone: "",
+          promoCode: null,
+          items
+        });
+        if (cancelled) return;
+        setLoyaltyPricing({
+          applied: Boolean(res?.loyaltyApplied),
+          tier: res?.loyaltyTier || "",
+          percent: Number(res?.loyaltyDiscountPercent) || 0,
+          discountAmount: Number(res?.loyaltyDiscountAmount) || 0,
+          points: Number(res?.loyaltyPoints) || 0
+        });
+      } catch {
+        if (!cancelled) setLoyaltyPricing({ applied: false, tier: "", percent: 0, discountAmount: 0, points: 0 });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cartItems, appliedPromo]);
 
   const recommendedProducts = useMemo(() => {
     const cartIdSet = new Set((cartItems || []).map((item) => `${item?.id || ""}`));
@@ -218,25 +334,22 @@ export default function Cart() {
               </button>
             </div>
 
-            {/* Free Shipping Progress */}
-            <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 shadow-sm border border-neutral-200 dark:border-neutral-800">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-neutral-900 dark:text-white">
-                  {cartTotal >= FREE_SHIPPING_THRESHOLD 
-                    ? "Livraison gratuite débloquée ! 🎉" 
-                    : `Plus que ${(FREE_SHIPPING_THRESHOLD - cartTotal).toLocaleString()} FCFA pour la livraison gratuite`}
-                </span>
-                <span className="text-xs text-neutral-500">{Math.round(progressToFreeShipping)}%</span>
+            {isFreeShippingEnabled ? (
+              <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 shadow-sm border border-neutral-200 dark:border-neutral-800">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-neutral-900 dark:text-white">{freeShippingMessage}</span>
+                  <span className="text-xs text-neutral-500">{Math.round(progressToFreeShipping)}%</span>
+                </div>
+                <div className="w-full h-2 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progressToFreeShipping}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className={`h-full rounded-full ${cartTotal >= freeShippingThreshold ? "bg-green-500" : "bg-orange-600"}`}
+                  />
+                </div>
               </div>
-              <div className="w-full h-2 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progressToFreeShipping}%` }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className={`h-full rounded-full ${cartTotal >= FREE_SHIPPING_THRESHOLD ? "bg-green-500" : "bg-orange-600"}`}
-                />
-              </div>
-            </div>
+            ) : null}
 
             {/* Cart List */}
             <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden">
@@ -449,47 +562,47 @@ export default function Cart() {
                   </div>
                 )}
 
+                {!appliedPromo && loyaltyPricing?.applied ? (
+                  <div className="flex justify-between text-green-600">
+                    <span>{`VIP ${loyaltyPricing.tier || ""} (-${Number(loyaltyPricing.percent || 0).toLocaleString()}%)`}</span>
+                    <span>-{loyaltyDiscountAmount.toLocaleString()} FCFA</span>
+                  </div>
+                ) : null}
+
                 {/* Shipping Selection */}
                 <div className="py-4 border-y border-neutral-100 dark:border-neutral-800 space-y-3">
                   <span className="text-sm font-medium text-neutral-900 dark:text-white block mb-2">Mode de livraison</span>
                   
-                  <label className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${shippingMethod === 'standard' ? 'border-orange-600 bg-orange-50 dark:bg-orange-900/10' : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'}`}>
-                    <div className="flex items-center gap-3">
-                      <input 
-                        type="radio" 
-                        name="shipping" 
-                        value="standard"
-                        checked={shippingMethod === 'standard'}
-                        onChange={(e) => setShippingMethod(e.target.value)}
-                        className="text-orange-600 focus:ring-orange-600"
-                      />
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-neutral-900 dark:text-white">Standard</span>
-                        <span className="text-xs text-neutral-500">3-5 jours ouvrables</span>
-                      </div>
-                    </div>
-                    <span className="text-sm font-bold text-neutral-900 dark:text-white">
-                      {cartTotal >= FREE_SHIPPING_THRESHOLD ? "Gratuit" : "3 250 FCFA"}
-                    </span>
-                  </label>
-
-                  <label className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${shippingMethod === 'express' ? 'border-orange-600 bg-orange-50 dark:bg-orange-900/10' : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'}`}>
-                    <div className="flex items-center gap-3">
-                      <input 
-                        type="radio" 
-                        name="shipping" 
-                        value="express"
-                        checked={shippingMethod === 'express'}
-                        onChange={(e) => setShippingMethod(e.target.value)}
-                        className="text-orange-600 focus:ring-orange-600"
-                      />
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-neutral-900 dark:text-white">Express</span>
-                        <span className="text-xs text-neutral-500">24-48h</span>
-                      </div>
-                    </div>
-                    <span className="text-sm font-bold text-neutral-900 dark:text-white">6500 FCFA</span>
-                  </label>
+                  {shippingMethods.map((m) => {
+                    const code = `${m?.code || ""}`.toUpperCase();
+                    const checked = code === `${shippingMethod || ""}`.toUpperCase();
+                    const baseCost = Number(m?.costAmount);
+                    const cost = Number.isFinite(baseCost) && baseCost >= 0 ? baseCost : 0;
+                    const isStandard = code === "STANDARD";
+                    const displayCost = isStandard && isFreeShippingEnabled && cartTotal >= freeShippingThreshold ? "Gratuit" : `${cost.toLocaleString()} FCFA`;
+                    return (
+                      <label
+                        key={code}
+                        className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'border-orange-600 bg-orange-50 dark:bg-orange-900/10' : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="radio"
+                            name="shipping"
+                            value={code}
+                            checked={checked}
+                            onChange={(e) => setShippingMethod(e.target.value)}
+                            className="text-orange-600 focus:ring-orange-600"
+                          />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-neutral-900 dark:text-white">{m?.label || code}</span>
+                            <span className="text-xs text-neutral-500">{m?.description || ""}</span>
+                          </div>
+                        </div>
+                        <span className="text-sm font-bold text-neutral-900 dark:text-white">{displayCost}</span>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -536,6 +649,8 @@ export default function Cart() {
         onSuccess={handlePaymentSuccess}
         shippingCost={shippingCost}
         discountAmount={discountAmount}
+        loyaltyDiscountAmount={loyaltyDiscountAmount}
+        loyaltyTier={loyaltyPricing?.applied ? loyaltyPricing?.tier : ""}
         promoCode={appliedPromo?.code || ""}
       />
     </div>

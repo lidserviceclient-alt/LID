@@ -181,7 +181,7 @@ export default function Hero() {
           className="text-[18vw] md:text-[15vw] leading-[0.8] font-black text-neutral-900 text-center tracking-tighter select-none mix-blend-hard-light"
         >
           <div className="inline-block overflow-hidden">
-            { "FUTURE".split("").map((char, index) => (
+            { "MARKET".split("").map((char, index) => (
               <motion.span key={index} variants={letter} className="inline-block">
                 {char}
               </motion.span>
@@ -193,7 +193,7 @@ export default function Hero() {
             variants={sentence}
           >
               <motion.span  className="inline-block">
-                <ContainerTextFlip words={["FASHION", "FUTURE"]} className="text-transparent stroke-text-dark inline-block overflow-hidden" />
+                <ContainerTextFlip words={["Exclusivité", "Tendance", "Simple", "Livraison facile"]} className="text-transparent stroke-text-dark inline-block overflow-hidden" />
               </motion.span>
           </motion.span>
         </motion.h1>

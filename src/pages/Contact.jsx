@@ -1,15 +1,44 @@
 import { motion } from "framer-motion";
 import { Mail, Phone, MapPin, Send, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
+import { useState } from "react";
+import { sendContactMessage } from "@/services/contactService.js";
 
 export default function Contact() {
-  const handleSubmit = (e) => {
+  const { data: appConfig } = useAppConfig();
+  const contactEmail = appConfig?.contactEmail || "contact@lid.ci";
+  const city = appConfig?.city || "Abidjan";
+  const contactPhone = appConfig?.contactPhone || "+225 07 00 00 00 00";
+  const [sending, setSending] = useState(false);
+  const contactPhoneHref = `tel:${contactPhone.replace(/[^\d+]/g, "")}`;
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simulate form submission
-    toast.success("Message envoyé !", {
-      description: "Nous vous répondrons dans les plus brefs délais."
-    });
-    e.target.reset();
+    if (sending) return;
+    setSending(true);
+    try {
+      const form = e.currentTarget;
+      const data = new FormData(form);
+      const payload = {
+        lastName: `${data.get("lastName") || ""}`.trim(),
+        firstName: `${data.get("firstName") || ""}`.trim(),
+        email: `${data.get("email") || ""}`.trim(),
+        subject: `${data.get("subject") || ""}`.trim(),
+        message: `${data.get("message") || ""}`.trim()
+      };
+
+      await sendContactMessage(payload);
+      toast.success("Message envoyé !", {
+        description: "Nous vous répondrons dans les plus brefs délais."
+      });
+      form.reset();
+    } catch (err) {
+      toast.error("Envoi impossible", {
+        description: err?.message || "Merci de réessayer."
+      });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -45,8 +74,8 @@ export default function Contact() {
               </div>
               <h3 className="font-bold text-lg mb-2 dark:text-white">Téléphone</h3>
               <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">Lun-Ven de 8h à 18h</p>
-              <a href="tel:+2250700000000" className="text-neutral-900 dark:text-white font-medium hover:text-orange-600 transition-colors">
-                +225 07 00 00 00 00
+              <a href={contactPhoneHref} className="text-neutral-900 dark:text-white font-medium hover:text-orange-600 transition-colors">
+                {contactPhone}
               </a>
             </div>
 
@@ -56,8 +85,8 @@ export default function Contact() {
               </div>
               <h3 className="font-bold text-lg mb-2 dark:text-white">Email</h3>
               <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">Réponse sous 24h</p>
-              <a href="mailto:contact@lid.ci" className="text-neutral-900 dark:text-white font-medium hover:text-orange-600 transition-colors">
-                contact@lid.ci
+              <a href={`mailto:${contactEmail}`} className="text-neutral-900 dark:text-white font-medium hover:text-orange-600 transition-colors">
+                {contactEmail}
               </a>
             </div>
 
@@ -67,8 +96,7 @@ export default function Contact() {
               </div>
               <h3 className="font-bold text-lg mb-2 dark:text-white">Siège Social</h3>
               <p className="text-neutral-600 dark:text-neutral-400 text-sm">
-                Abidjan, Cocody<br/>
-                Riviera 2, Côte d'Ivoire
+                {city}
               </p>
             </div>
 
@@ -91,7 +119,9 @@ export default function Contact() {
               <p className="text-neutral-300 dark:text-neutral-600 mb-6 max-w-sm">
                 Consultez notre foire aux questions pour trouver des réponses immédiates.
               </p>
-              <button className="px-6 py-2 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white rounded-full font-bold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+              <button 
+              onClick={() => navigate("/faq")}
+              className="px-6 py-2 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white rounded-full font-bold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
                 Voir la FAQ
               </button>
             </div>
@@ -120,6 +150,7 @@ export default function Contact() {
                 <input 
                   type="text" 
                   required
+                  name="lastName"
                   placeholder="Votre nom"
                   className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border-transparent focus:bg-white dark:focus:bg-neutral-900 focus:border-orange-500 ring-2 ring-transparent focus:ring-orange-500/20 transition-all outline-none"
                 />
@@ -129,6 +160,7 @@ export default function Contact() {
                 <input 
                   type="text" 
                   required
+                  name="firstName"
                   placeholder="Votre prénom"
                   className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border-transparent focus:bg-white dark:focus:bg-neutral-900 focus:border-orange-500 ring-2 ring-transparent focus:ring-orange-500/20 transition-all outline-none"
                 />
@@ -140,6 +172,7 @@ export default function Contact() {
               <input 
                 type="email" 
                 required
+                name="email"
                 placeholder="vous@exemple.com"
                 className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border-transparent focus:bg-white dark:focus:bg-neutral-900 focus:border-orange-500 ring-2 ring-transparent focus:ring-orange-500/20 transition-all outline-none"
               />
@@ -147,12 +180,15 @@ export default function Contact() {
 
             <div className="space-y-2">
               <label className="text-sm font-bold text-neutral-900 dark:text-white">Sujet</label>
-              <select className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border-transparent focus:bg-white dark:focus:bg-neutral-900 focus:border-orange-500 ring-2 ring-transparent focus:ring-orange-500/20 transition-all outline-none">
-                <option>Question sur une commande</option>
-                <option>Problème technique</option>
-                <option>Retour ou remboursement</option>
-                <option>Partenariat</option>
-                <option>Autre</option>
+              <select
+                name="subject"
+                className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border-transparent focus:bg-white dark:focus:bg-neutral-900 focus:border-orange-500 ring-2 ring-transparent focus:ring-orange-500/20 transition-all outline-none"
+              >
+                <option value="Question sur une commande">Question sur une commande</option>
+                <option value="Problème technique">Problème technique</option>
+                <option value="Retour ou remboursement">Retour ou remboursement</option>
+                <option value="Partenariat">Partenariat</option>
+                <option value="Autre">Autre</option>
               </select>
             </div>
 
@@ -161,6 +197,7 @@ export default function Contact() {
               <textarea 
                 required
                 rows={5}
+                name="message"
                 placeholder="Comment pouvons-nous vous aider ?"
                 className="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-800 border-transparent focus:bg-white dark:focus:bg-neutral-900 focus:border-orange-500 ring-2 ring-transparent focus:ring-orange-500/20 transition-all outline-none resize-none"
               />
@@ -168,9 +205,10 @@ export default function Contact() {
 
             <button 
               type="submit"
+              disabled={sending}
               className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl shadow-lg shadow-orange-600/20 hover:shadow-orange-600/40 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
             >
-              Envoyer le message
+              {sending ? "Envoi…" : "Envoyer le message"}
             </button>
           </form>
         </motion.div>

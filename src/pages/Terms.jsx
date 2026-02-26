@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
 
 const Section = ({ title, children }) => (
   <div className="mb-10">
@@ -10,6 +11,9 @@ const Section = ({ title, children }) => (
 );
 
 export default function Terms() {
+  const { data: appConfig } = useAppConfig();
+  const legalEmail = appConfig?.contactEmail || "legal@lid.ci";
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-20 pb-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto bg-white dark:bg-neutral-900 rounded-3xl p-8 sm:p-12 border border-neutral-200 dark:border-neutral-800 shadow-sm">
@@ -79,7 +83,10 @@ export default function Terms() {
 
           <div className="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-800 text-center">
             <p className="text-neutral-500 text-sm">
-              Pour toute question relative à ces conditions, contactez-nous à <a href="mailto:legal@lid.ci" className="text-orange-600 hover:underline">legal@lid.ci</a>
+              Pour toute question relative à ces conditions, contactez-nous à{" "}
+              <a href={`mailto:${legalEmail}`} className="text-orange-600 hover:underline">
+                {legalEmail}
+              </a>
             </p>
           </div>
         </motion.div>

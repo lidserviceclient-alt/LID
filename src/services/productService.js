@@ -1,7 +1,10 @@
 import api from "./api";
 
-export async function getCatalogProductsPage(page = 0, size = 50) {
+export async function getCatalogProductsPage(page = 0, size = 50, { q, category, sortKey } = {}) {
   const params = new URLSearchParams({ page: `${page}`, size: `${size}` });
+  if (q !== null && q !== undefined && `${q}`.trim()) params.set("q", `${q}`.trim());
+  if (category !== null && category !== undefined && `${category}`.trim()) params.set("category", `${category}`.trim());
+  if (sortKey !== null && sortKey !== undefined && `${sortKey}`.trim()) params.set("sortKey", `${sortKey}`.trim());
   const res = await api.get(`/api/v1/catalog/products?${params.toString()}`);
   return res?.data;
 }
@@ -62,5 +65,21 @@ export async function getBestSellerCatalogProducts(limit = 12) {
   }
   const query = params.toString();
   const res = await api.get(`/api/v1/catalog/products/bestsellers${query ? `?${query}` : ""}`);
+  return res?.data;
+}
+
+export async function getLatestCatalogProducts(limit = 20) {
+  const params = new URLSearchParams();
+  if (limit !== null && limit !== undefined && Number.isFinite(Number(limit))) {
+    params.set("limit", `${limit}`);
+  }
+  const query = params.toString();
+  const res = await api.get(`/api/v1/catalog/products/latest${query ? `?${query}` : ""}`, {
+    validateStatus: (status) => (status >= 200 && status < 300) || status === 404
+  });
+  if (res.status === 404) {
+    const page = await getCatalogProductsPage(0, Math.min(Math.max(Number(limit) || 20, 1), 200), { sortKey: "newest" });
+    return Array.isArray(page?.content) ? page.content : [];
+  }
   return res?.data;
 }

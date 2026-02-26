@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Plus, Minus } from "lucide-react";
+import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
 
 const FAQItem = ({ question, answer }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -37,13 +38,16 @@ const FAQItem = ({ question, answer }) => {
 };
 
 export default function FAQ() {
+  const { data: appConfig } = useAppConfig();
+  const hubCity = appConfig?.city || "Abidjan";
+
   const faqs = [
     {
       category: "Commandes & Livraison",
       items: [
         {
           question: "Quels sont les délais de livraison ?",
-          answer: "Nous livrons généralement sous 2 à 5 jours ouvrables à Abidjan et ses environs. Pour l'intérieur du pays, comptez 3 à 7 jours. Les délais peuvent varier en fonction de la disponibilité des produits."
+          answer: `Nous livrons généralement sous 2 à 5 jours ouvrables à ${hubCity} et ses environs. Pour l'intérieur du pays, comptez 3 à 7 jours. Les délais peuvent varier en fonction de la disponibilité des produits.`
         },
         {
           question: "Comment suivre ma commande ?",

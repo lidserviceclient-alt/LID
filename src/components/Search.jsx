@@ -1,25 +1,35 @@
 import { ChevronDown, Search, TrendingUp } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getCatalogCategories } from '@/services/categoryService';
 
 export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchValue, setSearchValue] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Toutes catégories');
+  const [categories, setCategories] = useState([{ label: 'Toutes catégories', value: '' }]);
+  const [selectedCategory, setSelectedCategory] = useState({ label: 'Toutes catégories', value: '' });
   const [categoryOpen, setCategoryOpen] = useState(false);
   const navigate = useNavigate();
-  
-  const categories = [
-    'Toutes catégories',
-    'Électronique',
-    'Mode & Vêtements',
-    'Maison & Jardin',
-    'Sports & Loisirs',
-    'Beauté & Santé',
-    'Livres & Média',
-    'Jouets & Enfants',
-    'Alimentaire',
-  ];
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await getCatalogCategories();
+        const options = [{ label: 'Toutes catégories', value: '' }].concat(
+          (Array.isArray(list) ? list : [])
+            .filter((c) => c?.estActive !== false)
+            .map((c) => ({ label: c.nom, value: c.slug || c.id }))
+            .filter((o) => o.value)
+        );
+        if (!cancelled) setCategories(options);
+      } catch {
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   
   const trendingSearches = ['iPhone 15', 'Nike Air Max', 'MacBook Pro', 'PS5'];
 
@@ -29,8 +39,8 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
 
     const params = new URLSearchParams();
     params.append('q', searchValue);
-    if (selectedCategory !== 'Toutes catégories') {
-      params.append('category', selectedCategory);
+    if (selectedCategory?.value) {
+      params.append('category', selectedCategory.value);
     }
     
     navigate(`/shop?${params.toString()}`);
@@ -62,7 +72,7 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
               onBlur={() => setTimeout(() => setCategoryOpen(false), 200)}
               className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:text-[#6aa200] transition-colors border-r border-neutral-200 dark:border-neutral-700"
             >
-              <span className="max-w-[120px] truncate">{selectedCategory}</span>
+              <span className="max-w-[120px] truncate">{selectedCategory?.label || 'Toutes catégories'}</span>
               <ChevronDown size={16} className={`transition-transform ${categoryOpen ? 'rotate-180' : ''}`} />
             </button>
             
@@ -72,19 +82,19 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
                 <div className="max-h-80 overflow-y-auto py-2">
                   {categories.map((category) => (
                     <button
-                      key={category}
+                      key={category.value || 'all'}
                       type="button"
                       onClick={() => {
                         setSelectedCategory(category);
                         setCategoryOpen(false);
                       }}
                       className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                        selectedCategory === category
+                        selectedCategory?.value === category.value
                           ? 'bg-[#6aa200]/10 dark:bg-[#6aa200]/20 text-[#6aa200] font-medium'
                           : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800'
                       }`}
                     >
-                      {category}
+                      {category.label}
                     </button>
                   ))}
                 </div>

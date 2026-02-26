@@ -49,7 +49,7 @@ const formatMoney = (value) => {
   });
 };
 
-export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, selectedSize, quantity, cartItems, onSuccess, shippingCost = 0, discountAmount = 0, promoCode = "" }) {
+export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, selectedSize, quantity, cartItems, onSuccess, shippingCost = 0, discountAmount = 0, loyaltyDiscountAmount = 0, loyaltyTier = "", promoCode = "" }) {
   const [step, setStep] = useState(1); // 1: Info, 2: Payment, 3: Processing, 4: Success
   const [loadingStep, setLoadingStep] = useState(0); // 0: Init, 1: Connecting, 2: Verifying, 3: Approved
   const [orderNumber, setOrderNumber] = useState('');
@@ -79,6 +79,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
 
   const normalizedShippingCost = Number.isFinite(Number(shippingCost)) ? Number(shippingCost) : 0;
   const normalizedDiscountAmount = Number.isFinite(Number(discountAmount)) ? Number(discountAmount) : 0;
+  const normalizedLoyaltyDiscountAmount = Number.isFinite(Number(loyaltyDiscountAmount)) ? Number(loyaltyDiscountAmount) : 0;
   const normalizedQuantity = Number.isFinite(Number(quantity)) ? Number(quantity) : 1;
   
   // Calculate items total
@@ -87,7 +88,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     : (Number(product?.price) || 0) * normalizedQuantity;
 
   // Calculate final total with shipping and discount
-  const finalTotal = Math.max(0, itemsTotal + normalizedShippingCost - normalizedDiscountAmount);
+  const finalTotal = Math.max(0, itemsTotal + normalizedShippingCost - normalizedDiscountAmount - normalizedLoyaltyDiscountAmount);
 
   const TAX_RATE = 0.18; // 18% TVA Côte d'Ivoire
   // Calculate tax based on final total
@@ -194,6 +195,19 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
       return;
     }
 
+    const paymentProvider = `${import.meta.env.VITE_PAYMENT_PROVIDER || (import.meta.env.DEV ? 'LOCAL' : 'PAYDUNYA')}`.trim();
+
+    const contactPhone =
+      (formData.paymentMethod === 'mobile' ? formData.mobilePhone : formData.phone) ||
+      formData.phone ||
+      formData.mobilePhone ||
+      '';
+
+    if (!`${contactPhone}`.trim()) {
+      toast.error("Numéro de téléphone requis.");
+      return;
+    }
+
     const toArticleId = (value) => {
       const numeric = Number(value);
       if (!Number.isFinite(numeric) || numeric <= 0) return null;
@@ -234,23 +248,29 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
         amount: finalTotal,
         currency: 'XOF',
         email: formData.email,
-        phone: formData.phone,
+        phone: contactPhone,
         shippingAddress,
         notes: '',
         shippingCost: normalizedShippingCost,
         promoCode: (promoCode || "").trim() || null,
         items,
         returnUrl,
-        cancelUrl
+        cancelUrl,
+        paymentProvider
       });
 
       const url = res?.paymentUrl;
-      if (!url) {
-        throw new Error("URL de paiement introuvable.");
-      }
       setLoadingStep(3);
       if (typeof window !== 'undefined') {
-        window.location.href = url;
+        if (url && paymentProvider.toUpperCase() !== 'LOCAL') {
+          window.location.href = url;
+          return;
+        }
+        const token = `${res?.invoiceToken || ''}`.trim();
+        if (!token) {
+          throw new Error("Token de paiement introuvable.");
+        }
+        window.location.href = `${origin}/payment/success?token=${encodeURIComponent(token)}`;
       }
     } catch (err) {
       setStep(2);
@@ -358,6 +378,12 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                        <div className="flex justify-between text-green-400">
                          <span>Réduction</span>
                          <span>-{formatMoney(normalizedDiscountAmount)} FCFA</span>
+                       </div>
+                     )}
+                     {normalizedLoyaltyDiscountAmount > 0 && (
+                       <div className="flex justify-between text-green-400">
+                         <span>{loyaltyTier ? `Réduction VIP (${loyaltyTier})` : "Réduction VIP"}</span>
+                         <span>-{formatMoney(normalizedLoyaltyDiscountAmount)} FCFA</span>
                        </div>
                      )}
                      <div className="flex justify-between text-neutral-300">
@@ -487,10 +513,23 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                            </div>
                         </div>
 
-                        <div className="group">
-                           <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Email</label>
-                           <input required type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium" placeholder="exemple@email.com" />
-                        </div>
+                     <div className="group">
+                        <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Email</label>
+                        <input required type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium" placeholder="exemple@email.com" />
+                     </div>
+
+                     <div className="group">
+                       <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Téléphone</label>
+                       <input
+                         required
+                         type="tel"
+                         name="phone"
+                         value={formData.phone}
+                         onChange={handleInputChange}
+                         className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium"
+                         placeholder="+2250102030405"
+                       />
+                     </div>
 
                         {loadingAddresses ? (
                           <div className="text-sm text-neutral-500">Chargement des adresses...</div>

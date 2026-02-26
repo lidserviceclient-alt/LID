@@ -15,6 +15,7 @@ import Reassurance from "../components/Reassurance";
 import { cn } from "@/utils/cn";
 import { buildCategoryTree, getCatalogCategories, getFeaturedCatalogCategories, resolveBackendAssetUrl } from "@/services/categoryService";
 import { getBestSellerCatalogProducts, getCatalogProductsPage, getFeaturedCatalogProducts } from "@/services/productService";
+import { useFlashSaleProduct } from "@/features/flashSale/useFlashSaleProduct";
 
 const CATEGORY_FALLBACK_IMAGE = "/imgs/wall-1.jpg";
 const CATEGORY_FALLBACK_BY_SLUG = {
@@ -110,6 +111,8 @@ export default function Home() {
   const [bestSellerProducts, setBestSellerProducts] = useState([]);
   const [catalogProducts, setCatalogProducts] = useState([]);
   const [mobileCategory, setMobileCategory] = useState("");
+  const { data: flashSaleProduct } = useFlashSaleProduct(1);
+  const hasFlashSale = Boolean(flashSaleProduct);
 
   useEffect(() => {
     let cancelled = false;
@@ -340,10 +343,11 @@ export default function Home() {
            </div>
         </div>
 
-        {/* Flash Sale Banner */}
-        <div className="px-4">
-          <Offer />
-        </div>
+        {hasFlashSale ? (
+          <div className="px-4">
+            <Offer />
+          </div>
+        ) : null}
 
         {/* Categories Grid (Mobile) */}
         <div>
@@ -443,16 +447,17 @@ export default function Home() {
           <Reassurance />
         </motion.section>
         
-        {/* Offer */}
-        <motion.section
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          viewport={{ once: true }}
-          className="px-6 pb-16 max-w-7xl mx-auto"
-        >
-          <Offer />
-        </motion.section>
+        {hasFlashSale ? (
+          <motion.section
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            viewport={{ once: true }}
+            className="px-6 pb-16 max-w-7xl mx-auto"
+          >
+            <Offer />
+          </motion.section>
+        ) : null}
 
         {/* Categories Grid - BENTO LAYOUT */}
         <motion.section

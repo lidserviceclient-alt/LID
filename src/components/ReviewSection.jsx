@@ -1,61 +1,99 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, Send, User, MessageSquarePlus, ThumbsUp } from 'lucide-react';
-
-const mockReviews = [
-  {
-    id: 1,
-    user: "Sophie Martin",
-    date: "Il y a 2 jours",
-    rating: 5,
-    content: "Absolument ravie de mon achat ! La qualité est au rendez-vous et la livraison a été ultra rapide. Je recommande vivement.",
-    likes: 12
-  },
-  {
-    id: 2,
-    user: "Thomas Dubreuil",
-    date: "Il y a 1 semaine",
-    rating: 4,
-    content: "Bon produit, conforme à la description. Petit bémol sur l'emballage qui était un peu abîmé, mais le produit est intact.",
-    likes: 5
-  },
-  {
-    id: 3,
-    user: "Léa Dubois",
-    date: "Il y a 2 semaines",
-    rating: 5,
-    content: "C'est exactement ce que je cherchais. Le rapport qualité/prix est excellent.",
-    likes: 8
-  }
-];
+import { useNavigate } from 'react-router-dom';
+import { isAuthenticated } from '../services/authService';
+import { listProductReviews, reportReview, toggleReviewLike, upsertProductReview } from '../services/reviewService';
 
 // eslint-disable-next-line no-unused-vars
 const ReviewSection = ({ productId }) => {
-  // TODO: Use productId to fetch real reviews
-  const [reviews, setReviews] = useState(mockReviews);
+  const navigate = useNavigate();
+  const [reviews, setReviews] = useState([]);
+  const [summary, setSummary] = useState({ avgRating: 0, reviewCount: 0, page: 0, totalPages: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [isWriting, setIsWriting] = useState(false);
   const [newReview, setNewReview] = useState({ rating: 0, content: "" });
   const [hoverRating, setHoverRating] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  async function reload(page = 0) {
+    if (!productId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await listProductReviews(productId, page, 10);
+      setReviews(Array.isArray(res?.content) ? res.content : []);
+      setSummary({
+        avgRating: Number(res?.avgRating) || 0,
+        reviewCount: Number(res?.reviewCount) || 0,
+        page: Number(res?.page) || 0,
+        totalPages: Number(res?.totalPages) || 0
+      });
+    } catch (e) {
+      setError(e?.message || "Impossible de charger les avis.");
+      setReviews([]);
+      setSummary({ avgRating: 0, reviewCount: 0, page: 0, totalPages: 0 });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    reload(0);
+  }, [productId]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (newReview.rating === 0 || !newReview.content.trim()) return;
-
-    const review = {
-      id: Date.now(),
-      user: "Utilisateur",
-      date: "À l'instant",
-      rating: newReview.rating,
-      content: newReview.content,
-      likes: 0,
-      isNew: true
-    };
-
-    setReviews([review, ...reviews]);
-    setNewReview({ rating: 0, content: "" });
-    setIsWriting(false);
+    if (!isAuthenticated()) {
+      navigate("/login");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      await upsertProductReview(productId, { rating: newReview.rating, content: newReview.content });
+      setNewReview({ rating: 0, content: "" });
+      setIsWriting(false);
+      await reload(0);
+    } catch (e2) {
+      setError(e2?.message || "Impossible de publier l’avis.");
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  async function onToggleLike(reviewId) {
+    if (!isAuthenticated()) {
+      navigate("/login");
+      return;
+    }
+    try {
+      const nextCount = await toggleReviewLike(reviewId);
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.id === reviewId ? { ...r, likeCount: Number(nextCount) || 0, likedByMe: !r.likedByMe } : r
+        )
+      );
+    } catch {
+    }
+  }
+
+  async function onReport(reviewId) {
+    if (!isAuthenticated()) {
+      navigate("/login");
+      return;
+    }
+    const details = window.prompt("Pourquoi signalez-vous cet avis ? (optionnel)") || "";
+    try {
+      await reportReview(reviewId, { reason: "SIGNALEMENT", details });
+    } catch {
+    }
+  }
+
+  const starsFilled = Math.round(Math.max(0, Math.min(5, summary.avgRating)));
 
   return (
     <div id="reviews" className="mt-12 border-t border-neutral-200 dark:border-neutral-800 pt-8 scroll-mt-24">
@@ -67,10 +105,16 @@ const ReviewSection = ({ productId }) => {
           <div className="flex items-center gap-2">
             <div className="flex">
               {[1, 2, 3, 4, 5].map((star) => (
-                <Star key={star} size={20} className="fill-[#FFA41C] text-[#FFA41C]" />
+                <Star
+                  key={star}
+                  size={20}
+                  className={star <= starsFilled ? "fill-[#FFA41C] text-[#FFA41C]" : "text-neutral-300 dark:text-neutral-600"}
+                />
               ))}
             </div>
-            <span className="text-neutral-600 dark:text-neutral-400 font-medium">4.8 sur 5</span>
+            <span className="text-neutral-600 dark:text-neutral-400 font-medium">
+              {new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(summary.avgRating)} sur 5 ({summary.reviewCount})
+            </span>
           </div>
         </div>
         
@@ -83,6 +127,12 @@ const ReviewSection = ({ productId }) => {
           {isWriting ? "Fermer" : "Écrire un avis"}
         </motion.button>
       </div>
+
+      {error ? (
+        <div className="mb-6 text-sm text-red-600 dark:text-red-300">
+          {error}
+        </div>
+      ) : null}
 
       <AnimatePresence>
         {isWriting && (
@@ -134,7 +184,7 @@ const ReviewSection = ({ productId }) => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   type="submit"
-                  disabled={!newReview.rating || !newReview.content.trim()}
+                  disabled={!newReview.rating || !newReview.content.trim() || submitting}
                   className="px-6 py-2 bg-[#FFA41C] text-black font-bold rounded-full shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   <Send size={16} /> Publier
@@ -147,18 +197,18 @@ const ReviewSection = ({ productId }) => {
 
       <div className="space-y-4">
         <AnimatePresence mode="popLayout">
-          {reviews.map((review) => (
+          {loading ? (
+            <div className="text-sm text-neutral-600 dark:text-neutral-400">Chargement…</div>
+          ) : reviews.length === 0 ? (
+            <div className="text-sm text-neutral-600 dark:text-neutral-400">Aucun avis.</div>
+          ) : reviews.map((review) => (
             <motion.div
               key={review.id}
-              initial={review.isNew ? { opacity: 0, y: -20, scale: 0.9 } : { opacity: 1, y: 0 }}
+              initial={{ opacity: 1, y: 0 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               layout
-              className={`p-6 rounded-2xl border ${
-                review.isNew 
-                  ? "bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-900/30" 
-                  : "bg-white dark:bg-neutral-900 border-neutral-100 dark:border-neutral-800"
-              } shadow-sm`}
+              className="p-6 rounded-2xl border bg-white dark:bg-neutral-900 border-neutral-100 dark:border-neutral-800 shadow-sm"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
@@ -166,8 +216,10 @@ const ReviewSection = ({ productId }) => {
                     <User size={20} className="text-neutral-500" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-neutral-900 dark:text-white">{review.user}</h4>
-                    <span className="text-xs text-neutral-500">{review.date}</span>
+                    <h4 className="font-bold text-neutral-900 dark:text-white">{review.userName || "Utilisateur"}</h4>
+                    <span className="text-xs text-neutral-500">
+                      {review.createdAt ? new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(new Date(review.createdAt)) : ""}
+                    </span>
                   </div>
                 </div>
                 <div className="flex">
@@ -175,21 +227,24 @@ const ReviewSection = ({ productId }) => {
                     <Star
                       key={i}
                       size={14}
-                      className={i < review.rating ? "fill-[#FFA41C] text-[#FFA41C]" : "text-neutral-200 dark:text-neutral-700"}
+                      className={i < (Number(review.rating) || 0) ? "fill-[#FFA41C] text-[#FFA41C]" : "text-neutral-200 dark:text-neutral-700"}
                     />
                   ))}
                 </div>
               </div>
               
               <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed mb-4">
-                {review.content}
+                {review.content || ""}
               </p>
 
               <div className="flex items-center gap-4 text-sm text-neutral-500">
-                <button className="flex items-center gap-1 hover:text-orange-600 transition-colors">
-                  <ThumbsUp size={14} /> Utile ({review.likes})
+                <button
+                  onClick={() => onToggleLike(review.id)}
+                  className={`flex items-center gap-1 transition-colors ${review.likedByMe ? "text-orange-600" : "hover:text-orange-600"}`}
+                >
+                  <ThumbsUp size={14} /> Utile ({Number(review.likeCount) || 0})
                 </button>
-                <button className="hover:text-neutral-900 dark:hover:text-white transition-colors">
+                <button onClick={() => onReport(review.id)} className="hover:text-neutral-900 dark:hover:text-white transition-colors">
                   Signaler
                 </button>
               </div>

@@ -67,16 +67,8 @@ function App() {
                 <Profile />
               </ProtectedRoute>
             } />
-            <Route path="payment/success" element={
-              <ProtectedRoute>
-                <PaymentSuccess />
-              </ProtectedRoute>
-            } />
-            <Route path="payment/cancel" element={
-              <ProtectedRoute>
-                <PaymentCancel />
-              </ProtectedRoute>
-            } />
+            <Route path="payment/success" element={<PaymentSuccess />} />
+            <Route path="payment/cancel" element={<PaymentCancel />} />
             <Route path="contact" element={<Contact />} />
             <Route path="help" element={<Help />} />
             <Route path="faq" element={<FAQ />} />

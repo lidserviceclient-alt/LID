@@ -2,50 +2,7 @@ import React from "react";
 import { Star, Quote } from "lucide-react";
 import { cn } from "@/utils/cn";
 
-const reviews = [
-  {
-    name: "Sophie K.",
-    username: "@sophiek_style",
-    body: "J'ai commandé une robe pour un mariage et elle est arrivée en 24h ! La qualité est incroyable, je recommande à 100%.",
-    img: "https://randomuser.me/api/portraits/women/1.jpg",
-    rating: 5
-  },
-  {
-    name: "Marc D.",
-    username: "@marcdigital",
-    body: "L'application est super fluide. Vendre mes anciens gadgets n'a jamais été aussi simple. Le paiement est sécurisé, c'est top.",
-    img: "https://randomuser.me/api/portraits/men/2.jpg",
-    rating: 5
-  },
-  {
-    name: "Amina T.",
-    username: "@aminatrend",
-    body: "Le service client est très réactif. J'avais un doute sur une taille et ils m'ont aidé immédiatement. Merci !",
-    img: "https://randomuser.me/api/portraits/women/3.jpg",
-    rating: 4
-  },
-  {
-    name: "Jean-Yves P.",
-    username: "@jyp_tech",
-    body: "Enfin une marketplace ivoirienne digne de ce nom. Interface moderne et livraison rapide.",
-    img: "https://randomuser.me/api/portraits/men/4.jpg",
-    rating: 5
-  },
-  {
-    name: "Sarah L.",
-    username: "@sarah_life",
-    body: "J'adore la section 'Offres du jour'. On y trouve de vraies pépites à petit prix.",
-    img: "https://randomuser.me/api/portraits/women/5.jpg",
-    rating: 5
-  },
-  {
-    name: "David K.",
-    username: "@davidk_pro",
-    body: "Simple, efficace et rapide. Tout ce qu'on demande à une app e-commerce aujourd'hui.",
-    img: "https://randomuser.me/api/portraits/men/6.jpg",
-    rating: 4
-  },
-];
+const reviews = [];
 
 const firstRow = reviews.slice(0, reviews.length / 2);
 const secondRow = reviews.slice(reviews.length / 2);
@@ -139,6 +96,7 @@ const Marquee = ({
 };
 
 export default function Opinion() {
+  if (reviews.length === 0) return null;
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden py-20  dark:bg-black/20">
       

@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { Truck, Zap, Globe, MapPin, Package, Clock, CheckCircle } from "lucide-react";
+import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
 
-const CoverageMap = () => (
+const CoverageMap = ({ hubCity }) => (
   <div className="relative w-full h-[400px] bg-neutral-900 rounded-3xl overflow-hidden shadow-2xl">
     {/* Map Background */}
     <div className="absolute inset-0 opacity-20" style={{ 
@@ -20,7 +21,9 @@ const CoverageMap = () => (
                 transition={{ type: "spring" }}
             >
                 <div className="w-4 h-4 bg-[#6aa200] rounded-full shadow-[0_0_20px_#6aa200] animate-pulse" />
-                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-white font-bold text-xs whitespace-nowrap bg-black/50 px-2 py-1 rounded">Abidjan (Hub Central)</span>
+                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-white font-bold text-xs whitespace-nowrap bg-black/50 px-2 py-1 rounded">
+                  {hubCity} (Hub Central)
+                </span>
             </motion.div>
 
             {/* Other Cities */}
@@ -87,6 +90,9 @@ const CoverageMap = () => (
 );
 
 export default function Delivery() {
+  const { data: appConfig } = useAppConfig();
+  const hubCity = appConfig?.city || "Abidjan";
+
   return (
     <div className="min-h-screen pt-24 pb-12 px-4 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white">
        <div className="max-w-5xl mx-auto space-y-16">
@@ -166,7 +172,7 @@ export default function Delivery() {
                   <h2 className="text-3xl font-bold">Une couverture nationale</h2>
                   <p className="text-neutral-500 text-lg leading-relaxed">
                       Notre réseau logistique s'étend sur tout le territoire ivoirien. 
-                      Que vous soyez à Abidjan, Bouaké, ou San Pedro, nous vous garantissons une livraison sécurisée.
+                      Que vous soyez à {hubCity}, Bouaké, ou San Pedro, nous vous garantissons une livraison sécurisée.
                   </p>
                   <ul className="space-y-4">
                       {[
@@ -184,7 +190,7 @@ export default function Delivery() {
                       ))}
                   </ul>
               </div>
-              <CoverageMap />
+              <CoverageMap hubCity={hubCity} />
           </div>
 
        </div>
