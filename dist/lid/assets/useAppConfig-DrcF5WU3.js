@@ -1,0 +1,1 @@
+import{u as e}from"./query-vendor-8YvxhktU.js";import{c as p}from"./index-FW7Msngp.js";async function r(){return(await p.get("/api/v1/public/app-config")).data}function t(){return e({queryKey:["public-app-config"],queryFn:r,staleTime:300*1e3,retry:1})}export{t as u};

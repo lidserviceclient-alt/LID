@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { clearAccessToken, getAccessToken } from './auth';
+import { clearAccessToken, getAccessToken, setAccessToken } from './auth';
 
 const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:9000';
 const isDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true';
@@ -16,6 +16,15 @@ const api = axios.create({
   },
   withCredentials: true,
   timeout: 10000, // 10 seconds timeout
+});
+
+const refreshClient = axios.create({
+  baseURL: resolvedBaseUrl,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true,
+  timeout: 10000,
 });
 
 // Request Interceptor
@@ -51,24 +60,47 @@ api.interceptors.request.use(
     return Promise.reject(error);
   }
 );
-// Apr�s chaque r�ponse, je g�re les erreurs globalement
+// Après chaque réponse, je gère les erreurs globalement
 api.interceptors.response.use(
-  (response) => response, // Si tout va bien, je renvoie la r�ponse direct
-  (error) => {
+  (response) => response, // Si tout va bien, je renvoie la réponse direct
+  async (error) => {
     if (error.response) {
-      // Le serveur a r�pondu mais avec une erreur (hors 2xx)
+      // Le serveur a répondu mais avec une erreur (hors 2xx)
       const status = error.response.status;
       const message =
         error.response.data?.errorMessage ||
         error.response.data?.message ||
         error.message;
 
-      if (status === 401) {
-        console.error('Pas autorisé !');
-        clearAccessToken();
-        const currentPath = window.location?.pathname || '';
-        if (currentPath !== '/login') {
-          window.location.href = '/login';
+      const originalRequest = error.config || {};
+      const url = `${originalRequest.url || ''}`;
+      const isAuthLogin = url.includes('/api/v1/auth/login');
+      const isRefresh = url.includes('/api/v1/auth/refresh');
+      const isAuthEndpoint = isAuthLogin || isRefresh || url.includes('/api/v1/auth/password');
+      const hadAccessToken = Boolean(getAccessToken());
+
+      if (status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+        originalRequest._retry = true;
+        try {
+          const refreshResponse = await refreshClient.post('/api/v1/auth/refresh');
+          const accessToken = refreshResponse?.data?.accessToken;
+          if (accessToken) {
+            setAccessToken(accessToken);
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            return api(originalRequest);
+          }
+        } catch (refreshError) {
+          if (isDebug) {
+            console.info('[AUTH] refresh failed:', refreshError?.message || refreshError);
+          }
+        }
+        if (hadAccessToken) {
+          clearAccessToken();
+          const currentPath = window.location?.pathname || '';
+          if (currentPath !== '/login') {
+            window.location.href = '/login';
+          }
         }
       } else if (status === 403) {
         console.error('Accès refusé :', message);
@@ -76,13 +108,13 @@ api.interceptors.response.use(
         console.error('Erreur API :', message);
       }
     } else if (error.request) {
-      // La requ�te est partie mais rien n'est revenu
+      // La requête est partie mais rien n'est revenu
       console.error('Erreur réseau : pas de réponse du serveur');
       if (isDebug) {
         console.info('[API] no response; check CORS or network.');
       }
     } else {
-      // Une erreur est survenue en pr�parant la requ�te
+      // Une erreur est survenue en préparant la requête
       console.error('Erreur côté client :', error.message);
     }
 

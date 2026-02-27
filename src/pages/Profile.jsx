@@ -77,7 +77,7 @@ const SidebarItem = ({ icon: Icon, label, active, onClick, danger }) => (
   </button>
 );
 
-const OrderCard = ({ order }) => {
+const OrderCard = ({ order, email }) => {
   const getStatusColor = (status) => {
     switch(status) {
       case 'delivered': return 'bg-green-100 text-green-700 border-green-200';
@@ -96,6 +96,13 @@ const OrderCard = ({ order }) => {
     }
   };
 
+  const trackingHref = order?.orderNumber
+    ? `/tracking?order=${encodeURIComponent(order.orderNumber)}`
+    : "/tracking";
+  const returnsHref = order?.orderNumber && email
+    ? `/returns?order=${encodeURIComponent(order.orderNumber)}&email=${encodeURIComponent(email)}`
+    : "/returns";
+
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-neutral-100 bg-white hover:border-[#6aa200]/30 hover:shadow-md transition-all duration-300 gap-4">
       <div className="flex items-center gap-4">
@@ -103,18 +110,24 @@ const OrderCard = ({ order }) => {
           <Package size={20} />
         </div>
         <div>
-          <h4 className="font-bold text-neutral-900">{order.id}</h4>
+          <h4 className="font-bold text-neutral-900">{order.displayId}</h4>
           <p className="text-xs text-neutral-500">{order.date} • {order.items} article(s)</p>
         </div>
       </div>
-      <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+      <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto flex-wrap sm:flex-nowrap">
         <span className="font-bold text-neutral-900">{order.total}</span>
         <span className={cn("px-3 py-1 rounded-full text-xs font-bold border", getStatusColor(order.status))}>
           {getStatusLabel(order.status)}
         </span>
-        <button className="p-2 hover:bg-neutral-100 rounded-full text-neutral-400 hover:text-[#6aa200] transition-colors">
+        <Link
+          to={returnsHref}
+          className="text-xs font-semibold text-neutral-500 hover:text-[#6aa200] transition-colors"
+        >
+          Retour
+        </Link>
+        <Link to={trackingHref} className="p-2 hover:bg-neutral-100 rounded-full text-neutral-400 hover:text-[#6aa200] transition-colors">
           <ChevronRight size={18} />
-        </button>
+        </Link>
       </div>
     </div>
   );
@@ -210,7 +223,7 @@ const maskCardNumber = (value) => {
   return `•••• •••• •••• ${digits.slice(-4)}`;
 };
 
-const OverviewSection = ({ stats, recentOrders, onSeeAllOrders, loading }) => (
+const OverviewSection = ({ stats, recentOrders, onSeeAllOrders, loading, email }) => (
   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
     {/* Stats Grid */}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -251,14 +264,14 @@ const OverviewSection = ({ stats, recentOrders, onSeeAllOrders, loading }) => (
         ) : recentOrders.length === 0 ? (
           <div className="text-sm text-neutral-500">Aucune commande.</div>
         ) : (
-          recentOrders.map((order) => <OrderCard key={order.id} order={order} />)
+          recentOrders.map((order) => <OrderCard key={order.displayId} order={order} email={email} />)
         )}
       </div>
     </div>
   </div>
 );
 
-const OrdersSection = ({ orders, loading, filter, onFilterChange }) => (
+const OrdersSection = ({ orders, loading, filter, onFilterChange, email }) => (
   <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
     <div className="flex items-center justify-between">
       <h2 className="text-xl font-bold text-neutral-900">Mes Commandes</h2>
@@ -279,7 +292,7 @@ const OrdersSection = ({ orders, loading, filter, onFilterChange }) => (
       ) : orders.length === 0 ? (
         <div className="text-sm text-neutral-500">Aucune commande.</div>
       ) : (
-        orders.map((order) => <OrderCard key={order.id} order={order} />)
+        orders.map((order) => <OrderCard key={order.displayId} order={order} email={email} />)
       )}
     </div>
   </div>
@@ -708,13 +721,17 @@ export default function Profile() {
         setUserProfile(profile);
         setAddresses(Array.isArray(addressList) ? addressList : []);
 
-        const mappedOrders = ordersDto.map((o) => ({
-          id: `#${o.orderNumber || `ORD-${o.id}`}`,
+        const mappedOrders = ordersDto.map((o) => {
+          const orderNumber = o.orderNumber || `ORD-${o.id}`;
+          return {
+            displayId: `#${orderNumber}`,
+            orderNumber,
           date: formatOrderDate(o.createdAt),
           total: formatMoney(o.amount, o.currency || 'FCFA'),
           status: mapOrderStatus(o.currentStatus),
           items: countOrderItems(o.items)
-        }));
+          };
+        });
 
         setOrders(mappedOrders);
         setRecentOrders(mappedOrders.slice(0, 3));
@@ -934,6 +951,7 @@ export default function Profile() {
                 recentOrders={recentOrders}
                 loading={loadingOverview}
                 onSeeAllOrders={() => setActiveTab('orders')}
+                email={displayEmail}
               />
             )}
             {activeTab === 'orders' && (
@@ -942,6 +960,7 @@ export default function Profile() {
                 loading={loadingOverview} 
                 filter={ordersFilter}
                 onFilterChange={setOrdersFilter}
+                email={displayEmail}
               />
             )}
             {activeTab === 'addresses' && (

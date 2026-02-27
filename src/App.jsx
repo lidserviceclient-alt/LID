@@ -34,6 +34,9 @@ const SellerDetails = lazy(() => import('./pages/SellerDetails.jsx'))
 const OrderTracking = lazy(() => import('./pages/OrderTracking.jsx'))
 const Returns = lazy(() => import('./pages/Returns.jsx'))
 const Delivery = lazy(() => import('./pages/Delivery.jsx'))
+const NotFound = lazy(() => import('./pages/NotFound.jsx'))
+
+
 
 function App() {
   
@@ -58,8 +61,10 @@ function App() {
             <Route path="blog/:id" element={<BlogDetails />} />
             <Route path="tickets" element={<TicketCatalog />} />
             <Route path="tickets/:id" element={<TicketDetails />} />
-            <Route path="sellers" element={<SellersList />} />
-            <Route path="sellers/:id" element={<SellerDetails />} />
+
+            {/* <Route path="sellers" element={<SellersList />} />
+            <Route path="sellers/:id" element={<SellerDetails />} /> */}
+            
             <Route path="cart" element={<Cart />} />
             <Route path="wishlist" element={<Wishlist />} />
             <Route path="profile" element={
@@ -79,6 +84,7 @@ function App() {
             <Route path="delivery" element={<Delivery />} />
             <Route path="product/:id" element={<ProductDetails />} />
           </Route>
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
     </>

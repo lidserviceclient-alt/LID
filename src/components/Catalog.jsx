@@ -411,7 +411,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
                     </div>
                   )}
                   <div className="text-xs text-neutral-600 dark:text-neutral-400">
-                    Livraison <span className="font-bold text-neutral-900 dark:text-white">GRATUITE</span> {product.deliveryDate}
+                    Livraison <span className="font-bold text-neutral-900 dark:text-white">sous conditions.</span> {product.deliveryDate}
                   </div>
                </div>
             </div>
@@ -534,7 +534,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
              </div>
            )}
            <div className="text-[10px] sm:text-xs text-neutral-600 dark:text-neutral-400">
-             Livraison <span className="font-bold text-neutral-900 dark:text-white">GRATUITE</span> {product.deliveryDate}
+             Livraison <span className="font-bold text-neutral-900 dark:text-white">Sous conditions.</span> {product.deliveryDate}
            </div>
         </div>
 
@@ -629,12 +629,6 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
     setMinRating(null);
     setSortBy("featured");
     setIsMobileFiltersOpen(false);
-
-    const nextParams = new URLSearchParams(searchParamsString);
-    if (nextParams.has("q")) nextParams.delete("q");
-    if (nextParams.toString() !== searchParamsString) {
-      setSearchParams(nextParams, { replace: true });
-    }
   }, [categoryParam, searchParamsString, setSearchParams]);
 
   useEffect(() => {

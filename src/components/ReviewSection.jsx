@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, Send, User, MessageSquarePlus, ThumbsUp } from 'lucide-react';
+import { Star, Send, User, MessageSquarePlus, ThumbsUp, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { isAuthenticated } from '../services/authService';
-import { listProductReviews, reportReview, toggleReviewLike, upsertProductReview } from '../services/reviewService';
+import { getCurrentUserPayload, isAuthenticated } from '../services/authService';
+import { resolveBackendAssetUrl } from '../services/categoryService';
+import { deleteProductReview, listProductReviews, reportReview, toggleReviewLike, upsertProductReview } from '../services/reviewService';
 
 // eslint-disable-next-line no-unused-vars
 const ReviewSection = ({ productId }) => {
@@ -17,6 +18,7 @@ const ReviewSection = ({ productId }) => {
   const [newReview, setNewReview] = useState({ rating: 0, content: "" });
   const [hoverRating, setHoverRating] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const currentUserId = getCurrentUserPayload()?.sub || null;
 
   async function reload(page = 0) {
     if (!productId) return;
@@ -90,6 +92,21 @@ const ReviewSection = ({ productId }) => {
     try {
       await reportReview(reviewId, { reason: "SIGNALEMENT", details });
     } catch {
+    }
+  }
+
+  async function onDelete(reviewId) {
+    if (!isAuthenticated()) {
+      navigate("/login");
+      return;
+    }
+    const confirm = window.confirm("Supprimer votre avis ?");
+    if (!confirm) return;
+    try {
+      await deleteProductReview(reviewId);
+      await reload(0);
+    } catch (e) {
+      setError(e?.message || "Suppression impossible.");
     }
   }
 
@@ -212,8 +229,20 @@ const ReviewSection = ({ productId }) => {
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-                    <User size={20} className="text-neutral-500" />
+                  <div className="relative w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center overflow-hidden">
+                    <User size={20} className="text-neutral-500 absolute inset-0 m-auto" />
+                    {review.userAvatarUrl ? (
+                      <img
+                        src={resolveBackendAssetUrl(review.userAvatarUrl)}
+                        alt={review.userName || "Utilisateur"}
+                        className="w-full h-full object-cover relative"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : null}
                   </div>
                   <div>
                     <h4 className="font-bold text-neutral-900 dark:text-white">{review.userName || "Utilisateur"}</h4>
@@ -247,6 +276,11 @@ const ReviewSection = ({ productId }) => {
                 <button onClick={() => onReport(review.id)} className="hover:text-neutral-900 dark:hover:text-white transition-colors">
                   Signaler
                 </button>
+                {currentUserId && review.userId === currentUserId ? (
+                  <button onClick={() => onDelete(review.id)} className="hover:text-red-600 transition-colors flex items-center gap-1">
+                    <Trash2 size={14} /> Supprimer
+                  </button>
+                ) : null}
               </div>
             </motion.div>
           ))}

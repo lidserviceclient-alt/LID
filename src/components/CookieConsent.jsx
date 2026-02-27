@@ -1,211 +1,193 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Sliders, ChevronUp } from "lucide-react";
 import { initAnalytics } from "@/services/firebase";
 import { trackTrafficHit } from "@/services/traffic";
 
 export default function CookieConsent() {
-  const [showBanner, setShowBanner] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [preferences, setPreferences] = useState({ analytics: true, marketing: true });
+  const [visible, setVisible] = useState(false);
+  const [openSettings, setOpenSettings] = useState(false);
+  const [preferences, setPreferences] = useState({
+    analytics: true,
+    marketing: false,
+  });
 
   useEffect(() => {
     const consent = localStorage.getItem("lid_cookie_consent");
-    if (!consent) {
-      const timer = setTimeout(() => setShowBanner(true), 1000);
-      return () => clearTimeout(timer);
-    }
+    if (!consent) setVisible(true);
   }, []);
 
-  const handleAcceptAll = () => {
+  const acceptAll = () => {
     localStorage.setItem("lid_cookie_consent", "all");
     initAnalytics();
     trackTrafficHit({ path: window.location?.pathname || "/" });
-    setShowBanner(false);
+    setVisible(false);
   };
 
-  const handleRejectAll = () => {
+  const rejectAll = () => {
     localStorage.setItem("lid_cookie_consent", "essential");
-    setShowBanner(false);
+    setVisible(false);
   };
 
-  const handleSavePreferences = () => {
+  const savePreferences = () => {
     localStorage.setItem("lid_cookie_consent", "custom");
     localStorage.setItem(
       "lid_cookie_preferences",
-      JSON.stringify({ essential: true, analytics: preferences.analytics, marketing: preferences.marketing })
+      JSON.stringify({
+        essential: true,
+        analytics: preferences.analytics,
+        marketing: preferences.marketing,
+      })
     );
-    initAnalytics();
-    trackTrafficHit({ path: window.location?.pathname || "/" });
-    setShowBanner(false);
+
+    if (preferences.analytics) {
+      initAnalytics();
+      trackTrafficHit({ path: window.location?.pathname || "/" });
+    }
+
+    setVisible(false);
   };
 
-  if (!showBanner) return null;
+  if (!visible) return null;
 
   return (
-    <div className="fixed lg:bottom-6 bottom-[15%] left-1/2 -translate-x-1/2 z-[60] flex flex-col items-center gap-4 w-full max-w-[90%] sm:max-w-[440px]">
-      <AnimatePresence mode="wait">
-        {!isExpanded ? (
-          <motion.button
-            key="collapsed"
-            layoutId="cookie-banner"
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setIsExpanded(true)}
-            className="flex items-center gap-3 pl-2 pr-6 py-2 bg-neutral-900/90 dark:bg-white/90 backdrop-blur-md text-white dark:text-neutral-900 rounded-full shadow-2xl shadow-orange-500/20 border border-white/10 dark:border-neutral-900/10 cursor-pointer group"
-          >
-            <div className="w-10 h-10 animate-bounce bg-orange-500 rounded-full flex items-center justify-center text-xl shadow-lg group-hover:rotate-12 transition-transform">
-              🍪
-            </div>
-            <div className="flex flex-col items-start">
-              <span className="font-bold text-sm">Cookies ?</span>
-              <span className="text-[10px] opacity-70">Gérer mes préférences</span>
-            </div>
-            <div className="w-2 h-2 rounded-full bg-orange-500 ml-2 animate-pulse" />
-          </motion.button>
-        ) : (
-          <motion.div
-            key="expanded"
-            layoutId="cookie-banner"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="w-full bg-white dark:bg-neutral-900 rounded-[32px] shadow-2xl shadow-black/20 overflow-hidden border border-neutral-100 dark:border-neutral-800"
-          >
-            {/* Header Art */}
-            <div className="h-32 bg-orange-600 relative overflow-hidden flex items-center justify-center">
-              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay" />
-              <motion.div 
-                animate={{ rotate: 360 }}
-                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                className="absolute -right-10 -top-10 w-40 h-40 border-[20px] border-white/10 rounded-full border-dashed"
-              />
-               <motion.div 
-                animate={{ rotate: -360 }}
-                transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-                className="absolute -left-10 -bottom-10 w-40 h-40 border-[20px] border-white/10 rounded-full border-dotted"
-              />
-              <motion.div
-                initial={{ scale: 0, rotate: -180 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", damping: 12 }}
-                className="text-7xl drop-shadow-lg z-10"
-              >
-                🍪
-              </motion.div>
-              <button 
-                onClick={() => setIsExpanded(false)}
-                className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/30 rounded-full text-white transition-colors backdrop-blur-sm"
-              >
-                <ChevronUp size={20} />
-              </button>
-            </div>
+    <AnimatePresence>
+      <motion.div
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
+        className="fixed bottom-0 left-0 right-0 z-[99999]"
+      >
+        <div className="bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800 shadow-2xl backdrop-blur-xl">
+          <div className="max-w-7xl mx-auto px-6 py-6">
 
-            {/* Content */}
-            <div className="p-6">
-              {!showSettings ? (
-                <>
-                  <div className="text-center mb-6">
-                    <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">On peut avoir un cookie ?</h3>
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                      Promis, ils ne font pas grossir ! Ils servent juste à améliorer votre expérience sur LID.
-                    </p>
-                  </div>
+            {!openSettings ? (
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                
+                {/* Texte */}
+                <div className="max-w-2xl">
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
+                    Gestion des cookies
+                  </h2>
+                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                    Nous utilisons des cookies pour assurer le bon fonctionnement du site,
+                    analyser l’audience et améliorer nos services. 
+                    Vous pouvez accepter tous les cookies ou personnaliser vos préférences.
+                  </p>
+                </div>
 
-                  <div className="space-y-3">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handleAcceptAll}
-                      className="w-full py-4 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 group"
-                    >
-                      <span>Accepter & Continuer</span>
-                      <Check size={18} className="group-hover:scale-125 transition-transform" />
-                    </motion.button>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => setShowSettings(true)}
-                        className="py-3 px-4 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 font-bold rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
-                      >
-                        <Sliders size={14} />
-                        Réglages
-                      </button>
-                      <button
-                        onClick={handleRejectAll}
-                        className="py-3 px-4 bg-transparent border-2 border-neutral-100 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 text-neutral-500 dark:text-neutral-400 font-bold rounded-xl transition-colors text-sm"
-                      >
-                        Refuser
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-neutral-900 dark:text-white">Vos préférences</h3>
-                    <button 
-                      onClick={() => setShowSettings(false)}
-                      className="text-xs font-bold text-orange-600 hover:underline"
-                    >
-                      Retour
-                    </button>
-                  </div>
-                  
-                  <div className="space-y-3 mb-6 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
-                    <ToggleOption label="Essentiels" description="Nécessaires au site" checked disabled />
-                    <ToggleOption
-                      label="Analytique"
-                      description="Stats anonymes"
-                      checked={preferences.analytics}
-                      onToggle={() => setPreferences((prev) => ({ ...prev, analytics: !prev.analytics }))}
-                    />
-                    <ToggleOption
-                      label="Marketing"
-                      description="Pubs ciblées"
-                      checked={preferences.marketing}
-                      onToggle={() => setPreferences((prev) => ({ ...prev, marketing: !prev.marketing }))}
-                    />
-                  </div>
+                {/* Actions */}
+                <div className="flex flex-wrap gap-3 lg:justify-end">
+                  <button
+                    onClick={rejectAll}
+                    className="px-5 py-2.5 text-sm font-medium rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
+                  >
+                    Refuser
+                  </button>
 
                   <button
-                    onClick={handleSavePreferences}
-                    className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl shadow-lg shadow-orange-600/20 transition-all"
+                    onClick={() => setOpenSettings(true)}
+                    className="px-5 py-2.5 text-sm font-medium rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
                   >
-                    Enregistrer mes choix
+                    Personnaliser
+                  </button>
+
+                  <button
+                    onClick={acceptAll}
+                    className="px-6 py-2.5 text-sm font-semibold rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:opacity-90 transition"
+                  >
+                    Accepter tout
                   </button>
                 </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-base font-semibold text-neutral-900 dark:text-white">
+                    Préférences des cookies
+                  </h3>
+                  <button
+                    onClick={() => setOpenSettings(false)}
+                    className="text-sm text-neutral-500 hover:text-neutral-800 dark:hover:text-white transition"
+                  >
+                    Retour
+                  </button>
+                </div>
+
+                <div className="space-y-4 max-w-2xl">
+                  <Toggle
+                    label="Cookies essentiels"
+                    description="Nécessaires au fonctionnement du site."
+                    checked
+                    disabled
+                  />
+
+                  <Toggle
+                    label="Cookies analytiques"
+                    description="Mesure d’audience et amélioration des performances."
+                    checked={preferences.analytics}
+                    onChange={() =>
+                      setPreferences((p) => ({
+                        ...p,
+                        analytics: !p.analytics,
+                      }))
+                    }
+                  />
+
+                  <Toggle
+                    label="Cookies marketing"
+                    description="Personnalisation des contenus publicitaires."
+                    checked={preferences.marketing}
+                    onChange={() =>
+                      setPreferences((p) => ({
+                        ...p,
+                        marketing: !p.marketing,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={savePreferences}
+                    className="px-6 py-2.5 text-sm font-semibold rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:opacity-90 transition"
+                  >
+                    Enregistrer les préférences
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
-const ToggleOption = ({ label, description, checked = false, disabled = false, onToggle }) => {
+const Toggle = ({ label, description, checked, disabled = false, onChange }) => {
   return (
-    <div
-      className={`flex items-center justify-between p-3 rounded-xl border ${
-        checked ? "border-orange-500/30 bg-orange-50 dark:bg-orange-900/10" : "border-neutral-100 dark:border-neutral-800"
-      }`}
-    >
+    <div className="flex justify-between items-start gap-6">
       <div>
-        <div className="font-bold text-sm text-neutral-900 dark:text-white">{label}</div>
-        <div className="text-xs text-neutral-500 dark:text-neutral-400">{description}</div>
+        <p className="text-sm font-medium text-neutral-900 dark:text-white">
+          {label}
+        </p>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          {description}
+        </p>
       </div>
-      <button 
-        onClick={() => !disabled && onToggle?.()}
-        className={`w-10 h-6 rounded-full transition-colors relative ${checked ? 'bg-orange-500' : 'bg-neutral-200 dark:bg-neutral-700'} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+
+      <button
+        onClick={() => !disabled && onChange?.()}
+        className={`w-11 h-6 rounded-full p-1 transition ${
+          checked
+            ? "bg-neutral-900 dark:bg-white"
+            : "bg-neutral-300 dark:bg-neutral-700"
+        } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
       >
-        <motion.div 
-          animate={{ x: checked ? 18 : 2 }}
-          className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm"
+        <div
+          className={`w-4 h-4 rounded-full bg-white dark:bg-neutral-900 shadow transform transition ${
+            checked ? "translate-x-5" : ""
+          }`}
         />
       </button>
     </div>

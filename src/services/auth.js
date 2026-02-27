@@ -20,7 +20,7 @@ const decodeBase64Url = (value) => {
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
   try {
     return JSON.parse(atob(padded));
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -39,7 +39,8 @@ export const getAccessTokenPayload = () => {
 
 export const isTokenExpired = (token, skewSeconds = 30) => {
   if (!token) return true;
-  const payload = getAccessTokenPayload();
+  const parts = token.split('.');
+  const payload = parts.length === 3 ? decodeBase64Url(parts[1]) : null;
   const exp = payload?.exp;
   if (exp === null || exp === undefined) return false;
   const expSeconds = Number(exp);
@@ -53,9 +54,5 @@ export const hasValidAccessToken = () => {
   if (!token) return false;
   const payload = getAccessTokenPayload();
   if (!payload?.sub) return false;
-  if (isTokenExpired(token)) {
-    clearAccessToken();
-    return false;
-  }
   return true;
 };

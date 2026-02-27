@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { isAuthenticated } from '@/services/authService';
+import Loader from '@/components/Loader';
+import { isAuthenticated, refreshSession } from '@/services/authService';
 
 /**
  * Composant de protection de route.
@@ -8,9 +10,29 @@ import { isAuthenticated } from '@/services/authService';
  */
 const ProtectedRoute = ({ children }) => {
   const location = useLocation();
+  const [state, setState] = useState({ checking: true, allowed: false });
 
-  if (!isAuthenticated()) {
-    // Redirige vers /login en gardant en mémoire la page d'origine
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (isAuthenticated()) {
+        if (!cancelled) setState({ checking: false, allowed: true });
+        return;
+      }
+      const ok = await refreshSession();
+      if (!cancelled) setState({ checking: false, allowed: ok });
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (state.checking) {
+    return <Loader />;
+  }
+
+  if (!state.allowed) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

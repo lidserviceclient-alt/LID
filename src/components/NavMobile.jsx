@@ -23,7 +23,7 @@ export default function NavMobile() {
     { icon: Heart, label: "Favoris", path: "/wishlist" },
     { icon: null, label: "Home", path: "/", isLogo: true },
     { icon: ShoppingCart, label: "Panier", path: "/cart" },
-    { icon: User, label: "Compte", path: "/login" },
+    { icon: User, label: "Compte", path: "/profile" },
   ];
 
   return (

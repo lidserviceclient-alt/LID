@@ -56,12 +56,12 @@ const pickGalleryImages = (product) => {
 const buildSpecs = (product) => {
   const createdAt = product?.dateCreation ? new Date(product.dateCreation) : null;
   return [
-    { label: "RÃ©fÃ©rence", value: product?.referenceProduitPartenaire || "-" },
+    { label: "Référence", value: product?.referenceProduitPartenaire || "-" },
     { label: "Marque", value: product?.brand || "-" },
-    { label: "CatÃ©gorie", value: product?.categoryName || "-" },
+    { label: "Catégorie", value: product?.categoryName || "-" },
     { label: "Stock", value: Number.isFinite(Number(product?.stock)) ? `${product.stock}` : "-" },
     { label: "TVA", value: product?.vat !== null && product?.vat !== undefined ? `${formatMoney(Number(product.vat) * 100, { maximumFractionDigits: 0 })}%` : "18%" },
-    { label: "AjoutÃ© le", value: createdAt ? createdAt.toLocaleDateString("fr-FR") : "-" }
+    { label: "Ajouté le", value: createdAt ? createdAt.toLocaleDateString("fr-FR") : "-" }
   ];
 };
 
@@ -208,7 +208,7 @@ export default function ProductDetailsDb() {
         await navigator.share({ title: product?.name || "Produit", url });
       } else {
         await navigator.clipboard.writeText(url);
-        toast.success("Lien copiÃ©");
+        toast.success("Lien copié");
       }
     } catch {
       toast.error("Impossible de partager le lien.");
@@ -405,7 +405,7 @@ export default function ProductDetailsDb() {
               ) : null}
               {product?.referenceProduitPartenaire ? (
                 <span className={product?.brand ? "pl-3 border-l border-neutral-200 dark:border-neutral-800" : ""}>
-                  RÃ©f: <span className="font-mono">{product.referenceProduitPartenaire}</span>
+                  Réf: <span className="font-mono">{product.referenceProduitPartenaire}</span>
                 </span>
               ) : null}
             </div>
@@ -434,7 +434,7 @@ export default function ProductDetailsDb() {
                 <ShieldCheck className="text-emerald-600 mt-0.5" size={18} />
                 <div className="text-sm">
                   <div className="font-bold text-neutral-900 dark:text-white">Paiement</div>
-                  <div className="text-neutral-600 dark:text-neutral-400">SÃ©curisÃ©</div>
+                  <div className="text-neutral-600 dark:text-neutral-400">Sécurisé</div>
                 </div>
               </div>
               <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-4 flex items-start gap-3">
@@ -452,7 +452,7 @@ export default function ProductDetailsDb() {
                   type="button"
                   onClick={() => setQuantity((q) => Math.max(1, (Number(q) || 1) - 1))}
                   className="px-4 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200"
-                  aria-label="Diminuer la quantitÃ©"
+                  aria-label="Diminuer la quantité"
                 >
                   <Minus size={16} />
                 </button>
@@ -463,7 +463,7 @@ export default function ProductDetailsDb() {
                   type="button"
                   onClick={() => setQuantity((q) => Math.max(1, (Number(q) || 1) + 1))}
                   className="px-4 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200"
-                  aria-label="Augmenter la quantitÃ©"
+                  aria-label="Augmenter la quantité"
                 >
                   <Plus size={16} />
                 </button>
@@ -495,7 +495,7 @@ export default function ProductDetailsDb() {
               <div className="flex gap-2 flex-wrap">
                 {[
                   { key: "description", label: "Description" },
-                  { key: "specs", label: "DÃ©tails" },
+                  { key: "specs", label: "Détails" },
                   { key: "shipping", label: "Livraison & retours" },
                   { key: "reviews", label: "Avis" }
                 ].map((tab) => (
@@ -521,7 +521,7 @@ export default function ProductDetailsDb() {
                   ) : (
                     <p>
                       Ce produit fait partie de notre catalogue LID. Ajoutez-le au panier et profitez d'une
-                      expÃ©rience d'achat fluide, d'une livraison rapide et d'un paiement sÃ©curisÃ©.
+                      expérience d'achat fluide, d'une livraison rapide et d'un paiement sécurisé.
                     </p>
                   )}
                 </div>
@@ -546,14 +546,14 @@ export default function ProductDetailsDb() {
               {activeTab === "shipping" ? (
                 <div className="mt-5 space-y-3 text-sm text-neutral-700 dark:text-neutral-300">
                   <p>
-                    Livraison standard : <span className="font-bold">3â€“5 jours ouvrables</span>. Livraison
-                    express : <span className="font-bold">24â€“48h</span>.
+                    Livraison standard : <span className="font-bold">3–5 jours ouvrables</span>. Livraison
+                    express : <span className="font-bold">24–48h</span>.
                   </p>
                   <p>
-                    La livraison est <span className="font-bold">gratuite</span> dÃ¨s{" "}
-                    {formatMoney(FREE_SHIPPING_THRESHOLD)} FCFA d'achat.
+                    
+La livraison comprend différentes modalités.
                   </p>
-                  <p>Retours sous 30 jours : produit non utilisÃ©, dans son emballage d'origine.</p>
+                  <p>Retours sous 30 jours : produit non utilisé, dans son emballage d'origine.</p>
                 </div>
               ) : null}
 
@@ -572,7 +572,7 @@ export default function ProductDetailsDb() {
               <div>
                 <h2 className="text-2xl font-black text-neutral-900 dark:text-white">Produits similaires</h2>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-                  Une sÃ©lection basÃ©e sur la mÃªme catÃ©gorie.
+                  Une sélection basée sur la même catégorie.
                 </p>
               </div>
               <Link to={categoryLink} className="text-sm font-bold text-orange-600 hover:underline">
@@ -584,6 +584,8 @@ export default function ProductDetailsDb() {
               {relatedProducts.map((p) => {
                 const pPrice = Number(p?.price) || 0;
                 const img = resolveImageSrc(p?.imageUrl) || FALLBACK_IMAGE;
+                const rating = Number(p?.rating) || 0;
+                const reviews = Number(p?.reviews) || 0;
                 return (
                   <Link
                     key={p.id}
@@ -604,8 +606,14 @@ export default function ProductDetailsDb() {
                     <div className="p-4">
                       <div className="flex items-center gap-1 text-[#FFA41C]">
                         {[...Array(5)].map((_, i) => (
-                          <Star key={i} size={12} className="fill-current" />
+                          <Star
+                            key={i}
+                            size={12}
+                            fill={i < Math.floor(rating) ? "currentColor" : "none"}
+                            className={i < Math.floor(rating) ? "text-[#FFA41C]" : "text-neutral-300 dark:text-neutral-600"}
+                          />
                         ))}
+                        <span className="ml-1 text-[11px] text-cyan-700 dark:text-cyan-400">{reviews.toLocaleString()}</span>
                       </div>
                       <div className="mt-2 font-bold text-neutral-900 dark:text-white line-clamp-2">{p?.name}</div>
                       <div className="mt-2 text-sm font-black text-neutral-900 dark:text-white">
@@ -640,4 +648,3 @@ export default function ProductDetailsDb() {
     </div>
   );
 }
-

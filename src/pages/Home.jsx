@@ -18,13 +18,6 @@ import { getBestSellerCatalogProducts, getCatalogProductsPage, getFeaturedCatalo
 import { useFlashSaleProduct } from "@/features/flashSale/useFlashSaleProduct";
 
 const CATEGORY_FALLBACK_IMAGE = "/imgs/wall-1.jpg";
-const CATEGORY_FALLBACK_BY_SLUG = {
-  homme: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1200&auto=format&fit=crop",
-  femme: "https://images.unsplash.com/photo-1520975916090-3105956dac38?q=80&w=1200&auto=format&fit=crop",
-  accessoires: "https://images.unsplash.com/photo-1523779105320-d1cd346ff52b?q=80&w=1200&auto=format&fit=crop",
-  sport: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1200&auto=format&fit=crop",
-  promo: "https://images.unsplash.com/photo-1555529669-2269763671c0?q=80&w=1200&auto=format&fit=crop"
-};
 
 // --- Mobile Specific Components ---
 const MobileSectionHeader = ({ title, linkTo, linkText = "Voir tout" }) => (
@@ -164,28 +157,6 @@ export default function Home() {
       .filter((item) => item.slug && item.label);
   }, [catalogCategories]);
 
-  const quickCategories = useMemo(() => {
-    if (rootCategories.length > 0) {
-      return [{ slug: "", label: "Tous" }, ...rootCategories.slice(0, 6)];
-    }
-    return [
-      { slug: "", label: "Tous" },
-      { slug: "homme", label: "Homme" },
-      { slug: "femme", label: "Femme" },
-      { slug: "accessoires", label: "Accessoires" },
-      { slug: "sport", label: "Sport" },
-      { slug: "promo", label: "Promo" }
-    ];
-  }, [rootCategories]);
-
-  const resolveCategoryLink = (label) => {
-    const match = rootCategories.find(
-      (cat) => cat.label.toLowerCase() === `${label || ""}`.trim().toLowerCase()
-    );
-    if (match?.slug) return `/shop?category=${encodeURIComponent(match.slug)}`;
-    return "/shop";
-  };
-
   const normalizedFeaturedProducts = useMemo(() => {
     return (Array.isArray(featuredProducts) ? featuredProducts : [])
       .map((product, index) => {
@@ -274,8 +245,7 @@ export default function Home() {
     const resolveCategoryImage = (slug, imageUrl) => {
       const resolved = resolveBackendAssetUrl(imageUrl);
       if (resolved) return resolved;
-      const key = `${slug || ""}`.trim().toLowerCase();
-      return CATEGORY_FALLBACK_BY_SLUG[key] || CATEGORY_FALLBACK_IMAGE;
+      return CATEGORY_FALLBACK_IMAGE;
     };
 
     const items = [];
@@ -301,11 +271,6 @@ export default function Home() {
       .forEach(add);
 
     (Array.isArray(rootCategories) ? rootCategories : []).forEach(add);
-
-    ["homme", "femme", "accessoires", "sport"].forEach((slug) => {
-      if (items.length >= 4) return;
-      add({ slug, label: slug.charAt(0).toUpperCase() + slug.slice(1) });
-    });
 
     return items.slice(0, 4);
   }, [featuredCategories, rootCategories]);
@@ -349,44 +314,53 @@ export default function Home() {
           </div>
         ) : null}
 
-        {/* Categories Grid (Mobile) */}
-        <div>
-          <MobileSectionHeader title="Catégories" linkTo="/shop" />
-          <div className="px-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 auto-rows-[170px] sm:auto-rows-[220px]">
-              <BentoCard
-                title={featuredBento[0]?.title}
-                image_url={featuredBento[0]?.image_url}
-                count={featuredBento[0]?.count}
-                slug={featuredBento[0]?.slug}
-                className="col-span-2 sm:col-span-2"
-                large
-              />
-              <BentoCard
-                title={featuredBento[1]?.title}
-                image_url={featuredBento[1]?.image_url}
-                count={featuredBento[1]?.count}
-                slug={featuredBento[1]?.slug}
-                className="col-span-1"
-              />
-              <BentoCard
-                title={featuredBento[2]?.title}
-                image_url={featuredBento[2]?.image_url}
-                count={featuredBento[2]?.count}
-                slug={featuredBento[2]?.slug}
-                className="col-span-1"
-              />
-              <BentoCard
-                title={featuredBento[3]?.title}
-                image_url={featuredBento[3]?.image_url}
-                count={featuredBento[3]?.count}
-                slug={featuredBento[3]?.slug}
-                className="col-span-2 sm:col-span-2"
-                large
-              />
+        {featuredBento.length > 0 ? (
+          <div>
+            <MobileSectionHeader title="Catégories" linkTo="/shop" />
+            <div className="px-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 auto-rows-[170px] sm:auto-rows-[220px]">
+                {featuredBento[0] ? (
+                  <BentoCard
+                    title={featuredBento[0].title}
+                    image_url={featuredBento[0].image_url}
+                    count={featuredBento[0].count}
+                    slug={featuredBento[0].slug}
+                    className="col-span-2 sm:col-span-2"
+                    large
+                  />
+                ) : null}
+                {featuredBento[1] ? (
+                  <BentoCard
+                    title={featuredBento[1].title}
+                    image_url={featuredBento[1].image_url}
+                    count={featuredBento[1].count}
+                    slug={featuredBento[1].slug}
+                    className="col-span-1"
+                  />
+                ) : null}
+                {featuredBento[2] ? (
+                  <BentoCard
+                    title={featuredBento[2].title}
+                    image_url={featuredBento[2].image_url}
+                    count={featuredBento[2].count}
+                    slug={featuredBento[2].slug}
+                    className="col-span-1"
+                  />
+                ) : null}
+                {featuredBento[3] ? (
+                  <BentoCard
+                    title={featuredBento[3].title}
+                    image_url={featuredBento[3].image_url}
+                    count={featuredBento[3].count}
+                    slug={featuredBento[3].slug}
+                    className="col-span-2 sm:col-span-2"
+                    large
+                  />
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
+        ) : null}
 
 
         {mobileFeaturedProducts.length > 0 ? (
@@ -459,48 +433,57 @@ export default function Home() {
           </motion.section>
         ) : null}
 
-        {/* Categories Grid - BENTO LAYOUT */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          viewport={{ once: true }}
-          className="px-6 pb-20 max-w-7xl mx-auto"
-        >
-          <DesktopSectionHeader title="Explorer par Catégorie" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[400px]">
-            <BentoCard 
-              title={featuredBento[0]?.title} 
-              image_url={featuredBento[0]?.image_url} 
-              count={featuredBento[0]?.count} 
-              slug={featuredBento[0]?.slug} 
-              className="md:col-span-2"
-              large
-            />
-            <BentoCard 
-              title={featuredBento[1]?.title} 
-              image_url={featuredBento[1]?.image_url} 
-              count={featuredBento[1]?.count} 
-              slug={featuredBento[1]?.slug} 
-              className="md:col-span-1"
-            />
-            <BentoCard 
-              title={featuredBento[2]?.title} 
-              image_url={featuredBento[2]?.image_url} 
-              count={featuredBento[2]?.count} 
-              slug={featuredBento[2]?.slug}   
-              className="md:col-span-1"
-            />
-            <BentoCard 
-              title={featuredBento[3]?.title} 
-              image_url={featuredBento[3]?.image_url} 
-              count={featuredBento[3]?.count} 
-              slug={featuredBento[3]?.slug}   
-              className="md:col-span-2"
-              large
-            />
-          </div>
-        </motion.section>
+        {featuredBento.length > 0 ? (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="px-6 pb-20 max-w-7xl mx-auto"
+          >
+            <DesktopSectionHeader title="Explorer par Catégorie" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[400px]">
+              {featuredBento[0] ? (
+                <BentoCard
+                  title={featuredBento[0].title}
+                  image_url={featuredBento[0].image_url}
+                  count={featuredBento[0].count}
+                  slug={featuredBento[0].slug}
+                  className="md:col-span-2"
+                  large
+                />
+              ) : null}
+              {featuredBento[1] ? (
+                <BentoCard
+                  title={featuredBento[1].title}
+                  image_url={featuredBento[1].image_url}
+                  count={featuredBento[1].count}
+                  slug={featuredBento[1].slug}
+                  className="md:col-span-1"
+                />
+              ) : null}
+              {featuredBento[2] ? (
+                <BentoCard
+                  title={featuredBento[2].title}
+                  image_url={featuredBento[2].image_url}
+                  count={featuredBento[2].count}
+                  slug={featuredBento[2].slug}
+                  className="md:col-span-1"
+                />
+              ) : null}
+              {featuredBento[3] ? (
+                <BentoCard
+                  title={featuredBento[3].title}
+                  image_url={featuredBento[3].image_url}
+                  count={featuredBento[3].count}
+                  slug={featuredBento[3].slug}
+                  className="md:col-span-2"
+                  large
+                />
+              ) : null}
+            </div>
+          </motion.section>
+        ) : null}
 
         {featuredOnHome.length > 0 ? (
           <motion.section

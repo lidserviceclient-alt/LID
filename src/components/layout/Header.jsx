@@ -62,8 +62,23 @@ export default function Header() {
     return firstName || tokenPayload?.email || 'Utilisateur';
   }, [tokenPayload?.email, tokenPayload?.firstName, userProfile?.firstName]);
 
+  const getLastSeenProductsTs = () => {
+    const raw = Number(localStorage.getItem("lid_last_seen_products") || "0");
+    return Number.isFinite(raw) && raw > 0 ? raw : 0;
+  };
+
+  const getLatestProductTs = (products) => {
+    const list = Array.isArray(products) ? products : [];
+    let latest = 0;
+    for (const p of list) {
+      const t = p?.dateCreation ? new Date(p.dateCreation).getTime() : 0;
+      if (Number.isFinite(t) && t > latest) latest = t;
+    }
+    return latest;
+  };
+
   const computeUnread = (products) => {
-    const lastSeen = Number(localStorage.getItem("lid_last_seen_products") || "0");
+    const lastSeen = getLastSeenProductsTs();
     const list = Array.isArray(products) ? products : [];
     const fresh = list.filter((p) => {
       const t = p?.dateCreation ? new Date(p.dateCreation).getTime() : 0;
@@ -77,9 +92,11 @@ export default function Header() {
     try {
       const data = await getLatestCatalogProducts(30);
       computeUnread(Array.isArray(data) ? data : []);
+      return Array.isArray(data) ? data : [];
     } catch {
       setNotifUnreadCount(0);
       setNotifProducts([]);
+      return [];
     }
   };
 
@@ -92,11 +109,13 @@ export default function Header() {
   }, []);
 
   const openNotifications = async () => {
-    await refreshNotifications();
+    const products = await refreshNotifications();
     setIsNotifOpen((v) => !v);
     if (!isNotifOpen) {
-      const now = Date.now();
-      localStorage.setItem("lid_last_seen_products", `${now}`);
+      const lastSeen = getLastSeenProductsTs();
+      const latest = getLatestProductTs(products);
+      const nextSeen = Math.max(lastSeen, latest);
+      localStorage.setItem("lid_last_seen_products", `${nextSeen}`);
       setNotifUnreadCount(0);
     }
   };
@@ -359,12 +378,14 @@ export default function Header() {
                     <ChevronDown size={14} className={cn("transition-transform ml-1", isMegaMenuOpen && "rotate-180")} />
                 </button>
 
-                {/* Center: Main Nav (Clean & Airy) */}
+                {/* Center: Main Nav (Clean & Airy) */} 
+                {/* NONE
+                        { label: 'Partenaires', path: '/sellers' }, 
+                       */}
                 <nav className="flex items-center gap-10">
                     {[
                       { label: 'Accueil', path: '/' },
                       { label: 'Catalogues', path: '/shop' },
-                      { label: 'Partenaires', path: '/sellers' },
                       { label: 'Billetterie', path: '/tickets' },
                       { label: 'Blog', path: '/blog' },
                     ].map((link) => {

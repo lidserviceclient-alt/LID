@@ -1,84 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Package, Truck, MapPin, CheckCircle, Clock, ArrowRight } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { trackOrder } from "@/services/trackingService";
-
-// Mock Map Component
-const DeliveryMap = ({ status }) => {
-  // 0: Order Placed, 1: Prepared, 2: Shipped, 3: Out for Delivery, 4: Delivered
-  const progress = {
-    "pending": 0,
-    "processing": 25,
-    "shipped": 50,
-    "out_for_delivery": 75,
-    "delivered": 100
-  }[status] || 0;
-
-  return (
-    <div className="relative w-full h-[300px] md:h-[400px] bg-neutral-100 dark:bg-neutral-900 rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800">
-      {/* Map Background Pattern */}
-      <div className="absolute inset-0 opacity-10 dark:opacity-20" 
-           style={{ backgroundImage: 'radial-gradient(#888 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-      </div>
-
-      {/* Stylized Route Path */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-none">
-        <motion.path
-          d="M 50 200 Q 200 100 400 200 T 800 200"
-          fill="none"
-          stroke="#e5e5e5"
-          strokeWidth="4"
-          className="dark:stroke-neutral-800"
-        />
-        <motion.path
-          d="M 50 200 Q 200 100 400 200 T 800 200"
-          fill="none"
-          stroke="#6aa200"
-          strokeWidth="4"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: progress / 100 }}
-          transition={{ duration: 2, ease: "easeInOut" }}
-        />
-      </svg>
-
-      {/* Animated Landmarks */}
-      {[
-        { x: "10%", y: "50%", label: "Entrepôt", icon: Package },
-        { x: "50%", y: "50%", label: "Centre de Tri", icon: Truck },
-        { x: "90%", y: "50%", label: "Destination", icon: MapPin }
-      ].map((point, i) => (
-        <motion.div
-          key={i}
-          className="absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2"
-          style={{ left: point.x, top: point.y }}
-        >
-          <div className={`p-2 rounded-full ${i * 50 <= progress ? 'bg-[#6aa200] text-white' : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400'} transition-colors duration-500`}>
-            <point.icon size={20} />
-          </div>
-          <span className="text-xs font-bold text-neutral-600 dark:text-neutral-400">{point.label}</span>
-        </motion.div>
-      ))}
-
-      {/* Moving Truck */}
-      <motion.div
-        className="absolute top-1/2 left-[10%] -translate-y-1/2 -translate-x-1/2 z-10"
-        animate={{ 
-          left: `${10 + (progress * 0.8)}%`,
-          y: progress === 50 ? -50 : 0 // Simple mock curve follow effect
-        }}
-        transition={{ duration: 2, ease: "easeInOut" }}
-      >
-        <div className="relative">
-          <div className="bg-white dark:bg-neutral-950 p-2 rounded-full shadow-xl border border-neutral-200 dark:border-neutral-800 text-[#6aa200]">
-            <Truck size={24} fill="currentColor" className="text-[#6aa200]" />
-          </div>
-          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-8 bg-[#6aa200]/20 rounded-full animate-ping" />
-        </div>
-      </motion.div>
-    </div>
-  );
-};
 
 const statusKeyFromBackend = (value) => {
   const s = `${value || ""}`.trim().toUpperCase();
@@ -88,6 +13,23 @@ const statusKeyFromBackend = (value) => {
   if (s === "DELIVERY_IN_PROGRESS") return "out_for_delivery";
   if (s === "DELIVERED") return "delivered";
   return "pending";
+};
+
+const statusIndexFromKey = (value) => {
+  switch (`${value || ""}`.trim().toLowerCase()) {
+    case "pending":
+      return 0;
+    case "processing":
+      return 1;
+    case "shipped":
+      return 2;
+    case "out_for_delivery":
+      return 3;
+    case "delivered":
+      return 4;
+    default:
+      return 0;
+  }
 };
 
 const stepIndexFromBackend = (value) => {
@@ -111,18 +53,27 @@ export default function OrderTracking() {
   const [orderId, setOrderId] = useState("");
   const [trackingData, setTrackingData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchParams] = useSearchParams();
+  const lastAutoTrackedRef = useRef("");
+  const timelineRef = useRef(null);
+  const steps = [
+    { key: "pending", label: "Commande confirmée", icon: Package },
+    { key: "processing", label: "Préparation", icon: Clock },
+    { key: "shipped", label: "Expédiée", icon: Truck },
+    { key: "out_for_delivery", label: "Livraison", icon: MapPin },
+    { key: "delivered", label: "Livrée", icon: CheckCircle },
+  ];
 
-  const handleTrack = async (e) => {
-    e.preventDefault();
-    const ref = (orderId || "").trim();
-    if (!ref) {
+  const runTracking = async (ref) => {
+    const trimmed = `${ref || ""}`.trim();
+    if (!trimmed) {
       toast.error("Veuillez entrer un numéro de commande");
       return;
     }
 
     setIsLoading(true);
     try {
-      const data = await trackOrder(ref);
+      const data = await trackOrder(trimmed);
       const currentStatus = data?.currentStatus || "PENDING";
       const idx = stepIndexFromBackend(currentStatus);
 
@@ -135,7 +86,9 @@ export default function OrderTracking() {
 
       const eta = data?.deliveryDate
         ? new Date(data.deliveryDate).toLocaleDateString("fr-FR", { dateStyle: "medium" })
-        : "-";
+        : data?.updatedAt
+          ? new Date(data.updatedAt).toLocaleDateString("fr-FR", { dateStyle: "medium" })
+          : "À confirmer";
 
       const statusKey = statusKeyFromBackend(currentStatus);
       const location =
@@ -150,8 +103,10 @@ export default function OrderTracking() {
                 : "Livré";
 
       setTrackingData({
-        id: data?.orderNumber || ref,
+        id: data?.orderNumber || trimmed,
         status: statusKey,
+        trackingNumber: data?.trackingNumber || "",
+        deliveryType: data?.deliveryType || "Standard",
         eta,
         location,
         timeline: [
@@ -175,126 +130,180 @@ export default function OrderTracking() {
     }
   };
 
+  const handleTrack = async (e) => {
+    e.preventDefault();
+    if (isLoading) return;
+    await runTracking(orderId);
+  };
+
+  useEffect(() => {
+    const ref = `${searchParams.get("order") || searchParams.get("orderNumber") || ""}`.trim();
+    if (!ref) return;
+    if (lastAutoTrackedRef.current === ref) return;
+    lastAutoTrackedRef.current = ref;
+    setOrderId(ref);
+    if (!isLoading) {
+      runTracking(ref);
+    }
+  }, [searchParams, isLoading]);
+
+  useEffect(() => {
+    return () => {
+      lastAutoTrackedRef.current = "";
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4 md:px-8 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white">
-      <div className="max-w-4xl mx-auto space-y-8">
-        
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-3xl md:text-5xl font-bold tracking-tight"
-          >
-            Suivre ma <span className="text-[#6aa200]">Commande</span>
-          </motion.h1>
-          <p className="text-neutral-500 dark:text-neutral-400 max-w-lg mx-auto">
-            Entrez votre numéro de commande pour suivre son parcours en temps réel sur notre carte interactive.
-          </p>
-        </div>
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white">
+      <div className="relative overflow-hidden">
+        <div className="pointer-events-none absolute -top-24 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-[#6aa200]/15 blur-3xl" />
+        <div className="pointer-events-none absolute -top-10 right-6 h-56 w-56 rounded-full bg-[#FF9900]/10 blur-3xl" />
+      </div>
 
-        {/* Search Input */}
-        <motion.form 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1 }}
-          onSubmit={handleTrack}
-          className="relative max-w-lg mx-auto"
-        >
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-[#6aa200] transition-colors" />
-            <input
-              type="text"
-              placeholder="Ex: LID-7829-XJ"
-              value={orderId}
-              onChange={(e) => setOrderId(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-transparent focus:border-[#6aa200] focus:ring-2 focus:ring-[#6aa200]/20 outline-none transition-all text-lg font-medium"
-            />
-            <button 
-              type="submit"
-              disabled={isLoading}
-              className="absolute right-2 top-2 bottom-2 px-6 rounded-xl bg-[#6aa200] text-white font-bold hover:bg-[#5a8a00] transition-colors disabled:opacity-50"
-            >
-              {isLoading ? "..." : "Suivre"}
-            </button>
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 pt-20 sm:pt-24 pb-10 sm:pb-14">
+        <div className="rounded-3xl border border-neutral-200 bg-white/90 shadow-xl shadow-neutral-200/60 backdrop-blur dark:border-neutral-800 dark:bg-neutral-900/70 dark:shadow-black/40">
+          <div className="px-6 sm:px-10 py-8 sm:py-10 border-b border-neutral-200/70 dark:border-neutral-800">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6aa200]">Suivi de commande</p>
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-black leading-tight">
+                  Suivez votre livraison en temps réel
+                </h1>
+                <p className="text-sm sm:text-base text-neutral-500 dark:text-neutral-400 max-w-xl">
+                  Entrez votre numéro de commande pour voir le statut, l’estimation et l’historique détaillé.
+                </p>
+              </div>
+
+              <motion.form
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                onSubmit={handleTrack}
+                className="w-full max-w-md"
+              >
+                <div className="relative group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-[#6aa200] transition-colors" />
+                  <input
+                    type="text"
+                    placeholder="Ex: LID-ORD-24 ou ORD-24"
+                    value={orderId}
+                    onChange={(e) => setOrderId(e.target.value)}
+                    className="w-full pl-12 pr-28 sm:pr-32 py-4 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-transparent focus:border-[#6aa200] focus:ring-2 focus:ring-[#6aa200]/20 outline-none transition-all text-base font-semibold"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="absolute right-2 top-2 bottom-2 px-4 sm:px-5 rounded-xl bg-[#6aa200] text-white font-bold hover:bg-[#5a8a00] transition-colors disabled:opacity-50"
+                  >
+                    {isLoading ? "..." : "Suivre"}
+                  </button>
+                </div>
+              </motion.form>
+            </div>
           </div>
-        </motion.form>
 
-        {/* Results Area */}
-        <AnimatePresence mode="wait">
-          {trackingData && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-8"
-            >
-              {/* Status Card */}
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="md:col-span-2 bg-neutral-50 dark:bg-neutral-900/50 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-sm font-medium text-neutral-500 uppercase tracking-wider">Statut Actuel</h3>
-                    <p className="text-2xl font-bold mt-1 flex items-center gap-2">
-                      <Truck className="text-[#6aa200]" />
+          <AnimatePresence mode="wait">
+            {trackingData && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -16 }}
+                className="px-6 sm:px-10 py-8 sm:py-10 space-y-6"
+              >
+                <div className="grid gap-4 lg:grid-cols-3">
+                  <div className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 dark:border-neutral-800 dark:bg-neutral-900">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Commande</p>
+                    <div className="mt-2 text-lg font-bold">{trackingData.id}</div>
+                    <p className="text-xs text-neutral-500">Livraison {trackingData.deliveryType}</p>
+                    <p className="text-xs text-neutral-500">Suivi {trackingData.trackingNumber || "—"}</p>
+                  </div>
+                  <div className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 dark:border-neutral-800 dark:bg-neutral-900">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Statut actuel</p>
+                    <div className="mt-2 text-lg font-bold">
                       {trackingData.status === "pending" && "Commande confirmée"}
                       {trackingData.status === "processing" && "Préparation en cours"}
                       {trackingData.status === "shipped" && "Expédiée"}
                       {trackingData.status === "out_for_delivery" && "En livraison"}
                       {trackingData.status === "delivered" && "Livrée"}
-                    </p>
+                    </div>
+                    <p className="text-xs text-neutral-500">{trackingData.location}</p>
                   </div>
-                  <div className="mt-8">
-                    <h3 className="text-sm font-medium text-neutral-500 uppercase tracking-wider">Estimation</h3>
-                    <p className="text-4xl font-bold mt-1">{trackingData.eta}</p>
+                  <div className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 dark:border-neutral-800 dark:bg-neutral-900">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Estimation</p>
+                    <div className="mt-2 text-2xl font-black">{trackingData.eta || "À confirmer"}</div>
+                    <p className="text-xs text-neutral-500">Date estimée ou dernière mise à jour</p>
                   </div>
                 </div>
 
-                <div className="bg-[#6aa200] p-6 rounded-2xl text-white flex flex-col justify-between relative overflow-hidden">
-                  <div className="relative z-10">
-                    <h3 className="text-sm font-medium text-white/80 uppercase tracking-wider">Dernière étape</h3>
-                    <p className="text-xl font-bold mt-1">{trackingData.location}</p>
-                  </div>
-                  <div className="relative z-10 mt-4">
-                     <button className="flex items-center gap-2 text-sm font-bold hover:gap-3 transition-all">
-                        Détails complets <ArrowRight size={16} />
-                     </button>
-                  </div>
-                  <Package className="absolute -bottom-4 -right-4 w-32 h-32 text-white/10 rotate-12" />
-                </div>
-              </div>
-
-              {/* Interactive Map */}
-              <DeliveryMap status={trackingData.status} />
-
-              {/* Timeline */}
-              <div className="bg-neutral-50 dark:bg-neutral-900/50 p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800">
-                <h3 className="text-xl font-bold mb-6">Historique</h3>
-                <div className="space-y-8 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-[2px] before:bg-neutral-200 dark:before:bg-neutral-800">
-                  {trackingData.timeline.map((step, index) => (
-                    <motion.div 
-                      key={index}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="relative pl-12"
+                <div className="rounded-3xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold">Progression de la commande</p>
+                      <p className="text-xs text-neutral-500">Basée sur le statut actuel</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        try {
+                          timelineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        } catch {}
+                      }}
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-[#6aa200] hover:gap-3 transition-all"
                     >
-                      <div className={`absolute left-0 top-1 w-7 h-7 rounded-full border-4 flex items-center justify-center bg-white dark:bg-neutral-950 ${step.done ? 'border-[#6aa200] text-[#6aa200]' : 'border-neutral-300 dark:border-neutral-700 text-neutral-300'}`}>
-                        {step.done && <div className="w-2 h-2 rounded-full bg-[#6aa200]" />}
-                      </div>
-                      <div>
-                        <h4 className={`font-bold ${step.done ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'}`}>
-                          {step.status}
-                        </h4>
-                        <p className="text-sm text-neutral-500">{step.date}</p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
+                      Historique détaillé <ArrowRight size={16} />
+                    </button>
+                  </div>
 
-            </motion.div>
-          )}
-        </AnimatePresence>
+                  <div className="relative mt-6">
+                    <div className="absolute left-0 right-0 top-4 h-1 rounded-full bg-neutral-100 dark:bg-neutral-800" />
+                    <div
+                      className="absolute left-0 top-4 h-1 rounded-full bg-[#6aa200] transition-all"
+                      style={{
+                        width: `${(statusIndexFromKey(trackingData.status) / 4) * 100}%`,
+                      }}
+                    />
+                    <div className="grid grid-cols-5 gap-3 relative">
+                      {steps.map((step, idx) => {
+                        const done = idx <= statusIndexFromKey(trackingData.status);
+                        const Icon = step.icon;
+                        return (
+                          <div key={step.key} className="flex flex-col items-center text-center">
+                            <div className={`h-10 w-10 rounded-full flex items-center justify-center border ${done ? "bg-[#6aa200] text-white border-[#6aa200]" : "bg-white dark:bg-neutral-900 text-neutral-400 border-neutral-200 dark:border-neutral-800"}`}>
+                              <Icon size={18} />
+                            </div>
+                            <div className={`mt-2 text-[11px] sm:text-xs font-semibold ${done ? "text-neutral-900 dark:text-white" : "text-neutral-400"}`}>
+                              {step.label}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div ref={timelineRef} className="rounded-3xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-lg font-bold">Historique de statut</h3>
+                    <span className="text-xs text-neutral-400">Mises à jour récentes</span>
+                  </div>
+                  <div className="space-y-3">
+                    {trackingData.timeline.map((step, index) => (
+                      <div key={index} className="flex items-center gap-4 rounded-2xl border border-neutral-100 p-4 dark:border-neutral-800">
+                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${step.done ? "bg-[#6aa200]/10 text-[#6aa200]" : "bg-neutral-100 text-neutral-400 dark:bg-neutral-800"}`}>
+                          {step.done ? <CheckCircle size={18} /> : <Clock size={18} />}
+                        </div>
+                        <div className="flex-1">
+                          <p className={`text-sm font-semibold ${step.done ? "text-neutral-900 dark:text-white" : "text-neutral-500"}`}>
+                            {step.status}
+                          </p>
+                          <p className="text-xs text-neutral-400">{step.date}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );

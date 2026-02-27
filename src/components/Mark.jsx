@@ -4,8 +4,8 @@ import { motion, useMotionTemplate, useMotionValue, useSpring } from "framer-mot
 
 const brands = [
   { 
-    name: "Apple", 
-    logo: "https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg",
+    name: "Orange", 
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Orange_logo.svg/3840px-Orange_logo.svg.png",
     color: "from-gray-900 to-gray-700"
   },
   { 
@@ -15,7 +15,7 @@ const brands = [
   },
   { 
     name: "Samsung", 
-    logo: "https://upload.wikimedia.org/wikipedia/commons/2/24/Samsung_Logo.svg",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/f/f1/Samsung_logo_blue.png",
     color: "from-blue-900 to-blue-700"
   },
   { 
