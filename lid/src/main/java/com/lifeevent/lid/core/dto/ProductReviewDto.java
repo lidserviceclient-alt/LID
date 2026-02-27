@@ -7,6 +7,7 @@ public record ProductReviewDto(
         String productId,
         String userId,
         String userName,
+        String userAvatarUrl,
         Integer rating,
         String content,
         Long likeCount,
@@ -14,4 +15,3 @@ public record ProductReviewDto(
         LocalDateTime createdAt
 ) {
 }
-

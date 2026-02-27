@@ -11,8 +11,14 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 public interface CommentaireProduitRepository extends JpaRepository<CommentaireProduit, String> {
+    interface ProductReviewStats {
+        String getProductId();
+        Double getAvgRating();
+        Long getReviewCount();
+    }
     List<CommentaireProduit> findByProduit(Produit produit);
 
     Page<CommentaireProduit> findByProduitIdAndEstValideTrueAndDeletedAtIsNullOrderByDateCreationDesc(String produitId, Pageable pageable);
@@ -24,6 +30,18 @@ public interface CommentaireProduitRepository extends JpaRepository<CommentaireP
 
     @Query("select count(c) from CommentaireProduit c where c.produit.id = :pid and c.estValide = true and c.deletedAt is null")
     long countValid(@Param("pid") String productId);
+
+    @Query("""
+            select c.produit.id as productId,
+                   coalesce(avg(c.note), 0) as avgRating,
+                   count(c) as reviewCount
+            from CommentaireProduit c
+            where c.estValide = true
+              and c.deletedAt is null
+              and c.produit.id in :ids
+            group by c.produit.id
+            """)
+    List<ProductReviewStats> findReviewStatsByProductIds(@Param("ids") Collection<String> productIds);
 
     @EntityGraph(attributePaths = {"produit", "utilisateur"})
     @Query("""

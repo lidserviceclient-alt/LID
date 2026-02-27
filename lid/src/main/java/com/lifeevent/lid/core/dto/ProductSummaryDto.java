@@ -14,10 +14,15 @@ public class ProductSummaryDto {
     private String status;
     private Boolean isFeatured;
     private Boolean isBestSeller;
+    private String imageUrl;
 
     public ProductSummaryDto() {}
 
     public ProductSummaryDto(String id, String sku, String ean, String name, String categoryId, String category, BigDecimal price, Integer stock, String status, Boolean isFeatured, Boolean isBestSeller) {
+        this(id, sku, ean, name, categoryId, category, price, stock, status, isFeatured, isBestSeller, null);
+    }
+
+    public ProductSummaryDto(String id, String sku, String ean, String name, String categoryId, String category, BigDecimal price, Integer stock, String status, Boolean isFeatured, Boolean isBestSeller, String imageUrl) {
         this.id = id;
         this.sku = sku;
         this.ean = ean;
@@ -29,6 +34,7 @@ public class ProductSummaryDto {
         this.status = status;
         this.isFeatured = isFeatured;
         this.isBestSeller = isBestSeller;
+        this.imageUrl = imageUrl;
     }
 
     public String getId() {
@@ -77,6 +83,14 @@ public class ProductSummaryDto {
 
     public void setCategory(String category) {
         this.category = category;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 
     public BigDecimal getPrice() {

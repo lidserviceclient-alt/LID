@@ -166,17 +166,20 @@ public class ProductReviewService {
     private ProductReviewDto toDto(CommentaireProduit c, boolean likedByMe) {
         String userId = c.getUtilisateur() != null ? c.getUtilisateur().getId() : null;
         String userName = null;
+        String userAvatarUrl = null;
         if (c.getUtilisateur() != null) {
             String prenom = c.getUtilisateur().getPrenom() == null ? "" : c.getUtilisateur().getPrenom().trim();
             String nom = c.getUtilisateur().getNom() == null ? "" : c.getUtilisateur().getNom().trim();
             String full = (prenom + " " + nom).trim();
             userName = full.isBlank() ? (c.getUtilisateur().getEmail() != null ? c.getUtilisateur().getEmail() : "Utilisateur") : full;
+            userAvatarUrl = c.getUtilisateur().getAvatarUrl();
         }
         return new ProductReviewDto(
                 c.getId(),
                 c.getProduit() != null ? c.getProduit().getId() : null,
                 userId,
                 userName,
+                userAvatarUrl,
                 c.getNote(),
                 c.getCommentaire(),
                 c.getLikeCount() == null ? 0L : c.getLikeCount(),

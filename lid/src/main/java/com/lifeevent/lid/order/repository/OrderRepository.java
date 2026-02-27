@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
@@ -50,5 +51,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @EntityGraph(attributePaths = {"customer", "articles", "articles.article"})
     Optional<Order> findWithCustomerAndArticlesById(Long id);
+
+    List<Order> findByCreatedAtAfter(LocalDateTime from);
 }
 

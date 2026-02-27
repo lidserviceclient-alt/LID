@@ -17,6 +17,8 @@ public record CatalogProductDto(
         Boolean isBestSeller,
         String imageUrl,
         Integer stock,
-        LocalDateTime dateCreation
+        LocalDateTime dateCreation,
+        Double rating,
+        Long reviews
 ) {
 }

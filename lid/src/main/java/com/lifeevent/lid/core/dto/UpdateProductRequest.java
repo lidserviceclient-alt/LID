@@ -16,6 +16,7 @@ public class UpdateProductRequest {
     private String name;
     private String ean;
     private String description;
+    private String img;
     private String brand;
     private String status; // ACTIVE, DRAFT, ARCHIVED or ACTIF, BROUILLON, ARCHIVE
 

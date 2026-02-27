@@ -4,6 +4,7 @@ import com.lifeevent.lid.order.dto.PublicOrderTrackingResponseDto;
 import com.lifeevent.lid.order.dto.PublicOrderTrackingStepDto;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.entity.StatusHistory;
+import com.lifeevent.lid.core.repository.LivraisonRepository;
 import com.lifeevent.lid.order.repository.OrderRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,9 +26,11 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 public class PublicOrderTrackingController {
 
     private final OrderRepository orderRepository;
+    private final LivraisonRepository livraisonRepository;
 
-    public PublicOrderTrackingController(OrderRepository orderRepository) {
+    public PublicOrderTrackingController(OrderRepository orderRepository, LivraisonRepository livraisonRepository) {
         this.orderRepository = orderRepository;
+        this.livraisonRepository = livraisonRepository;
     }
 
     @GetMapping("/tracking/{reference}")
@@ -45,13 +48,20 @@ public class PublicOrderTrackingController {
                 ? history.get(history.size() - 1).changedAt()
                 : order.getCreatedAt();
 
+        var livraison = livraisonRepository.findByCommande_Id("ORD-" + order.getId()).orElse(null);
+        String deliveryType = livraison != null ? livraison.getTransporteur() : null;
+        var eta = livraison != null ? livraison.getDateLivraisonEstimee() : null;
+        var etaDateTime = eta != null ? eta.atStartOfDay() : null;
+        var deliveryDate = etaDateTime != null ? etaDateTime : order.getDeliveryDate();
+
         return new PublicOrderTrackingResponseDto(
                 order.getId(),
                 "ORD-" + order.getId(),
                 order.getTrackingNumber(),
+                deliveryType,
                 order.getCurrentStatus(),
                 updatedAt,
-                order.getDeliveryDate(),
+                deliveryDate,
                 history
         );
     }
@@ -91,4 +101,3 @@ public class PublicOrderTrackingController {
                 .toList();
     }
 }
-

@@ -86,6 +86,9 @@ public class SecurityConfig {
                         auth.requestMatchers("/api/v1/public/returns/**").permitAll();
                         auth.requestMatchers("/api/v1/public/app-config").permitAll();
                         auth.requestMatchers("/api/v1/public/contact").permitAll();
+                        if (isLocal) {
+                            auth.requestMatchers("/api/backoffice/overview**").permitAll();
+                        }
                         auth.requestMatchers("/api/backoffice/logistics/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "IT", "LIVREUR");
                         auth.requestMatchers("/api/backoffice/notifications/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "IT", "LIVREUR");
                         auth.requestMatchers("/api/backoffice/**").hasAnyRole("ADMIN", "SUPER_ADMIN");
@@ -176,7 +179,7 @@ public class SecurityConfig {
 
 
     @Bean
-    @Profile({"local", "local-h2"})
+    @Profile({"local", "LOCAL", "local-h2"})
     @Primary
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();

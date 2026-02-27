@@ -20,6 +20,7 @@ import com.lifeevent.lid.core.repository.CommandeLigneRepository;
 import com.lifeevent.lid.core.repository.CommandeRepository;
 import com.lifeevent.lid.core.repository.StockRepository;
 import com.lifeevent.lid.core.repository.UtilisateurRepository;
+import com.lifeevent.lid.order.repository.OrderRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
@@ -34,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 @Service
 public class BackofficeOverviewService {
@@ -51,6 +53,7 @@ public class BackofficeOverviewService {
     private final CodePromoUtilisationRepository promoUtilisationRepository;
     private final BackofficeActivityService backofficeActivityService;
     private final UtilisateurRepository utilisateurRepository;
+    private final OrderRepository orderRepository;
 
     public BackofficeOverviewService(
             DashboardService dashboardService,
@@ -60,7 +63,8 @@ public class BackofficeOverviewService {
             StockRepository stockRepository,
             CodePromoUtilisationRepository promoUtilisationRepository,
             BackofficeActivityService backofficeActivityService,
-            UtilisateurRepository utilisateurRepository
+            UtilisateurRepository utilisateurRepository,
+            OrderRepository orderRepository
     ) {
         this.dashboardService = dashboardService;
         this.orderService = orderService;
@@ -70,6 +74,7 @@ public class BackofficeOverviewService {
         this.promoUtilisationRepository = promoUtilisationRepository;
         this.backofficeActivityService = backofficeActivityService;
         this.utilisateurRepository = utilisateurRepository;
+        this.orderRepository = orderRepository;
     }
 
     public BackofficeOverviewDto getOverview() {
@@ -78,18 +83,21 @@ public class BackofficeOverviewService {
 
     public BackofficeOverviewDto getOverview(Integer seriesDays) {
         int days = normalizeSeriesDays(seriesDays);
-        List<OrderSummaryDto> recentOrders = orderService.recentOrders();
+        List<OrderSummaryDto> recentOrders = safeList(orderService::recentOrders);
         LocalDateTime since = LocalDateTime.now().minusDays(days);
-        TeamBundle teamBundle = buildTeamBundle(since);
+        TeamBundle teamBundle = safeValue(
+                () -> buildTeamBundle(since),
+                new TeamBundle(List.of(), new TeamProductivityDto(0, 0, 0, null, List.of()))
+        );
 
         return new BackofficeOverviewDto(
-                dashboardService.getDashboard(),
+                safeValue(dashboardService::getDashboard, null),
                 recentOrders,
-                buildOrderPipeline(),
-                buildAnalyticsSeries(days),
-                buildPromoUsageSeries(days),
-                buildLowStock(DEFAULT_LOW_STOCK_THRESHOLD),
-                buildTopProducts(DEFAULT_TOP_PRODUCTS),
+                safeList(this::buildOrderPipeline),
+                safeList(() -> buildAnalyticsSeries(days)),
+                safeList(() -> buildPromoUsageSeries(days)),
+                safeList(() -> buildLowStock(DEFAULT_LOW_STOCK_THRESHOLD)),
+                safeList(() -> buildTopProducts(DEFAULT_TOP_PRODUCTS)),
                 teamBundle.activity(),
                 teamBundle.productivity()
         );
@@ -99,6 +107,23 @@ public class BackofficeOverviewService {
         if (days == null) return DEFAULT_SERIES_DAYS;
         int safe = Math.max(1, days);
         return Math.min(safe, MAX_SERIES_DAYS);
+    }
+
+    private static <T> T safeValue(Supplier<T> supplier, T fallback) {
+        try {
+            return supplier.get();
+        } catch (Exception ex) {
+            return fallback;
+        }
+    }
+
+    private static <T> List<T> safeList(Supplier<List<T>> supplier) {
+        try {
+            List<T> value = supplier.get();
+            return value == null ? List.of() : value;
+        } catch (Exception ex) {
+            return List.of();
+        }
     }
 
     private List<OrderPipelineStepDto> buildOrderPipeline() {
@@ -122,11 +147,17 @@ public class BackofficeOverviewService {
         LocalDateTime from = LocalDateTime.of(start, LocalTime.MIN);
 
         List<Commande> commandes = commandeRepository.findByDateCreationAfter(from);
+        List<com.lifeevent.lid.order.entity.Order> shopOrders = orderRepository.findByCreatedAtAfter(from);
         Map<LocalDate, Integer> countsByDay = new HashMap<>();
 
         for (Commande commande : commandes) {
             if (commande.getDateCreation() == null) continue;
             LocalDate date = commande.getDateCreation().toLocalDate();
+            countsByDay.merge(date, 1, Integer::sum);
+        }
+        for (com.lifeevent.lid.order.entity.Order order : shopOrders) {
+            if (order == null || order.getCreatedAt() == null) continue;
+            LocalDate date = order.getCreatedAt().toLocalDate();
             countsByDay.merge(date, 1, Integer::sum);
         }
 
@@ -166,16 +197,30 @@ public class BackofficeOverviewService {
 
         List<LowStockItemDto> items = new ArrayList<>(stocks.size());
         for (Stock stock : stocks) {
-            Produit produit = stock.getProduit();
+            Produit produit;
+            try {
+                produit = stock.getProduit();
+            } catch (Exception ex) {
+                continue;
+            }
             if (produit == null) continue;
-            String supplier = produit.getMarque();
-            if (supplier == null || supplier.isBlank()) {
-                supplier = produit.getBoutique() != null ? produit.getBoutique().getNom() : "-";
+            String name;
+            String sku;
+            String supplier;
+            try {
+                name = produit.getNom();
+                sku = produit.getReferencePartenaire();
+                supplier = produit.getMarque();
+                if (supplier == null || supplier.isBlank()) {
+                    supplier = produit.getBoutique() != null ? produit.getBoutique().getNom() : "-";
+                }
+            } catch (Exception ex) {
+                continue;
             }
 
             items.add(new LowStockItemDto(
-                    produit.getNom(),
-                    produit.getReferencePartenaire(),
+                    name,
+                    sku,
                     stock.getQuantiteDisponible() != null ? stock.getQuantiteDisponible() : 0,
                     threshold,
                     supplier
@@ -194,14 +239,26 @@ public class BackofficeOverviewService {
 
         for (CommandeLigne ligne : lignes) {
             if (ligne.getCommande() == null || ligne.getCommande().getDateCreation() == null) continue;
-            Produit produit = ligne.getProduit();
+            Produit produit;
+            try {
+                produit = ligne.getProduit();
+            } catch (Exception ex) {
+                continue;
+            }
             if (produit == null) continue;
             if (ligne.getQuantite() == null || ligne.getPrixUnitaire() == null) continue;
 
             BigDecimal lineTotal = ligne.getPrixUnitaire().multiply(BigDecimal.valueOf(ligne.getQuantite()));
             if (lineTotal.compareTo(BigDecimal.ZERO) <= 0) continue;
 
-            ProductRevenue revenue = revenues.computeIfAbsent(produit.getId(), id -> new ProductRevenue(produit));
+            String productId;
+            try {
+                productId = produit.getId();
+            } catch (Exception ex) {
+                continue;
+            }
+            if (productId == null || productId.isBlank()) continue;
+            ProductRevenue revenue = revenues.computeIfAbsent(productId, id -> new ProductRevenue(produit));
             if (ligne.getCommande().getDateCreation().isAfter(pivot)) {
                 revenue.current = revenue.current.add(lineTotal);
             } else {
@@ -226,13 +283,17 @@ public class BackofficeOverviewService {
         }
 
         private TopProductDto toDto() {
-            String category = produit.getCategorie() != null ? produit.getCategorie().getNom() : "-";
-            return new TopProductDto(
-                    produit.getNom(),
-                    category,
-                    current,
-                    formatDelta(current, previous)
-            );
+            try {
+                String category = produit.getCategorie() != null ? produit.getCategorie().getNom() : "-";
+                return new TopProductDto(
+                        produit.getNom(),
+                        category,
+                        current,
+                        formatDelta(current, previous)
+                );
+            } catch (Exception ex) {
+                return new TopProductDto("-", "-", current, formatDelta(current, previous));
+            }
         }
     }
 

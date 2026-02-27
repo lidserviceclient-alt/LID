@@ -148,6 +148,8 @@ public class CategoryService {
                     .executeUpdate();
 
             safeExecute("DELETE FROM stock_mouvement");
+            safeExecute("DELETE FROM commentaire_produit_like");
+            safeExecute("DELETE FROM commentaire_produit_report");
             safeExecute("DELETE FROM commentaire_produit");
             safeExecute("DELETE FROM produit_image");
             safeExecute("DELETE FROM stock");

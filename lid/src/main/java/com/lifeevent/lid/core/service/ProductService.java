@@ -37,6 +37,7 @@ public class ProductService {
     private final ProduitImageRepository produitImageRepository;
     private final StockMouvementRepository stockMouvementRepository;
     private final EanService eanService;
+    private final CommentaireProduitRepository commentaireProduitRepository;
 
     public ProductService(ProduitRepository produitRepository, 
                           StockRepository stockRepository,
@@ -44,7 +45,8 @@ public class ProductService {
                           CategorieRepository categorieRepository,
                           ProduitImageRepository produitImageRepository,
                           StockMouvementRepository stockMouvementRepository,
-                          EanService eanService) {
+                          EanService eanService,
+                          CommentaireProduitRepository commentaireProduitRepository) {
         this.produitRepository = produitRepository;
         this.stockRepository = stockRepository;
         this.boutiqueRepository = boutiqueRepository;
@@ -52,6 +54,7 @@ public class ProductService {
         this.produitImageRepository = produitImageRepository;
         this.stockMouvementRepository = stockMouvementRepository;
         this.eanService = eanService;
+        this.commentaireProduitRepository = commentaireProduitRepository;
     }
 
     public Page<ProductSummaryDto> listProducts(Pageable pageable) {
@@ -60,7 +63,9 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Page<CatalogProductDto> listCatalogProducts(Pageable pageable) {
-        return produitRepository.findByStatutNot(StatutProduit.ARCHIVE, pageable).map(this::toCatalogDto);
+        Page<Produit> page = produitRepository.findByStatutNot(StatutProduit.ARCHIVE, pageable);
+        var stats = buildReviewStats(page.getContent());
+        return page.map((p) -> toCatalogDto(p, stats));
     }
 
     @Transactional(readOnly = true)
@@ -82,34 +87,36 @@ public class ProductService {
             return listCatalogProducts(pageable);
         }
 
-        return produitRepository.searchCatalog(StatutProduit.ARCHIVE, query, cats, pageable).map(this::toCatalogDto);
+        Page<Produit> page = produitRepository.searchCatalog(StatutProduit.ARCHIVE, query, cats, pageable);
+        var stats = buildReviewStats(page.getContent());
+        return page.map((p) -> toCatalogDto(p, stats));
     }
 
     @Transactional(readOnly = true)
     public List<CatalogProductDto> listFeaturedCatalogProducts(Integer limit) {
         int safeLimit = limit == null ? 12 : Math.max(1, Math.min(limit, 50));
         Pageable pageable = PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "dateCreation"));
-        return produitRepository.findByIsFeaturedTrueAndStatutNot(StatutProduit.ARCHIVE, pageable)
-                .map(this::toCatalogDto)
-                .getContent();
+        List<Produit> products = produitRepository.findByIsFeaturedTrueAndStatutNot(StatutProduit.ARCHIVE, pageable).getContent();
+        var stats = buildReviewStats(products);
+        return products.stream().map((p) -> toCatalogDto(p, stats)).toList();
     }
 
     @Transactional(readOnly = true)
     public List<CatalogProductDto> listBestSellerCatalogProducts(Integer limit) {
         int safeLimit = limit == null ? 12 : Math.max(1, Math.min(limit, 50));
         Pageable pageable = PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "dateCreation"));
-        return produitRepository.findByIsBestSellerTrueAndStatutNot(StatutProduit.ARCHIVE, pageable)
-                .map(this::toCatalogDto)
-                .getContent();
+        List<Produit> products = produitRepository.findByIsBestSellerTrueAndStatutNot(StatutProduit.ARCHIVE, pageable).getContent();
+        var stats = buildReviewStats(products);
+        return products.stream().map((p) -> toCatalogDto(p, stats)).toList();
     }
 
     @Transactional(readOnly = true)
     public List<CatalogProductDto> listLatestCatalogProducts(Integer limit) {
         int safeLimit = limit == null ? 20 : Math.max(1, Math.min(limit, 50));
         Pageable pageable = PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "dateCreation"));
-        return produitRepository.findByStatutNot(StatutProduit.ARCHIVE, pageable)
-                .map(this::toCatalogDto)
-                .getContent();
+        List<Produit> products = produitRepository.findByStatutNot(StatutProduit.ARCHIVE, pageable).getContent();
+        var stats = buildReviewStats(products);
+        return products.stream().map((p) -> toCatalogDto(p, stats)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -119,7 +126,8 @@ public class ProductService {
         if (produit.getStatut() == StatutProduit.ARCHIVE) {
             throw new ResourceNotFoundException("Produit", "id", id);
         }
-        return toCatalogDto(produit);
+        var stats = buildReviewStats(List.of(produit));
+        return toCatalogDto(produit, stats);
     }
 
     @Transactional(readOnly = true)
@@ -294,6 +302,40 @@ public class ProductService {
         if (request.getDescription() != null) {
             produit.setDescription(request.getDescription());
         }
+        if (request.getImg() != null) {
+            String next = request.getImg().trim();
+            List<ProduitImage> images = produitImageRepository.findByProduit(produit);
+            if (next.isEmpty()) {
+                if (!images.isEmpty()) {
+                    produitImageRepository.deleteAll(images);
+                }
+            } else {
+                if (images.isEmpty()) {
+                    ProduitImage image = new ProduitImage();
+                    image.setProduit(produit);
+                    image.setUrl(next);
+                    image.setEstPrincipale(true);
+                    produitImageRepository.save(image);
+                } else {
+                    ProduitImage principal = null;
+                    for (ProduitImage img : images) {
+                        if (img != null && Boolean.TRUE.equals(img.getEstPrincipale())) {
+                            principal = img;
+                            break;
+                        }
+                    }
+                    ProduitImage chosen = principal != null ? principal : images.get(0);
+                    for (ProduitImage img : images) {
+                        if (img == null) continue;
+                        img.setEstPrincipale(img == chosen);
+                    }
+                    if (chosen != null) {
+                        chosen.setUrl(next);
+                    }
+                    produitImageRepository.saveAll(images);
+                }
+            }
+        }
         if (request.getBrand() != null) {
             produit.setMarque(request.getBrand());
         }
@@ -413,6 +455,19 @@ public class ProductService {
         String categoryName = produit.getCategorie() != null ? produit.getCategorie().getNom() : "-";
         Stock stock = stockRepository.findByProduit(produit).orElse(null);
         Integer stockQty = stock != null ? stock.getQuantiteDisponible() : 0;
+        String imageUrl = null;
+        List<ProduitImage> images = produitImageRepository.findByProduit(produit);
+        if (images != null && !images.isEmpty()) {
+            ProduitImage principal = null;
+            for (ProduitImage img : images) {
+                if (img != null && Boolean.TRUE.equals(img.getEstPrincipale())) {
+                    principal = img;
+                    break;
+                }
+            }
+            ProduitImage chosen = principal != null ? principal : images.get(0);
+            imageUrl = chosen != null ? chosen.getUrl() : null;
+        }
 
         if (produit.getEan() == null || produit.getEan().trim().isEmpty()) {
             produit.setEan(eanService.regenerate(produit.getReferencePartenaire()));
@@ -430,11 +485,16 @@ public class ProductService {
             stockQty,
             produit.getStatut() != null ? produit.getStatut().name() : "-",
             produit.getIsFeatured(),
-            produit.getIsBestSeller()
+            produit.getIsBestSeller(),
+            imageUrl
         );
     }
 
     private CatalogProductDto toCatalogDto(Produit produit) {
+        return toCatalogDto(produit, null);
+    }
+
+    private CatalogProductDto toCatalogDto(Produit produit, java.util.Map<String, CommentaireProduitRepository.ProductReviewStats> statsByProductId) {
         Categorie categorie = produit.getCategorie();
         String categoryId = categorie != null ? categorie.getId() : null;
         String categoryName = categorie != null ? categorie.getNom() : null;
@@ -459,6 +519,10 @@ public class ProductService {
         }
 
         BigDecimal price = produit.getPrix() != null ? produit.getPrix() : BigDecimal.ZERO;
+        CommentaireProduitRepository.ProductReviewStats stats =
+                statsByProductId != null ? statsByProductId.get(produit.getId()) : null;
+        double rating = stats != null && stats.getAvgRating() != null ? stats.getAvgRating() : 0d;
+        long reviews = stats != null && stats.getReviewCount() != null ? stats.getReviewCount() : 0L;
 
         return new CatalogProductDto(
                 produit.getId(),
@@ -474,8 +538,27 @@ public class ProductService {
                 produit.getIsBestSeller(),
                 imageUrl,
                 stockQty,
-                produit.getDateCreation()
+                produit.getDateCreation(),
+                rating,
+                reviews
         );
+    }
+
+    private java.util.Map<String, CommentaireProduitRepository.ProductReviewStats> buildReviewStats(List<Produit> products) {
+        if (products == null || products.isEmpty()) {
+            return java.util.Map.of();
+        }
+        List<String> ids = products.stream()
+                .map(Produit::getId)
+                .filter((id) -> id != null && !id.isBlank())
+                .toList();
+        if (ids.isEmpty()) return java.util.Map.of();
+        return commentaireProduitRepository.findReviewStatsByProductIds(ids)
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        CommentaireProduitRepository.ProductReviewStats::getProductId,
+                        (s) -> s
+                ));
     }
 
     private static List<String> resolveImageUrls(Produit produit) {
