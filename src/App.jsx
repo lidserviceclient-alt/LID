@@ -6,6 +6,7 @@ import Privacy from "./pages/Privacy.jsx";
 import Terms from "./pages/Terms.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Orders from "./pages/Orders.jsx";
+import Returns from "./pages/Returns.jsx";
 import Products from "./pages/Products.jsx";
 import ProductCreate from "./pages/ProductCreate.jsx";
 import Customers from "./pages/Customers.jsx";
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/orders" element={<Orders />} />
+        <Route path="/returns" element={<Returns />} />
         <Route path="/products" element={<Products />} />
         <Route path="/products/create" element={<ProductCreate />} />
         <Route path="/categories" element={<Categories />} />

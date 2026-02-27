@@ -444,7 +444,7 @@ export default function Dashboard() {
           ) : null}
 
           <div className="space-y-4">
-            {(teamActivityState.length ? teamActivityState : []).map((item, idx) => (
+            {(teamActivityState.length ? teamActivityState.slice(0, 6) : []).map((item, idx) => (
               <div key={`${item.name}-${idx}`} className="flex items-center justify-between border-b border-border pb-2 last:border-0 last:pb-0">
                 <div>
                   <p className="text-sm font-semibold text-foreground">{item.name}</p>

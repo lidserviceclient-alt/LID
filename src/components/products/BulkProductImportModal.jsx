@@ -5,7 +5,6 @@ import Button from "../ui/Button.jsx";
 import Input from "../ui/Input.jsx";
 import Select from "../ui/Select.jsx";
 import Label from "../ui/Label.jsx";
-import FileUpload from "../ui/FileUpload.jsx";
 
 function normalizeNumber(value) {
   const raw = `${value ?? ""}`.trim();
@@ -58,9 +57,59 @@ function detectDelimiter(line) {
   return ",";
 }
 
-function parseDelimitedLine(line, sep) {
-  const text = `${line ?? ""}`;
-  const out = [];
+function detectDelimiterFromRecordText(recordText) {
+  const text = `${recordText ?? ""}`;
+  let inQuotes = false;
+  let semi = 0;
+  let tab = 0;
+  let comma = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (inQuotes && text[i + 1] === '"') {
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (inQuotes) continue;
+    if (ch === ";") semi++;
+    else if (ch === "\t") tab++;
+    else if (ch === ",") comma++;
+  }
+  if (semi >= tab && semi >= comma) return ";";
+  if (tab >= semi && tab >= comma) return "\t";
+  return ",";
+}
+
+function parseDelimitedRecords(raw) {
+  const text = `${raw ?? ""}`;
+  if (!text.trim()) return { sep: ";", records: [] };
+
+  let firstRecordText = "";
+  {
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (ch === '"') {
+        if (inQuotes && text[i + 1] === '"') {
+          firstRecordText += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+      if (!inQuotes && (ch === "\n" || ch === "\r")) break;
+      firstRecordText += ch;
+    }
+  }
+
+  const sep = detectDelimiterFromRecordText(firstRecordText);
+
+  const records = [];
+  let row = [];
   let current = "";
   let inQuotes = false;
   for (let i = 0; i < text.length; i++) {
@@ -74,15 +123,33 @@ function parseDelimitedLine(line, sep) {
       }
       continue;
     }
+
     if (!inQuotes && ch === sep) {
-      out.push(current.trim());
+      row.push(current.trim());
       current = "";
       continue;
     }
+
+    if (!inQuotes && (ch === "\n" || ch === "\r")) {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(current.trim());
+      current = "";
+      if (row.some((v) => `${v}`.trim() !== "")) {
+        records.push(row);
+      }
+      row = [];
+      continue;
+    }
+
     current += ch;
   }
-  out.push(current.trim());
-  return out;
+
+  row.push(current.trim());
+  if (row.some((v) => `${v}`.trim() !== "")) {
+    records.push(row);
+  }
+
+  return { sep, records };
 }
 
 function buildTemplate(categories) {
@@ -232,11 +299,10 @@ export default function BulkProductImportModal({
     const text = `${raw || ""}`.trim();
     if (!text) return { nextRows: [], parseError: "Colle au moins une ligne." };
 
-    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (lines.length === 0) return { nextRows: [], parseError: "Colle au moins une ligne." };
+    const { records } = parseDelimitedRecords(text);
+    if (!records.length) return { nextRows: [], parseError: "Colle au moins une ligne." };
 
-    const sep = detectDelimiter(lines[0]);
-    const headerCells = parseDelimitedLine(lines[0], sep).map((h) => h.toLowerCase());
+    const headerCells = (records[0] || []).map((h) => `${h}`.toLowerCase());
     const hasHeader =
       headerCells.includes("name") ||
       headerCells.includes("referenceproduitpartenaire") ||
@@ -290,8 +356,8 @@ export default function BulkProductImportModal({
     };
 
     const nextRows = [];
-    for (let i = start; i < lines.length; i++) {
-      const cells = parseDelimitedLine(lines[i], sep);
+    for (let i = start; i < records.length; i++) {
+      const cells = records[i] || [];
       const ref = idxRef >= 0 ? cells[idxRef] : "";
       const ean = idxEan >= 0 ? cells[idxEan] : "";
       const name = idxName >= 0 ? cells[idxName] : "";
@@ -630,7 +696,7 @@ export default function BulkProductImportModal({
                             onClick={() => setImageRowIndex(idx)}
                             disabled={isSubmitting}
                           >
-                            {row.img ? "Changer" : "Uploader"}
+                            {row.img ? "Changer" : "Lien"}
                           </Button>
                           {row.img ? (
                             <Button
@@ -678,14 +744,17 @@ export default function BulkProductImportModal({
       >
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Upload image</Label>
-            <FileUpload
+            <Label>Lien de l'image</Label>
+            <Input
+              type="url"
               value={typeof imageRowIndex === "number" ? rows[imageRowIndex]?.img : ""}
-              onChange={(url) => {
+              onChange={(e) => {
                 if (typeof imageRowIndex !== "number") return;
-                setRowField(imageRowIndex, "img", url);
+                setRowField(imageRowIndex, "img", e.target.value);
               }}
+              placeholder="https://raw.githubusercontent.com/.../image.jpg"
             />
+            <p className="text-xs text-muted-foreground">Collez un lien direct vers l'image (GitHub raw, CDN, etc.).</p>
           </div>
         </div>
       </Modal>

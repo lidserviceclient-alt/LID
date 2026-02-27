@@ -1,6 +1,6 @@
-﻿﻿import { clearAccessToken, getAccessToken } from "./auth.js";
+﻿﻿﻿import { clearAccessToken, getAccessToken } from "./auth.js";
 
-const BASE_URL = import.meta.env.VITE_BACKOFFICE_API_URL || "http://localhost:8080";
+const BASE_URL = import.meta.env.VITE_BACKOFFICE_API_URL || "http://localhost:9000";
 
 async function request(path, options = {}) {
   const accessToken = getAccessToken();
@@ -16,7 +16,7 @@ async function request(path, options = {}) {
       ...restOptions
     });
   } catch {
-    throw new Error(`API indisponible. VÃ©rifie que le backend tourne sur ${BASE_URL}.`);
+    throw new Error(`API indisponible. Vérifie que le backend tourne sur ${BASE_URL}.`);
   }
 
   if (!res.ok) {
@@ -39,7 +39,7 @@ async function request(path, options = {}) {
           window.location.href = "/login";
         }
       }
-      throw new Error("Session expirÃ©e ou accÃ¨s refusÃ©. Merci de vous reconnecter.");
+      throw new Error("Session expirée ou accès refusé. Merci de vous reconnecter.");
     }
 
     throw new Error(message);
@@ -68,7 +68,7 @@ async function requestBlob(path, options = {}) {
       ...restOptions
     });
   } catch {
-    throw new Error(`API indisponible. VÃ©rifie que le backend tourne sur ${BASE_URL}.`);
+    throw new Error(`API indisponible. Vérifie que le backend tourne sur ${BASE_URL}.`);
   }
 
   if (!res.ok) {
@@ -91,7 +91,7 @@ async function requestBlob(path, options = {}) {
           window.location.href = "/login";
         }
       }
-      throw new Error("Session expirÃ©e ou accÃ¨s refusÃ©. Merci de vous reconnecter.");
+      throw new Error("Session expirée ou accès refusé. Merci de vous reconnecter.");
     }
 
     throw new Error(message);
@@ -113,7 +113,7 @@ async function requestForm(path, options = {}) {
       ...restOptions
     });
   } catch {
-    throw new Error(`API indisponible. VÃ©rifie que le backend tourne sur ${BASE_URL}.`);
+    throw new Error(`API indisponible. Vérifie que le backend tourne sur ${BASE_URL}.`);
   }
 
   if (!res.ok) {
@@ -136,7 +136,7 @@ async function requestForm(path, options = {}) {
           window.location.href = "/login";
         }
       }
-      throw new Error("Session expirÃ©e ou accÃ¨s refusÃ©. Merci de vous reconnecter.");
+      throw new Error("Session expirée ou accès refusé. Merci de vous reconnecter.");
     }
 
     throw new Error(message);
@@ -473,6 +473,18 @@ export const backofficeApi = {
     request(`/api/backoffice/users/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
+    }),
+  returns: (page = 0, size = 20, status = "", q = "") => {
+    const params = new URLSearchParams({ page, size });
+    if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    return request(`/api/backoffice/returns?${params.toString()}`);
+  },
+  returnDetail: (id) => request(`/api/backoffice/returns/${id}`),
+  updateReturnStatus: (id, status) =>
+    request(`/api/backoffice/returns/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status })
     }),
   deleteUser: (id) =>
     request(`/api/backoffice/users/${id}`, {

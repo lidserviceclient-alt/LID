@@ -6,7 +6,6 @@ import Input from "../components/ui/Input";
 import Label from "../components/ui/Label";
 import Button from "../components/ui/Button";
 import Select from "../components/ui/Select";
-import FileUpload from "../components/ui/FileUpload";
 import Toggle from "../components/ui/Toggle";
 import { backofficeApi } from "../services/api";
 
@@ -66,10 +65,6 @@ export default function ProductCreate() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleImageChange = (url) => {
-    setFormData((prev) => ({ ...prev, img: url }));
   };
 
   const handleSubmit = async (e) => {
@@ -224,12 +219,35 @@ export default function ProductCreate() {
             </div>
             
             <div className="space-y-4">
-              <Label>Image principale</Label>
-              <FileUpload 
-                value={formData.img} 
-                onChange={handleImageChange}
-                label="Glissez une image ici ou cliquez pour uploader"
-              />
+              <div className="space-y-2">
+                <Label htmlFor="img">Lien de l'image principale</Label>
+                <Input
+                  id="img"
+                  name="img"
+                  type="url"
+                  placeholder="https://raw.githubusercontent.com/.../image.jpg"
+                  value={formData.img}
+                  onChange={handleChange}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Collez un lien direct vers l'image (GitHub raw, CDN, etc.).
+                </p>
+              </div>
+
+              {formData.img ? (
+                <div className="rounded-xl border border-border bg-muted/20 p-3">
+                  <img
+                    src={formData.img}
+                    alt=""
+                    className="h-48 w-full rounded-lg object-contain bg-white"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                </div>
+              ) : null}
             </div>
           </Card>
 

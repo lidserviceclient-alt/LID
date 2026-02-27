@@ -222,7 +222,7 @@ export default function Categories() {
 
     const trimmedParentId = `${formData.parentId || ""}`.trim();
     if (formData.niveau !== "PRINCIPALE" && !trimmedParentId) {
-      setError("Parent obligatoire pour une sous-catÃ©gorie.");
+      setError("Parent obligatoire pour une sous-catégorie.");
       return;
     }
 

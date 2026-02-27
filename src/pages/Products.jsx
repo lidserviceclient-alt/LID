@@ -75,6 +75,7 @@ export default function Products() {
     ean: "",
     name: "",
     categoryId: "",
+    img: "",
     price: 0,
     stock: 0,
     status: "ACTIF",
@@ -236,6 +237,7 @@ export default function Products() {
       ean: product.ean || "",
       name: product.name || "",
       categoryId: product.categoryId || "",
+      img: product.imageUrl || "",
       price: product.price ?? 0,
       stock: Number.isFinite(product.stock) ? product.stock : 0,
       status: product.status || "ACTIF",
@@ -285,6 +287,7 @@ export default function Products() {
         stock: Number(formData.stock),
         categoryId: formData.categoryId,
         ean: `${formData.ean || ""}`.trim(),
+        img: `${formData.img ?? ""}`,
         isFeatured: Boolean(formData.isFeatured),
         isBestSeller: Boolean(formData.isBestSeller)
       };
@@ -736,6 +739,31 @@ export default function Products() {
               onChange={(e) => setFormData({...formData, name: e.target.value})}
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="img">Lien de l'image</Label>
+            <Input
+              id="img"
+              type="url"
+              value={formData.img}
+              onChange={(e) => setFormData({ ...formData, img: e.target.value })}
+              placeholder="https://raw.githubusercontent.com/.../image.jpg"
+            />
+            {formData.img ? (
+              <div className="rounded-xl border border-border bg-muted/20 p-3">
+                <img
+                  src={formData.img}
+                  alt=""
+                  className="h-44 w-full rounded-lg object-contain bg-white"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              </div>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

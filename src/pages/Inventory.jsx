@@ -44,7 +44,7 @@ function getSku(product) {
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState("inventory");
 
-  const [threshold, setThreshold] = useState(10);
+  const [threshold, setThreshold] = useState(5);
   const [productQuery, setProductQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [stockFilter, setStockFilter] = useState("");
