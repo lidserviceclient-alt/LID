@@ -27,7 +27,7 @@ import ProductReviews from "./pages/ProductReviews.jsx";
 import BlogPosts from "./pages/BlogPosts.jsx";
 import TicketEvents from "./pages/TicketEvents.jsx";
 import { isAuthenticated } from "./services/auth.js";
-
+import TestLabel from "./pages/Test.jsx";
 function RequireAuth({ children }) {
   const location = useLocation();
 
@@ -72,7 +72,7 @@ export default function App() {
         <Route path="/product-reviews" element={<ProductReviews />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
-
+        <Route path="/test-label" element={<TestLabel />} />
       <Route path="*" element={<Navigate to={authed ? "/" : "/login"} replace />} />
     </Routes>
   );
