@@ -1,79 +1,51 @@
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, RefreshCw } from 'lucide-react'
+import { ArrowRight, MapPin, Package, RefreshCw, Timer, TrendingUp } from 'lucide-react'
 
 import { getKpis, getShipments } from '../services/logistics'
-
-const MotionDiv = motion.div
 
 const STATUS_KEY = 'lid_delivery_status'
 
 function getSavedStatus() {
   try {
-    const s = localStorage.getItem(STATUS_KEY)
-    return s || 'AVAILABLE'
+    return localStorage.getItem(STATUS_KEY) || 'OFFLINE'
   } catch {
-    return 'AVAILABLE'
+    return 'OFFLINE'
   }
 }
 
 function saveStatus(value) {
   try {
     localStorage.setItem(STATUS_KEY, value)
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
 function formatNumber(value) {
-  if (value === null || value === undefined) return '-'
-  const n = Number(value)
-  if (!Number.isFinite(n)) return `${value}`
-  return new Intl.NumberFormat('fr-FR').format(n)
-}
-
-function toCourierStatusUi(value) {
-  const s = `${value || ''}`.trim().toUpperCase()
-  if (s === 'AVAILABLE') return { label: 'Disponible', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
-  if (s === 'DELIVERING') return { label: 'En livraison', className: 'bg-sky-50 text-sky-700 border-sky-200' }
-  if (s === 'OFFLINE') return { label: 'Hors ligne', className: 'bg-slate-100 text-slate-700 border-slate-200' }
-  return { label: 'Disponible', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
-}
-
-function toShipmentStatusUi(status) {
-  const s = `${status || ''}`.trim().toUpperCase()
-  if (s === 'EN_PREPARATION') return { label: 'À récupérer', className: 'bg-slate-100 text-slate-700' }
-  if (s === 'EN_COURS') return { label: 'En cours', className: 'bg-sky-100 text-sky-700' }
-  if (s === 'LIVREE') return { label: 'Livrée', className: 'bg-emerald-100 text-emerald-700' }
-  if (s === 'ECHEC') return { label: 'Échec', className: 'bg-rose-100 text-rose-700' }
-  return { label: s || '-', className: 'bg-slate-100 text-slate-700' }
+  if (value == null) return '-'
+  return new Intl.NumberFormat('fr-FR').format(Number(value))
 }
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const [courierStatus, setCourierStatus] = useState(getSavedStatus())
+  const [status, setStatus] = useState(getSavedStatus())
   const [kpis, setKpis] = useState(null)
   const [active, setActive] = useState([])
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
 
-  const courierStatusUi = useMemo(() => toCourierStatusUi(courierStatus), [courierStatus])
+  const isOnline = status === 'AVAILABLE' || status === 'DELIVERING'
 
   const load = async () => {
     setIsLoading(true)
-    setError('')
     try {
       const [k, page] = await Promise.all([
         getKpis(30),
-        getShipments({ page: 0, size: 4, status: 'EN_COURS' }),
+        getShipments({ page: 0, size: 5, status: 'EN_COURS' }),
       ])
-      setKpis(k || null)
-      setActive(Array.isArray(page?.content) ? page.content : [])
+      setKpis(k)
+      setActive(page?.content || [])
     } catch (err) {
-      setKpis(null)
-      setActive([])
-      setError(err?.message || 'Impossible de charger le tableau de bord.')
+      console.error(err)
     } finally {
       setIsLoading(false)
     }
@@ -83,157 +55,102 @@ export default function HomePage() {
     load()
   }, [])
 
-  const updateStatus = (next) => {
-    setCourierStatus(next)
+  const toggleStatus = () => {
+    const next = isOnline ? 'OFFLINE' : 'AVAILABLE'
+    setStatus(next)
     saveStatus(next)
   }
 
   return (
-    <MotionDiv
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="space-y-4"
-    >
-      {error ? (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
-          {error}
-        </div>
-      ) : null}
-
-      <section className="lid-card rounded-[28px] p-4">
-        <div className="flex items-start justify-between gap-3">
+    <div className="space-y-6 pb-24">
+      {/* Header Status */}
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-100">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Aujourd’hui</p>
-            <p className="font-display mt-1 text-xl font-semibold text-slate-900">Tableau de bord</p>
-            <p className="mt-1 text-xs text-slate-500">Pensé mobile : rapide, lisible, actionnable.</p>
+            <h1 className="text-2xl font-black text-neutral-900">Bonjour, Livreur</h1>
+            <p className="text-neutral-500 font-medium">Prêt à rouler ?</p>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <span className={`rounded-full border px-3 py-1 text-[11px] font-bold ${courierStatusUi.className}`}>
-              {courierStatusUi.label}
-            </span>
-            <button
-              type="button"
-              onClick={load}
-              disabled={isLoading}
-              className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
-            >
-              <RefreshCw size={16} />
-              {isLoading ? '...' : 'Maj'}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          {[
-            { key: 'AVAILABLE', label: 'Disponible' },
-            { key: 'DELIVERING', label: 'En livraison' },
-            { key: 'OFFLINE', label: 'Hors ligne' },
-          ].map((o) => {
-            const active = courierStatus === o.key
-            return (
-              <button
-                key={o.key}
-                type="button"
-                onClick={() => updateStatus(o.key)}
-                className={`rounded-2xl border px-3 py-2 text-xs font-bold transition ${
-                  active
-                    ? 'border-[var(--lid-accent)] bg-[var(--lid-accent-soft)] text-[var(--lid-accent)]'
-                    : 'border-slate-200 bg-white/70 text-slate-700 hover:bg-white'
-                }`}
-              >
-                {o.label}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">En cours</p>
-            <p className="font-display mt-1 text-2xl font-semibold text-slate-900">
-              {formatNumber(kpis?.inTransitCount)}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Délai</p>
-            <p className="font-display mt-1 text-2xl font-semibold text-slate-900">
-              {formatNumber(kpis?.avgDelayDays)}j
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Coût</p>
-            <p className="font-display mt-1 text-2xl font-semibold text-slate-900">{kpis?.avgCost ?? '-'}</p>
-          </div>
-        </div>
-
-        <div className="mt-4 flex gap-2">
-          <button
-            type="button"
-            onClick={() => navigate('/deliveries?status=EN_PREPARATION')}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-3xl bg-[var(--lid-accent)] px-4 py-3 text-sm font-semibold text-white"
+          <button 
+            onClick={toggleStatus}
+            className={`w-14 h-8 rounded-full transition-colors relative ${isOnline ? 'bg-[#6aa200]' : 'bg-neutral-200'}`}
           >
-            Commencer la tournée
-            <ArrowRight size={18} />
+            <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${isOnline ? 'translate-x-6' : 'translate-x-0'}`} />
           </button>
-          <Link
-            to="/map"
-            className="inline-flex items-center justify-center rounded-3xl border border-slate-200 bg-white/70 px-4 py-3 text-sm font-semibold text-slate-800"
-          >
-            Carte
-          </Link>
         </div>
-      </section>
 
-      <section className="lid-card rounded-[28px] p-4">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <p className="font-display text-lg font-semibold text-slate-900">Missions actives</p>
-            <p className="mt-1 text-xs text-slate-500">Dernières livraisons EN_COURS.</p>
+        <button
+          onClick={() => navigate('/deliveries?status=EN_PREPARATION')}
+          className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+            isOnline 
+              ? 'bg-black text-white shadow-lg shadow-black/20' 
+              : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+          }`}
+          disabled={!isOnline}
+        >
+          {isOnline ? 'Trouver une mission' : 'Passez en ligne pour commencer'}
+          {isOnline && <ArrowRight size={20} />}
+        </button>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white p-5 rounded-3xl shadow-sm border border-neutral-100">
+          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-3">
+            <TrendingUp size={20} />
           </div>
-          <Link to="/deliveries?status=EN_COURS" className="text-xs font-bold text-[var(--lid-accent)]">
-            Voir tout
-          </Link>
+          <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">Courses</p>
+          <p className="text-2xl font-black text-neutral-900">{formatNumber(kpis?.inTransitCount || 0)}</p>
+        </div>
+        <div className="bg-white p-5 rounded-3xl shadow-sm border border-neutral-100">
+          <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center mb-3">
+            <Timer size={20} />
+          </div>
+          <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">Temps moy.</p>
+          <p className="text-2xl font-black text-neutral-900">{formatNumber(kpis?.avgDelayDays || 0)}j</p>
+        </div>
+      </div>
+
+      {/* Active Missions */}
+      <div>
+        <div className="flex items-center justify-between px-2 mb-4">
+          <h2 className="text-lg font-bold text-neutral-900">En cours</h2>
+          <Link to="/deliveries" className="text-sm font-bold text-[#6aa200]">Voir tout</Link>
         </div>
 
-        <div className="mt-4 space-y-3">
-          {active.length === 0 && !isLoading ? (
-            <div className="rounded-[28px] border border-slate-200 bg-white/70 p-6 text-sm text-slate-500">
-              Aucune mission en cours.
+        <div className="space-y-3">
+          {active.length === 0 ? (
+            <div className="bg-neutral-50 rounded-3xl p-8 text-center border border-neutral-100">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                <Package size={24} className="text-neutral-300" />
+              </div>
+              <p className="text-neutral-500 font-medium">Aucune livraison active</p>
             </div>
           ) : (
-            active.map((s) => {
-              const badge = toShipmentStatusUi(s?.status)
-              return (
-                <Link
-                  key={s?.id}
-                  to={`/deliveries/${encodeURIComponent(s.id)}`}
-                  className="block rounded-[28px] border border-slate-200 bg-white/70 p-4 transition hover:bg-white"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-900">{s?.trackingId || s?.id}</p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Cmd <span className="font-semibold text-slate-700">{s?.orderId || '-'}</span>
-                        {s?.carrier ? (
-                          <>
-                            {' '}
-                            • <span className="font-semibold text-slate-700">{s.carrier}</span>
-                          </>
-                        ) : null}
-                      </p>
-                    </div>
-                    <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold ${badge.className}`}>
-                      {badge.label}
-                    </span>
+            active.map(mission => (
+              <Link 
+                key={mission.id}
+                to={`/deliveries/${mission.id}`}
+                className="block bg-white p-4 rounded-3xl shadow-sm border border-neutral-100 active:scale-[0.99] transition-transform"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-neutral-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <MapPin size={24} className="text-neutral-900" />
                   </div>
-                </Link>
-              )
-            })
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-bold text-neutral-900 truncate">Commande #{mission.orderId || mission.id.slice(0, 6)}</h3>
+                      <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-full">EN COURS</span>
+                    </div>
+                    <p className="text-neutral-500 text-sm mt-1 truncate">
+                      {mission.customerAddress || 'Adresse non disponible'}
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            ))
           )}
         </div>
-      </section>
-    </MotionDiv>
+      </div>
+    </div>
   )
 }

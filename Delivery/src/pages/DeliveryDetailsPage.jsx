@@ -1,7 +1,7 @@
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CheckCircle2, ChevronLeft, KeyRound, MapPin, Navigation, PhoneCall, RefreshCw, XCircle } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { CheckCircle2, KeyRound, MapPin, Navigation, PhoneCall, RefreshCw, XCircle, Check, ScanLine, QrCode } from 'lucide-react'
 
 import LiveTrackingMap from '../components/map/LiveTrackingMap'
 import { useGeolocation } from '../hooks/useGeolocation'
@@ -13,11 +13,11 @@ const MotionDiv = motion.div
 
 function toStatusUi(status) {
   const s = `${status || ''}`.trim().toUpperCase()
-  if (s === 'EN_PREPARATION') return { label: 'À récupérer', className: 'bg-slate-100 text-slate-700' }
-  if (s === 'EN_COURS') return { label: 'En transit', className: 'bg-sky-100 text-sky-700' }
-  if (s === 'LIVREE') return { label: 'Livrée', className: 'bg-emerald-100 text-emerald-700' }
-  if (s === 'ECHEC') return { label: 'Échec', className: 'bg-rose-100 text-rose-700' }
-  return { label: s || '-', className: 'bg-slate-100 text-slate-700' }
+  if (s === 'EN_PREPARATION') return { label: 'À récupérer', className: 'bg-neutral-100 text-neutral-700' }
+  if (s === 'EN_COURS') return { label: 'En transit', className: 'bg-blue-50 text-blue-700' }
+  if (s === 'LIVREE') return { label: 'Livrée', className: 'bg-green-50 text-green-700' }
+  if (s === 'ECHEC') return { label: 'Échec', className: 'bg-red-50 text-red-700' }
+  return { label: s || '-', className: 'bg-neutral-100 text-neutral-700' }
 }
 
 function formatMoney(amount, currency) {
@@ -32,13 +32,6 @@ function formatMoney(amount, currency) {
   }
 }
 
-function formatEta(eta) {
-  if (!eta) return '-'
-  const d = new Date(eta)
-  if (Number.isNaN(d.getTime())) return `${eta}`
-  return d.toLocaleDateString('fr-FR', { dateStyle: 'medium' })
-}
-
 function formatDuration(seconds) {
   const s = Number(seconds)
   if (!Number.isFinite(s) || s <= 0) return null
@@ -46,7 +39,7 @@ function formatDuration(seconds) {
   if (m < 60) return `${m} min`
   const h = Math.floor(m / 60)
   const mm = m % 60
-  return `${h}h${`${mm}`.padStart(2, '0')}`
+  return `${h} h ${mm}`
 }
 
 function formatDistance(meters) {
@@ -69,8 +62,10 @@ export default function DeliveryDetailsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [deliveryCode, setDeliveryCode] = useState('')
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [isLocked, setIsLocked] = useState(true)
 
-  const { position: currentPos, error: gpsError } = useGeolocation()
+  const { position: currentPos } = useGeolocation()
 
   const statusUi = useMemo(() => toStatusUi(detail?.status), [detail?.status])
   const items = Array.isArray(detail?.items) ? detail.items : []
@@ -84,6 +79,25 @@ export default function DeliveryDetailsPage() {
     try {
       const data = await getShipmentDetail(id)
       setDetail(data || null)
+      
+      // If status is EN_COURS or LIVREE, we consider it already scanned/unlocked
+      // Otherwise, check localStorage for recent scan
+      const status = (data?.status || '').toUpperCase()
+      if (status === 'EN_COURS' || status === 'LIVREE') {
+        setIsLocked(false)
+      } else {
+        try {
+          const lastScanned = localStorage.getItem('lid_last_scanned_shipment')
+          const scannedObj = lastScanned ? JSON.parse(lastScanned) : null
+          if (scannedObj?.id === id) {
+            setIsLocked(false)
+          } else {
+            setIsLocked(true)
+          }
+        } catch {
+          setIsLocked(true)
+        }
+      }
     } catch (err) {
       setDetail(null)
       setError(err?.message || 'Impossible de charger la livraison.')
@@ -98,6 +112,8 @@ export default function DeliveryDetailsPage() {
   }, [id])
 
   useEffect(() => {
+    if (isLocked) return // Don't fetch geo/route if locked
+
     let canceled = false
     const run = async () => {
       const addr = `${detail?.customerAddress || ''}`.trim()
@@ -113,9 +129,14 @@ export default function DeliveryDetailsPage() {
     return () => {
       canceled = true
     }
-  }, [detail?.customerAddress])
+  }, [detail?.customerAddress, isLocked])
 
   useEffect(() => {
+    if (isLocked) {
+      setRoute(null)
+      return
+    }
+    
     if (routeTimerRef.current) {
       clearTimeout(routeTimerRef.current)
       routeTimerRef.current = null
@@ -141,7 +162,7 @@ export default function DeliveryDetailsPage() {
         routeTimerRef.current = null
       }
     }
-  }, [currentPos, destination])
+  }, [currentPos, destination, isLocked])
 
   const callCustomer = () => {
     const phone = `${detail?.customerPhone || ''}`.trim()
@@ -179,7 +200,11 @@ export default function DeliveryDetailsPage() {
     try {
       await confirmDelivery(id, code)
       setDeliveryCode('')
-      await load()
+      setShowSuccess(true) // Show success modal
+      setTimeout(() => {
+        setShowSuccess(false)
+        load()
+      }, 2500)
     } catch (err) {
       setError(err?.message || 'Impossible de confirmer la livraison.')
     } finally {
@@ -190,260 +215,168 @@ export default function DeliveryDetailsPage() {
   const distance = route?.distanceMeters != null ? formatDistance(route.distanceMeters) : null
   const duration = route?.durationSeconds != null ? formatDuration(route.durationSeconds) : null
 
-  return (
-    <MotionDiv
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="space-y-4"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/70 px-3.5 py-2 text-sm font-semibold text-slate-800 backdrop-blur hover:bg-white"
+  if (isLocked && !isLoading && detail) {
+    return (
+      <MotionDiv
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6"
+      >
+        <div className="w-24 h-24 bg-neutral-100 rounded-full flex items-center justify-center mb-6 shadow-sm border border-neutral-200">
+           <QrCode size={48} className="text-neutral-400" />
+        </div>
+        <h2 className="text-2xl font-black text-neutral-900 mb-2">Scan requis</h2>
+        <p className="text-neutral-500 font-medium mb-8 max-w-xs">
+          Pour accéder aux détails et démarrer la livraison, vous devez d'abord scanner le QR code du colis.
+        </p>
+        <button 
+          onClick={() => navigate('/deliveries')}
+          className="w-full max-w-xs bg-black text-white py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-transform"
         >
-          <ChevronLeft size={18} />
-          Retour
+          <ScanLine size={20} /> Scanner maintenant
         </button>
-        <Link
-          to="/deliveries"
-          className="rounded-2xl bg-slate-950 px-3.5 py-2 text-sm font-semibold text-white"
-        >
-          Missions
-        </Link>
-      </div>
+      </MotionDiv>
+    )
+  }
 
-      {(error || gpsError) && (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
-          {error || gpsError}
-        </div>
-      )}
-
-      <section className="lid-card rounded-[28px] p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Mission</p>
-            <p className="font-display mt-1 truncate text-[18px] font-semibold text-slate-900">
-              {detail?.trackingId || id}
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Commande{' '}
-              <span className="font-semibold text-slate-700">{detail?.orderId || '-'}</span>
-              {detail?.carrier ? (
-                <>
-                  {' '}
-                  • <span className="font-semibold text-slate-700">{detail.carrier}</span>
-                </>
-              ) : null}
-            </p>
-          </div>
-          <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-bold ${statusUi.className}`}>
-            {statusUi.label}
-          </span>
-        </div>
-
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Total</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">
-              {formatMoney(detail?.orderTotal, detail?.currency)}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Paiement</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">{detail?.paid ? 'Payé' : 'À encaisser'}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">ETA</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">{formatEta(detail?.eta)}</p>
+  return (
+    <>
+      <MotionDiv
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+        className="space-y-4 pb-20"
+      >
+        {/* Header / Map Card */}
+        <div className="relative h-[280px] w-full overflow-hidden rounded-3xl bg-neutral-100 shadow-sm border border-neutral-200">
+          <LiveTrackingMap
+            current={currentPos}
+            destination={destination}
+            route={route}
+            follow={follow}
+            className="h-full w-full"
+          />
+          
+          <div className="absolute bottom-4 left-4 right-4 flex gap-3">
+             <button 
+               onClick={openNavigation}
+               className="flex-1 bg-black text-white py-3 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
+             >
+               <Navigation size={18} /> Navigation
+             </button>
+             <button 
+               onClick={() => setFollow(!follow)}
+               className="bg-white p-3 rounded-xl shadow-lg border border-neutral-100"
+             >
+               <RefreshCw size={20} className={follow ? "text-[#6aa200]" : "text-neutral-400"} />
+             </button>
           </div>
         </div>
-      </section>
 
-      <section className="space-y-3">
-        <div className="lid-card rounded-[28px] p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="font-display text-lg font-semibold text-slate-900">Navigation</p>
-              <p className="mt-1 text-xs text-slate-500">Position GPS en temps réel + destination.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setFollow((v) => !v)}
-                className={`rounded-2xl px-3 py-2 text-xs font-bold transition ${
-                  follow
-                    ? 'bg-[var(--lid-accent-soft)] text-[var(--lid-accent)]'
-                    : 'bg-slate-100 text-slate-700'
-                }`}
-              >
-                {follow ? 'Suivi ON' : 'Suivi OFF'}
-              </button>
-              <button
-                type="button"
-                onClick={openNavigation}
-                disabled={!detail?.customerAddress}
-                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--lid-accent)] px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-40"
-              >
-                <Navigation size={18} />
-                GPS
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <LiveTrackingMap
-              className="h-[320px]"
-              current={currentPos}
-              destination={destination}
-              route={route}
-              follow={follow}
-              interactive={!follow}
-            />
-            {(distance || duration) && (
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                {distance ? (
-                  <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
-                    Distance {distance}
-                  </span>
-                ) : null}
-                {duration ? (
-                  <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
-                    ETA {duration}
-                  </span>
-                ) : null}
-                {currentPos?.accuracy ? (
-                  <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
-                    GPS ±{Math.round(currentPos.accuracy)}m
-                  </span>
-                ) : null}
+        {/* Info Card */}
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-100">
+           <div className="flex items-start justify-between mb-6">
+              <div>
+                 <h1 className="text-2xl font-black text-neutral-900">{detail?.customerName || 'Client'}</h1>
+                 <p className="text-neutral-500 font-medium mt-1">{detail?.customerAddress || 'Adresse non définie'}</p>
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="lid-card rounded-[28px] p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="font-display text-lg font-semibold text-slate-900">Client</p>
-              <p className="mt-1 text-xs text-slate-500">Contact rapide + adresse.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={callCustomer}
-                disabled={!detail?.customerPhone}
-                className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-3.5 py-2 text-sm font-semibold text-white disabled:opacity-40"
-              >
-                <PhoneCall size={18} />
-                Appeler
+              <button onClick={callCustomer} className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center text-green-700 transition hover:bg-green-200">
+                 <PhoneCall size={24} />
               </button>
-            </div>
-          </div>
+           </div>
 
-          <div className="mt-4 rounded-3xl border border-slate-200 bg-white/70 p-4 text-sm text-slate-700">
-            <p className="font-semibold text-slate-900">{detail?.customerName || '-'}</p>
-            <p className="mt-1 text-xs text-slate-500">{detail?.customerEmail || '-'}</p>
-            <div className="mt-3 flex items-start gap-2">
-              <MapPin className="mt-0.5 text-slate-400" size={16} />
-              <p className="text-sm font-semibold text-slate-800">{detail?.customerAddress || '-'}</p>
-            </div>
-          </div>
-        </div>
+           <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-neutral-50 p-4 rounded-2xl">
+                 <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider">Distance</p>
+                 <p className="text-xl font-black text-neutral-900">{distance || '--'}</p>
+              </div>
+              <div className="bg-neutral-50 p-4 rounded-2xl">
+                 <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider">Temps estimé</p>
+                 <p className="text-xl font-black text-neutral-900">{duration || '--'}</p>
+              </div>
+           </div>
 
-        <div className="lid-card rounded-[28px] p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="font-display text-lg font-semibold text-slate-900">Colis</p>
-              <p className="mt-1 text-xs text-slate-500">Liste des articles à remettre.</p>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-2">
-            {items.length === 0 && !isLoading ? (
-              <p className="text-sm text-slate-500">Aucun article.</p>
-            ) : (
-              items.map((it, idx) => (
-                <div
-                  key={`${it?.productId || 'p'}-${idx}`}
-                  className="rounded-3xl border border-slate-200 bg-white/70 p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-900">
-                        {it?.productName || 'Produit'}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {it?.unitPrice != null ? `PU ${it.unitPrice}` : 'PU -'}
-                        {it?.lineTotal != null ? ` • Total ${it.lineTotal}` : ''}
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-                      x{it?.quantity ?? 1}
-                    </span>
-                  </div>
+           <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                 <h3 className="font-bold text-neutral-900">Articles ({items.length})</h3>
+                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusUi.className}`}>{statusUi.label}</span>
+              </div>
+              {items.map((item, i) => (
+                <div key={i} className="flex justify-between items-center py-2 border-b border-neutral-50 last:border-0">
+                   <span className="text-neutral-700 font-medium">x{item.quantity} {item.name}</span>
+                   <span className="font-bold">{formatMoney(item.price)}</span>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section className="lid-card rounded-[28px] p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="font-display text-lg font-semibold text-slate-900">Validation</p>
-            <p className="mt-1 text-xs text-slate-500">Confirme la livraison avec le code à 4 chiffres du client.</p>
-          </div>
-          <button
-            type="button"
-            onClick={load}
-            disabled={isLoading || isUpdating}
-            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/70 px-3 py-2 text-sm font-semibold text-slate-800 disabled:opacity-40"
-          >
-            <RefreshCw size={18} />
-            {isLoading ? '...' : 'Recharger'}
-          </button>
+              ))}
+           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-2">
-          <div className="rounded-3xl border border-slate-200 bg-white/70 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Code client</p>
-            <div className="mt-2 flex gap-2">
-              <div className="relative w-full">
-                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input
-                  value={deliveryCode}
-                  onChange={(e) => setDeliveryCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  inputMode="numeric"
-                  placeholder="0000"
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-semibold text-slate-800 outline-none focus:border-[var(--lid-accent)]"
-                />
+        {/* Action Card */}
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-100">
+           <h3 className="font-bold text-neutral-900 mb-4">Validation livraison</h3>
+           
+           {error && (
+             <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm font-medium">
+               {error}
+             </div>
+           )}
+
+           <div className="flex gap-3">
+              <div className="relative flex-1">
+                 <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={20} />
+                 <input 
+                   type="text" 
+                   inputMode="numeric"
+                   placeholder="Code client (4 chiffres)"
+                   value={deliveryCode}
+                   onChange={(e) => setDeliveryCode(e.target.value)}
+                   className="w-full h-14 pl-12 pr-4 bg-neutral-50 rounded-xl font-bold text-lg outline-none focus:ring-2 focus:ring-[#6aa200] transition-all placeholder:text-neutral-400"
+                 />
               </div>
-              <button
-                type="button"
+              <button 
                 onClick={confirmDelivered}
-                disabled={isUpdating || `${deliveryCode || ''}`.trim().length !== 4}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white disabled:opacity-40"
+                disabled={!deliveryCode || isUpdating}
+                className="bg-[#6aa200] text-white px-6 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#5a8a00] transition-colors"
               >
-                <CheckCircle2 size={18} />
-                Confirmer
+                {isUpdating ? <RefreshCw className="animate-spin" /> : <CheckCircle2 size={24} />}
               </button>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={markFailure}
-            disabled={isUpdating}
-            className="inline-flex items-center justify-center gap-2 rounded-3xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
-          >
-            <XCircle size={18} />
-            Échec / reprogrammer
-          </button>
+           </div>
+           
+           <button 
+             onClick={markFailure}
+             disabled={isUpdating}
+             className="w-full mt-4 py-3 text-red-600 font-bold text-sm bg-red-50 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50"
+           >
+             Signaler un problème
+           </button>
         </div>
-      </section>
-    </MotionDiv>
+      </MotionDiv>
+
+      {/* Success Modal Overlay */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="bg-white rounded-[32px] p-8 w-full max-w-sm text-center shadow-2xl"
+            >
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Check size={40} className="text-green-600" strokeWidth={4} />
+              </div>
+              <h2 className="text-2xl font-black text-neutral-900 mb-2">Livraison validée !</h2>
+              <p className="text-neutral-500 font-medium">Bon travail. La commande est clôturée.</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   )
 }

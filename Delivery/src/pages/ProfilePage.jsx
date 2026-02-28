@@ -1,16 +1,6 @@
-import { motion } from 'framer-motion'
-import { Link, useNavigate } from 'react-router-dom'
-import { Bell, LifeBuoy, LogOut, Shield } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Bell, LifeBuoy, LogOut, Shield, ChevronRight, User } from 'lucide-react'
 import { clearAccessToken, decodeJwt, getAccessToken } from '../services/auth'
-
-const MotionDiv = motion.div
-
-function formatExp(exp) {
-  const n = Number(exp)
-  if (!Number.isFinite(n) || n <= 0) return '-'
-  const d = new Date(n * 1000)
-  return d.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
-}
 
 export default function ProfilePage() {
   const navigate = useNavigate()
@@ -25,68 +15,72 @@ export default function ProfilePage() {
     navigate('/login')
   }
 
-  return (
-    <MotionDiv
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="space-y-4"
+  const MenuItem = ({ icon: Icon, label, onClick, danger = false }) => (
+    <button 
+      onClick={onClick}
+      className="w-full flex items-center justify-between p-4 bg-white border-b border-neutral-100 last:border-0 hover:bg-neutral-50 transition-colors"
     >
-      <section className="lid-card rounded-[28px] p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Compte</p>
-            <h2 className="font-display mt-1 text-xl font-semibold text-slate-900">Profil livreur</h2>
-            <p className="mt-1 text-xs text-slate-500">Infos de session (JWT local).</p>
+      <div className="flex items-center gap-4">
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${danger ? 'bg-red-50 text-red-600' : 'bg-neutral-100 text-neutral-600'}`}>
+          <Icon size={20} />
+        </div>
+        <span className={`font-bold ${danger ? 'text-red-600' : 'text-neutral-900'}`}>{label}</span>
+      </div>
+      <ChevronRight size={20} className="text-neutral-300" />
+    </button>
+  )
+
+  return (
+    <div className="space-y-6 pb-24">
+      {/* Profile Header */}
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-neutral-100 flex items-center gap-4">
+        <div className="w-16 h-16 bg-[#6aa200] rounded-full flex items-center justify-center text-white shadow-lg shadow-[#6aa200]/20">
+          <User size={32} />
+        </div>
+        <div>
+          <h1 className="text-xl font-black text-neutral-900">Livreur</h1>
+          <p className="text-neutral-500 font-medium text-sm">{email}</p>
+          <div className="flex gap-2 mt-2">
+            {roles.map(role => (
+              <span key={role} className="bg-neutral-100 text-neutral-600 text-[10px] font-bold px-2 py-1 rounded-full uppercase">
+                {role}
+              </span>
+            ))}
           </div>
-          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--lid-accent-soft)] text-[var(--lid-accent)]">
-            <Shield size={18} />
-          </span>
         </div>
+      </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Email</p>
-            <p className="mt-1 truncate text-sm font-semibold text-slate-900">{email}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Expiration</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">{formatExp(payload?.exp)}</p>
-          </div>
-        </div>
+      {/* Menu */}
+      <div className="bg-white rounded-3xl shadow-sm border border-neutral-100 overflow-hidden">
+        <MenuItem 
+          icon={Bell} 
+          label="Notifications" 
+          onClick={() => navigate('/notifications')} 
+        />
+        <MenuItem 
+          icon={LifeBuoy} 
+          label="Support & Aide" 
+          onClick={() => navigate('/support')} 
+        />
+        <MenuItem 
+          icon={Shield} 
+          label="Sécurité" 
+          onClick={() => {}} 
+        />
+      </div>
 
-        <div className="mt-2 rounded-2xl border border-slate-200 bg-white/70 p-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Rôles</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">{roles.length ? roles.join(', ') : '-'}</p>
-        </div>
+      <div className="bg-white rounded-3xl shadow-sm border border-neutral-100 overflow-hidden">
+        <MenuItem 
+          icon={LogOut} 
+          label="Se déconnecter" 
+          onClick={logout} 
+          danger
+        />
+      </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Link
-            to="/notifications"
-            className="inline-flex items-center justify-center gap-2 rounded-3xl border border-slate-200 bg-white/70 px-4 py-3 text-sm font-semibold text-slate-800"
-          >
-            <Bell size={18} />
-            Notifications
-          </Link>
-          <Link
-            to="/support"
-            className="inline-flex items-center justify-center gap-2 rounded-3xl border border-slate-200 bg-white/70 px-4 py-3 text-sm font-semibold text-slate-800"
-          >
-            <LifeBuoy size={18} />
-            Support
-          </Link>
-        </div>
-
-        <button
-          type="button"
-          onClick={logout}
-          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-3xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white"
-        >
-          <LogOut size={18} />
-          Se déconnecter
-        </button>
-      </section>
-    </MotionDiv>
+      <p className="text-center text-xs text-neutral-400 font-medium">
+        Version 1.0.0 • LID Delivery
+      </p>
+    </div>
   )
 }

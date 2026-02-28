@@ -1,11 +1,10 @@
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronRight, QrCode, RefreshCw, Search, X } from 'lucide-react'
+import { ChevronRight, QrCode, RefreshCw, Search, X, Package, MapPin, Clock } from 'lucide-react'
+import { Html5Qrcode } from 'html5-qrcode'
 
 import { getShipments, scanShipment } from '../services/logistics'
-
-const MotionDiv = motion.div
 
 const TABS = [
   { label: 'Toutes', value: '' },
@@ -17,18 +16,18 @@ const TABS = [
 
 function toStatusUi(status) {
   const s = `${status || ''}`.trim().toUpperCase()
-  if (s === 'EN_PREPARATION') return { label: 'À récupérer', className: 'bg-slate-100 text-slate-700' }
-  if (s === 'EN_COURS') return { label: 'En transit', className: 'bg-sky-100 text-sky-700' }
-  if (s === 'LIVREE') return { label: 'Livrée', className: 'bg-emerald-100 text-emerald-700' }
-  if (s === 'ECHEC') return { label: 'Échec', className: 'bg-rose-100 text-rose-700' }
-  return { label: s || '-', className: 'bg-slate-100 text-slate-700' }
+  if (s === 'EN_PREPARATION') return { label: 'À récupérer', className: 'bg-neutral-100 text-neutral-600' }
+  if (s === 'EN_COURS') return { label: 'En transit', className: 'bg-blue-50 text-blue-700' }
+  if (s === 'LIVREE') return { label: 'Livrée', className: 'bg-green-50 text-green-700' }
+  if (s === 'ECHEC') return { label: 'Échec', className: 'bg-red-50 text-red-700' }
+  return { label: s || '-', className: 'bg-neutral-100 text-neutral-600' }
 }
 
 function formatDate(value) {
   if (!value) return '-'
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return `${value}`
-  return d.toLocaleDateString('fr-FR', { dateStyle: 'medium' })
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 export default function DeliveriesPage() {
@@ -42,9 +41,8 @@ export default function DeliveriesPage() {
   const [scanError, setScanError] = useState('')
   const [scanLoading, setScanLoading] = useState(false)
   const [manualQr, setManualQr] = useState('')
-  const videoRef = useRef(null)
-  const streamRef = useRef(null)
-  const scanTimerRef = useRef(null)
+  const html5QrCodeRef = useRef(null)
+  const isScanningRef = useRef(false)
 
   const status = `${searchParams.get('status') || ''}`.trim().toUpperCase()
 
@@ -74,51 +72,51 @@ export default function DeliveriesPage() {
 
   useEffect(() => {
     load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab.value])
 
   const shipments = Array.isArray(shipmentsPage?.content) ? shipmentsPage.content : []
 
-  const stopScan = () => {
-    if (scanTimerRef.current) {
-      clearInterval(scanTimerRef.current)
-      scanTimerRef.current = null
-    }
-    if (streamRef.current) {
-      for (const track of streamRef.current.getTracks()) {
-        track.stop()
+  const stopScan = async () => {
+    try {
+      if (html5QrCodeRef.current) {
+        if (html5QrCodeRef.current.isScanning) {
+          await html5QrCodeRef.current.stop()
+        }
+        html5QrCodeRef.current.clear()
+        html5QrCodeRef.current = null
       }
-      streamRef.current = null
+    } catch (err) {
+      console.error('Stop scan error', err)
     }
   }
 
   const submitScan = async (qrValue) => {
     const qr = `${qrValue || ''}`.trim()
-    if (!qr || scanLoading) return
+    if (!qr || isScanningRef.current) return
+    
+    isScanningRef.current = true
     setScanLoading(true)
     setScanError('')
+    
+    // Stop camera immediately to avoid duplicate scans
+    await stopScan()
+
     try {
       const detail = await scanShipment(qr)
       if (detail?.id) {
         localStorage.setItem('lid_last_scanned_shipment', JSON.stringify(detail))
-        try {
-          const raw = localStorage.getItem('lid_scanned_shipments')
-          const list = raw ? JSON.parse(raw) : []
-          const items = Array.isArray(list) ? list : []
-          const next = [detail, ...items.filter((x) => x?.id && x.id !== detail.id)].slice(0, 30)
-          localStorage.setItem('lid_scanned_shipments', JSON.stringify(next))
-        } catch {}
-        stopScan()
         setScanOpen(false)
         setManualQr('')
         navigate(`/deliveries/${encodeURIComponent(detail.id)}`)
         return
       }
       setScanError('Scan OK mais expédition introuvable.')
+      // Restart scanner if error? No, let user retry or manual
     } catch (err) {
       setScanError(err?.message || 'Impossible de démarrer la livraison.')
     } finally {
       setScanLoading(false)
+      isScanningRef.current = false
     }
   }
 
@@ -127,58 +125,47 @@ export default function DeliveriesPage() {
       stopScan()
       setScanError('')
       setScanLoading(false)
+      isScanningRef.current = false
       return
     }
 
-    const start = async () => {
-      const host = typeof window !== 'undefined' ? `${window.location?.hostname || ''}`.trim() : ''
-      const isLocalhost = host === 'localhost' || host === '127.0.0.1'
-      const isSecure = typeof window !== 'undefined' ? Boolean(window.isSecureContext) : false
-      if (!isSecure && !isLocalhost) {
-        setScanError(
-          'La caméra nécessite HTTPS sur mobile. Ouvre l’app en https (ou utilise la saisie manuelle du QR).'
-        )
-        return
-      }
-
-      const hasBarcodeDetector = typeof window !== 'undefined' && typeof window.BarcodeDetector === 'function'
-      if (!hasBarcodeDetector) {
-        setScanError('Scan caméra indisponible sur ce navigateur. Utilise la saisie manuelle du QR.')
-        return
-      }
-      if (!navigator?.mediaDevices?.getUserMedia) {
-        setScanError('Caméra indisponible (API navigateur manquante). Utilise la saisie manuelle du QR.')
-        return
-      }
+    // Wait a bit for DOM to be ready
+    const timer = setTimeout(async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
-        streamRef.current = stream
-        const video = videoRef.current
-        if (video) {
-          video.srcObject = stream
-          await video.play()
+        if (!html5QrCodeRef.current) {
+           html5QrCodeRef.current = new Html5Qrcode("reader")
         }
-        const detector = new window.BarcodeDetector({ formats: ['qr_code'] })
-        scanTimerRef.current = setInterval(async () => {
-          const v = videoRef.current
-          if (!v || scanLoading) return
-          try {
-            const codes = await detector.detect(v)
-            const first = Array.isArray(codes) && codes.length > 0 ? codes[0] : null
-            const raw = first?.rawValue
-            if (raw) {
-              await submitScan(raw)
-            }
-          } catch {}
-        }, 450)
+        
+        // Dynamic config for better mobile support
+        const qrBoxSize = Math.min(window.innerWidth, window.innerHeight) * 0.7;
+        const config = { 
+          fps: 15, 
+          qrbox: { width: qrBoxSize, height: qrBoxSize }, 
+          aspectRatio: window.innerWidth / window.innerHeight,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+          }
+        }
+        
+        await html5QrCodeRef.current.start(
+          { facingMode: "environment" },
+          config,
+          (decodedText) => {
+             submitScan(decodedText)
+          },
+          () => {} // ignore failures
+        )
       } catch (err) {
-        setScanError(err?.message || 'Caméra indisponible (autorisation refusée ou contexte non sécurisé).')
+        console.error(err)
+        setScanError('Erreur caméra: ' + (err?.message || 'Inconnue'))
       }
-    }
+    }, 100)
 
-    start()
-    return () => stopScan()
-  }, [scanOpen, scanLoading])
+    return () => {
+      clearTimeout(timer)
+      stopScan()
+    }
+  }, [scanOpen])
 
   const applySearch = (event) => {
     event.preventDefault()
@@ -186,64 +173,41 @@ export default function DeliveriesPage() {
   }
 
   return (
-    <MotionDiv
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="space-y-4"
-    >
-      <section className="lid-card rounded-[28px] p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="font-display text-lg font-semibold text-slate-900">Mes missions</p>
-            <p className="mt-1 text-xs text-slate-500">Filtre, recherche, et actions terrain.</p>
-          </div>
-          <div className="flex items-center gap-2">
+    <div className="pb-24 space-y-6">
+      <div className="bg-white p-4 rounded-3xl shadow-sm border border-neutral-100">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-black text-neutral-900">Missions</h1>
+          <div className="flex gap-2">
             <button
-              type="button"
               onClick={() => setScanOpen(true)}
-              className="inline-flex items-center gap-2 rounded-2xl bg-[var(--lid-accent)] px-3 py-2 text-xs font-bold text-white"
+              className="bg-black text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
             >
-              <QrCode size={16} />
-              Scanner
-            </button>
-            <button
-              type="button"
-              onClick={load}
-              disabled={isLoading}
-              className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
-            >
-              <RefreshCw size={16} />
-              {isLoading ? '...' : 'Maj'}
+              <QrCode size={18} /> Scanner
             </button>
           </div>
         </div>
 
-        <form onSubmit={applySearch} className="mt-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Rechercher (ID, commande, transporteur...)"
-              className="h-11 w-full rounded-2xl border border-slate-200 bg-white/70 pl-10 pr-3 text-sm font-medium text-slate-800 outline-none focus:border-[var(--lid-accent)]"
-            />
-          </div>
+        <form onSubmit={applySearch} className="relative mb-4">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={20} />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Rechercher..."
+            className="w-full bg-neutral-50 border-none rounded-xl py-3 pl-12 pr-4 font-medium outline-none focus:ring-2 focus:ring-[#6aa200]"
+          />
         </form>
 
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           {TABS.map((t) => {
             const active = t.value === activeTab.value
             return (
               <button
                 key={t.label}
-                type="button"
                 onClick={() => setSearchParams(t.value ? { status: t.value } : {})}
-                className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold transition ${
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-colors ${
                   active
-                    ? 'bg-[var(--lid-accent-soft)] text-[var(--lid-accent)]'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    ? 'bg-black text-white'
+                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                 }`}
               >
                 {t.label}
@@ -251,18 +215,21 @@ export default function DeliveriesPage() {
             )
           })}
         </div>
-      </section>
+      </div>
 
-      {error ? (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+      {error && (
+        <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-medium border border-red-100">
           {error}
         </div>
-      ) : null}
+      )}
 
-      <section className="space-y-3">
+      <div className="space-y-3">
         {shipments.length === 0 && !isLoading ? (
-          <div className="rounded-[28px] border border-slate-200 bg-white/70 p-6 text-sm text-slate-500">
-            Aucune mission pour ce filtre.
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Package size={24} className="text-neutral-400" />
+            </div>
+            <p className="text-neutral-500 font-medium">Aucune mission trouvée</p>
           </div>
         ) : (
           shipments.map((s) => {
@@ -270,103 +237,63 @@ export default function DeliveriesPage() {
             return (
               <button
                 key={s?.id}
-                type="button"
                 onClick={() => navigate(`/deliveries/${encodeURIComponent(s.id)}`)}
-                className="lid-card w-full rounded-[28px] p-4 text-left transition hover:-translate-y-[1px]"
+                className="w-full bg-white p-5 rounded-3xl shadow-sm border border-neutral-100 text-left active:scale-[0.99] transition-transform"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-900">
-                      {s?.trackingId || s?.id}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Cmd <span className="font-semibold text-slate-700">{s?.orderId || '-'}</span>
-                      {s?.carrier ? (
-                        <>
-                          {' '}
-                          • <span className="font-semibold text-slate-700">{s.carrier}</span>
-                        </>
-                      ) : null}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${badge.className}`}>
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${badge.className}`}>
                       {badge.label}
                     </span>
-                    <ChevronRight className="text-slate-400" size={18} />
+                    <h3 className="font-bold text-neutral-900 mt-2 text-lg">#{s?.trackingId || s?.id}</h3>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">ETA</p>
+                    <p className="font-mono font-bold text-neutral-900">{formatDate(s?.eta)}</p>
                   </div>
                 </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">ETA</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(s?.eta)}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Frais</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{s?.cost ?? '-'}</p>
-                  </div>
+                
+                <div className="flex items-center gap-2 text-neutral-500 text-sm">
+                  <MapPin size={16} />
+                  <span className="truncate font-medium">{s?.customerAddress || 'Adresse inconnue'}</span>
                 </div>
               </button>
             )
           })
         )}
-      </section>
+      </div>
 
-      {scanOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-[28px] bg-white p-4 shadow-xl">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-display text-lg font-semibold text-slate-900">Scan QR</p>
-                <p className="mt-1 text-xs text-slate-500">Scanne le QR de la commande pour passer en transit.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  stopScan()
-                  setScanOpen(false)
-                }}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
-                <video ref={videoRef} className="h-56 w-full object-cover" muted playsInline />
-              </div>
-
-              <div className="rounded-3xl border border-slate-200 bg-white/70 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Saisie manuelle</p>
-                <div className="mt-2 flex gap-2">
-                  <input
-                    value={manualQr}
-                    onChange={(e) => setManualQr(e.target.value)}
-                    placeholder="Contenu QR (SHIP:... ou ORDER:...)"
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-[var(--lid-accent)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => submitScan(manualQr)}
-                    disabled={scanLoading}
-                    className="shrink-0 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white disabled:opacity-40"
-                  >
-                    {scanLoading ? '...' : 'Valider'}
-                  </button>
-                </div>
-              </div>
-
-              {scanError ? (
-                <div className="rounded-3xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
-                  {scanError}
-                </div>
-              ) : null}
-            </div>
+      {scanOpen && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+          <div className="p-4 flex justify-between items-center text-white">
+            <h2 className="font-bold text-lg">Scanner QR Code</h2>
+            <button onClick={() => setScanOpen(false)} className="p-2 bg-white/10 rounded-full">
+              <X size={24} />
+            </button>
+          </div>
+          <div className="flex-1 relative bg-black">
+            <div id="reader" className="w-full h-full object-cover"></div>
+          </div>
+          <div className="p-6 bg-white rounded-t-3xl">
+             <p className="text-center font-bold text-neutral-900 mb-4">Ou saisir manuellement</p>
+             <div className="flex gap-2">
+               <input 
+                 value={manualQr}
+                 onChange={(e) => setManualQr(e.target.value)}
+                 className="flex-1 bg-neutral-100 rounded-xl px-4 py-3 font-mono font-bold outline-none focus:ring-2 focus:ring-[#6aa200]"
+                 placeholder="CODE..."
+               />
+               <button 
+                 onClick={() => submitScan(manualQr)}
+                 className="bg-black text-white px-6 rounded-xl font-bold"
+               >
+                 OK
+               </button>
+             </div>
+             {scanError && <p className="text-red-500 text-sm font-bold text-center mt-4">{scanError}</p>}
           </div>
         </div>
-      ) : null}
-    </MotionDiv>
+      )}
+    </div>
   )
 }

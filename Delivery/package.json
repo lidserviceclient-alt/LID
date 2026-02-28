@@ -12,6 +12,8 @@
   "dependencies": {
     "firebase": "^12.9.0",
     "framer-motion": "^12.34.3",
+    "html5-qrcode": "^2.3.8",
+    "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.541.0",
     "motion": "^12.34.3",
@@ -24,8 +26,8 @@
     "@tailwindcss/postcss": "^4.2.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
     "@vitejs/plugin-basic-ssl": "^2.1.0",
+    "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.24",
     "eslint": "^9.39.3",
     "eslint-plugin-react-hooks": "^7.0.1",
