@@ -20,11 +20,11 @@ public class CustomerController implements ICustomerController {
     private final CustomerService customerService;
 
 
-//    @Override
-//    public ResponseEntity<CustomerDto> createCustomer(@RequestBody CustomerDto dto) {
-//        CustomerDto created = customerService.createCustomer(dto);
-//        return ResponseEntity.status(HttpStatus.CREATED).body(created);
-//    }
+    @Override
+    public ResponseEntity<CustomerDto> createCustomer(@RequestBody CustomerDto dto) {
+        CustomerDto created = customerService.createCustomer(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
     
     @Override
     public ResponseEntity<CustomerDto> getCustomer(@PathVariable String id) {

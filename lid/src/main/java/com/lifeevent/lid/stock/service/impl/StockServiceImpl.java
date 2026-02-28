@@ -9,6 +9,8 @@ import com.lifeevent.lid.stock.repository.StockRepository;
 import com.lifeevent.lid.stock.service.StockService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,15 +48,15 @@ public class StockServiceImpl implements StockService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<StockDto> getAllStocks() {
-        return stockMapper.toDtoList(stockRepository.findAll());
+    public Page<StockDto> getAllStocks(Pageable pageable) {
+        return stockRepository.findAll(pageable).map(stockMapper::toDto);
     }
     
     @Override
     @Transactional(readOnly = true)
-    public List<StockDto> getStocksByArticleId(Long articleId) {
+    public Page<StockDto> getStocksByArticleId(Long articleId, Pageable pageable) {
         log.info("Récupération des stocks pour l'article: {}", articleId);
-        return stockMapper.toDtoList(stockRepository.findByArticleId(articleId));
+        return stockRepository.findByArticleId(articleId, pageable).map(stockMapper::toDto);
     }
     
     @Override

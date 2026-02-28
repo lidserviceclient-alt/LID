@@ -8,16 +8,13 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "BackOffice - Clients", description = "API back-office pour gérer les clients")
 public interface IBackOfficeCustomerController {
 
     @GetMapping
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Lister les clients")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les clients")
     @ApiResponse(responseCode = "200", description = "Liste paginée des clients")
     ResponseEntity<Page<BackOfficeCustomerDto>> getAll(
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,

@@ -9,6 +9,8 @@ import org.springframework.data.domain.Pageable;
 
 public interface BackOfficeOrderService {
     Page<BackOfficeOrderSummaryDto> getOrders(Pageable pageable, BackOfficeOrderStatus status, String q);
+    Page<BackOfficeOrderSummaryDto> getAllCustomersOrders(Pageable pageable, BackOfficeOrderStatus status, String q);
+    Page<BackOfficeOrderSummaryDto> getOrdersByCustomer(String customerId, Pageable pageable, BackOfficeOrderStatus status);
     BackOfficeOrderSummaryDto createOrder(BackOfficeCreateOrderRequest request);
     void updateStatus(Long orderId, BackOfficeOrderStatus status);
     BackOfficeOrderQuoteResponse quote(BackOfficeCreateOrderRequest request);

@@ -25,6 +25,16 @@ public class BackOfficeOrderController implements IBackOfficeOrderController {
     }
 
     @Override
+    public ResponseEntity<Page<BackOfficeOrderSummaryDto>> getAllCustomersOrders(int page, int size, BackOfficeOrderStatus status, String q) {
+        return ResponseEntity.ok(backOfficeOrderService.getAllCustomersOrders(PageRequest.of(page, size), status, q));
+    }
+
+    @Override
+    public ResponseEntity<Page<BackOfficeOrderSummaryDto>> getOrdersByCustomer(String customerId, int page, int size, BackOfficeOrderStatus status) {
+        return ResponseEntity.ok(backOfficeOrderService.getOrdersByCustomer(customerId, PageRequest.of(page, size), status));
+    }
+
+    @Override
     public ResponseEntity<BackOfficeOrderSummaryDto> createOrder(BackOfficeCreateOrderRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(backOfficeOrderService.createOrder(request));
     }

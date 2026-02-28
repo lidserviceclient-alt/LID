@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -26,7 +25,6 @@ public interface IPartnerController {
      * ENDPOINT PUBLIC (pas d'authentification requise)
      */
     @PostMapping("/register/step-1")
-    @PreAuthorize("permitAll")
     @Operation(
         summary = "Étape 1 - Créer un compte Partner",
         description = "Crée un nouveau compte Partner avec infos de base (nom, email, téléphone) - PUBLIC"
@@ -55,7 +53,6 @@ public interface IPartnerController {
      */
     @PostMapping("/register/step-2")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("(#p0.partnerId == authentication.name) or hasRole('ADMIN')")
     @Operation(
         summary = "Étape 2 - Ajouter les infos de boutique",
         description = "Crée la boutique du Partner avec nom, catégorie principale, description (Own profile or ADMIN)"
@@ -86,7 +83,6 @@ public interface IPartnerController {
      */
     @GetMapping("/register/step-1/{partnerId}")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("(#p0 == authentication.name) or hasRole('ADMIN')")
     @Operation(
         summary = "Récupérer les infos de l'étape 1",
         description = "Retourne les infos de base du Partner pour l'étape 1 (Own profile or ADMIN)"
@@ -112,7 +108,6 @@ public interface IPartnerController {
      */
     @PostMapping("/register/step-3")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("(#p0.partnerId == authentication.name) or hasRole('ADMIN')")
     @Operation(
         summary = "Étape 3 - Ajouter les infos légales",
         description = "Complète l'enregistrement avec adresse, ville, pays et document de registration (Own profile or ADMIN)"
@@ -143,7 +138,6 @@ public interface IPartnerController {
      */
     @GetMapping("/register/step-2/{partnerId}")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("(#p0 == authentication.name) or hasRole('ADMIN')")
     @Operation(
         summary = "Récupérer les infos de l'étape 2",
         description = "Retourne les infos boutique du Partner pour l'étape 2 (Own profile or ADMIN)"
@@ -169,7 +163,6 @@ public interface IPartnerController {
      */
     @GetMapping("/register/step-3/{partnerId}")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("(#p0 == authentication.name) or hasRole('ADMIN')")
     @Operation(
         summary = "Récupérer les infos de l'étape 3",
         description = "Retourne les infos légales du Partner pour l'étape 3 (Own profile or ADMIN)"
@@ -195,7 +188,6 @@ public interface IPartnerController {
      */
     @GetMapping("/{partnerId}")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("(#partnerId == authentication.name) or hasRole('ADMIN')")
     @Operation(
         summary = "Récupérer un Partner",
         description = "Récupère les détails complets d'un Partner avec ses infos de boutique et légales (Own profile or ADMIN)"
@@ -221,7 +213,6 @@ public interface IPartnerController {
      */
     @PutMapping("/{partnerId}")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("(#partnerId == authentication.name) or hasRole('ADMIN')")
     @Operation(
         summary = "Mettre à jour un Partner",
         description = "Met à jour les infos générales d'un Partner (nom, prénom, téléphone) (Own profile or ADMIN)"
@@ -249,7 +240,6 @@ public interface IPartnerController {
      */
     @DeleteMapping("/{partnerId}")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(
         summary = "Supprimer un Partner",
         description = "Supprime complètement un Partner et ses données associées (ADMIN only)"

@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,7 +27,6 @@ public interface ICategoryController {
      */
     @PostMapping
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Créer une catégorie", description = "Crée une nouvelle catégorie de produits (Admin only)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Catégorie créée avec succès",
@@ -81,7 +79,6 @@ public interface ICategoryController {
      */
     @PutMapping("/{id}")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Mettre à jour une catégorie", description = "Modifie les informations d'une catégorie existante (Admin only)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Catégorie mise à jour avec succès"),
@@ -101,7 +98,6 @@ public interface ICategoryController {
      */
     @DeleteMapping("/{id}")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Supprimer une catégorie", description = "Supprime complètement une catégorie (Admin only)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Catégorie supprimée avec succès"),

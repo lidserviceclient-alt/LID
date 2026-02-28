@@ -81,6 +81,20 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
     }
 
     @Override
+    public BackOfficeUserDto create(BackOfficeUserDto dto) {
+        if (dto == null) {
+            dto = new BackOfficeUserDto();
+        }
+        String userId = (dto != null && dto.getId() != null && !dto.getId().isBlank())
+                ? dto.getId()
+                : UUID.randomUUID().toString();
+        UserEntity entity = buildEntityFromDto(dto, userId);
+        UserEntity saved = saveEntity(entity);
+        Authentication auth = upsertAuth(userId, dto != null ? dto.getRole() : null);
+        return backOfficeUserMapper.toDto(saved, auth);
+    }
+
+    @Override
     public BackOfficeUserDto update(String id, BackOfficeUserDto dto) {
         UserEntity entity = userEntityRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
@@ -176,15 +190,17 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
         }
         Authentication auth = authenticationRepository.findById(userId)
                 .orElseGet(() -> Authentication.builder().userId(userId).build());
-        auth.setRoles(mapRole(role));
+        // Hibernate may clear/replace this collection during merge, so it must stay mutable.
+        auth.setRoles(new ArrayList<>(mapRole(role)));
         return authenticationRepository.save(auth);
     }
 
     private List<UserRole> mapRole(String role) {
         String normalized = role == null ? "" : role.trim().toUpperCase();
-        if ("PARTENAIRE".equals(normalized)) return List.of(UserRole.PARTNER);
-        if ("CLIENT".equals(normalized)) return List.of(UserRole.CUSTOMER);
-        if (normalized.isBlank()) return List.of();
-        return List.of(UserRole.ADMIN);
+        if ("SUPER_ADMIN".equals(normalized)) return new ArrayList<>(List.of(UserRole.SUPER_ADMIN));
+        if ("PARTENAIRE".equals(normalized)) return new ArrayList<>(List.of(UserRole.PARTNER));
+        if ("CLIENT".equals(normalized)) return new ArrayList<>(List.of(UserRole.CUSTOMER));
+        if (normalized.isBlank()) return new ArrayList<>();
+        return new ArrayList<>(List.of(UserRole.ADMIN));
     }
 }

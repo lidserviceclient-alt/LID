@@ -38,12 +38,27 @@ spring:
     jdbc:
       initialize-database: always # à changer en prod
 
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:true}
+          starttls:
+            enable: ${SMTP_STARTTLS_ENABLE:true}
+            required: ${SMTP_STARTTLS_REQUIRED:false}
+
 
 server:
   port: 9000
 
 
 config:
+  mail:
+    from: ${SMTP_FROM:${SMTP_USERNAME:no-reply@lid.local}}
   security:
     app:
       secret: ${APP_JWT_SECRET_KEY}
@@ -130,4 +145,4 @@ springdoc:
     tryItOutEnabled: true
   api-docs:
     path: /v3/api-docs
-  show-actuator: true
+  show-actuator: false

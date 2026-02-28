@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -26,7 +25,6 @@ public interface IArticleController {
 
     @PostMapping
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN')")
     @Operation(summary = "Créer un nouvel article", description = "Crée un nouvel article dans la plateforme (Partner/Admin)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Article créé avec succès",
@@ -44,7 +42,6 @@ public interface IArticleController {
             consumes = "multipart/form-data"
     )
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasAnyRole('PARTNER', 'ADMIN')")
     @Operation(summary = "Importer des articles via CSV",
             description = "Importe plusieurs articles à partir d'un fichier CSV (Partner/Admin)")
     @ApiResponses(value = {
@@ -187,7 +184,6 @@ public interface IArticleController {
 
     @PutMapping("/{id}")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("(hasRole('PARTNER') and @articleService.isOwnedByCurrentUser(#id)) or hasRole('ADMIN')")
     @Operation(summary = "Mettre à jour un article",
             description = "Met à jour les informations d'un article existant (Partner peut modifier que ses articles)")
     @ApiResponses(value = {
@@ -204,7 +200,6 @@ public interface IArticleController {
 
     @DeleteMapping("/{id}")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("(hasRole('PARTNER') and @articleService.isOwnedByCurrentUser(#id)) or hasRole('ADMIN')")
     @Operation(summary = "Supprimer un article",
             description = "Supprime un article de la plateforme (Partner peut supprimer que ses articles)")
     @ApiResponses(value = {
@@ -217,7 +212,6 @@ public interface IArticleController {
 
     @PutMapping("/{id}/deactivate")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("(hasRole('PARTNER') and @articleService.isOwnedByCurrentUser(#id)) or hasRole('ADMIN')")
     @Operation(summary = "Désactiver un article",
             description = "Marque un article comme inactif (soft delete - Partner peut désactiver que ses articles)")
     @ApiResponses(value = {
@@ -230,7 +224,6 @@ public interface IArticleController {
 
     @PostMapping("/{articleId}/categories/{categoryId}")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("(hasRole('PARTNER') and @articleService.isOwnedByCurrentUser(#articleId)) or hasRole('ADMIN')")
     @Operation(summary = "Ajouter une catégorie à un article",
             description = "Associe une catégorie à un article existant (Partner peut modifier que ses articles)")
     @ApiResponses(value = {
@@ -247,7 +240,6 @@ public interface IArticleController {
 
     @DeleteMapping("/{articleId}/categories/{categoryId}")
     @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("(hasRole('PARTNER') and @articleService.isOwnedByCurrentUser(#articleId)) or hasRole('ADMIN')")
     @Operation(summary = "Retirer une catégorie d'un article",
             description = "Dissocie une catégorie d'un article (Partner peut modifier que ses articles)")
     @ApiResponses(value = {

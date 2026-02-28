@@ -1,13 +1,13 @@
 package com.lifeevent.lid.order.controller;
 
-import com.lifeevent.lid.order.dto.CheckoutRequestDto;
+import com.lifeevent.lid.order.dto.CheckoutCartRequestDto;
+import com.lifeevent.lid.order.dto.CheckoutCartSelectedRequestDto;
 import com.lifeevent.lid.order.dto.CheckoutResponseDto;
 import com.lifeevent.lid.order.dto.OrderDetailDto;
 import com.lifeevent.lid.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,15 +15,21 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
-@PreAuthorize("isAuthenticated()")
 public class OrderController implements IOrderController {
     
     private final OrderService orderService;
     
     @Override
-    @PostMapping("/checkout")
-    public ResponseEntity<CheckoutResponseDto> checkout(String customerId, CheckoutRequestDto request) {
-        CheckoutResponseDto response = orderService.checkout(customerId, request);
+    @PostMapping("/checkout/cart")
+    public ResponseEntity<CheckoutResponseDto> checkoutCart(String customerId, CheckoutCartRequestDto request) {
+        CheckoutResponseDto response = orderService.checkoutCart(customerId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @Override
+    @PostMapping("/checkout/selected")
+    public ResponseEntity<CheckoutResponseDto> checkoutSelectedArticles(String customerId, CheckoutCartSelectedRequestDto request) {
+        CheckoutResponseDto response = orderService.checkoutSelectedArticles(customerId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
     

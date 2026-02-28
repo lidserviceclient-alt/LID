@@ -15,6 +15,7 @@ import com.lifeevent.lid.order.entity.StatusHistory;
 import com.lifeevent.lid.order.enumeration.Status;
 import com.lifeevent.lid.order.repository.OrderArticleRepository;
 import com.lifeevent.lid.order.repository.OrderRepository;
+import com.lifeevent.lid.stock.repository.StockRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
@@ -40,10 +41,17 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
     private final CustomerRepository customerRepository;
     private final ArticleRepository articleRepository;
     private final DiscountRepository discountRepository;
+    private final StockRepository stockRepository;
 
     @Override
     @Transactional(readOnly = true)
     public Page<BackOfficeOrderSummaryDto> getOrders(Pageable pageable, BackOfficeOrderStatus status, String q) {
+        return getAllCustomersOrders(pageable, status, q);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BackOfficeOrderSummaryDto> getAllCustomersOrders(Pageable pageable, BackOfficeOrderStatus status, String q) {
         Status mappedStatus = mapToOrderStatus(status);
         String query = q == null ? "" : q.trim();
         // If numeric query, try direct ID match first
@@ -58,6 +66,19 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
             }
         }
         return orderRepository.searchBackOffice(mappedStatus, query, pageable)
+                .map(this::toSummary);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BackOfficeOrderSummaryDto> getOrdersByCustomer(String customerId, Pageable pageable, BackOfficeOrderStatus status) {
+        if (customerId == null || customerId.isBlank()) {
+            throw new IllegalArgumentException("customerId requis");
+        }
+        customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId));
+        Status mappedStatus = mapToOrderStatus(status);
+        return orderRepository.searchByCustomerBackOffice(customerId, mappedStatus, pageable)
                 .map(this::toSummary);
     }
 
@@ -84,6 +105,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
                     .orElseThrow(() -> new ResourceNotFoundException("Article", "id", String.valueOf(line.getProductId())));
             double price = article.getPrice() == null ? 0d : article.getPrice();
             int qty = Math.max(1, line.getQuantity());
+            consumeStock(article.getId(), qty);
             subTotal += price * qty;
             orderArticles.add(OrderArticle.builder()
                     .article(article)
@@ -258,5 +280,15 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
         }
         double percent = discount.getValue() == null ? 0d : discount.getValue();
         return subTotal * (percent / 100.0);
+    }
+
+    private void consumeStock(Long articleId, int quantity) {
+        if (!stockRepository.existsByArticleId(articleId)) {
+            throw new IllegalArgumentException("Stock introuvable pour l'article " + articleId);
+        }
+        int updated = stockRepository.decrementAvailableIfEnough(articleId, quantity);
+        if (updated == 0) {
+            throw new IllegalArgumentException("Stock insuffisant pour l'article " + articleId);
+        }
     }
 }

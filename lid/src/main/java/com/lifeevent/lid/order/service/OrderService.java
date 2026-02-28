@@ -1,6 +1,7 @@
 package com.lifeevent.lid.order.service;
 
-import com.lifeevent.lid.order.dto.CheckoutRequestDto;
+import com.lifeevent.lid.order.dto.CheckoutCartRequestDto;
+import com.lifeevent.lid.order.dto.CheckoutCartSelectedRequestDto;
 import com.lifeevent.lid.order.dto.CheckoutResponseDto;
 import com.lifeevent.lid.order.dto.OrderDetailDto;
 import com.lifeevent.lid.order.enumeration.Status;
@@ -14,9 +15,14 @@ import java.util.Optional;
 public interface OrderService {
     
     /**
-     * Initier un checkout : créer une commande et réserver le stock
+     * Valider le panier complet du client
      */
-    CheckoutResponseDto checkout(String customerId, CheckoutRequestDto request);
+    CheckoutResponseDto checkoutCart(String customerId, CheckoutCartRequestDto request);
+
+    /**
+     * Valider une sélection d'articles fournie dans la requête
+     */
+    CheckoutResponseDto checkoutSelectedArticles(String customerId, CheckoutCartSelectedRequestDto request);
     
     /**
      * Récupérer une commande par ID

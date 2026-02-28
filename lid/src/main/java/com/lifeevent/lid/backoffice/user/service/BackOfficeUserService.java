@@ -9,6 +9,8 @@ public interface BackOfficeUserService {
 
     BackOfficeUserDto getById(String id);
 
+    BackOfficeUserDto create(BackOfficeUserDto dto);
+
     BackOfficeUserDto update(String id, BackOfficeUserDto dto);
 
     void delete(String id);

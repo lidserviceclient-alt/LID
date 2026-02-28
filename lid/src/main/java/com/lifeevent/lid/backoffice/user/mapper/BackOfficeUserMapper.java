@@ -72,6 +72,7 @@ public class BackOfficeUserMapper {
 
     public String resolveRole(UserEntity entity, Authentication auth) {
         if (auth != null && auth.getRoles() != null && !auth.getRoles().isEmpty()) {
+            if (auth.getRoles().contains(UserRole.SUPER_ADMIN)) return "SUPER_ADMIN";
             if (auth.getRoles().contains(UserRole.ADMIN)) return "ADMIN";
             if (auth.getRoles().contains(UserRole.PARTNER)) return "PARTENAIRE";
             if (auth.getRoles().contains(UserRole.CUSTOMER)) return "CLIENT";

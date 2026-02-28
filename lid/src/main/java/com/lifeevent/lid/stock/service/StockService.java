@@ -1,6 +1,8 @@
 package com.lifeevent.lid.stock.service;
 
 import com.lifeevent.lid.stock.dto.StockDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -23,12 +25,12 @@ public interface StockService {
     /**
      * Récupérer tous les stocks
      */
-    List<StockDto> getAllStocks();
+    Page<StockDto> getAllStocks(Pageable pageable);
     
     /**
      * Récupérer les stocks par article
      */
-    List<StockDto> getStocksByArticleId(Long articleId);
+    Page<StockDto> getStocksByArticleId(Long articleId, Pageable pageable);
     
     /**
      * Mettre à jour un stock

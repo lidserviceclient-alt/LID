@@ -8,7 +8,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,7 +31,6 @@ public interface IWishlistController {
         @ApiResponse(responseCode = "403", description = "Accès refusé - Can access only own wishlist")
     })
     @GetMapping
-    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasRole('ADMIN')")
     ResponseEntity<List<WishlistDto>> getWishlist(
             @Parameter(description = "ID du client", example = "1", required = true)
             @RequestParam(defaultValue = "1") String customerId);
@@ -45,7 +43,6 @@ public interface IWishlistController {
         @ApiResponse(responseCode = "403", description = "Accès refusé - Can modify only own wishlist")
     })
     @PostMapping("/{articleId}")
-    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasRole('ADMIN')")
     ResponseEntity<WishlistDto> addToWishlist(
             @Parameter(description = "ID de l'article", example = "1", required = true)
             @PathVariable Long articleId,
@@ -60,7 +57,6 @@ public interface IWishlistController {
         @ApiResponse(responseCode = "403", description = "Accès refusé - Can modify only own wishlist")
     })
     @DeleteMapping("/{articleId}")
-    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasRole('ADMIN')")
     ResponseEntity<Void> removeFromWishlist(
             @Parameter(description = "ID de l'article", example = "1", required = true)
             @PathVariable Long articleId,
@@ -74,7 +70,6 @@ public interface IWishlistController {
         @ApiResponse(responseCode = "403", description = "Accès refusé - Can check only own wishlist")
     })
     @GetMapping("/{articleId}/exists")
-    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasRole('ADMIN')")
     ResponseEntity<Boolean> isInWishlist(
             @Parameter(description = "ID de l'article", example = "1", required = true)
             @PathVariable Long articleId,

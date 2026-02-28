@@ -13,24 +13,19 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "BackOffice - Marketing", description = "API back-office pour le marketing")
 public interface IBackOfficeMarketingController {
 
     @GetMapping("/overview")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Vue d'ensemble marketing")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Vue d'ensemble marketing")
     ResponseEntity<MarketingOverviewDto> getOverview(
             @Parameter(description = "Nombre de jours") @RequestParam(required = false) Integer days
     );
 
     @GetMapping("/campaigns")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Lister les campagnes")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les campagnes")
     @ApiResponse(responseCode = "200", description = "Liste paginée des campagnes")
     ResponseEntity<Page<BackOfficeMarketingCampaignDto>> getCampaigns(
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
@@ -39,9 +34,7 @@ public interface IBackOfficeMarketingController {
     );
 
     @PostMapping("/campaigns")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Créer une campagne")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Créer une campagne")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Campagne créée",
                     content = @Content(schema = @Schema(implementation = BackOfficeMarketingCampaignDto.class))),
@@ -50,9 +43,7 @@ public interface IBackOfficeMarketingController {
     ResponseEntity<BackOfficeMarketingCampaignDto> createCampaign(@RequestBody BackOfficeMarketingCampaignDto dto);
 
     @PutMapping("/campaigns/{id}")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Mettre à jour une campagne")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Mettre à jour une campagne")
     ResponseEntity<BackOfficeMarketingCampaignDto> updateCampaign(
             @Parameter(description = "ID de la campagne", required = true)
             @PathVariable Long id,
@@ -60,9 +51,7 @@ public interface IBackOfficeMarketingController {
     );
 
     @DeleteMapping("/campaigns/{id}")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Supprimer une campagne")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Supprimer une campagne")
     ResponseEntity<Void> deleteCampaign(
             @Parameter(description = "ID de la campagne", required = true)
             @PathVariable Long id

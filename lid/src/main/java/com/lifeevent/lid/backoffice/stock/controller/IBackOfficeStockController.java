@@ -13,16 +13,13 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "BackOffice - Stocks", description = "API back-office pour gérer les mouvements de stock")
 public interface IBackOfficeStockController {
 
     @GetMapping("/movements")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Lister les mouvements de stock")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les mouvements de stock")
     @ApiResponse(responseCode = "200", description = "Liste paginée des mouvements")
     ResponseEntity<Page<BackOfficeStockMovementDto>> getMovements(
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
@@ -32,9 +29,7 @@ public interface IBackOfficeStockController {
     );
 
     @PostMapping("/movements")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Créer un mouvement de stock")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Créer un mouvement de stock")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Mouvement créé",
                     content = @Content(schema = @Schema(implementation = BackOfficeStockMovementDto.class))),

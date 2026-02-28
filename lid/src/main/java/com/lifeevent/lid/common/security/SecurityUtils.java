@@ -72,7 +72,7 @@ public class SecurityUtils {
      * Vérifie si l'utilisateur est un ADMIN
      */
     public static boolean isAdmin() {
-        return hasRole(RoleConstants.ROLE_ADMIN);
+        return hasRole(RoleConstants.ROLE_ADMIN) || hasRole(RoleConstants.ROLE_SUPER_ADMIN);
     }
     
     /**

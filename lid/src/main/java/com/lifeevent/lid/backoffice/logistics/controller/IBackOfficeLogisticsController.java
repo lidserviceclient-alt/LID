@@ -10,25 +10,20 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "BackOffice - Logistics", description = "API back-office pour la logistique")
 public interface IBackOfficeLogisticsController {
 
     @GetMapping("/kpis")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "KPIs logistiques")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "KPIs logistiques")
     @ApiResponse(responseCode = "200", description = "KPIs logistiques")
     ResponseEntity<LogisticsKpisDto> getKpis(
             @Parameter(description = "Nombre de jours") @RequestParam(required = false) Integer days
     );
 
     @GetMapping("/shipments")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Lister les expéditions")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les expéditions")
     @ApiResponse(responseCode = "200", description = "Liste paginée des expéditions")
     ResponseEntity<Page<BackOfficeShipmentDto>> getShipments(
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
@@ -39,8 +34,6 @@ public interface IBackOfficeLogisticsController {
     );
 
     @PostMapping("/shipments")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Créer ou mettre à jour une expédition")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Créer ou mettre à jour une expédition")
     ResponseEntity<BackOfficeShipmentDto> upsertShipment(@RequestBody BackOfficeShipmentDto dto);
 }

@@ -54,10 +54,8 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
 
     @Override
     public void delete(Integer id) {
-        if (!categoryRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Category", "id", id.toString());
-        }
-        categoryRepository.deleteById(id);
+        Category entity = findCategoryOrThrow(id);
+        deactivateAndSave(entity);
     }
 
     @Override
@@ -97,13 +95,38 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
     @Override
     public void bulkDelete(List<Integer> ids) {
         if (ids == null || ids.isEmpty()) return;
-        categoryRepository.deleteAllById(ids);
+        deactivateAllByIds(ids);
     }
 
     @Override
     public void purge(boolean withProducts) {
-        // NOTE: withProducts is reserved for future behavior (e.g. delete products too).
-        categoryRepository.deleteAll();
+        // NOTE: withProducts reserved for future behavior; current purge = désactivation globale.
+        deactivateAll();
+    }
+
+    private Category findCategoryOrThrow(Integer id) {
+        return categoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id.toString()));
+    }
+
+    private void deactivateAndSave(Category entity) {
+        if (entity == null) return;
+        entity.setIsActivated(Boolean.FALSE);
+        categoryRepository.save(entity);
+    }
+
+    private void deactivateAllByIds(List<Integer> ids) {
+        List<Category> categories = categoryRepository.findAllById(ids);
+        if (categories.isEmpty()) return;
+        categories.forEach(category -> category.setIsActivated(Boolean.FALSE));
+        categoryRepository.saveAll(categories);
+    }
+
+    private void deactivateAll() {
+        List<Category> categories = categoryRepository.findAll();
+        if (categories.isEmpty()) return;
+        categories.forEach(category -> category.setIsActivated(Boolean.FALSE));
+        categoryRepository.saveAll(categories);
     }
 
     private void applyDefaults(Category entity, BackOfficeCategoryDto dto) {

@@ -11,16 +11,13 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "BackOffice - Utilisateurs", description = "API back-office pour gérer les utilisateurs")
 public interface IBackOfficeUserController {
 
     @GetMapping
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Lister les utilisateurs")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les utilisateurs")
     @ApiResponse(responseCode = "200", description = "Liste paginée des utilisateurs")
     ResponseEntity<Page<BackOfficeUserDto>> getAll(
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
@@ -30,26 +27,20 @@ public interface IBackOfficeUserController {
     );
 
     @GetMapping("/{id}")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Détail d'un utilisateur")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Détail d'un utilisateur")
     ResponseEntity<BackOfficeUserDto> getById(
             @Parameter(description = "ID utilisateur", required = true) @PathVariable String id
     );
 
     @PutMapping("/{id}")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Mettre à jour un utilisateur")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Mettre à jour un utilisateur")
     ResponseEntity<BackOfficeUserDto> update(
             @Parameter(description = "ID utilisateur", required = true) @PathVariable String id,
             @RequestBody BackOfficeUserDto dto
     );
 
     @DeleteMapping("/{id}")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Supprimer un utilisateur")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Supprimer un utilisateur")
     ResponseEntity<Void> delete(
             @Parameter(description = "ID utilisateur", required = true) @PathVariable String id
     );

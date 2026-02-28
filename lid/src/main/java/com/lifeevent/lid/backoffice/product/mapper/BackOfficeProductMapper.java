@@ -16,28 +16,27 @@ import java.util.List;
 )
 public interface BackOfficeProductMapper {
 
+    @Mapping(target = "status", ignore = true)
     @Mapping(target = "categoryId", ignore = true)
     @Mapping(target = "category", ignore = true)
     @Mapping(target = "stock", ignore = true)
     BackOfficeProductDto toDto(Article entity);
 
     @Mapping(target = "categories", ignore = true)
+    @Mapping(target = "status", ignore = true)
     @Mapping(target = "referencePartner", ignore = true)
     @Mapping(target = "discountPercent", ignore = true)
     @Mapping(target = "isFlashSale", ignore = true)
     @Mapping(target = "flashSaleEndsAt", ignore = true)
-    @Mapping(target = "isFeatured", ignore = true)
-    @Mapping(target = "isBestSeller", ignore = true)
     Article toEntity(BackOfficeProductDto dto);
 
     List<BackOfficeProductDto> toDtoList(List<Article> entities);
 
     @Mapping(target = "categories", ignore = true)
+    @Mapping(target = "status", ignore = true)
     @Mapping(target = "referencePartner", ignore = true)
     @Mapping(target = "discountPercent", ignore = true)
     @Mapping(target = "isFlashSale", ignore = true)
     @Mapping(target = "flashSaleEndsAt", ignore = true)
-    @Mapping(target = "isFeatured", ignore = true)
-    @Mapping(target = "isBestSeller", ignore = true)
     void updateEntityFromDto(BackOfficeProductDto dto, @MappingTarget Article entity);
 }

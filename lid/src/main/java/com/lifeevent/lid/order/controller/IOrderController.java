@@ -1,6 +1,7 @@
 package com.lifeevent.lid.order.controller;
 
-import com.lifeevent.lid.order.dto.CheckoutRequestDto;
+import com.lifeevent.lid.order.dto.CheckoutCartRequestDto;
+import com.lifeevent.lid.order.dto.CheckoutCartSelectedRequestDto;
 import com.lifeevent.lid.order.dto.CheckoutResponseDto;
 import com.lifeevent.lid.order.dto.OrderDetailDto;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,7 +13,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,24 +29,41 @@ import java.util.List;
 @SecurityRequirement(name = "Bearer Token")
 public interface IOrderController {
     
-    @Operation(summary = "Initier un checkout", description = "Crée une commande, réserve le stock et initie le processus de paiement (CUSTOMER or ADMIN)")
+    @Operation(summary = "Checkout panier complet", description = "Crée une commande depuis le panier complet du client, réserve le stock et initie le paiement")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Commande créée avec succès"),
         @ApiResponse(responseCode = "401", description = "Non autorisé"),
-        @ApiResponse(responseCode = "403", description = "Accès refusé - Can checkout only own cart"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé"),
         @ApiResponse(responseCode = "400", description = "Requête invalide")
     })
-    @PostMapping("/checkout")
-    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasRole('ADMIN')")
-    ResponseEntity<CheckoutResponseDto> checkout(
+    @PostMapping("/checkout/cart")
+    ResponseEntity<CheckoutResponseDto> checkoutCart(
             @Parameter(description = "ID du client", example = "1", required = true)
             @RequestParam String customerId,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                description = "Détails du checkout (articles à commander, adresse, etc)",
+                description = "Détails checkout (devise, livraison, contact). Les articles proviennent du panier",
                 required = true,
-                content = @Content(schema = @Schema(implementation = CheckoutRequestDto.class))
+                content = @Content(schema = @Schema(implementation = CheckoutCartRequestDto.class))
             )
-            @RequestBody CheckoutRequestDto request);
+            @RequestBody CheckoutCartRequestDto request);
+
+    @Operation(summary = "Checkout articles sélectionnés", description = "Crée une commande depuis une liste d'articles sélectionnés")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Commande créée avec succès"),
+        @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé"),
+        @ApiResponse(responseCode = "400", description = "Requête invalide")
+    })
+    @PostMapping("/checkout/selected")
+    ResponseEntity<CheckoutResponseDto> checkoutSelectedArticles(
+            @Parameter(description = "ID du client", example = "1", required = true)
+            @RequestParam String customerId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Détails checkout + liste des articles sélectionnés",
+                    required = true,
+                    content = @Content(schema = @Schema(implementation = CheckoutCartSelectedRequestDto.class))
+            )
+            @RequestBody CheckoutCartSelectedRequestDto request);
     
     @Operation(summary = "Récupérer les commandes du client", description = "Retourne la liste paginée des commandes d'un client (CUSTOMER or ADMIN)")
     @ApiResponses(value = {
@@ -55,7 +72,6 @@ public interface IOrderController {
         @ApiResponse(responseCode = "403", description = "Accès refusé - Can view only own orders")
     })
     @GetMapping("/orders")
-    @PreAuthorize("(hasRole('CUSTOMER') and #customerId == authentication.name) or hasRole('ADMIN')")
     ResponseEntity<List<OrderDetailDto>> getCustomerOrders(
             @Parameter(description = "ID du client", example = "1", required = true)
             @RequestParam String customerId,
@@ -72,7 +88,6 @@ public interface IOrderController {
         @ApiResponse(responseCode = "403", description = "Accès refusé - Can view only own orders")
     })
     @GetMapping("/orders/{id}")
-    @PreAuthorize("(hasRole('CUSTOMER') and @orderService.isOwnedByCurrentUser(#id)) or hasRole('ADMIN')")
     ResponseEntity<?> getOrderDetail(
             @Parameter(description = "ID de la commande", example = "1", required = true)
             @PathVariable Long id);
@@ -85,7 +100,6 @@ public interface IOrderController {
         @ApiResponse(responseCode = "403", description = "Accès refusé - Can track only own orders")
     })
     @GetMapping("/orders/{id}/tracking")
-    @PreAuthorize("(hasRole('CUSTOMER') and @orderService.isOwnedByCurrentUser(#id)) or hasRole('ADMIN')")
     ResponseEntity<?> getOrderTracking(
             @Parameter(description = "ID de la commande", example = "1", required = true)
             @PathVariable Long id);

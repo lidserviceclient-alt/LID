@@ -21,6 +21,16 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
      */
     @EntityGraph(attributePaths = {"customer", "articles"})
     Page<Order> findByCustomer_UserId(String customerId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"customer", "articles"})
+    @Query("""
+        SELECT o
+        FROM Order o
+        WHERE o.customer.userId = :customerId
+          AND (:status IS NULL OR o.currentStatus = :status)
+        ORDER BY o.createdAt DESC
+    """)
+    Page<Order> searchByCustomerBackOffice(@Param("customerId") String customerId, @Param("status") Status status, Pageable pageable);
     
     /**
      * Commandes d'un client

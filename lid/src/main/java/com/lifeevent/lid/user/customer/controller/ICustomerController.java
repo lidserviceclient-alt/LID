@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,19 +23,17 @@ import java.util.List;
 @SecurityRequirement(name = "Bearer Token")
 public interface ICustomerController {
     
-//    @PostMapping
-//    @PreAuthorize("permitAll")
-//    @Operation(summary = "Créer un nouveau client", description = "Crée un nouveau profil client dans la plateforme (PUBLIC)")
-//    @ApiResponses(value = {
-//        @ApiResponse(responseCode = "201", description = "Client créé avec succès",
-//            content = @Content(schema = @Schema(implementation = CustomerDto.class))),
-//        @ApiResponse(responseCode = "400", description = "Données invalides"),
-//        @ApiResponse(responseCode = "409", description = "Email déjà existant")
-//    })
-//    ResponseEntity<CustomerDto> createCustomer(@RequestBody CustomerDto dto);
+    @PostMapping
+    @Operation(summary = "Créer un nouveau client", description = "Crée un nouveau profil client dans la plateforme (PUBLIC)")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Client créé avec succès",
+            content = @Content(schema = @Schema(implementation = CustomerDto.class))),
+        @ApiResponse(responseCode = "400", description = "Données invalides"),
+        @ApiResponse(responseCode = "409", description = "Email déjà existant")
+    })
+    ResponseEntity<CustomerDto> createCustomer(@RequestBody CustomerDto dto);
     
     @GetMapping("/{id}")
-    @PreAuthorize("(#id == authentication.name) or hasRole('ADMIN')")
     @Operation(summary = "Récupérer un client par ID", description = "Récupère les détails d'un client spécifique (Own profile or ADMIN)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Client trouvé",
@@ -49,7 +46,6 @@ public interface ICustomerController {
             @Parameter(description = "ID du client", required = true) @PathVariable String id);
     
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Lister tous les clients", description = "Récupère la liste complète de tous les clients (ADMIN only)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Liste des clients"),
@@ -59,7 +55,6 @@ public interface ICustomerController {
     ResponseEntity<List<CustomerDto>> getAllCustomers();
     
     @GetMapping("/email/{email}")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Récupérer un client par email", description = "Récupère un client à partir de son adresse email (ADMIN only)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Client trouvé"),
@@ -72,7 +67,6 @@ public interface ICustomerController {
 
     
     @PutMapping("/{id}")
-    @PreAuthorize("(#id == authentication.name) or hasRole('ADMIN')")
     @Operation(summary = "Mettre à jour un client", description = "Met à jour les informations d'un client existant (Own profile or ADMIN)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Client mis à jour avec succès"),
@@ -86,7 +80,6 @@ public interface ICustomerController {
             @RequestBody CustomerDto dto);
     
     @DeleteMapping("/{id}")
-    @PreAuthorize("(#id == authentication.name) or hasRole('ADMIN')")
     @Operation(summary = "Supprimer un client", description = "Supprime un client de la plateforme (Own profile or ADMIN)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Client supprimé avec succès"),
@@ -98,7 +91,6 @@ public interface ICustomerController {
             @Parameter(description = "ID du client", required = true) @PathVariable String id);
     
     @GetMapping("/check-email/{email}")
-    @PreAuthorize("permitAll")
     @Operation(summary = "Vérifier l'existence d'un email", description = "Vérifie si un email est déjà enregistré (PUBLIC)")
     @ApiResponse(responseCode = "200", description = "Résultat de la vérification")
     ResponseEntity<Boolean> emailExists(

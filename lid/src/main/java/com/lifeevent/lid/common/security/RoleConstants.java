@@ -19,6 +19,8 @@ public final class RoleConstants {
      */
     public static final String ADMIN = "ADMIN";
     public static final String ROLE_ADMIN = "ROLE_ADMIN";
+    public static final String SUPER_ADMIN = "SUPER_ADMIN";
+    public static final String ROLE_SUPER_ADMIN = "ROLE_SUPER_ADMIN";
     
     /**
      * USER - Utilisateur anonyme/non connecté
@@ -59,12 +61,12 @@ public final class RoleConstants {
     /**
      * Rôles authentifiés : CUSTOMER, PARTNER, ADMIN
      */
-    public static final String AUTHENTICATED_USERS = "ROLE_CUSTOMER,ROLE_PARTNER,ROLE_ADMIN";
+    public static final String AUTHENTICATED_USERS = "ROLE_CUSTOMER,ROLE_PARTNER,ROLE_ADMIN,ROLE_SUPER_ADMIN";
     
     /**
      * Rôles avec accès complet : ADMIN
      */
-    public static final String FULL_ACCESS = "ROLE_ADMIN";
+    public static final String FULL_ACCESS = "ROLE_ADMIN,ROLE_SUPER_ADMIN";
     
     /**
      * Rôles utilisateurs (non-admin) : CUSTOMER, PARTNER

@@ -14,16 +14,13 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "BackOffice - Orders", description = "API back-office pour gérer les commandes")
 public interface IBackOfficeOrderController {
 
     @GetMapping
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Lister les commandes")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les commandes")
     @ApiResponse(responseCode = "200", description = "Liste paginée des commandes")
     ResponseEntity<Page<BackOfficeOrderSummaryDto>> getOrders(
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
@@ -32,10 +29,26 @@ public interface IBackOfficeOrderController {
             @Parameter(description = "Recherche") @RequestParam(required = false) String q
     );
 
+    @GetMapping("/customers/orders")
+    @ApiResponse(responseCode = "200", description = "Liste paginée des commandes tous clients")
+    ResponseEntity<Page<BackOfficeOrderSummaryDto>> getAllCustomersOrders(
+            @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Statut") @RequestParam(required = false) BackOfficeOrderStatus status,
+            @Parameter(description = "Recherche") @RequestParam(required = false) String q
+    );
+
+    @GetMapping("/customers/{customerId}/orders")
+    @ApiResponse(responseCode = "200", description = "Liste paginée des commandes d'un client")
+    ResponseEntity<Page<BackOfficeOrderSummaryDto>> getOrdersByCustomer(
+            @Parameter(description = "ID client", required = true) @PathVariable String customerId,
+            @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Statut") @RequestParam(required = false) BackOfficeOrderStatus status
+    );
+
     @PostMapping
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Créer une commande")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Créer une commande")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Commande créée",
                     content = @Content(schema = @Schema(implementation = BackOfficeOrderSummaryDto.class))),
@@ -44,9 +57,7 @@ public interface IBackOfficeOrderController {
     ResponseEntity<BackOfficeOrderSummaryDto> createOrder(@RequestBody BackOfficeCreateOrderRequest request);
 
     @PutMapping("/{id}/status")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Mettre à jour le statut d'une commande")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Mettre à jour le statut d'une commande")
     ResponseEntity<Void> updateStatus(
             @Parameter(description = "ID de la commande", required = true)
             @PathVariable Long id,
@@ -54,8 +65,6 @@ public interface IBackOfficeOrderController {
     );
 
     @PostMapping("/quote")
-    @SecurityRequirement(name = "Bearer Token")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Simuler une commande (quote)")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Simuler une commande (quote)")
     ResponseEntity<BackOfficeOrderQuoteResponse> quote(@RequestBody BackOfficeCreateOrderRequest request);
 }

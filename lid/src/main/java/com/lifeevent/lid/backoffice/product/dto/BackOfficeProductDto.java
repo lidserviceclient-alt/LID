@@ -1,7 +1,6 @@
 package com.lifeevent.lid.backoffice.product.dto;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
-import com.lifeevent.lid.article.enumeration.ArticleStatus;
 import lombok.*;
 
 @Getter
@@ -22,7 +21,7 @@ public class BackOfficeProductDto {
     private String brand;
     private Double price;
     private Float vat;
-    private ArticleStatus status;
+    private String status;
 
     /**
      * Catégorie principale (id)
@@ -41,4 +40,7 @@ public class BackOfficeProductDto {
      * Stock agrégé (choix service).
      */
     private Integer stock;
+
+    private Boolean isFeatured;
+    private Boolean isBestSeller;
 }
