@@ -1,4 +1,4 @@
-﻿﻿﻿import { clearAccessToken, getAccessToken } from "./auth.js";
+﻿﻿﻿﻿import { clearAccessToken, getAccessToken } from "./auth.js";
 
 const BASE_URL = import.meta.env.VITE_BACKOFFICE_API_URL || "http://localhost:9000";
 
@@ -560,6 +560,7 @@ export const backofficeApi = {
     if (q) params.set("q", q);
     return request(`/api/backoffice/logistics/shipments?${params.toString()}`);
   },
+  shipment: (id) => request(`/api/backoffice/logistics/shipments/${id}`),
   upsertShipment: (payload) =>
     request("/api/backoffice/logistics/shipments", {
       method: "POST",

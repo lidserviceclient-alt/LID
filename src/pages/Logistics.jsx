@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { Download, Plus, Search, Settings2, Truck } from "lucide-react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { Download, Plus, Search, Settings2, Truck, Printer } from "lucide-react";
+import { useReactToPrint } from "react-to-print";
+import ShippingLabel from "../components/ShippingLabel.jsx";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Badge from "../components/ui/Badge.jsx";
@@ -93,6 +95,48 @@ export default function Logistics() {
   const [qrModalValue, setQrModalValue] = useState("");
   const [qrModalTitle, setQrModalTitle] = useState("");
   const [qrCopyState, setQrCopyState] = useState("");
+
+  // Company Info for Printing
+  const [companyInfo, setCompanyInfo] = useState(null);
+
+  // Printing
+  const [printOrder, setPrintOrder] = useState(null);
+  const labelRef = useRef();
+
+  const handlePrint = useReactToPrint({
+    contentRef: labelRef,
+    documentTitle: printOrder ? `Invoice-${printOrder.orderId}` : 'Invoice',
+    onAfterPrint: () => setPrintOrder(null)
+  });
+
+  useEffect(() => {
+    if (printOrder) {
+      handlePrint();
+    }
+  }, [printOrder, handlePrint]);
+
+  useEffect(() => {
+    backofficeApi.appConfig().then(setCompanyInfo).catch(() => {});
+  }, []);
+
+  const initPrint = async (shipmentId) => {
+    try {
+      const details = await backofficeApi.shipment(shipmentId);
+      setPrintOrder({
+        ...details,
+        id: details.orderId,
+        trackingId: details.trackingId,
+        createdAt: details.scannedAt || new Date().toISOString(),
+        customerName: details.customerName,
+        shippingAddress: details.customerAddress,
+        phone: details.customerPhone,
+        carrier: details.carrier,
+        weight: "1.2 kg" // Default or calculate if item weights available
+      });
+    } catch (e) {
+      console.error("Failed to fetch shipment details for print", e);
+    }
+  };
 
   useEffect(() => {
     backofficeApi
@@ -401,7 +445,7 @@ export default function Logistics() {
               <TCell>Statut</TCell>
               <TCell>ETA</TCell>
               <TCell>Coût</TCell>
-              <TCell>QR</TCell>
+              <TCell>Actions</TCell>
             </TRow>
           </THead>
           <tbody>
@@ -437,23 +481,33 @@ export default function Logistics() {
                   <TCell>{item.eta}</TCell>
                   <TCell>{item.cost}</TCell>
                   <TCell>
-                    {item.qr ? (
-                      <button
-                        type="button"
-                        onClick={() => openQrModal(item.qr, item.orderId)}
-                        className="rounded-md border border-border bg-white p-1 hover:bg-muted/30"
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => initPrint(item.id)}
+                        title="Imprimer Facture"
                       >
-                        <img
-                          src={buildQrUrl(item.qr, 84)}
-                          alt={`QR ${item.orderId}`}
-                          className="h-12 w-12"
-                          loading="lazy"
-                          referrerPolicy="no-referrer"
-                        />
-                      </button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
-                    )}
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                      {item.qr ? (
+                        <button
+                          type="button"
+                          onClick={() => openQrModal(item.qr, item.orderId)}
+                          className="rounded-md border border-border bg-white p-1 hover:bg-muted/30"
+                          title="Voir QR Code"
+                        >
+                          <img
+                            src={buildQrUrl(item.qr, 84)}
+                            alt={`QR ${item.orderId}`}
+                            className="h-8 w-8"
+                            referrerPolicy="no-referrer"
+                          />
+                        </button>
+                      ) : (
+                        <div className="h-8 w-8 rounded-md bg-muted/20" />
+                      )}
+                    </div>
                   </TCell>
                 </TRow>
               ))
@@ -544,6 +598,11 @@ export default function Logistics() {
           </tbody>
         </Table>
       </Card>
+
+      {/* Hidden Print Component */}
+      <div style={{ display: 'none' }}>
+        <ShippingLabel ref={labelRef} order={printOrder} company={companyInfo} />
+      </div>
 
       <Modal
         isOpen={qrModalOpen}
