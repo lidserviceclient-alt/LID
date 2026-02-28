@@ -16,7 +16,14 @@ public class ArticleDto {
     private Double price;
     private String img;
     private String ean;
+    private String description;
+    private String brand;
     private Float vat;
+    private String referenceProduitPartenaire;
+    private Float discountPercent;
+    private Boolean isFlashSale;
+    private Boolean isFeatured;
+    private Boolean isBestSeller;
 
     private List<CategoryDto> categories;
 }

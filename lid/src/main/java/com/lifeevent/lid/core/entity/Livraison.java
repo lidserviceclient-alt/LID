@@ -67,4 +67,19 @@ public class Livraison extends UuidEntity {
 
     @Column(name = "date_mail_expedition")
     private LocalDateTime dateMailExpedition;
+
+    @Column(name = "adresse_livraison")
+    private String adresseLivraison;
+
+    @Column(name = "ville_livraison", length = 100)
+    private String villeLivraison;
+
+    @Column(name = "code_postal_livraison", length = 20)
+    private String codePostalLivraison;
+
+    @Column(name = "pays_livraison", length = 100)
+    private String paysLivraison;
+
+    @Column(name = "telephone_livraison", length = 30)
+    private String telephoneLivraison;
 }

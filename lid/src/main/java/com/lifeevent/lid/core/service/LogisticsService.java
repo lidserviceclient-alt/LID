@@ -36,8 +36,12 @@ import java.math.RoundingMode;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class LogisticsService {
@@ -96,8 +100,12 @@ public class LogisticsService {
         if (customerName != null && customerName.isBlank()) customerName = null;
 
         String customerEmail = customer != null ? trimToNull(customer.getEmail()) : null;
-        String customerPhone = customer != null ? trimToNull(customer.getTelephone()) : null;
-        String customerAddress = resolveCustomerAddress(customer);
+        String customerPhone = trimToNull(livraison.getTelephoneLivraison());
+        if (customerPhone == null && customer != null) {
+            customerPhone = trimToNull(customer.getTelephone());
+        }
+        
+        String customerAddress = resolveDeliveryAddress(livraison, customer);
 
         boolean paid = resolvePaidStatus(commande);
 
@@ -501,22 +509,45 @@ public class LogisticsService {
                 .toList();
     }
 
+    private String resolveDeliveryAddress(Livraison livraison, Utilisateur customer) {
+        if (livraison != null) {
+            String line = trimToNull(livraison.getAdresseLivraison());
+            if (line != null) {
+                String city = trimToNull(livraison.getVilleLivraison());
+                String postal = trimToNull(livraison.getCodePostalLivraison());
+                String country = trimToNull(livraison.getPaysLivraison());
+
+                String cityPart = Stream.of(postal, city)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.joining(" "));
+                if (cityPart.isBlank()) cityPart = null;
+
+                return Stream.of(line, cityPart, country)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.joining(", "));
+            }
+        }
+        return resolveCustomerAddress(customer);
+    }
+
     private String resolveCustomerAddress(Utilisateur customer) {
         if (customer == null) return null;
 
         if (customerAddressRepository == null) {
             String city = trimToNull(customer.getVille());
             String country = trimToNull(customer.getPays());
-            String fallback = String.join(", ", List.of(city, country).stream().filter(Objects::nonNull).toList());
-            return fallback.isBlank() ? null : fallback;
+            return Stream.of(city, country)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.joining(", "));
         }
 
         List<CustomerAddress> addresses = customerAddressRepository.findByUtilisateur_Id(customer.getId());
         if (addresses == null || addresses.isEmpty()) {
             String city = trimToNull(customer.getVille());
             String country = trimToNull(customer.getPays());
-            String fallback = String.join(", ", List.of(city, country).stream().filter(Objects::nonNull).toList());
-            return fallback.isBlank() ? null : fallback;
+            return Stream.of(city, country)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.joining(", "));
         }
 
         CustomerAddress chosen = null;
@@ -535,10 +566,14 @@ public class LogisticsService {
         String postal = trimToNull(chosen.getPostalCode());
         String country = trimToNull(chosen.getCountry());
 
-        String cityPart = String.join(" ", List.of(postal, city).stream().filter(Objects::nonNull).toList()).trim();
-        List<String> parts = List.of(line, cityPart.isBlank() ? null : cityPart, country);
-        String out = String.join(", ", parts.stream().filter(Objects::nonNull).toList()).trim();
-        return out.isBlank() ? null : out;
+        String cityPart = Stream.of(postal, city)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(" "));
+        if (cityPart.isBlank()) cityPart = null;
+
+        return Stream.of(line, cityPart, country)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(", "));
     }
 
     private boolean resolvePaidStatus(Commande commande) {

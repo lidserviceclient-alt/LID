@@ -79,6 +79,11 @@ public class OrderServiceImpl implements OrderService {
     private final LoyaltyService loyaltyService;
     private final StockRepository coreStockRepository;
     private final com.lifeevent.lid.stock.repository.StockRepository articleStockRepository;
+    
+    // Bridge to Core Logistics
+    private final com.lifeevent.lid.core.repository.CommandeRepository commandeRepository;
+    private final com.lifeevent.lid.core.repository.CommandeLigneRepository commandeLigneRepository;
+    private final com.lifeevent.lid.core.repository.LivraisonRepository livraisonRepository;
 
     private record PromoApplication(boolean applied, String code, BigDecimal discountAmount, String message, CodePromo promo, Utilisateur utilisateur) {
     }
@@ -329,6 +334,60 @@ public class OrderServiceImpl implements OrderService {
         savedOrder.getStatusHistory().add(history);
         
         orderRepository.save(savedOrder);
+
+        // --- BRIDGE TO CORE LOGISTICS ---
+        try {
+            // Find Core Utilisateur
+            com.lifeevent.lid.core.entity.Utilisateur coreUser = utilisateurRepository.findById(customer.getUserId()).orElse(null);
+            if (coreUser == null && customer.getEmail() != null) {
+                coreUser = utilisateurRepository.findByEmail(customer.getEmail()).orElse(null);
+            }
+            
+            if (coreUser != null) {
+                com.lifeevent.lid.core.entity.Commande coreCmd = new com.lifeevent.lid.core.entity.Commande();
+                coreCmd.setId("ORD-" + savedOrder.getId());
+                coreCmd.setClient(coreUser);
+                coreCmd.setMontantTotal(BigDecimal.valueOf(savedOrder.getAmount()));
+                coreCmd.setDevise(currency);
+                coreCmd.setStatut(com.lifeevent.lid.core.enums.StatutCommande.CREEE);
+                coreCmd.setDateCreation(LocalDateTime.now());
+                coreCmd = commandeRepository.save(coreCmd);
+
+                for (OrderArticle oa : orderArticles) {
+                    com.lifeevent.lid.core.entity.CommandeLigne line = new com.lifeevent.lid.core.entity.CommandeLigne();
+                    line.setCommande(coreCmd);
+                    
+                    // Try to link product via reference
+                    if (oa.getArticle() != null) {
+                        String ref = oa.getArticle().getReferenceProduitPartenaire();
+                        if (ref != null) {
+                            com.lifeevent.lid.core.entity.Produit p = produitRepository.findByReferencePartenaireIgnoreCase(ref).orElse(null);
+                            line.setProduit(p);
+                        }
+                    }
+                    line.setQuantite(oa.getQuantity());
+                    line.setPrixUnitaire(BigDecimal.valueOf(oa.getPriceAtOrder()));
+                    commandeLigneRepository.save(line);
+                }
+
+                com.lifeevent.lid.core.entity.Livraison livraison = new com.lifeevent.lid.core.entity.Livraison();
+                livraison.setCommande(coreCmd);
+                livraison.setStatut(com.lifeevent.lid.core.enums.StatutLivraison.EN_PREPARATION);
+                livraison.setCoutLivraison(shippingCost);
+                // Save shipping info
+                livraison.setAdresseLivraison(request.getShippingAddress());
+                livraison.setTelephoneLivraison(request.getPhone());
+                livraisonRepository.save(livraison);
+                
+                log.info("Core Commande & Livraison created for Order {}", savedOrder.getId());
+            } else {
+                log.warn("Skipping Core Commande creation: Core User not found for Customer {}", customer.getUserId());
+            }
+        } catch (Exception e) {
+            log.error("Failed to bridge Order {} to Core Logistics", savedOrder.getId(), e);
+            // Don't fail the checkout, just log
+        }
+        // --------------------------------
 
         if (promo.applied() && promo.promo() != null && promo.utilisateur() != null && promo.discountAmount().compareTo(BigDecimal.ZERO) > 0) {
             CodePromoUtilisation utilisation = new CodePromoUtilisation();

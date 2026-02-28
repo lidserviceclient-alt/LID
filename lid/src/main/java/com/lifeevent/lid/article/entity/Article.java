@@ -33,6 +33,8 @@ public class Article extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String description;
 
     private String img;

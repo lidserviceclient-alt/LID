@@ -217,6 +217,24 @@ CREATE TABLE IF NOT EXISTS `backoffice_message` (
   KEY `idx_backoffice_message_status_retry` (`status`, `next_retry_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+SET @article_desc_exists := (
+  SELECT 1
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'article'
+    AND COLUMN_NAME = 'description'
+  LIMIT 1
+);
+
+SET @sql_alter_article_desc := IF(
+  @article_desc_exists IS NULL,
+  'SELECT 1',
+  'ALTER TABLE `article` MODIFY COLUMN `description` LONGTEXT'
+);
+PREPARE stmt_alter_article_desc FROM @sql_alter_article_desc;
+EXECUTE stmt_alter_article_desc;
+DEALLOCATE PREPARE stmt_alter_article_desc;
+
 SET @backoffice_message_table_exists := (
   SELECT COUNT(*)
   FROM information_schema.tables
