@@ -23,9 +23,11 @@ import FavoriteNotification from "@/components/FavoriteNotification";
 import ReviewSection from "@/components/ReviewSection";
 import CheckoutFlow from "@/components/CheckoutFlow";
 
+import { useAppConfig } from "@/features/appConfig/useAppConfig";
+
 const FALLBACK_IMAGE = "/imgs/logo.png";
 const FREE_SHIPPING_THRESHOLD = 10000;
-const STANDARD_SHIPPING_COST = 3250;
+// const STANDARD_SHIPPING_COST = 3250; // Removed constant, now from AppConfig
 const TAX_RATE = 0.18;
 
 const formatMoney = (value, { maximumFractionDigits = 0 } = {}) => {
@@ -70,6 +72,34 @@ export default function ProductDetailsDb() {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const { data: appConfig } = useAppConfig();
+
+  const freeShipping = appConfig?.freeShipping;
+  const configuredShippingMethods = useMemo(() => {
+    const list = Array.isArray(appConfig?.shippingMethods) ? appConfig.shippingMethods : [];
+    return list.filter((m) => m?.code && m?.label);
+  }, [appConfig?.shippingMethods]);
+  const freeShippingThreshold = useMemo(() => {
+    const raw = freeShipping?.thresholdAmount;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [freeShipping?.thresholdAmount]);
+  const isFreeShippingEnabled = Boolean(freeShipping?.enabled) && Boolean(freeShippingThreshold);
+  const fallbackShippingMethods = useMemo(
+    () => [
+      { code: "STANDARD", label: "Standard", description: "3-5 jours ouvrables", costAmount: 3250, enabled: true, isDefault: true, sortOrder: 0 },
+      { code: "EXPRESS", label: "Express", description: "24-48h", costAmount: 5000, enabled: true, isDefault: false, sortOrder: 1 }
+    ],
+    []
+  );
+  const shippingMethods = useMemo(() => {
+    const list = configuredShippingMethods.length ? configuredShippingMethods : fallbackShippingMethods;
+    return list.filter((m) => Boolean(m?.enabled));
+  }, [configuredShippingMethods, fallbackShippingMethods]);
+  const defaultShippingCode = useMemo(() => {
+    const found = shippingMethods.find((m) => Boolean(m?.isDefault)) || shippingMethods[0];
+    return found?.code || "STANDARD";
+  }, [shippingMethods]);
 
   const [product, setProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -80,6 +110,13 @@ export default function ProductDetailsDb() {
   const [activeTab, setActiveTab] = useState("description"); // description | specs | shipping | reviews
   const [showCheckout, setShowCheckout] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
+  const [shippingMethod, setShippingMethod] = useState("STANDARD");
+
+  useEffect(() => {
+    if (!shippingMethods.some((m) => m?.code === shippingMethod)) {
+      setShippingMethod(defaultShippingCode);
+    }
+  }, [defaultShippingCode, shippingMethod, shippingMethods]);
 
   const [favNotification, setFavNotification] = useState({
     show: false,
@@ -168,7 +205,19 @@ export default function ProductDetailsDb() {
 
   const price = Number(product?.price) || 0;
   const itemsTotal = price * (Number.isFinite(Number(quantity)) ? Number(quantity) : 1);
-  const shippingCost = itemsTotal >= FREE_SHIPPING_THRESHOLD ? 0 : STANDARD_SHIPPING_COST;
+  const selectedShippingMethod = useMemo(() => {
+    return shippingMethods.find((m) => m?.code === shippingMethod) || shippingMethods[0] || null;
+  }, [shippingMethod, shippingMethods]);
+  const selectedBaseCost = useMemo(() => {
+    const n = Number(selectedShippingMethod?.costAmount);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }, [selectedShippingMethod?.costAmount]);
+  const isStandardSelected = `${selectedShippingMethod?.code || ""}`.toUpperCase() === "STANDARD";
+  const shippingCost =
+    isStandardSelected && isFreeShippingEnabled && itemsTotal >= freeShippingThreshold
+      ? 0
+      : selectedBaseCost;
+  
   const totalTtc = itemsTotal + shippingCost;
   const taxAmount = Math.round(totalTtc - totalTtc / (1 + TAX_RATE));
 
@@ -420,29 +469,47 @@ export default function ProductDetailsDb() {
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-4 flex items-start gap-3">
-                <Truck className="text-orange-600 mt-0.5" size={18} />
-                <div className="text-sm">
-                  <div className="font-bold text-neutral-900 dark:text-white">Livraison</div>
-                  <div className="text-neutral-600 dark:text-neutral-400">
-                    {shippingCost === 0 ? "Gratuite" : `${formatMoney(shippingCost)} FCFA`}
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-4 flex items-start gap-3">
-                <ShieldCheck className="text-emerald-600 mt-0.5" size={18} />
-                <div className="text-sm">
-                  <div className="font-bold text-neutral-900 dark:text-white">Paiement</div>
-                  <div className="text-neutral-600 dark:text-neutral-400">Sécurisé</div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-4 flex items-start gap-3">
-                <RotateCcw className="text-blue-600 mt-0.5" size={18} />
-                <div className="text-sm">
-                  <div className="font-bold text-neutral-900 dark:text-white">Retours</div>
-                  <div className="text-neutral-600 dark:text-neutral-400">30 jours</div>
-                </div>
+            <div className="mt-6">
+              <label className="text-sm font-bold text-neutral-900 dark:text-white mb-2 block">
+                Mode de livraison
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {shippingMethods.map((option) => {
+                  const code = `${option?.code || ""}`.toUpperCase();
+                  const isSelected = `${shippingMethod || ""}`.toUpperCase() === code;
+                  const isStandard = code === "STANDARD";
+                  const showFree = isStandard && isFreeShippingEnabled && itemsTotal >= freeShippingThreshold;
+                  const costAmount = Number(option?.costAmount);
+                  const costDisplay = showFree
+                    ? "Gratuit"
+                    : `${formatMoney(Number.isFinite(costAmount) ? costAmount : 0)} FCFA`;
+                  
+                  return (
+                    <button
+                      key={code || option?.id}
+                      type="button"
+                      onClick={() => setShippingMethod(code)}
+                      className={`relative rounded-xl border p-3 text-left transition-all ${
+                        isSelected
+                          ? "border-orange-600 bg-orange-50 dark:bg-orange-900/20 ring-1 ring-orange-600"
+                          : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700"
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <span className={`text-sm font-bold ${isSelected ? "text-orange-700 dark:text-orange-400" : "text-neutral-900 dark:text-white"}`}>
+                          {option?.label || code}
+                        </span>
+                        {isSelected && <Check size={16} className="text-orange-600" />}
+                      </div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
+                        {option?.description || "-"}
+                      </div>
+                      <div className="text-xs font-bold text-neutral-900 dark:text-white">
+                        {costDisplay}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -491,7 +558,28 @@ export default function ProductDetailsDb() {
               </div>
             </div>
 
-            <div className="mt-10 border-t border-neutral-200 dark:border-neutral-800 pt-6">
+            {/* Delivery / Payment / Returns Info Block */}
+            <div className="grid grid-cols-3 gap-4 mt-8 py-6 border-t border-b border-neutral-100 dark:border-neutral-800">
+              <div className="flex flex-col items-center text-center gap-2">
+                <Truck className="w-6 h-6 text-green-600" />
+                <div className="text-xs font-bold uppercase text-neutral-500">Livraison</div>
+                <div className="text-sm font-bold text-neutral-900 dark:text-white">
+                  {shippingCost === 0 ? "Gratuite" : `${formatMoney(shippingCost)} FCFA`}
+                </div>
+              </div>
+              <div className="flex flex-col items-center text-center gap-2 border-l border-neutral-100 dark:border-neutral-800">
+                <ShieldCheck className="w-6 h-6 text-green-600" />
+                <div className="text-xs font-bold uppercase text-neutral-500">Paiement</div>
+                <div className="text-sm font-bold text-neutral-900 dark:text-white">Sécurisé</div>
+              </div>
+              <div className="flex flex-col items-center text-center gap-2 border-l border-neutral-100 dark:border-neutral-800">
+                <RotateCcw className="w-6 h-6 text-blue-600" />
+                <div className="text-xs font-bold uppercase text-neutral-500">Retours</div>
+                <div className="text-sm font-bold text-neutral-900 dark:text-white">30 Jours</div>
+              </div>
+            </div>
+
+            <div className="mt-10 pt-6">
               <div className="flex gap-2 flex-wrap">
                 {[
                   { key: "description", label: "Description" },
@@ -642,6 +730,7 @@ La livraison comprend différentes modalités.
         selectedSize="Unique"
         quantity={Math.max(1, Math.trunc(Number(quantity) || 1))}
         shippingCost={shippingCost}
+        shippingMethodLabel={selectedShippingMethod?.label || "Standard"}
         discountAmount={0}
         promoCode=""
       />

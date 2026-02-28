@@ -648,6 +648,7 @@ export default function Cart() {
         cartItems={cartItems}
         onSuccess={handlePaymentSuccess}
         shippingCost={shippingCost}
+        shippingMethodLabel={selectedShippingMethod?.label || "Standard"}
         discountAmount={discountAmount}
         loyaltyDiscountAmount={loyaltyDiscountAmount}
         loyaltyTier={loyaltyPricing?.applied ? loyaltyPricing?.tier : ""}

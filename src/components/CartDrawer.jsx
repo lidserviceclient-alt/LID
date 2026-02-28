@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "@/features/cart/CartContext";
+import { resolveBackendAssetUrl } from "@/services/categoryService";
 
 export default function CartDrawer() {
   const { 
@@ -85,9 +86,13 @@ export default function CartDrawer() {
                       {/* Image */}
                       <div className="w-20 h-20 bg-neutral-100 dark:bg-neutral-800 rounded-xl overflow-hidden flex-shrink-0 p-2 border border-neutral-100 dark:border-neutral-700">
                         <img 
-                          src={item.image} 
+                          src={resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png"} 
                           alt={item.name} 
                           className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = "/imgs/logo.png";
+                          }}
                         />
                       </div>
 

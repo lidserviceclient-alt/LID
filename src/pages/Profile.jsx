@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
+import ShippingLabel from '@/components/ShippingLabel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, 
@@ -10,7 +12,8 @@ import {
   Heart,
   ChevronRight,
   Clock,
-  Camera
+  Camera,
+  Printer
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/utils/cn';
@@ -77,12 +80,15 @@ const SidebarItem = ({ icon: Icon, label, active, onClick, danger }) => (
   </button>
 );
 
-const OrderCard = ({ order, email }) => {
+const OrderCard = ({ order, email, onPrint }) => {
   const getStatusColor = (status) => {
     switch(status) {
       case 'delivered': return 'bg-green-100 text-green-700 border-green-200';
-      case 'processing': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
+      case 'in_transit': return 'bg-purple-100 text-purple-700 border-purple-200';
+      case 'shipped': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
+      case 'paid': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      case 'processing': return 'bg-blue-100 text-blue-700 border-blue-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
@@ -90,8 +96,12 @@ const OrderCard = ({ order, email }) => {
   const getStatusLabel = (status) => {
     switch(status) {
       case 'delivered': return 'Livré';
-      case 'processing': return 'En cours';
       case 'cancelled': return 'Annulé';
+      case 'in_transit': return 'En livraison';
+      case 'shipped': return 'Expédié';
+      case 'paid': return 'Payé';
+      case 'processing': return 'En préparation';
+      case 'pending': return 'En attente';
       default: return status;
     }
   };
@@ -196,19 +206,16 @@ const formatMoney = (amount, currency = 'FCFA') => {
 };
 
 const mapOrderStatus = (status) => {
-  switch (`${status || ''}`.toUpperCase()) {
-    case 'DELIVERED':
-      return 'delivered';
-    case 'CANCELED':
-      return 'cancelled';
-    case 'PENDING':
-    case 'PAID':
-    case 'PROCESSING':
-    case 'READY_TO_DELIVER':
-    case 'DELIVERY_IN_PROGRESS':
-      return 'processing';
-    default:
-      return 'processing';
+  const s = `${status || ''}`.toUpperCase();
+  switch (s) {
+    case 'DELIVERED': return 'delivered';
+    case 'CANCELED': return 'cancelled';
+    case 'PENDING': return 'pending';
+    case 'PAID': return 'paid';
+    case 'PROCESSING': return 'processing';
+    case 'READY_TO_DELIVER': return 'shipped';
+    case 'DELIVERY_IN_PROGRESS': return 'in_transit';
+    default: return 'pending';
   }
 };
 
@@ -791,8 +798,11 @@ export default function Profile() {
     ? String(userProfile.createdAt).slice(0, 4)
     : (tokenPayload?.iat ? new Date(tokenPayload.iat * 1000).getFullYear() : '—');
 
-  const filteredOrders = useMemo(() => {
+    const filteredOrders = useMemo(() => {
     if (ordersFilter === 'all') return orders;
+    if (ordersFilter === 'processing') {
+      return orders.filter(o => ['pending', 'paid', 'processing', 'shipped', 'in_transit'].includes(o.status));
+    }
     return orders.filter((order) => order.status === ordersFilter);
   }, [orders, ordersFilter]);
 
@@ -989,6 +999,9 @@ export default function Profile() {
           </div>
 
         </div>
+      </div>
+      
+      <div style={{ display: 'none' }}>
       </div>
     </div>
   );
