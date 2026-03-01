@@ -264,6 +264,7 @@ public class MarketingAutomationService {
             delivery.setLastError(null);
             delivery.setNextRetryAt(null);
         } catch (Exception ex) {
+            System.err.println("MARKETING MAIL FAILED: " + ex.getMessage());
             markDeliveryFailed(delivery, ex.getMessage());
         }
     }

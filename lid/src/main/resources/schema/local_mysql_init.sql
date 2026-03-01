@@ -119,32 +119,6 @@ CREATE TABLE IF NOT EXISTS `return_request_item` (
 
 -- Marketing tables (backoffice marketing section)
 
--- Loyalty schema adjustments (Hibernate may not relax NOT NULL constraints reliably)
-SET @fk_loyalty_tx_commande := (
-  SELECT CONSTRAINT_NAME
-  FROM information_schema.KEY_COLUMN_USAGE
-  WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'loyalty_point_tx'
-    AND COLUMN_NAME = 'commande_id'
-    AND REFERENCED_TABLE_NAME IS NOT NULL
-  LIMIT 1
-);
-
-SET @sql_drop_fk := IF(
-  @fk_loyalty_tx_commande IS NULL,
-  'SELECT 1',
-  CONCAT('ALTER TABLE `loyalty_point_tx` DROP FOREIGN KEY `', @fk_loyalty_tx_commande, '`')
-);
-PREPARE stmt_drop_fk FROM @sql_drop_fk;
-EXECUTE stmt_drop_fk;
-DEALLOCATE PREPARE stmt_drop_fk;
-
-ALTER TABLE `loyalty_point_tx`
-  MODIFY COLUMN `commande_id` CHAR(36) NULL;
-
-ALTER TABLE `loyalty_point_tx`
-  ADD CONSTRAINT `fk_loyalty_tx_commande`
-  FOREIGN KEY (`commande_id`) REFERENCES `commande` (`id`);
 CREATE TABLE IF NOT EXISTS `marketing_campaign` (
   `id` CHAR(36) NOT NULL,
   `name` VARCHAR(200) NOT NULL,

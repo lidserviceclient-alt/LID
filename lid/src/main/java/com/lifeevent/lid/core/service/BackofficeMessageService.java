@@ -121,6 +121,8 @@ public class BackofficeMessageService {
             m.setStatus(BackofficeMessageStatus.SENT);
             m.setSentAt(LocalDateTime.now());
         } catch (Exception ex) {
+            System.err.println("BACKOFFICE MAIL FAILED: " + ex.getMessage());
+            ex.printStackTrace();
             m.setStatus(BackofficeMessageStatus.FAILED);
             m.setLastError(ex.getMessage());
             m.setNextRetryAt(nextRetryAt(m.getAttempts()));

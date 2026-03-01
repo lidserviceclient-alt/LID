@@ -33,11 +33,11 @@ public class EmailService {
         try {
             mailSender.send(message);
         } catch (Exception ex) {
+            log.error("Failed to send reset code email to {}", to, ex);
             if (isLocal) {
-                log.warn("Mail not sent in local profile: {}", ex.getMessage());
-                return;
+                System.err.println("MAIL SEND ERROR: " + ex.getMessage());
             }
-            throw ex;
+            throw new RuntimeException("Echec envoi mail: " + ex.getMessage(), ex);
         }
     }
 
@@ -54,11 +54,11 @@ public class EmailService {
         try {
             mailSender.send(message);
         } catch (Exception ex) {
+            log.error("Failed to send admin login code to {}", to, ex);
             if (isLocal) {
-                log.warn("Mail not sent in local profile: {}", ex.getMessage());
-                return;
+                 System.err.println("MAIL SEND ERROR: " + ex.getMessage());
             }
-            throw ex;
+            throw new RuntimeException("Echec envoi mail: " + ex.getMessage(), ex);
         }
     }
 
@@ -82,11 +82,11 @@ Veuillez communiquer ce code au livreur pour confirmer la livraison.
         try {
             mailSender.send(message);
         } catch (Exception ex) {
+            log.error("Failed to send shipping code to {}", to, ex);
             if (isLocal) {
-                log.warn("Mail not sent in local profile: {}", ex.getMessage());
-                return;
+                System.err.println("MAIL SEND ERROR: " + ex.getMessage());
             }
-            throw ex;
+            throw new RuntimeException("Echec envoi mail livraison: " + ex.getMessage(), ex);
         }
     }
 }
