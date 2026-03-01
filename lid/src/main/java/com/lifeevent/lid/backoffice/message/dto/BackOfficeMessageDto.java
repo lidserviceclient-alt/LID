@@ -19,6 +19,8 @@ public class BackOfficeMessageDto {
     private MessageStatus status;
     private Integer attemptCount;
     private String lastError;
+    private LocalDateTime nextRetryAt;
     private LocalDateTime sentAt;
     private LocalDateTime createdAt;
+    private String createdBy;
 }

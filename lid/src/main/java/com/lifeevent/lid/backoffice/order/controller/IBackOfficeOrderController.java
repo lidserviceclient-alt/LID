@@ -16,6 +16,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Tag(name = "BackOffice - Orders", description = "API back-office pour gérer les commandes")
 public interface IBackOfficeOrderController {
 
@@ -28,6 +30,9 @@ public interface IBackOfficeOrderController {
             @Parameter(description = "Statut") @RequestParam(required = false) BackOfficeOrderStatus status,
             @Parameter(description = "Recherche") @RequestParam(required = false) String q
     );
+
+    @GetMapping("/recent")
+    ResponseEntity<List<BackOfficeOrderSummaryDto>> getRecentOrders();
 
     @GetMapping("/customers/orders")
     @ApiResponse(responseCode = "200", description = "Liste paginée des commandes tous clients")
@@ -58,7 +63,7 @@ public interface IBackOfficeOrderController {
 
     @PutMapping("/{id}/status")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Mettre à jour le statut d'une commande")
-    ResponseEntity<Void> updateStatus(
+    ResponseEntity<BackOfficeOrderSummaryDto> updateStatus(
             @Parameter(description = "ID de la commande", required = true)
             @PathVariable Long id,
             @RequestBody java.util.Map<String, String> payload

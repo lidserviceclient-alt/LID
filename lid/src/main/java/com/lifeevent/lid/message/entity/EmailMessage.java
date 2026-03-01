@@ -48,5 +48,7 @@ public class EmailMessage extends BaseEntity {
     @Column(length = 2000)
     private String lastError;
 
+    private LocalDateTime nextRetryAt;
+
     private LocalDateTime sentAt;
 }

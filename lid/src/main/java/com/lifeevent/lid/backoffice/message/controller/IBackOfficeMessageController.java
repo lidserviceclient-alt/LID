@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,13 +23,19 @@ public interface IBackOfficeMessageController {
             @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size
     );
 
+    @GetMapping("/{id}")
+    ResponseEntity<BackOfficeMessageDto> getById(
+            @Parameter(description = "ID du message", required = true)
+            @PathVariable Long id
+    );
+
     @PostMapping
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Message créé",
                     content = @Content(schema = @Schema(implementation = BackOfficeMessageDto.class))),
             @ApiResponse(responseCode = "400", description = "Données invalides")
     })
-    ResponseEntity<BackOfficeMessageDto> create(@RequestBody CreateBackOfficeMessageRequest request);
+    ResponseEntity<BackOfficeMessageDto> create(@Valid @RequestBody CreateBackOfficeMessageRequest request);
 
     @PostMapping("/{id}/retry")
     ResponseEntity<BackOfficeMessageDto> retry(

@@ -33,4 +33,8 @@ public class UserEntity extends BaseEntity {
     
     @Column(nullable = false)
     private String email;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean blocked = Boolean.FALSE;
 }

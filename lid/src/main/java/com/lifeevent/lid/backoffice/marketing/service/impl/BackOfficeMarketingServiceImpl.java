@@ -7,8 +7,10 @@ import com.lifeevent.lid.backoffice.marketing.mapper.BackOfficeMarketingCampaign
 import com.lifeevent.lid.backoffice.marketing.service.BackOfficeMarketingService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.marketing.entity.MarketingCampaign;
+import com.lifeevent.lid.marketing.enumeration.MarketingAudience;
 import com.lifeevent.lid.marketing.enumeration.MarketingCampaignStatus;
 import com.lifeevent.lid.marketing.enumeration.MarketingCampaignType;
+import com.lifeevent.lid.marketing.repository.MarketingCampaignDeliveryRepository;
 import com.lifeevent.lid.marketing.repository.MarketingCampaignRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +19,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @Transactional
@@ -26,20 +31,24 @@ import java.util.List;
 public class BackOfficeMarketingServiceImpl implements BackOfficeMarketingService {
 
     private final MarketingCampaignRepository marketingCampaignRepository;
+    private final MarketingCampaignDeliveryRepository marketingCampaignDeliveryRepository;
     private final BackOfficeMarketingCampaignMapper backOfficeMarketingCampaignMapper;
+    private final BackOfficeMarketingAutomationService backOfficeMarketingAutomationService;
 
     @Override
     @Transactional(readOnly = true)
     public MarketingOverviewDto getOverview(Integer days) {
-        // Stub: no tracking yet
-        List<MarketingChannelShareDto> channels = List.of(
-                new MarketingChannelShareDto(MarketingCampaignType.EMAIL, 0d),
-                new MarketingChannelShareDto(MarketingCampaignType.SMS, 0d),
-                new MarketingChannelShareDto(MarketingCampaignType.SOCIAL, 0d)
-        );
+        int safeDays = normalizeDays(days);
+        LocalDateTime from = LocalDateTime.now().minusDays(safeDays);
+
+        double revenue = safeDouble(marketingCampaignRepository.sumRevenueFrom(from));
+        double budget = safeDouble(marketingCampaignRepository.sumBudgetFrom(from));
+        double roi = budget > 0d ? revenue / budget : 0d;
+
+        List<MarketingChannelShareDto> channels = buildChannelShares(from);
         return MarketingOverviewDto.builder()
-                .roiGlobal(0d)
-                .budgetSpent(0d)
+                .roiGlobal(roi)
+                .budgetSpent(budget)
                 .channels(channels)
                 .build();
     }
@@ -65,9 +74,35 @@ public class BackOfficeMarketingServiceImpl implements BackOfficeMarketingServic
     public BackOfficeMarketingCampaignDto updateCampaign(Long id, BackOfficeMarketingCampaignDto dto) {
         MarketingCampaign entity = marketingCampaignRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("MarketingCampaign", "id", id.toString()));
+
+        MarketingCampaignType oldType = entity.getType();
+        MarketingAudience oldAudience = entity.getAudience();
+
         backOfficeMarketingCampaignMapper.updateEntityFromDto(dto, entity);
         applyDefaults(entity);
+
+        boolean recipientsChanged = !Objects.equals(oldType, entity.getType())
+                || !Objects.equals(oldAudience, entity.getAudience());
+        boolean hasProgress = entity.getSentCount() != null && entity.getSentCount() > 0 && entity.getSentAt() == null;
+        if (recipientsChanged && hasProgress) {
+            throw new IllegalArgumentException("Impossible de changer l'audience/le canal pendant l'envoi");
+        }
+
         MarketingCampaign saved = marketingCampaignRepository.save(entity);
+
+        if (recipientsChanged
+                && saved.getSentAt() == null
+                && marketingCampaignDeliveryRepository.existsByCampaign_Id(saved.getId())) {
+            marketingCampaignDeliveryRepository.deleteByCampaign_Id(saved.getId());
+            resetProgress(saved);
+            saved = marketingCampaignRepository.save(saved);
+        }
+        return backOfficeMarketingCampaignMapper.toDto(saved);
+    }
+
+    @Override
+    public BackOfficeMarketingCampaignDto sendCampaign(Long id) {
+        MarketingCampaign saved = backOfficeMarketingAutomationService.queueSendNow(id);
         return backOfficeMarketingCampaignMapper.toDto(saved);
     }
 
@@ -86,8 +121,68 @@ public class BackOfficeMarketingServiceImpl implements BackOfficeMarketingServic
         if (entity.getType() == null) {
             entity.setType(MarketingCampaignType.EMAIL);
         }
-        if (entity.getSent() == null) {
-            entity.setSent(0);
+        if (entity.getAudience() == null) {
+            entity.setAudience(MarketingAudience.NEWSLETTER);
         }
+        if (entity.getSentCount() == null) {
+            entity.setSentCount(0L);
+        }
+        if (entity.getTargetCount() == null) {
+            entity.setTargetCount(0L);
+        }
+        if (entity.getFailedCount() == null) {
+            entity.setFailedCount(0L);
+        }
+        if (entity.getAttempts() == null) {
+            entity.setAttempts(0);
+        }
+    }
+
+    private void resetProgress(MarketingCampaign campaign) {
+        campaign.setTargetCount(0L);
+        campaign.setSentCount(0L);
+        campaign.setFailedCount(0L);
+        campaign.setAttempts(0);
+        campaign.setNextRetryAt(null);
+        campaign.setLastError(null);
+    }
+
+    private int normalizeDays(Integer days) {
+        if (days == null) {
+            return 30;
+        }
+        return Math.max(1, Math.min(days, 365));
+    }
+
+    private double safeDouble(Double value) {
+        return value == null ? 0d : value;
+    }
+
+    private List<MarketingChannelShareDto> buildChannelShares(LocalDateTime from) {
+        List<MarketingCampaignRepository.TypeRevenueAgg> byType = marketingCampaignRepository.revenueByTypeFrom(from);
+        double totalRevenue = byType.stream()
+                .map(MarketingCampaignRepository.TypeRevenueAgg::getRevenue)
+                .mapToDouble(this::safeDouble)
+                .sum();
+
+        List<MarketingChannelShareDto> dynamicChannels = byType.stream()
+                .map(agg -> toChannelShare(agg, totalRevenue))
+                .sorted(Comparator.comparing(MarketingChannelShareDto::getSharePercent).reversed())
+                .toList();
+
+        if (!dynamicChannels.isEmpty()) {
+            return dynamicChannels;
+        }
+        return List.of(
+                new MarketingChannelShareDto(MarketingCampaignType.EMAIL, 0d),
+                new MarketingChannelShareDto(MarketingCampaignType.SMS, 0d),
+                new MarketingChannelShareDto(MarketingCampaignType.SOCIAL, 0d)
+        );
+    }
+
+    private MarketingChannelShareDto toChannelShare(MarketingCampaignRepository.TypeRevenueAgg agg, double totalRevenue) {
+        double channelRevenue = safeDouble(agg.getRevenue());
+        double share = totalRevenue > 0d ? (channelRevenue * 100d) / totalRevenue : 0d;
+        return new MarketingChannelShareDto(agg.getType(), share);
     }
 }

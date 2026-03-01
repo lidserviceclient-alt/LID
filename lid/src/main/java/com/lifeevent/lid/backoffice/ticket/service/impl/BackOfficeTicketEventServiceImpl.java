@@ -7,10 +7,11 @@ import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.ticket.entity.TicketEvent;
 import com.lifeevent.lid.ticket.repository.TicketEventRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @Transactional
@@ -22,8 +23,15 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
 
     @Override
     @Transactional(readOnly = true)
-    public Page<BackOfficeTicketEventDto> getAll(Pageable pageable) {
-        return ticketEventRepository.findAll(pageable).map(backOfficeTicketEventMapper::toDto);
+    public List<BackOfficeTicketEventDto> getAll() {
+        List<TicketEvent> entities = ticketEventRepository.findAll(Sort.by(Sort.Direction.DESC, "eventDate"));
+        return backOfficeTicketEventMapper.toDtoList(entities);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BackOfficeTicketEventDto getById(Long id) {
+        return backOfficeTicketEventMapper.toDto(findByIdOrThrow(id));
     }
 
     @Override
@@ -36,8 +44,7 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
 
     @Override
     public BackOfficeTicketEventDto update(Long id, BackOfficeTicketEventDto dto) {
-        TicketEvent entity = ticketEventRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("TicketEvent", "id", id.toString()));
+        TicketEvent entity = findByIdOrThrow(id);
         backOfficeTicketEventMapper.updateEntityFromDto(dto, entity);
         applyDefaults(entity);
         TicketEvent saved = ticketEventRepository.save(entity);
@@ -56,5 +63,10 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
         if (entity.getAvailable() == null) {
             entity.setAvailable(Boolean.TRUE);
         }
+    }
+
+    private TicketEvent findByIdOrThrow(Long id) {
+        return ticketEventRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("TicketEvent", "id", id.toString()));
     }
 }

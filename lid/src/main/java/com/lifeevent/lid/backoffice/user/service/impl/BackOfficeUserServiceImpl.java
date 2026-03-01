@@ -4,6 +4,7 @@ import com.lifeevent.lid.auth.constant.UserRole;
 import com.lifeevent.lid.auth.entity.Authentication;
 import com.lifeevent.lid.auth.repository.AuthenticationRepository;
 import com.lifeevent.lid.backoffice.user.dto.BackOfficeUserDto;
+import com.lifeevent.lid.backoffice.user.dto.CreateBackOfficeCourierRequest;
 import com.lifeevent.lid.backoffice.user.mapper.BackOfficeUserMapper;
 import com.lifeevent.lid.backoffice.user.service.BackOfficeUserService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
@@ -95,6 +96,12 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
     }
 
     @Override
+    public BackOfficeUserDto createCourier(CreateBackOfficeCourierRequest request) {
+        BackOfficeUserDto dto = toCourierDto(request);
+        return create(dto);
+    }
+
+    @Override
     public BackOfficeUserDto update(String id, BackOfficeUserDto dto) {
         UserEntity entity = userEntityRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
@@ -103,6 +110,16 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
         UserEntity saved = saveEntity(entity);
         Authentication auth = upsertAuth(id, dto != null ? dto.getRole() : null);
         return backOfficeUserMapper.toDto(saved, auth);
+    }
+
+    @Override
+    public BackOfficeUserDto block(String id) {
+        return updateBlockedState(id, true);
+    }
+
+    @Override
+    public BackOfficeUserDto unblock(String id) {
+        return updateBlockedState(id, false);
     }
 
     @Override
@@ -150,6 +167,7 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
                     .phoneNumber(dto.getTelephone())
                     .city(dto.getVille())
                     .country(dto.getPays())
+                    .blocked(Boolean.TRUE.equals(dto.getBlocked()))
                     .build();
         }
         if ("CLIENT".equals(role)) {
@@ -163,6 +181,7 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
                     .city(dto.getVille())
                     .country(dto.getPays())
                     .avatarUrl(dto.getAvatarUrl())
+                    .blocked(Boolean.TRUE.equals(dto.getBlocked()))
                     .build();
         }
         return UserEntity.builder()
@@ -171,6 +190,7 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
                 .lastName(dto.getNom())
                 .email(dto.getEmail())
                 .emailVerified(Boolean.TRUE.equals(dto.getEmailVerifie()))
+                .blocked(Boolean.TRUE.equals(dto.getBlocked()))
                 .build();
     }
 
@@ -199,8 +219,30 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
         String normalized = role == null ? "" : role.trim().toUpperCase();
         if ("SUPER_ADMIN".equals(normalized)) return new ArrayList<>(List.of(UserRole.SUPER_ADMIN));
         if ("PARTENAIRE".equals(normalized)) return new ArrayList<>(List.of(UserRole.PARTNER));
+        if ("LIVREUR".equals(normalized)) return new ArrayList<>(List.of(UserRole.LIVREUR));
         if ("CLIENT".equals(normalized)) return new ArrayList<>(List.of(UserRole.CUSTOMER));
         if (normalized.isBlank()) return new ArrayList<>();
         return new ArrayList<>(List.of(UserRole.ADMIN));
+    }
+
+    private BackOfficeUserDto toCourierDto(CreateBackOfficeCourierRequest request) {
+        return BackOfficeUserDto.builder()
+                .prenom(request != null ? request.getPrenom() : null)
+                .nom(request != null ? request.getNom() : null)
+                .email(request != null ? request.getEmail() : null)
+                .telephone(request != null ? request.getTelephone() : null)
+                .emailVerifie(Boolean.TRUE)
+                .blocked(Boolean.FALSE)
+                .role("LIVREUR")
+                .build();
+    }
+
+    private BackOfficeUserDto updateBlockedState(String id, boolean blocked) {
+        UserEntity entity = userEntityRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
+        entity.setBlocked(blocked);
+        UserEntity saved = saveEntity(entity);
+        Authentication auth = authenticationRepository.findById(id).orElse(null);
+        return backOfficeUserMapper.toDto(saved, auth);
     }
 }

@@ -6,6 +6,7 @@ import com.lifeevent.lid.article.enumeration.ArticleStatus;
 import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.article.repository.CategoryRepository;
 import com.lifeevent.lid.backoffice.product.dto.BackOfficeProductDto;
+import com.lifeevent.lid.backoffice.product.dto.BulkProductDeleteResponse;
 import com.lifeevent.lid.backoffice.product.dto.BulkProductResult;
 import com.lifeevent.lid.backoffice.product.dto.BulkProductResultItem;
 import com.lifeevent.lid.backoffice.product.mapper.BackOfficeProductMapper;
@@ -21,9 +22,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 @Service
@@ -45,6 +48,7 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
 
     @Override
     public BackOfficeProductDto create(BackOfficeProductDto dto) {
+        normalizeImageFields(dto);
         Article entity = buildArticleForCreate(dto);
         Article saved = saveArticle(entity);
         upsertStock(saved, dto != null ? dto.getStock() : null);
@@ -52,7 +56,14 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public BackOfficeProductDto getById(Long id) {
+        return toDtoWithExtras(findArticleOrThrow(id));
+    }
+
+    @Override
     public BackOfficeProductDto update(Long id, BackOfficeProductDto dto) {
+        normalizeImageFields(dto);
         Article entity = findArticleOrThrow(id);
         enrichExistingArticle(entity, dto);
         Article saved = saveArticle(entity);
@@ -101,9 +112,17 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
     }
 
     @Override
-    public void bulkDelete(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) return;
-        deactivateAllByIds(ids);
+    public BulkProductDeleteResponse bulkDelete(List<Long> ids) {
+        List<Long> requested = sanitizeRequestedIds(ids);
+        if (requested.isEmpty()) {
+            return emptyBulkDeleteResponse();
+        }
+
+        List<Article> found = findAndArchiveArticles(requested);
+        Set<Long> foundIds = extractFoundIds(found);
+        List<String> notFoundIds = buildNotFoundIds(requested, foundIds);
+
+        return buildBulkDeleteResponse(requested.size(), found.size(), notFoundIds);
     }
 
     private int persistPreparedItems(List<BulkPreparedItem> preparedItems, List<BulkProductResultItem> results) {
@@ -113,9 +132,14 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
         try {
             List<Article> saved = articleRepository.saveAll(entities);
             applyStocksForSavedBatch(preparedItems, saved);
-            results.addAll(preparedItems.stream()
-                    .map(item -> buildBulkResultItem(item.index(), item.dto(), true, null))
-                    .toList());
+            IntStream.range(0, Math.min(preparedItems.size(), saved.size()))
+                    .forEach(i -> results.add(buildBulkResultItem(
+                            preparedItems.get(i).index(),
+                            preparedItems.get(i).dto(),
+                            true,
+                            saved.get(i).getId(),
+                            null
+                    )));
             return preparedItems.size();
         } catch (Exception batchException) {
             log.warn("Bulk saveAll failed, fallback to per-item save. Cause: {}", batchException.getMessage());
@@ -133,6 +157,8 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
 
     private BackOfficeProductDto toDtoWithExtras(Article entity) {
         BackOfficeProductDto dto = backOfficeProductMapper.toDto(entity);
+        dto.setImg(entity != null ? entity.getImg() : null);
+        dto.setImageUrl(entity != null ? entity.getImg() : null);
         dto.setStatus(toBackOfficeStatus(entity != null ? entity.getStatus() : null));
         Category cat = resolvePrimaryCategory(entity);
         if (cat != null) {
@@ -173,13 +199,6 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
         if (entity == null) return;
         entity.setStatus(ArticleStatus.ARCHIVED);
         saveArticle(entity);
-    }
-
-    private void deactivateAllByIds(List<Long> ids) {
-        List<Article> articles = articleRepository.findAllById(ids);
-        if (articles.isEmpty()) return;
-        articles.forEach(article -> article.setStatus(ArticleStatus.ARCHIVED));
-        articleRepository.saveAll(articles);
     }
 
     private void applyDefaults(Article entity, BackOfficeProductDto dto) {
@@ -321,7 +340,7 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
         try {
             Article saved = saveArticle(item.entity());
             upsertStock(saved, item.dto() != null ? item.dto().getStock() : null);
-            return new PersistOutcome(true, buildBulkResultItem(item.index(), item.dto(), true, null));
+            return new PersistOutcome(true, buildBulkResultItem(item.index(), item.dto(), true, saved.getId(), null));
         } catch (Exception e) {
             log.warn("Bulk product save failed at index {}: {}", item.index(), e.getMessage());
             return new PersistOutcome(false, buildBulkResultItem(item.index(), item.dto(), false, e.getMessage()));
@@ -334,7 +353,90 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
                 .reference(dto != null ? dto.getSku() : null)
                 .name(dto != null ? dto.getName() : null)
                 .success(success)
+                .productId(null)
                 .errorMessage(errorMessage)
+                .build();
+    }
+
+    private BulkProductResultItem buildBulkResultItem(
+            int index,
+            BackOfficeProductDto dto,
+            boolean success,
+            Long productId,
+            String errorMessage
+    ) {
+        return BulkProductResultItem.builder()
+                .index(index)
+                .reference(dto != null ? dto.getSku() : null)
+                .name(dto != null ? dto.getName() : null)
+                .success(success)
+                .productId(productId == null ? null : String.valueOf(productId))
+                .errorMessage(errorMessage)
+                .build();
+    }
+
+    private void normalizeImageFields(BackOfficeProductDto dto) {
+        if (dto == null) {
+            return;
+        }
+        if ((dto.getImg() == null || dto.getImg().isBlank()) && dto.getImageUrl() != null && !dto.getImageUrl().isBlank()) {
+            dto.setImg(dto.getImageUrl());
+        }
+        if ((dto.getImageUrl() == null || dto.getImageUrl().isBlank()) && dto.getImg() != null && !dto.getImg().isBlank()) {
+            dto.setImageUrl(dto.getImg());
+        }
+    }
+
+    private List<Long> sanitizeRequestedIds(List<Long> ids) {
+        if (ids == null) {
+            return List.of();
+        }
+        return ids.stream()
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private BulkProductDeleteResponse emptyBulkDeleteResponse() {
+        return BulkProductDeleteResponse.builder()
+                .requested(0)
+                .archived(0)
+                .notFoundIds(List.of())
+                .build();
+    }
+
+    private List<Article> findAndArchiveArticles(List<Long> requested) {
+        List<Article> found = articleRepository.findAllById(requested);
+        for (Article article : found) {
+            if (article != null) {
+                article.setStatus(ArticleStatus.ARCHIVED);
+            }
+        }
+        articleRepository.saveAll(found);
+        return found;
+    }
+
+    private Set<Long> extractFoundIds(List<Article> found) {
+        Set<Long> foundIds = new HashSet<>();
+        for (Article article : found) {
+            if (article != null && article.getId() != null) {
+                foundIds.add(article.getId());
+            }
+        }
+        return foundIds;
+    }
+
+    private List<String> buildNotFoundIds(List<Long> requested, Set<Long> foundIds) {
+        return requested.stream()
+                .filter(id -> !foundIds.contains(id))
+                .map(String::valueOf)
+                .toList();
+    }
+
+    private BulkProductDeleteResponse buildBulkDeleteResponse(int requested, int archived, List<String> notFoundIds) {
+        return BulkProductDeleteResponse.builder()
+                .requested(requested)
+                .archived(archived)
+                .notFoundIds(notFoundIds)
                 .build();
     }
 

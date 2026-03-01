@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/back-office/setting")
+@RequestMapping({"/api/v1/backoffice/setting", "/api/backoffice/setting"})
 @RequiredArgsConstructor
 public class BackOfficeSettingController implements IBackOfficeSettingController {
 

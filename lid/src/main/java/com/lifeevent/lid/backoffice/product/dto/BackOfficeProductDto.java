@@ -18,6 +18,7 @@ public class BackOfficeProductDto {
     private String name;
     private String description;
     private String img;
+    private String imageUrl;
     private String brand;
     private Double price;
     private Float vat;

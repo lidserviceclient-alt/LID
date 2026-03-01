@@ -7,12 +7,12 @@ import com.lifeevent.lid.blog.entity.BlogPost;
 import com.lifeevent.lid.blog.repository.BlogPostRepository;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @Transactional
@@ -24,8 +24,15 @@ public class BackOfficeBlogPostServiceImpl implements BackOfficeBlogPostService 
 
     @Override
     @Transactional(readOnly = true)
-    public Page<BackOfficeBlogPostDto> getAll(Pageable pageable) {
-        return blogPostRepository.findAll(pageable).map(backOfficeBlogPostMapper::toDto);
+    public List<BackOfficeBlogPostDto> getAll() {
+        List<BlogPost> entities = blogPostRepository.findAll(Sort.by(Sort.Direction.DESC, "publishedAt"));
+        return backOfficeBlogPostMapper.toDtoList(entities);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BackOfficeBlogPostDto getById(Long id) {
+        return backOfficeBlogPostMapper.toDto(findByIdOrThrow(id));
     }
 
     @Override
@@ -38,8 +45,7 @@ public class BackOfficeBlogPostServiceImpl implements BackOfficeBlogPostService 
 
     @Override
     public BackOfficeBlogPostDto update(Long id, BackOfficeBlogPostDto dto) {
-        BlogPost entity = blogPostRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("BlogPost", "id", id.toString()));
+        BlogPost entity = findByIdOrThrow(id);
         backOfficeBlogPostMapper.updateEntityFromDto(dto, entity);
         applyDefaults(entity);
         BlogPost saved = blogPostRepository.save(entity);
@@ -61,5 +67,10 @@ public class BackOfficeBlogPostServiceImpl implements BackOfficeBlogPostService 
         if (entity.getPublishedAt() == null) {
             entity.setPublishedAt(LocalDateTime.now());
         }
+    }
+
+    private BlogPost findByIdOrThrow(Long id) {
+        return blogPostRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("BlogPost", "id", id.toString()));
     }
 }

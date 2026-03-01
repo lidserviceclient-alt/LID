@@ -21,5 +21,6 @@ public interface IBackOfficeCustomerController {
             @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size
     );
 
-    
+    @PostMapping
+    ResponseEntity<BackOfficeCustomerDto> create(@RequestBody BackOfficeCustomerDto dto);
 }

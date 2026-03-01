@@ -23,6 +23,7 @@ public class BackOfficeUserMapper {
         dto.setNom(entity.getLastName());
         dto.setEmail(entity.getEmail());
         dto.setEmailVerifie(entity.isEmailVerified());
+        dto.setBlocked(Boolean.TRUE.equals(entity.getBlocked()));
         dto.setRole(resolveRole(entity, auth));
         dto.setDateCreation(entity.getCreatedAt());
         dto.setDateMiseAJour(entity.getUpdatedAt());
@@ -57,6 +58,9 @@ public class BackOfficeUserMapper {
         if (dto.getEmailVerifie() != null) {
             entity.setEmailVerified(dto.getEmailVerifie());
         }
+        if (dto.getBlocked() != null) {
+            entity.setBlocked(dto.getBlocked());
+        }
 
         if (entity instanceof Customer customer) {
             if (dto.getTelephone() != null) customer.setPhoneNumber(dto.getTelephone());
@@ -73,6 +77,7 @@ public class BackOfficeUserMapper {
     public String resolveRole(UserEntity entity, Authentication auth) {
         if (auth != null && auth.getRoles() != null && !auth.getRoles().isEmpty()) {
             if (auth.getRoles().contains(UserRole.SUPER_ADMIN)) return "SUPER_ADMIN";
+            if (auth.getRoles().contains(UserRole.LIVREUR)) return "LIVREUR";
             if (auth.getRoles().contains(UserRole.ADMIN)) return "ADMIN";
             if (auth.getRoles().contains(UserRole.PARTNER)) return "PARTENAIRE";
             if (auth.getRoles().contains(UserRole.CUSTOMER)) return "CLIENT";

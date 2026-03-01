@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/back-office/categories")
+@RequestMapping({"/api/v1/backoffice/categories", "/api/backoffice/categories"})
 @RequiredArgsConstructor
 public class BackOfficeCategoryController implements IBackOfficeCategoryController {
 
@@ -31,6 +31,11 @@ public class BackOfficeCategoryController implements IBackOfficeCategoryControll
     @Override
     public ResponseEntity<List<BackOfficeCategoryDto>> getAll() {
         return ResponseEntity.ok(backOfficeCategoryService.getAll());
+    }
+
+    @Override
+    public ResponseEntity<BackOfficeCategoryDto> getById(Integer id) {
+        return ResponseEntity.ok(backOfficeCategoryService.getById(id));
     }
 
     @Override
@@ -46,6 +51,12 @@ public class BackOfficeCategoryController implements IBackOfficeCategoryControll
     @Override
     public ResponseEntity<Void> delete(Integer id) {
         backOfficeCategoryService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<Void> deleteAll() {
+        backOfficeCategoryService.deleteAll();
         return ResponseEntity.noContent().build();
     }
 
@@ -84,7 +95,7 @@ public class BackOfficeCategoryController implements IBackOfficeCategoryControll
             Files.createDirectories(dir);
             Path target = dir.resolve(name);
             Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
-            String url = "/api/v1/back-office/categories/image/" + name;
+            String url = "/api/v1/backoffice/categories/image/" + name;
             return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(java.util.Map.of("url", url));
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Upload impossible.");

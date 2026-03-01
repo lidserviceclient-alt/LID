@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.user.controller;
 
 import com.lifeevent.lid.backoffice.user.dto.BackOfficeUserDto;
+import com.lifeevent.lid.backoffice.user.dto.CreateBackOfficeCourierRequest;
 import com.lifeevent.lid.backoffice.user.service.BackOfficeUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -9,7 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/back-office/users")
+@RequestMapping({"/api/v1/backoffice/users", "/api/backoffice/users"})
 @RequiredArgsConstructor
 public class BackOfficeUserController implements IBackOfficeUserController {
 
@@ -31,6 +32,16 @@ public class BackOfficeUserController implements IBackOfficeUserController {
     }
 
     @Override
+    public ResponseEntity<BackOfficeUserDto> create(@RequestBody BackOfficeUserDto dto) {
+        return ResponseEntity.ok(backOfficeUserService.create(dto));
+    }
+
+    @Override
+    public ResponseEntity<BackOfficeUserDto> createCourier(@RequestBody CreateBackOfficeCourierRequest request) {
+        return ResponseEntity.ok(backOfficeUserService.createCourier(request));
+    }
+
+    @Override
     public ResponseEntity<BackOfficeUserDto> update(@PathVariable String id, @RequestBody BackOfficeUserDto dto) {
         return ResponseEntity.ok(backOfficeUserService.update(id, dto));
     }
@@ -39,5 +50,15 @@ public class BackOfficeUserController implements IBackOfficeUserController {
     public ResponseEntity<Void> delete(@PathVariable String id) {
         backOfficeUserService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<BackOfficeUserDto> block(@PathVariable String id) {
+        return ResponseEntity.ok(backOfficeUserService.block(id));
+    }
+
+    @Override
+    public ResponseEntity<BackOfficeUserDto> unblock(@PathVariable String id) {
+        return ResponseEntity.ok(backOfficeUserService.unblock(id));
     }
 }

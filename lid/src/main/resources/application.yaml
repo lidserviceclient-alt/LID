@@ -6,6 +6,7 @@ spring:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
       ddl-auto: update # à changer en prod
+    defer-datasource-initialization: true
     properties:
       javax:
         persistence:
@@ -25,6 +26,10 @@ spring:
     driverClassName: org.h2.Driver
     username: sa
     password: password
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:data-h2-parity.sql
   profiles:
     active: local
   h2:
@@ -39,10 +44,10 @@ spring:
       initialize-database: always # à changer en prod
 
   mail:
-    host: ${SMTP_HOST:}
-    port: ${SMTP_PORT:587}
-    username: ${SMTP_USERNAME:}
-    password: ${SMTP_PASSWORD:}
+    host: ${SMTP_HOST:${MAIL_HOST:}}
+    port: ${SMTP_PORT:${MAIL_PORT:587}}
+    username: ${SMTP_USERNAME:${MAIL_USERNAME:}}
+    password: ${SMTP_PASSWORD:${MAIL_PASSWORD:}}
     properties:
       mail:
         smtp:
@@ -58,18 +63,27 @@ server:
 
 config:
   mail:
-    from: ${SMTP_FROM:${SMTP_USERNAME:no-reply@lid.local}}
+    from: ${SMTP_FROM:${MAIL_FROM:${SMTP_USERNAME:${MAIL_USERNAME:no-reply@lid.local}}}}
+  backoffice:
+    messages:
+      default-recipients: ${BACKOFFICE_MESSAGES_DEFAULT_RECIPIENTS:}
+      retry-delay-ms: ${BACKOFFICE_MESSAGES_RETRY_DELAY_MS:60000}
+  marketing:
+    dispatch:
+      delay-ms: ${MARKETING_DISPATCH_DELAY_MS:30000}
+      max-campaigns-per-run: ${MARKETING_DISPATCH_MAX_CAMPAIGNS_PER_RUN:5}
+      batch-size: ${MARKETING_DISPATCH_BATCH_SIZE:50}
   security:
     app:
-      secret: ${APP_JWT_SECRET_KEY}
-      issuer: ${APP_ISSUER}
-      access-ttl-minutes: ${APP_ACCESS_TTL_MINUTES}
-      refresh-ttl-days: ${APP_REFRESH_TTL_DAYS}
+      secret: ${APP_JWT_SECRET_KEY:local_dev_secret_key_please_change_32chars}
+      issuer: ${APP_ISSUER:lid-api}
+      access-ttl-minutes: ${APP_ACCESS_TTL_MINUTES:15}
+      refresh-ttl-days: ${APP_REFRESH_TTL_DAYS:30}
 
     google:
-      issuer-uri: ${GOOGLE_ISSUER_URI}
-      jwk-set-uri: ${GOOGLE_JWK_SET_URI}
-      client-id: ${GOOGLE_CLIENT_ID}
+      issuer-uri: ${GOOGLE_ISSUER_URI:https://accounts.google.com}
+      jwk-set-uri: ${GOOGLE_JWK_SET_URI:https://www.googleapis.com/oauth2/v3/certs}
+      client-id: ${GOOGLE_CLIENT_ID:local-google-client-id}
 
 
 
@@ -81,10 +95,10 @@ paydunya:
   mode: test
   
   # Clés API (À remplacer par vos vraies clés de paydunya.com)
-  masterKey: ${PAYDUNYA_MASTER_KEY}
-  privateKey: ${PAYDUNYA_PRIVATE_KEY}
-  publicKey: ${PAYDUNYA_PUBLIC_KEY}
-  token: ${PAYDUNYA_TOKEN}
+  masterKey: ${PAYDUNYA_MASTER_KEY:}
+  privateKey: ${PAYDUNYA_PRIVATE_KEY:}
+  publicKey: ${PAYDUNYA_PUBLIC_KEY:}
+  token: ${PAYDUNYA_TOKEN:}
   
   # Configuration du magasin
   storeName: LID E-commerce

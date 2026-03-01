@@ -37,4 +37,10 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
      */
     @Query("SELECT c FROM Customer c WHERE c.userId = :userId")
     Optional<Customer> findByUserId(@Param("userId") String userId);
+
+    @Query("SELECT c.email FROM Customer c WHERE c.email IS NOT NULL")
+    List<String> findClientEmails();
+
+    @Query("SELECT c.phoneNumber FROM Customer c WHERE c.phoneNumber IS NOT NULL")
+    List<String> findClientPhones();
 }

@@ -3,6 +3,7 @@ package com.lifeevent.lid.backoffice.product.controller;
 import com.lifeevent.lid.backoffice.product.dto.BackOfficeProductDto;
 import com.lifeevent.lid.backoffice.product.dto.BulkProductCreateRequest;
 import com.lifeevent.lid.backoffice.product.dto.BulkProductDeleteRequest;
+import com.lifeevent.lid.backoffice.product.dto.BulkProductDeleteResponse;
 import com.lifeevent.lid.backoffice.product.dto.BulkProductResult;
 import com.lifeevent.lid.backoffice.product.service.BackOfficeProductService;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/back-office/products")
+@RequestMapping({"/api/v1/backoffice/products", "/api/backoffice/products"})
 @RequiredArgsConstructor
 public class BackOfficeProductController implements IBackOfficeProductController {
 
@@ -29,6 +30,11 @@ public class BackOfficeProductController implements IBackOfficeProductController
     @Override
     public ResponseEntity<BackOfficeProductDto> create(BackOfficeProductDto dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(backOfficeProductService.create(dto));
+    }
+
+    @Override
+    public ResponseEntity<BackOfficeProductDto> getById(Long id) {
+        return ResponseEntity.ok(backOfficeProductService.getById(id));
     }
 
     @Override
@@ -49,9 +55,8 @@ public class BackOfficeProductController implements IBackOfficeProductController
     }
 
     @Override
-    public ResponseEntity<Void> bulkDelete(BulkProductDeleteRequest request) {
+    public ResponseEntity<BulkProductDeleteResponse> bulkDelete(BulkProductDeleteRequest request) {
         List<Long> ids = request != null ? request.getIds() : List.of();
-        backOfficeProductService.bulkDelete(ids);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(backOfficeProductService.bulkDelete(ids));
     }
 }

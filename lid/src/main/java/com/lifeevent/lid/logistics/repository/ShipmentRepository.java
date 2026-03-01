@@ -9,6 +9,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.Optional;
+
 @Repository
 public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
 
@@ -30,4 +33,17 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
             @Param("q") String q,
             Pageable pageable
     );
+
+    Optional<Shipment> findByOrderId(String orderId);
+
+    Optional<Shipment> findByTrackingIdIgnoreCase(String trackingId);
+
+    long countByStatus(ShipmentStatus status);
+
+    @Query("""
+        SELECT COALESCE(AVG(s.cost), 0)
+        FROM Shipment s
+        WHERE s.createdAt >= :from
+    """)
+    double avgCostFrom(@Param("from") LocalDateTime from);
 }

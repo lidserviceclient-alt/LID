@@ -8,7 +8,7 @@ import lombok.experimental.SuperBuilder;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "backoffice_security_activity")
+@Table(name = "security_activity")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @SuperBuilder
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
-public class BackOfficeSecurityActivityEntity extends BaseEntity {
+public class SecurityActivityEntity extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

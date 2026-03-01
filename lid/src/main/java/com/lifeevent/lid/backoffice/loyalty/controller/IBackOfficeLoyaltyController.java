@@ -1,8 +1,13 @@
 package com.lifeevent.lid.backoffice.loyalty.controller;
 
+import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyAdjustPointsRequest;
 import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyConfigDto;
+import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyCustomerDto;
 import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyOverviewDto;
 import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyTierDto;
+import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyTransactionDto;
+import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -27,6 +32,9 @@ public interface IBackOfficeLoyaltyController {
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les niveaux de fidélité")
     ResponseEntity<List<BackOfficeLoyaltyTierDto>> getTiers();
 
+    @PostMapping("/tiers")
+    ResponseEntity<BackOfficeLoyaltyTierDto> createTier(@Valid @RequestBody BackOfficeLoyaltyTierDto dto);
+
     @GetMapping("/config")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Récupérer la configuration fidélité")
     ResponseEntity<BackOfficeLoyaltyConfigDto> getConfig();
@@ -46,5 +54,32 @@ public interface IBackOfficeLoyaltyController {
             @Parameter(description = "ID du niveau", required = true)
             @PathVariable Long id,
             @RequestBody BackOfficeLoyaltyTierDto dto
+    );
+
+    @DeleteMapping("/tiers/{id}")
+    ResponseEntity<Void> deleteTier(@PathVariable Long id);
+
+    @GetMapping("/customers")
+    ResponseEntity<Page<BackOfficeLoyaltyCustomerDto>> getCustomers(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Integer limit
+    );
+
+    @GetMapping("/customers/{userId}")
+    ResponseEntity<BackOfficeLoyaltyCustomerDto> getCustomer(@PathVariable String userId);
+
+    @GetMapping("/customers/{userId}/transactions")
+    ResponseEntity<Page<BackOfficeLoyaltyTransactionDto>> getTransactions(
+            @PathVariable String userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    );
+
+    @PostMapping("/customers/{userId}/adjust")
+    ResponseEntity<BackOfficeLoyaltyCustomerDto> adjustPoints(
+            @PathVariable String userId,
+            @Valid @RequestBody BackOfficeLoyaltyAdjustPointsRequest request
     );
 }

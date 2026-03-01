@@ -7,18 +7,22 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Tag(name = "BackOffice - Blog", description = "API back-office pour gérer les articles du blog")
 public interface IBackOfficeBlogPostController {
 
     @GetMapping
     @ApiResponse(responseCode = "200", description = "Liste des articles blog")
-    ResponseEntity<Page<BackOfficeBlogPostDto>> getAll(
-            @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size
+    ResponseEntity<List<BackOfficeBlogPostDto>> getAll();
+
+    @GetMapping("/{id}")
+    ResponseEntity<BackOfficeBlogPostDto> getById(
+            @Parameter(description = "ID de l'article blog", required = true)
+            @PathVariable Long id
     );
 
     @PostMapping

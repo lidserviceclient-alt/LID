@@ -6,4 +6,5 @@ import org.springframework.data.domain.Pageable;
 
 public interface BackOfficeCustomerService {
     Page<BackOfficeCustomerDto> getAll(Pageable pageable);
+    BackOfficeCustomerDto create(BackOfficeCustomerDto dto);
 }

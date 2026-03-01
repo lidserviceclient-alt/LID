@@ -1,5 +1,6 @@
 package com.lifeevent.lid.backoffice.message.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 import java.util.List;
@@ -10,7 +11,9 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class CreateBackOfficeMessageRequest {
+    @NotBlank
     private String subject;
+    @NotBlank
     private String body;
     private List<String> recipients;
 }

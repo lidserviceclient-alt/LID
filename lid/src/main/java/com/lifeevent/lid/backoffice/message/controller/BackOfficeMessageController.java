@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/back-office/messages")
+@RequestMapping({"/api/v1/backoffice/messages", "/api/backoffice/messages"})
 @RequiredArgsConstructor
 public class BackOfficeMessageController implements IBackOfficeMessageController {
 
@@ -26,6 +26,11 @@ public class BackOfficeMessageController implements IBackOfficeMessageController
                         PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
                 )
         );
+    }
+
+    @Override
+    public ResponseEntity<BackOfficeMessageDto> getById(Long id) {
+        return ResponseEntity.ok(backOfficeMessageService.getById(id));
     }
 
     @Override

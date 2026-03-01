@@ -7,6 +7,7 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Data
@@ -36,4 +37,20 @@ public class Shipment extends BaseEntity {
     private LocalDate eta;
 
     private Double cost;
+
+    private String courierReference;
+
+    private String courierName;
+
+    private String courierPhone;
+
+    private String courierUser;
+
+    private LocalDateTime scannedAt;
+
+    private String deliveryCode;
+
+    private LocalDateTime deliveryCodeGeneratedAt;
+
+    private LocalDateTime deliveredAt;
 }

@@ -26,6 +26,9 @@ public interface IBackOfficeCategoryController {
     @ApiResponse(responseCode = "200", description = "Liste des catégories")
     ResponseEntity<List<BackOfficeCategoryDto>> getAll();
 
+    @GetMapping("/{id}")
+    ResponseEntity<BackOfficeCategoryDto> getById(@PathVariable Integer id);
+
     @PostMapping
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Créer une catégorie")
     @ApiResponses(value = {
@@ -49,6 +52,9 @@ public interface IBackOfficeCategoryController {
             @Parameter(description = "ID de la catégorie", required = true)
             @PathVariable Integer id
     );
+
+    @DeleteMapping({"", "/"})
+    ResponseEntity<Void> deleteAll();
 
     @PostMapping("/bulk")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Créer des catégories en masse")

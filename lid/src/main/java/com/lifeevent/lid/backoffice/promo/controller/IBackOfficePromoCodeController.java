@@ -23,6 +23,12 @@ public interface IBackOfficePromoCodeController {
     @ApiResponse(responseCode = "200", description = "Liste des codes promo")
     ResponseEntity<List<BackOfficePromoCodeDto>> getAll();
 
+    @GetMapping("/{id}")
+    ResponseEntity<BackOfficePromoCodeDto> getById(
+            @Parameter(description = "ID du code promo", required = true)
+            @PathVariable Long id
+    );
+
     @GetMapping("/stats")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Statistiques des codes promo")
     ResponseEntity<PromoCodeStatsDto> getStats(

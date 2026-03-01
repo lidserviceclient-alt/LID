@@ -11,5 +11,6 @@ public interface BackOfficeMarketingService {
     Page<BackOfficeMarketingCampaignDto> getCampaigns(Pageable pageable, MarketingCampaignStatus status);
     BackOfficeMarketingCampaignDto createCampaign(BackOfficeMarketingCampaignDto dto);
     BackOfficeMarketingCampaignDto updateCampaign(Long id, BackOfficeMarketingCampaignDto dto);
+    BackOfficeMarketingCampaignDto sendCampaign(Long id);
     void deleteCampaign(Long id);
 }

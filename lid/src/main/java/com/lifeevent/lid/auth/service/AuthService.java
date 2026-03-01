@@ -9,6 +9,7 @@ import com.lifeevent.lid.auth.dto.UserJwt;
 import com.lifeevent.lid.auth.entity.Authentication;
 import com.lifeevent.lid.auth.entity.RefreshToken;
 import com.lifeevent.lid.auth.repository.AuthenticationRepository;
+import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.customer.dto.CustomerDto;
 import com.lifeevent.lid.user.customer.service.CustomerService;
 import com.lifeevent.lid.user.common.dto.UserDto;
@@ -27,12 +28,15 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import static org.springframework.http.HttpStatus.FORBIDDEN;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +51,7 @@ public class AuthService {
     private final UserService userService;
     private final RefreshTokenService refreshTokenService;
     private final AuthenticationRepository authenticationRepository;
+    private final UserEntityRepository userEntityRepository;
 
     @Value("${config.security.app.refresh-ttl-days}")
     private int refreshTtlDays;
@@ -55,6 +60,7 @@ public class AuthService {
 
     public AuthCustomerResponse loginCustomerWithGoogle(HttpServletRequest request, HttpServletResponse response){
         UserJwt userJwt = extractUserJwtFromGoogle(request, List.of(UserRole.CUSTOMER));
+        assertUserNotBlocked(userJwt.getUserId());
         Authentication authentication = upsertAuthentication(userJwt.getUserId(), UserRole.CUSTOMER);
         PartnerResponseDto partner = partnerService.getPartnerById(userJwt.getUserId()).orElse(null);
         if (partner != null) {
@@ -77,6 +83,7 @@ public class AuthService {
 
     public AuthPartnerResponse loginPartnerWithGoogle(HttpServletRequest request, HttpServletResponse response){
         UserJwt userJwt = extractUserJwtFromGoogle(request, List.of(UserRole.PARTNER));
+        assertUserNotBlocked(userJwt.getUserId());
         Authentication authentication = getOrCreateAuthentication(userJwt.getUserId());
         PartnerResponseDto loggedPartner = partnerService.getPartnerById(userJwt.getUserId())
                 .orElseGet(() -> createPartnerFromGoogle(userJwt));
@@ -197,12 +204,25 @@ public class AuthService {
 
     public RefreshResponse refresh(String refreshTokenId){
         RefreshToken rt = refreshTokenService.validate(UUID.fromString(refreshTokenId));
+        assertUserNotBlocked(rt.getUserId());
         UserDto userDto = userService.getUserById(rt.getUserId());
         Authentication authentication = authenticationRepository.findById(rt.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("Authentication not found"));
         List<String> roles = toRoleNames(authentication.getRoles());
         String newAccessToken = jwtService.generateAccessToken(userDto.getId(), userDto.getEmail(), roles);
         return new RefreshResponse(newAccessToken);
+    }
+
+    private void assertUserNotBlocked(String userId) {
+        if (userId == null || userId.isBlank()) {
+            return;
+        }
+        boolean blocked = userEntityRepository.findById(userId)
+                .map(user -> Boolean.TRUE.equals(user.getBlocked()))
+                .orElse(false);
+        if (blocked) {
+            throw new ResponseStatusException(FORBIDDEN, "Compte utilisateur bloque.");
+        }
     }
 
     public void logout(String refreshTokenId, HttpServletResponse response){

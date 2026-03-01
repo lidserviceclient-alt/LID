@@ -35,7 +35,7 @@ public class Discount extends BaseEntity {
     /**
      * Valeur de la remise (pourcentage ou montant fixe)
      */
-    @Column(nullable = false)
+    @Column(name = "discount_value", nullable = false)
     private Double value;
 
     @Enumerated(EnumType.STRING)

@@ -21,6 +21,7 @@ import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +48,13 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
     @Transactional(readOnly = true)
     public Page<BackOfficeOrderSummaryDto> getOrders(Pageable pageable, BackOfficeOrderStatus status, String q) {
         return getAllCustomersOrders(pageable, status, q);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BackOfficeOrderSummaryDto> getRecentOrders() {
+        Page<BackOfficeOrderSummaryDto> firstPage = getAllCustomersOrders(PageRequest.of(0, 5), null, null);
+        return firstPage.getContent();
     }
 
     @Override
@@ -151,7 +159,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
     }
 
     @Override
-    public void updateStatus(Long orderId, BackOfficeOrderStatus status) {
+    public BackOfficeOrderSummaryDto updateStatus(Long orderId, BackOfficeOrderStatus status) {
         if (orderId == null) throw new IllegalArgumentException("orderId requis");
         if (status == null) throw new IllegalArgumentException("status requis");
 
@@ -169,7 +177,8 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
                 .build();
         order.getStatusHistory().add(history);
         order.setCurrentStatus(mapped);
-        orderRepository.save(order);
+        Order saved = orderRepository.save(order);
+        return toSummary(saved);
     }
 
     @Override

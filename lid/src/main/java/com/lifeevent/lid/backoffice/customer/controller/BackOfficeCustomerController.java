@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/back-office/customers")
+@RequestMapping({"/api/v1/backoffice/customers", "/api/backoffice/customers"})
 @RequiredArgsConstructor
 public class BackOfficeCustomerController implements IBackOfficeCustomerController {
 
@@ -21,5 +21,8 @@ public class BackOfficeCustomerController implements IBackOfficeCustomerControll
         return ResponseEntity.ok(backOfficeCustomerService.getAll(PageRequest.of(page, size)));
     }
 
-    
+    @Override
+    public ResponseEntity<BackOfficeCustomerDto> create(BackOfficeCustomerDto dto) {
+        return ResponseEntity.ok(backOfficeCustomerService.create(dto));
+    }
 }

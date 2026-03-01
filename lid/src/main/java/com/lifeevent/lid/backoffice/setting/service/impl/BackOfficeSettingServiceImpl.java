@@ -38,7 +38,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
     private final BackOfficeSecuritySettingRepository securitySettingRepository;
     private final BackOfficeIntegrationSettingRepository integrationSettingRepository;
     private final BackOfficeNotificationPreferenceRepository notificationPreferenceRepository;
-    private final BackOfficeSecurityActivityRepository securityActivityRepository;
+    private final SecurityActivityRepository securityActivityRepository;
 
     @Override
     public BackOfficeSettingPageDto getPage() {
@@ -75,7 +75,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         entity.setSlogan(trimToNull(dto != null ? dto.getSlogan() : null));
         entity.setActivitySector(trimToNull(dto != null ? dto.getActivitySector() : null));
         BackOfficeAppConfigEntity saved = appConfigRepository.save(entity);
-        recordSecurityActivity("SETTING_SHOP_PROFILE_UPDATE", "SUCCESS", "PUT", "/back-office/setting/shop-profile", "Mise a jour profil boutique");
+        recordSecurityActivity("SETTING_SHOP_PROFILE_UPDATE", "SUCCESS", "PUT", "/backoffice/setting/shop-profile", "Mise a jour profil boutique");
         return toShopProfileDto(saved);
     }
 
@@ -96,7 +96,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .sortOrder(Optional.ofNullable(dto).map(BackOfficeSettingSocialLinkDto::getSortOrder).orElse(0))
                 .build();
         BackOfficeSocialLinkEntity saved = socialLinkRepository.save(entity);
-        recordSecurityActivity("SETTING_SOCIAL_LINK_CREATE", "SUCCESS", "POST", "/back-office/setting/social-links", "Creation reseau social");
+        recordSecurityActivity("SETTING_SOCIAL_LINK_CREATE", "SUCCESS", "POST", "/backoffice/setting/social-links", "Creation reseau social");
         return toSocialLinkDto(saved);
     }
 
@@ -109,7 +109,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         entity.setUrl(trimToNull(dto != null ? dto.getUrl() : null));
         entity.setSortOrder(Optional.ofNullable(dto).map(BackOfficeSettingSocialLinkDto::getSortOrder).orElse(0));
         BackOfficeSocialLinkEntity saved = socialLinkRepository.save(entity);
-        recordSecurityActivity("SETTING_SOCIAL_LINK_UPDATE", "SUCCESS", "PUT", "/back-office/setting/social-links/" + id, "Mise a jour reseau social");
+        recordSecurityActivity("SETTING_SOCIAL_LINK_UPDATE", "SUCCESS", "PUT", "/backoffice/setting/social-links/" + id, "Mise a jour reseau social");
         return toSocialLinkDto(saved);
     }
 
@@ -120,7 +120,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
             throw new ResourceNotFoundException("SocialLink", "id", id);
         }
         socialLinkRepository.deleteById(id);
-        recordSecurityActivity("SETTING_SOCIAL_LINK_DELETE", "SUCCESS", "DELETE", "/back-office/setting/social-links/" + id, "Suppression reseau social");
+        recordSecurityActivity("SETTING_SOCIAL_LINK_DELETE", "SUCCESS", "DELETE", "/backoffice/setting/social-links/" + id, "Suppression reseau social");
     }
 
     @Override
@@ -139,7 +139,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .enabled(Boolean.TRUE.equals(dto != null ? dto.getEnabled() : null))
                 .build();
         BackOfficeFreeShippingRuleEntity saved = freeShippingRuleRepository.save(entity);
-        recordSecurityActivity("SETTING_FREE_SHIPPING_CREATE", "SUCCESS", "POST", "/back-office/setting/free-shipping-rules", "Creation regle livraison gratuite");
+        recordSecurityActivity("SETTING_FREE_SHIPPING_CREATE", "SUCCESS", "POST", "/backoffice/setting/free-shipping-rules", "Creation regle livraison gratuite");
         return toFreeShippingDto(saved);
     }
 
@@ -153,7 +153,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         entity.setUnlockedMessage(trimToNull(dto != null ? dto.getUnlockedMessage() : null));
         entity.setEnabled(Boolean.TRUE.equals(dto != null ? dto.getEnabled() : null));
         BackOfficeFreeShippingRuleEntity saved = freeShippingRuleRepository.save(entity);
-        recordSecurityActivity("SETTING_FREE_SHIPPING_UPDATE", "SUCCESS", "PUT", "/back-office/setting/free-shipping-rules/" + id, "Mise a jour regle livraison gratuite");
+        recordSecurityActivity("SETTING_FREE_SHIPPING_UPDATE", "SUCCESS", "PUT", "/backoffice/setting/free-shipping-rules/" + id, "Mise a jour regle livraison gratuite");
         return toFreeShippingDto(saved);
     }
 
@@ -164,7 +164,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .orElseThrow(() -> new ResourceNotFoundException("FreeShippingRule", "id", id));
         entity.setEnabled(Boolean.TRUE);
         BackOfficeFreeShippingRuleEntity saved = freeShippingRuleRepository.save(entity);
-        recordSecurityActivity("SETTING_FREE_SHIPPING_ENABLE", "SUCCESS", "POST", "/back-office/setting/free-shipping-rules/" + id + "/enable", "Activation regle livraison gratuite");
+        recordSecurityActivity("SETTING_FREE_SHIPPING_ENABLE", "SUCCESS", "POST", "/backoffice/setting/free-shipping-rules/" + id + "/enable", "Activation regle livraison gratuite");
         return toFreeShippingDto(saved);
     }
 
@@ -175,7 +175,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .orElseThrow(() -> new ResourceNotFoundException("FreeShippingRule", "id", id));
         entity.setEnabled(Boolean.FALSE);
         BackOfficeFreeShippingRuleEntity saved = freeShippingRuleRepository.save(entity);
-        recordSecurityActivity("SETTING_FREE_SHIPPING_DISABLE", "SUCCESS", "POST", "/back-office/setting/free-shipping-rules/" + id + "/disable", "Desactivation regle livraison gratuite");
+        recordSecurityActivity("SETTING_FREE_SHIPPING_DISABLE", "SUCCESS", "POST", "/backoffice/setting/free-shipping-rules/" + id + "/disable", "Desactivation regle livraison gratuite");
         return toFreeShippingDto(saved);
     }
 
@@ -186,7 +186,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
             throw new ResourceNotFoundException("FreeShippingRule", "id", id);
         }
         freeShippingRuleRepository.deleteById(id);
-        recordSecurityActivity("SETTING_FREE_SHIPPING_DELETE", "SUCCESS", "DELETE", "/back-office/setting/free-shipping-rules/" + id, "Suppression regle livraison gratuite");
+        recordSecurityActivity("SETTING_FREE_SHIPPING_DELETE", "SUCCESS", "DELETE", "/backoffice/setting/free-shipping-rules/" + id, "Suppression regle livraison gratuite");
     }
 
     @Override
@@ -214,7 +214,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .sortOrder(Optional.ofNullable(dto).map(BackOfficeSettingShippingMethodDto::getSortOrder).orElse(0))
                 .build();
         BackOfficeShippingMethodEntity saved = shippingMethodRepository.save(entity);
-        recordSecurityActivity("SETTING_SHIPPING_METHOD_CREATE", "SUCCESS", "POST", "/back-office/setting/shipping-methods", "Creation modalite de livraison");
+        recordSecurityActivity("SETTING_SHIPPING_METHOD_CREATE", "SUCCESS", "POST", "/backoffice/setting/shipping-methods", "Creation modalite de livraison");
         return toShippingMethodDto(saved);
     }
 
@@ -238,7 +238,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         entity.setIsDefault(makeDefault);
 
         BackOfficeShippingMethodEntity saved = shippingMethodRepository.save(entity);
-        recordSecurityActivity("SETTING_SHIPPING_METHOD_UPDATE", "SUCCESS", "PUT", "/back-office/setting/shipping-methods/" + id, "Mise a jour modalite de livraison");
+        recordSecurityActivity("SETTING_SHIPPING_METHOD_UPDATE", "SUCCESS", "PUT", "/backoffice/setting/shipping-methods/" + id, "Mise a jour modalite de livraison");
         return toShippingMethodDto(saved);
     }
 
@@ -249,7 +249,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .orElseThrow(() -> new ResourceNotFoundException("ShippingMethod", "id", id));
         entity.setEnabled(Boolean.TRUE);
         BackOfficeShippingMethodEntity saved = shippingMethodRepository.save(entity);
-        recordSecurityActivity("SETTING_SHIPPING_METHOD_ENABLE", "SUCCESS", "POST", "/back-office/setting/shipping-methods/" + id + "/enable", "Activation modalite de livraison");
+        recordSecurityActivity("SETTING_SHIPPING_METHOD_ENABLE", "SUCCESS", "POST", "/backoffice/setting/shipping-methods/" + id + "/enable", "Activation modalite de livraison");
         return toShippingMethodDto(saved);
     }
 
@@ -260,7 +260,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .orElseThrow(() -> new ResourceNotFoundException("ShippingMethod", "id", id));
         entity.setEnabled(Boolean.FALSE);
         BackOfficeShippingMethodEntity saved = shippingMethodRepository.save(entity);
-        recordSecurityActivity("SETTING_SHIPPING_METHOD_DISABLE", "SUCCESS", "POST", "/back-office/setting/shipping-methods/" + id + "/disable", "Desactivation modalite de livraison");
+        recordSecurityActivity("SETTING_SHIPPING_METHOD_DISABLE", "SUCCESS", "POST", "/backoffice/setting/shipping-methods/" + id + "/disable", "Desactivation modalite de livraison");
         return toShippingMethodDto(saved);
     }
 
@@ -272,7 +272,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         unsetDefaultShippingMethods();
         entity.setIsDefault(Boolean.TRUE);
         BackOfficeShippingMethodEntity saved = shippingMethodRepository.save(entity);
-        recordSecurityActivity("SETTING_SHIPPING_METHOD_DEFAULT", "SUCCESS", "POST", "/back-office/setting/shipping-methods/" + id + "/default", "Definition modalite de livraison par defaut");
+        recordSecurityActivity("SETTING_SHIPPING_METHOD_DEFAULT", "SUCCESS", "POST", "/backoffice/setting/shipping-methods/" + id + "/default", "Definition modalite de livraison par defaut");
         return toShippingMethodDto(saved);
     }
 
@@ -283,7 +283,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
             throw new ResourceNotFoundException("ShippingMethod", "id", id);
         }
         shippingMethodRepository.deleteById(id);
-        recordSecurityActivity("SETTING_SHIPPING_METHOD_DELETE", "SUCCESS", "DELETE", "/back-office/setting/shipping-methods/" + id, "Suppression modalite de livraison");
+        recordSecurityActivity("SETTING_SHIPPING_METHOD_DELETE", "SUCCESS", "DELETE", "/backoffice/setting/shipping-methods/" + id, "Suppression modalite de livraison");
     }
 
     @Override
@@ -296,7 +296,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
     public BackOfficeUserDto createCourier(BackOfficeUserDto dto) {
         BackOfficeUserDto payload = buildUserPayload(dto, "LIVREUR");
         BackOfficeUserDto created = backOfficeUserService.create(payload);
-        recordSecurityActivity("SETTING_COURIER_CREATE", "SUCCESS", "POST", "/back-office/setting/couriers", "Creation livreur");
+        recordSecurityActivity("SETTING_COURIER_CREATE", "SUCCESS", "POST", "/backoffice/setting/couriers", "Creation livreur");
         return created;
     }
 
@@ -305,7 +305,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
     public BackOfficeUserDto updateCourier(String id, BackOfficeUserDto dto) {
         BackOfficeUserDto payload = buildUserPayload(dto, "LIVREUR");
         BackOfficeUserDto updated = backOfficeUserService.update(id, payload);
-        recordSecurityActivity("SETTING_COURIER_UPDATE", "SUCCESS", "PUT", "/back-office/setting/couriers/" + id, "Mise a jour livreur");
+        recordSecurityActivity("SETTING_COURIER_UPDATE", "SUCCESS", "PUT", "/backoffice/setting/couriers/" + id, "Mise a jour livreur");
         return updated;
     }
 
@@ -313,7 +313,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
     @Transactional
     public void deleteCourier(String id) {
         backOfficeUserService.delete(id);
-        recordSecurityActivity("SETTING_COURIER_DELETE", "SUCCESS", "DELETE", "/back-office/setting/couriers/" + id, "Suppression livreur");
+        recordSecurityActivity("SETTING_COURIER_DELETE", "SUCCESS", "DELETE", "/backoffice/setting/couriers/" + id, "Suppression livreur");
     }
 
     @Override
@@ -359,7 +359,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         String role = normalizeTeamRole(dto != null ? dto.getRole() : null);
         BackOfficeUserDto payload = buildUserPayload(dto, role);
         BackOfficeUserDto created = backOfficeUserService.create(payload);
-        recordSecurityActivity("SETTING_TEAM_MEMBER_CREATE", "SUCCESS", "POST", "/back-office/setting/team-members", "Creation membre equipe");
+        recordSecurityActivity("SETTING_TEAM_MEMBER_CREATE", "SUCCESS", "POST", "/backoffice/setting/team-members", "Creation membre equipe");
         return created;
     }
 
@@ -369,7 +369,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         String role = normalizeTeamRole(dto != null ? dto.getRole() : null);
         BackOfficeUserDto payload = buildUserPayload(dto, role);
         BackOfficeUserDto updated = backOfficeUserService.update(id, payload);
-        recordSecurityActivity("SETTING_TEAM_MEMBER_UPDATE", "SUCCESS", "PUT", "/back-office/setting/team-members/" + id, "Mise a jour membre equipe");
+        recordSecurityActivity("SETTING_TEAM_MEMBER_UPDATE", "SUCCESS", "PUT", "/backoffice/setting/team-members/" + id, "Mise a jour membre equipe");
         return updated;
     }
 
@@ -377,14 +377,14 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
     @Transactional
     public void deleteTeamMember(String id) {
         backOfficeUserService.delete(id);
-        recordSecurityActivity("SETTING_TEAM_MEMBER_DELETE", "SUCCESS", "DELETE", "/back-office/setting/team-members/" + id, "Suppression membre equipe");
+        recordSecurityActivity("SETTING_TEAM_MEMBER_DELETE", "SUCCESS", "DELETE", "/backoffice/setting/team-members/" + id, "Suppression membre equipe");
     }
 
     @Override
     public BackOfficeSettingSecurityDto getSecurity() {
         return securitySettingRepository.findTopByOrderByIdAsc()
                 .map(this::toSecurityDto)
-                .orElseGet(BackOfficeSettingSecurityDto::new);
+                .orElseGet(() -> BackOfficeSettingSecurityDto.builder().admin2faEnabled(Boolean.TRUE).build());
     }
 
     @Override
@@ -394,24 +394,25 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .orElseGet(BackOfficeSecuritySettingEntity::new);
         entity.setAdmin2faEnabled(Boolean.TRUE.equals(dto != null ? dto.getAdmin2faEnabled() : null));
         BackOfficeSecuritySettingEntity saved = securitySettingRepository.save(entity);
-        recordSecurityActivity("SETTING_SECURITY_UPDATE", "SUCCESS", "PUT", "/back-office/setting/security", "Mise a jour securite");
+        recordSecurityActivity("SETTING_SECURITY_UPDATE", "SUCCESS", "PUT", "/backoffice/setting/security", "Mise a jour securite");
         return toSecurityDto(saved);
     }
 
     @Override
     public byte[] exportSecurityActivityCsv(int size) {
-        int safeSize = Math.max(0, Math.min(size, 5000));
-        List<BackOfficeSecurityActivityEntity> rows = securityActivityRepository
+        int safeSize = Math.max(1, Math.min(size, 500));
+        List<SecurityActivityEntity> rows = securityActivityRepository
                 .findAllByOrderByEventAtDesc(PageRequest.of(0, safeSize))
                 .getContent();
 
-        StringBuilder csv = new StringBuilder("timestamp,userId,action,status,ip\n");
-        for (BackOfficeSecurityActivityEntity row : rows) {
-            csv.append(csvCell(row.getEventAt() == null ? "" : row.getEventAt().toString())).append(",")
-                    .append(csvCell(row.getUserId())).append(",")
-                    .append(csvCell(row.getAction())).append(",")
-                    .append(csvCell(row.getStatus())).append(",")
-                    .append(csvCell(row.getIp()))
+        StringBuilder csv = new StringBuilder("createdAt;actor;method;path;status;summary\n");
+        for (SecurityActivityEntity row : rows) {
+            csv.append(row.getEventAt() == null ? "" : row.getEventAt()).append(";")
+                    .append(escapeCsvField(row.getUserId())).append(";")
+                    .append(escapeCsvField(row.getMethod())).append(";")
+                    .append(escapeCsvField(row.getPath())).append(";")
+                    .append(row.getStatus() == null ? "" : row.getStatus()).append(";")
+                    .append(escapeCsvField(row.getSummary()))
                     .append("\n");
         }
         return csv.toString().getBytes(StandardCharsets.UTF_8);
@@ -487,7 +488,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         }
 
         BackOfficeIntegrationSettingEntity saved = integrationSettingRepository.save(entity);
-        recordSecurityActivity("SETTING_INTEGRATIONS_UPDATE", "SUCCESS", "PUT", "/back-office/setting/integrations", "Mise a jour integrations");
+        recordSecurityActivity("SETTING_INTEGRATIONS_UPDATE", "SUCCESS", "PUT", "/backoffice/setting/integrations", "Mise a jour integrations");
         return toIntegrationsDto(saved);
     }
 
@@ -521,7 +522,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         if (!toSave.isEmpty()) {
             notificationPreferenceRepository.saveAll(toSave);
         }
-        recordSecurityActivity("SETTING_NOTIFICATION_PREFERENCES_UPDATE", "SUCCESS", "PUT", "/back-office/setting/notification-preferences", "Mise a jour preferences notifications");
+        recordSecurityActivity("SETTING_NOTIFICATION_PREFERENCES_UPDATE", "SUCCESS", "PUT", "/backoffice/setting/notification-preferences", "Mise a jour preferences notifications");
         return getNotificationPreferences();
     }
 
@@ -571,7 +572,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         String currentUserId = SecurityUtils.getCurrentUserId();
         String ip = resolveRequestIp();
 
-        BackOfficeSecurityActivityEntity entity = BackOfficeSecurityActivityEntity.builder()
+        SecurityActivityEntity entity = SecurityActivityEntity.builder()
                 .eventAt(LocalDateTime.now())
                 .userId(trimToNull(currentUserId))
                 .action(action)
@@ -602,12 +603,10 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         }
     }
 
-    private String csvCell(String value) {
-        String safe = value == null ? "" : value;
-        if (safe.contains(",") || safe.contains("\"") || safe.contains("\n")) {
-            return "\"" + safe.replace("\"", "\"\"") + "\"";
-        }
-        return safe;
+    private String escapeCsvField(String value) {
+        if (value == null) return "";
+        String safe = value.replace("\n", " ").replace("\r", " ").trim();
+        return safe.replace(";", ",");
     }
 
     private String trimToEmpty(String value) {

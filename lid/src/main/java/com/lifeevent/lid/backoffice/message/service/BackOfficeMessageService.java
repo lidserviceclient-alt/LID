@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface BackOfficeMessageService {
     Page<BackOfficeMessageDto> getAll(Pageable pageable);
+    BackOfficeMessageDto getById(Long id);
     BackOfficeMessageDto create(CreateBackOfficeMessageRequest request);
     BackOfficeMessageDto retry(Long id);
     void delete(Long id);

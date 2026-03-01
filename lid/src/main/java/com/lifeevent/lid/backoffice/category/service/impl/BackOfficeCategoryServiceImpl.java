@@ -35,6 +35,12 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public BackOfficeCategoryDto getById(Integer id) {
+        return backOfficeCategoryMapper.toDto(findCategoryOrThrow(id));
+    }
+
+    @Override
     public BackOfficeCategoryDto create(BackOfficeCategoryDto dto) {
         Category entity = backOfficeCategoryMapper.toEntity(dto);
         applyDefaults(entity, dto);
@@ -56,6 +62,11 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
     public void delete(Integer id) {
         Category entity = findCategoryOrThrow(id);
         deactivateAndSave(entity);
+    }
+
+    @Override
+    public void deleteAll() {
+        deactivateAll();
     }
 
     @Override

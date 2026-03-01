@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.user.controller;
 
 import com.lifeevent.lid.backoffice.user.dto.BackOfficeUserDto;
+import com.lifeevent.lid.backoffice.user.dto.CreateBackOfficeCourierRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -32,6 +33,12 @@ public interface IBackOfficeUserController {
             @Parameter(description = "ID utilisateur", required = true) @PathVariable String id
     );
 
+    @PostMapping
+    ResponseEntity<BackOfficeUserDto> create(@RequestBody BackOfficeUserDto dto);
+
+    @PostMapping("/couriers")
+    ResponseEntity<BackOfficeUserDto> createCourier(@RequestBody CreateBackOfficeCourierRequest request);
+
     @PutMapping("/{id}")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Mettre à jour un utilisateur")
     ResponseEntity<BackOfficeUserDto> update(
@@ -42,6 +49,16 @@ public interface IBackOfficeUserController {
     @DeleteMapping("/{id}")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Supprimer un utilisateur")
     ResponseEntity<Void> delete(
+            @Parameter(description = "ID utilisateur", required = true) @PathVariable String id
+    );
+
+    @PostMapping("/{id}/block")
+    ResponseEntity<BackOfficeUserDto> block(
+            @Parameter(description = "ID utilisateur", required = true) @PathVariable String id
+    );
+
+    @PostMapping("/{id}/unblock")
+    ResponseEntity<BackOfficeUserDto> unblock(
             @Parameter(description = "ID utilisateur", required = true) @PathVariable String id
     );
 }

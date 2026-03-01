@@ -12,5 +12,6 @@ public class BulkProductResultItem {
     private String reference;
     private String name;
     private boolean success;
+    private String productId;
     private String errorMessage;
 }

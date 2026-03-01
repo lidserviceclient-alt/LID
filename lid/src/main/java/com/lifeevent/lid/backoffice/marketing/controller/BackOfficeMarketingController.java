@@ -7,12 +7,13 @@ import com.lifeevent.lid.marketing.enumeration.MarketingCampaignStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/back-office/marketing")
+@RequestMapping({"/api/v1/backoffice/marketing", "/api/backoffice/marketing"})
 @RequiredArgsConstructor
 public class BackOfficeMarketingController implements IBackOfficeMarketingController {
 
@@ -25,7 +26,12 @@ public class BackOfficeMarketingController implements IBackOfficeMarketingContro
 
     @Override
     public ResponseEntity<Page<BackOfficeMarketingCampaignDto>> getCampaigns(int page, int size, MarketingCampaignStatus status) {
-        return ResponseEntity.ok(backOfficeMarketingService.getCampaigns(PageRequest.of(page, size), status));
+        return ResponseEntity.ok(
+                backOfficeMarketingService.getCampaigns(
+                        PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "dateCreation")),
+                        status
+                )
+        );
     }
 
     @Override
@@ -36,6 +42,11 @@ public class BackOfficeMarketingController implements IBackOfficeMarketingContro
     @Override
     public ResponseEntity<BackOfficeMarketingCampaignDto> updateCampaign(Long id, BackOfficeMarketingCampaignDto dto) {
         return ResponseEntity.ok(backOfficeMarketingService.updateCampaign(id, dto));
+    }
+
+    @Override
+    public ResponseEntity<BackOfficeMarketingCampaignDto> sendCampaign(Long id) {
+        return ResponseEntity.ok(backOfficeMarketingService.sendCampaign(id));
     }
 
     @Override

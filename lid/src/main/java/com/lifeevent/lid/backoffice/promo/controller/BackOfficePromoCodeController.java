@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/back-office/promo-codes")
+@RequestMapping({"/api/v1/backoffice/promo-codes", "/api/backoffice/promo-codes"})
 @RequiredArgsConstructor
 public class BackOfficePromoCodeController implements IBackOfficePromoCodeController {
 
@@ -20,6 +20,11 @@ public class BackOfficePromoCodeController implements IBackOfficePromoCodeContro
     @Override
     public ResponseEntity<List<BackOfficePromoCodeDto>> getAll() {
         return ResponseEntity.ok(backOfficePromoCodeService.getAll());
+    }
+
+    @Override
+    public ResponseEntity<BackOfficePromoCodeDto> getById(Long id) {
+        return ResponseEntity.ok(backOfficePromoCodeService.getById(id));
     }
 
     @Override

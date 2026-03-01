@@ -12,8 +12,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
 @RestController
-@RequestMapping("/api/v1/back-office/orders")
+@RequestMapping({"/api/v1/backoffice/orders", "/api/backoffice/orders"})
 @RequiredArgsConstructor
 public class BackOfficeOrderController implements IBackOfficeOrderController {
 
@@ -22,6 +26,11 @@ public class BackOfficeOrderController implements IBackOfficeOrderController {
     @Override
     public ResponseEntity<Page<BackOfficeOrderSummaryDto>> getOrders(int page, int size, BackOfficeOrderStatus status, String q) {
         return ResponseEntity.ok(backOfficeOrderService.getOrders(PageRequest.of(page, size), status, q));
+    }
+
+    @Override
+    public ResponseEntity<List<BackOfficeOrderSummaryDto>> getRecentOrders() {
+        return ResponseEntity.ok(backOfficeOrderService.getRecentOrders());
     }
 
     @Override
@@ -40,15 +49,21 @@ public class BackOfficeOrderController implements IBackOfficeOrderController {
     }
 
     @Override
-    public ResponseEntity<Void> updateStatus(Long id, java.util.Map<String, String> payload) {
-        String raw = payload != null ? payload.get("status") : null;
-        BackOfficeOrderStatus status = raw == null ? null : BackOfficeOrderStatus.valueOf(raw);
-        backOfficeOrderService.updateStatus(id, status);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<BackOfficeOrderSummaryDto> updateStatus(Long id, Map<String, String> payload) {
+        BackOfficeOrderStatus status = parseStatus(payload);
+        return ResponseEntity.ok(backOfficeOrderService.updateStatus(id, status));
     }
 
     @Override
     public ResponseEntity<BackOfficeOrderQuoteResponse> quote(BackOfficeCreateOrderRequest request) {
         return ResponseEntity.ok(backOfficeOrderService.quote(request));
+    }
+
+    private BackOfficeOrderStatus parseStatus(Map<String, String> payload) {
+        String raw = payload != null ? payload.get("status") : null;
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        return BackOfficeOrderStatus.valueOf(raw.trim().toUpperCase(Locale.ROOT));
     }
 }

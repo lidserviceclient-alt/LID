@@ -16,6 +16,7 @@ public class BackOfficeUserDto {
     private String nom;
     private String email;
     private Boolean emailVerifie;
+    private Boolean blocked;
     private String role;
     private String telephone;
     private String ville;

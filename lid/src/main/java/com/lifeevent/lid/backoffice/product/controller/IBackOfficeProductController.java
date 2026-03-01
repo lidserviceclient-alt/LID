@@ -3,6 +3,7 @@ package com.lifeevent.lid.backoffice.product.controller;
 import com.lifeevent.lid.backoffice.product.dto.BackOfficeProductDto;
 import com.lifeevent.lid.backoffice.product.dto.BulkProductCreateRequest;
 import com.lifeevent.lid.backoffice.product.dto.BulkProductDeleteRequest;
+import com.lifeevent.lid.backoffice.product.dto.BulkProductDeleteResponse;
 import com.lifeevent.lid.backoffice.product.dto.BulkProductResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -36,6 +37,12 @@ public interface IBackOfficeProductController {
     })
     ResponseEntity<BackOfficeProductDto> create(@RequestBody BackOfficeProductDto dto);
 
+    @GetMapping("/{id}")
+    ResponseEntity<BackOfficeProductDto> getById(
+            @Parameter(description = "ID du produit", required = true)
+            @PathVariable Long id
+    );
+
     @PutMapping("/{id}")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Mettre à jour un produit")
     ResponseEntity<BackOfficeProductDto> update(
@@ -57,5 +64,5 @@ public interface IBackOfficeProductController {
 
     @PostMapping("/bulk-delete")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Supprimer des produits en masse")
-    ResponseEntity<Void> bulkDelete(@RequestBody BulkProductDeleteRequest request);
+    ResponseEntity<BulkProductDeleteResponse> bulkDelete(@RequestBody BulkProductDeleteRequest request);
 }
