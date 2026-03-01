@@ -8,7 +8,7 @@ import org.mapstruct.MappingTarget;
 
 import java.util.List;
 
-//@Mapper(componentModel = "spring", unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE)
+@Mapper(componentModel = "spring", unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE)
 public interface RefundMapper {
 
     /**

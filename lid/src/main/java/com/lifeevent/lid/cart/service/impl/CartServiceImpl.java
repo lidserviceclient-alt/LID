@@ -44,7 +44,12 @@ public class CartServiceImpl implements CartService {
     @Override
     public CartDto createCart(String customerId) {
         log.info("Création d'un panier pour le client: {}", customerId);
-        
+
+        Optional<Cart> existing = cartRepository.findByCustomer_userId(customerId);
+        if (existing.isPresent()) {
+            return mapToDtoWithDetails(existing.get());
+        }
+
         Customer customer = customerRepository.findById(customerId)
             .orElseThrow(() -> new ResourceNotFoundException("Customer", "customerId", customerId.toString()));
         

@@ -36,37 +36,25 @@ public class WebhookController {
             @RequestBody(required = false) Map<String, Object> payload) {
         
         log.info("Reçu un callback PayDunya avec le token: {}", token);
-        
-        try {
-            // Valider que la requête provient bien de PayDunya
-            if (hash != null && !securityService.isValidPaydunyaRequest(hash)) {
-                log.warn("Callback PayDunya rejeté: hash invalide");
-                return ResponseEntity.status(401).body(
-                    Map.of("error", "Invalid signature")
-                );
-            }
-            
-            // Traiter le callback
-            if (token != null) {
-                paymentService.processPaymentCallback(token);
-            } else {
-                log.warn("Token manquant dans le callback PayDunya");
-                return ResponseEntity.badRequest().body(
-                    Map.of("error", "Missing token")
-                );
-            }
-            
-            // Retourner une réponse de succès à PayDunya
-            return ResponseEntity.ok(
-                Map.of("status", "success", "message", "Callback processed successfully")
-            );
-            
-        } catch (Exception e) {
-            log.error("Erreur lors du traitement du callback PayDunya", e);
-            return ResponseEntity.internalServerError().body(
-                Map.of("error", "Error processing callback", "message", e.getMessage())
+
+        if (hash != null && !securityService.isValidPaydunyaRequest(hash)) {
+            log.warn("Callback PayDunya rejeté: hash invalide");
+            return ResponseEntity.status(401).body(
+                Map.of("error", "Invalid signature")
             );
         }
+
+        if (token == null || token.isBlank()) {
+            log.warn("Token manquant dans le callback PayDunya");
+            return ResponseEntity.badRequest().body(
+                Map.of("error", "Missing token")
+            );
+        }
+
+        paymentService.processPaymentCallback(token);
+        return ResponseEntity.ok(
+            Map.of("status", "success", "message", "Callback processed successfully")
+        );
     }
     
     /**

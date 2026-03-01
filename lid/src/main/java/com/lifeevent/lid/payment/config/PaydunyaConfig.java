@@ -2,8 +2,6 @@ package com.lifeevent.lid.payment.config;
 
 import com.paydunya.neptune.PaydunyaSetup;
 import com.paydunya.neptune.PaydunyaCheckoutStore;
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;

@@ -21,9 +21,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -46,135 +49,118 @@ public class PaymentServiceImpl implements PaymentService {
     
     @Override
     public PaymentResponseDto createPayment(CreatePaymentRequestDto request) {
-//        log.info("Création d'un paiement pour la commande: {}", request.getOrderId());
-//
-//        try {
-//            // Créer une instance de facture PayDunya
-//            PaydunyaCheckoutInvoice invoice = new PaydunyaCheckoutInvoice(paydunyaSetup, paydunyaStore);
-//
-//            // Ajouter les articles
-//            if (request.getItems() != null && !request.getItems().isEmpty()) {
-//                request.getItems().forEach(item ->
-//                    invoice.addItem(
-//                        item.getName(),
-//                        item.getQuantity(),
-//                        item.getUnitPrice().doubleValue(),
-//                        item.getTotalPrice().doubleValue(),
-//                        item.getDescription()
-//                    )
-//                );
-//            }
-//
-//            // Ajouter les taxes
-//            if (request.getTaxes() != null && !request.getTaxes().isEmpty()) {
-//                request.getTaxes().forEach(tax ->
-//                    invoice.addTax(tax.getName(), tax.getAmount().doubleValue())
-//                );
-//            }
-//
-//            // Ajouter l'opérateur de paiement
-//            invoice.addChannel(request.getOperator().getOperatorCode());
-//
-//            // Configurer le montant total
-//            invoice.setTotalAmount(request.getAmount().doubleValue());
-//
-//            // Configurer la description
-//            invoice.setDescription(request.getDescription());
-//
-//            // Configurer les URLs de redirection
-//            invoice.setReturnUrl(request.getReturnUrl());
-//            invoice.setCancelUrl(request.getCancelUrl());
-//            invoice.setCallbackUrl(properties.getCallbackUrl());
-//
-//            // Ajouter les données du client
-//            invoice.addCustomData("orderId", request.getOrderId());
-//            invoice.addCustomData("customerEmail", request.getCustomerEmail());
-//            invoice.addCustomData("operator", request.getOperator().getDisplayName());
-//
-//            // Créer la facture sur les serveurs PayDunya
-//            if (invoice.create()) {
-//                log.info("Facture créée avec succès. Token: {}", invoice.getToken());
-//
-//                // Sauvegarder le paiement en base de données
-//                Payment payment = Payment.builder()
-//                    .orderId(request.getOrderId())
-//                    .invoiceToken(invoice.getToken())
-//                    .amount(request.getAmount())
-//                    .currency("XOF")
-//                    .description(request.getDescription())
-//                    .operator(request.getOperator())
-//                    .status(PaymentStatus.PENDING)
-//                    .customerName(request.getCustomerName())
-//                    .customerEmail(request.getCustomerEmail())
-//                    .customerPhone(request.getCustomerPhone())
-//                    .returnUrl(request.getReturnUrl())
-//                    .cancelUrl(request.getCancelUrl())
-//                    .build();
-//
-//                Payment savedPayment = paymentRepository.save(payment);
-//
-//                // Enregistrer la transaction
-//                saveTransaction(savedPayment, "CREATION", PaymentStatus.PENDING.getCode(),
-//                    "Paiement créé, token: " + invoice.getToken(), "API");
-//
-//                return mapToDto(savedPayment);
-//            } else {
-//                log.error("Échec de la création de la facture PayDunya. Code: {}, Message: {}",
-//                    invoice.getResponseCode(), invoice.getResponseText());
-//                throw new RuntimeException("Impossible de créer la facture de paiement: " + invoice.getResponseText());
-//            }
-//        } catch (Exception e) {
-//            log.error("Erreur lors de la création du paiement", e);
-//            throw new RuntimeException("Erreur lors de la création du paiement", e);
-//        }
-        return null;
+        validateCreateRequest(request);
+
+        PaydunyaCheckoutInvoice invoice = buildInvoice(request);
+        if (!invoice.create()) {
+            String message = safeText(invoice.getResponseText(), "Impossible de créer la facture de paiement");
+            throw new IllegalStateException(message);
+        }
+
+        Payment savedPayment = paymentRepository.save(toPendingPayment(request, invoice.getToken()));
+        saveTransaction(
+                savedPayment,
+                "CREATION",
+                PaymentStatus.PENDING.getCode(),
+                "Paiement créé, token: " + savedPayment.getInvoiceToken(),
+                "API"
+        );
+        PaymentResponseDto dto = paymentMapper.toDto(savedPayment);
+        dto.setPaymentUrl(safeText(invoice.getResponseText(), null));
+        return dto;
+    }
+
+    @Override
+    public PaymentResponseDto createLocalPayment(CreatePaymentRequestDto request) {
+        if (request == null || request.getOrderId() == null) {
+            throw new IllegalArgumentException("orderId requis");
+        }
+
+        Payment existing = paymentRepository.findByOrderId(request.getOrderId()).stream()
+                .filter(payment -> payment != null && payment.getStatus() == PaymentStatus.COMPLETED)
+                .findFirst()
+                .orElse(null);
+        if (existing != null) {
+            return paymentMapper.toDto(existing);
+        }
+
+        Payment payment = Payment.builder()
+                .orderId(request.getOrderId())
+                .invoiceToken("LOCAL-" + java.util.UUID.randomUUID())
+                .amount(request.getAmount())
+                .currency("XOF")
+                .description(safeText(request.getDescription(), "Paiement local"))
+                .operator(request.getOperator())
+                .status(PaymentStatus.COMPLETED)
+                .customerName(request.getCustomerName())
+                .customerEmail(request.getCustomerEmail())
+                .customerPhone(request.getCustomerPhone())
+                .returnUrl(resolveReturnUrl(request))
+                .cancelUrl(resolveCancelUrl(request))
+                .paymentDate(LocalDateTime.now())
+                .build();
+
+        Payment savedPayment = paymentRepository.save(payment);
+        saveTransaction(
+                savedPayment,
+                "LOCAL_CONFIRM",
+                PaymentStatus.COMPLETED.getCode(),
+                "Paiement local confirmé",
+                "LOCAL"
+        );
+        return paymentMapper.toDto(savedPayment);
     }
     
     @Override
     public PaymentStatusResponseDto verifyPaymentStatus(String invoiceToken) {
-//        log.info("Vérification du statut du paiement: {}", invoiceToken);
-//
-//        Payment payment = paymentRepository.findByInvoiceToken(invoiceToken)
-//            .orElseThrow(() -> new ResourceNotFoundException("Payment", "invoiceToken", invoiceToken));
-//
-//        try {
-//            PaydunyaCheckoutInvoice invoice = new PaydunyaCheckoutInvoice(paydunyaSetup, paydunyaStore);
-//
-//            if (invoice.confirm(invoiceToken)) {
-//                String statusCode = invoice.getStatus();
-//                PaymentStatus status = PaymentStatus.fromCode(statusCode);
-//
-//                // Mettre à jour le paiement
-//                payment.setStatus(status);
-//                payment.setPaydunyaHash(invoice.getResponseText());
-//
-//                if ("completed".equals(statusCode)) {
-//                    payment.setPaymentDate(LocalDateTime.now());
-//                    payment.setReceiptUrl(invoice.getReceiptUrl());
-//                    payment.setCustomerName(invoice.getCustomerInfo("name"));
-//                    payment.setCustomerEmail(invoice.getCustomerInfo("email"));
-//                    payment.setCustomerPhone(invoice.getCustomerInfo("phone"));
-//                }
-//
-//                paymentRepository.save(payment);
-//
-//                // Enregistrer la transaction
-//                saveTransaction(payment, "CONFIRMATION", statusCode,
-//                    "Statut confirmé: " + invoice.getResponseText(), "API");
-//
-//                return buildStatusResponse(payment, invoice);
-//            } else {
-//                log.warn("Impossible de confirmer le paiement: {}", invoice.getResponseText());
-//                saveTransaction(payment, "CONFIRMATION_FAILED", payment.getStatus().getCode(),
-//                    "Erreur: " + invoice.getResponseText(), "API");
-//
-//                return buildStatusResponse(payment, invoice);
-//            }
-//        } catch (Exception e) {
-//            log.error("Erreur lors de la vérification du paiement", e);
-//            throw new RuntimeException("Erreur lors de la vérification du paiement", e);
-//        }
-        return null;
+        Payment payment = findPaymentByToken(invoiceToken);
+        if (isLocalInvoiceToken(payment.getInvoiceToken())) {
+            if (payment.getStatus() == PaymentStatus.COMPLETED && payment.getPaymentDate() == null) {
+                payment.setPaymentDate(LocalDateTime.now());
+                paymentRepository.save(payment);
+            }
+            saveTransaction(
+                    payment,
+                    "LOCAL_VERIFY",
+                    payment.getStatus().getCode(),
+                    "Statut local: " + payment.getStatus().getCode(),
+                    "LOCAL"
+            );
+            return PaymentStatusResponseDto.builder()
+                    .paymentId(payment.getId())
+                    .invoiceToken(payment.getInvoiceToken())
+                    .status(payment.getStatus())
+                    .statusLabel(payment.getStatus().getLabel())
+                    .responseCode("LOCAL")
+                    .responseText("Paiement local")
+                    .receiptUrl(payment.getReceiptUrl())
+                    .customerName(payment.getCustomerName())
+                    .customerEmail(payment.getCustomerEmail())
+                    .customerPhone(payment.getCustomerPhone())
+                    .build();
+        }
+        PaydunyaCheckoutInvoice invoice = newInvoice();
+        if (!invoice.confirm(invoiceToken)) {
+            saveTransaction(
+                    payment,
+                    "CONFIRMATION_FAILED",
+                    payment.getStatus().getCode(),
+                    "Erreur: " + safeText(invoice.getResponseText(), "Confirmation impossible"),
+                    "API"
+            );
+            return buildStatusResponse(payment, invoice);
+        }
+
+        applyInvoiceStatus(payment, invoice);
+        paymentRepository.save(payment);
+        saveTransaction(
+                payment,
+                "CONFIRMATION",
+                payment.getStatus().getCode(),
+                "Statut confirmé: " + safeText(invoice.getResponseText(), payment.getStatus().getCode()),
+                "API"
+        );
+        return buildStatusResponse(payment, invoice);
     }
     
     @Override
@@ -197,37 +183,28 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public void processPaymentCallback(String invoiceToken) {
         log.info("Traitement du callback PayDunya pour le token: {}", invoiceToken);
-        
-        Payment payment = paymentRepository.findByInvoiceToken(invoiceToken)
-            .orElseThrow(() -> new ResourceNotFoundException("Payment", "invoiceToken", invoiceToken));
-        
-        try {
-            PaydunyaCheckoutInvoice invoice = new PaydunyaCheckoutInvoice(paydunyaSetup, paydunyaStore);
-            
-            if (invoice.confirm(invoiceToken)) {
-                String statusCode = invoice.getStatus();
-                PaymentStatus status = PaymentStatus.fromCode(statusCode);
-                
-                payment.setStatus(status);
-                payment.setPaydunyaHash(invoice.getResponseText());
-                
-                if ("completed".equals(statusCode)) {
-                    payment.setPaymentDate(LocalDateTime.now());
-                    payment.setReceiptUrl(invoice.getReceiptUrl());
-                }
-                
-                paymentRepository.save(payment);
-                saveTransaction(payment, "WEBHOOK_RECEIVED", statusCode, 
-                    "Callback reçu et traité", "WEBHOOK");
-                
-                log.info("Callback traité avec succès. Statut: {}", status);
-            }
-        } catch (Exception e) {
-            log.error("Erreur lors du traitement du callback", e);
-            saveTransaction(payment, "WEBHOOK_ERROR", payment.getStatus().getCode(),
-                "Erreur: " + e.getMessage(), "WEBHOOK");
-            throw new RuntimeException("Erreur lors du traitement du callback", e);
+        Payment payment = findPaymentByToken(invoiceToken);
+        PaydunyaCheckoutInvoice invoice = newInvoice();
+        if (!invoice.confirm(invoiceToken)) {
+            saveTransaction(
+                    payment,
+                    "WEBHOOK_CONFIRMATION_FAILED",
+                    payment.getStatus().getCode(),
+                    "Erreur: " + safeText(invoice.getResponseText(), "Confirmation impossible"),
+                    "WEBHOOK"
+            );
+            return;
         }
+
+        applyInvoiceStatus(payment, invoice);
+        paymentRepository.save(payment);
+        saveTransaction(
+                payment,
+                "WEBHOOK_RECEIVED",
+                payment.getStatus().getCode(),
+                "Callback reçu et traité",
+                "WEBHOOK"
+        );
     }
     
     @Override
@@ -266,6 +243,144 @@ public class PaymentServiceImpl implements PaymentService {
             .source(source)
             .build();
         transactionRepository.save(transaction);
+    }
+
+    private Payment findPaymentByToken(String invoiceToken) {
+        return paymentRepository.findByInvoiceToken(invoiceToken)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", "invoiceToken", invoiceToken));
+    }
+
+    private void validateCreateRequest(CreatePaymentRequestDto request) {
+        if (request == null) {
+            throw new IllegalArgumentException("La requête de paiement est requise");
+        }
+        if (request.getOperator() == null) {
+            throw new IllegalArgumentException("L'opérateur de paiement est requis");
+        }
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Le montant doit être supérieur à 0");
+        }
+    }
+
+    private PaydunyaCheckoutInvoice buildInvoice(CreatePaymentRequestDto request) {
+        PaydunyaCheckoutInvoice invoice = newInvoice();
+        addItems(invoice, request);
+        addTaxes(invoice, request);
+        invoice.setTotalAmount(request.getAmount().doubleValue());
+        invoice.setDescription(request.getDescription());
+        invoice.setReturnUrl(resolveReturnUrl(request));
+        invoice.setCancelUrl(resolveCancelUrl(request));
+        invoice.setCallbackUrl(properties.getCallbackUrl());
+        invoice.addCustomData("orderId", String.valueOf(request.getOrderId()));
+        invoice.addCustomData("customerEmail", request.getCustomerEmail());
+        invoice.addCustomData("operator", request.getOperator().getDisplayName());
+        return invoice;
+    }
+
+    private PaydunyaCheckoutInvoice newInvoice() {
+        return new PaydunyaCheckoutInvoice(paydunyaSetup, paydunyaStore);
+    }
+
+    private void addItems(PaydunyaCheckoutInvoice invoice, CreatePaymentRequestDto request) {
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            return;
+        }
+        request.getItems().stream()
+                .filter(Objects::nonNull)
+                .forEach(item -> invoice.addItem(
+                        item.getName(),
+                        item.getQuantity(),
+                        item.getUnitPrice().doubleValue(),
+                        item.getTotalPrice().doubleValue(),
+                        item.getDescription()
+                ));
+    }
+
+    private void addTaxes(PaydunyaCheckoutInvoice invoice, CreatePaymentRequestDto request) {
+        if (request.getTaxes() == null || request.getTaxes().isEmpty()) {
+            return;
+        }
+        request.getTaxes().stream()
+                .filter(Objects::nonNull)
+                .forEach(tax -> invoice.addTax(tax.getName(), tax.getAmount().doubleValue()));
+    }
+
+    private Payment toPendingPayment(CreatePaymentRequestDto request, String invoiceToken) {
+        return Payment.builder()
+                .orderId(request.getOrderId())
+                .invoiceToken(invoiceToken)
+                .amount(request.getAmount())
+                .currency("XOF")
+                .description(request.getDescription())
+                .operator(request.getOperator())
+                .status(PaymentStatus.PENDING)
+                .customerName(request.getCustomerName())
+                .customerEmail(request.getCustomerEmail())
+                .customerPhone(request.getCustomerPhone())
+                .returnUrl(resolveReturnUrl(request))
+                .cancelUrl(resolveCancelUrl(request))
+                .build();
+    }
+
+    private void applyInvoiceStatus(Payment payment, PaydunyaCheckoutInvoice invoice) {
+        String rawStatus = invoice.getStatus();
+        PaymentStatus status = toPaymentStatus(rawStatus);
+        payment.setStatus(status);
+        payment.setPaydunyaHash(invoice.getResponseText());
+
+        if (status == PaymentStatus.COMPLETED) {
+            if (payment.getPaymentDate() == null) {
+                payment.setPaymentDate(LocalDateTime.now());
+            }
+            payment.setReceiptUrl(invoice.getReceiptUrl());
+            payment.setCustomerName(safeText(toStringValue(invoice.getCustomerInfo("name")), payment.getCustomerName()));
+            payment.setCustomerEmail(safeText(toStringValue(invoice.getCustomerInfo("email")), payment.getCustomerEmail()));
+            payment.setCustomerPhone(safeText(toStringValue(invoice.getCustomerInfo("phone")), payment.getCustomerPhone()));
+            payment.setFailureReason(null);
+            return;
+        }
+
+        if (status == PaymentStatus.FAILED || status == PaymentStatus.CANCELLED) {
+            payment.setFailureReason(safeText(invoice.getResponseText(), "Paiement échoué"));
+        }
+    }
+
+    private PaymentStatus toPaymentStatus(String rawStatus) {
+        if (rawStatus == null) {
+            return PaymentStatus.PENDING;
+        }
+        String normalized = rawStatus.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "completed", "success", "succeeded", "paid" -> PaymentStatus.COMPLETED;
+            case "cancelled", "canceled" -> PaymentStatus.CANCELLED;
+            case "failed", "error" -> PaymentStatus.FAILED;
+            case "refunded" -> PaymentStatus.REFUNDED;
+            default -> PaymentStatus.PENDING;
+        };
+    }
+
+    private String resolveReturnUrl(CreatePaymentRequestDto request) {
+        return safeText(request.getReturnUrl(), properties.getReturnUrl());
+    }
+
+    private String resolveCancelUrl(CreatePaymentRequestDto request) {
+        return safeText(request.getCancelUrl(), properties.getCancelUrl());
+    }
+
+    private String safeText(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? fallback : trimmed;
+    }
+
+    private String toStringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private boolean isLocalInvoiceToken(String invoiceToken) {
+        return invoiceToken != null && invoiceToken.startsWith("LOCAL-");
     }
     
     private PaymentStatusResponseDto buildStatusResponse(Payment payment, 

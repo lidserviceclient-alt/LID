@@ -3,6 +3,7 @@ package com.lifeevent.lid.order.controller;
 import com.lifeevent.lid.order.dto.CheckoutCartRequestDto;
 import com.lifeevent.lid.order.dto.CheckoutCartSelectedRequestDto;
 import com.lifeevent.lid.order.dto.CheckoutResponseDto;
+import com.lifeevent.lid.order.dto.OrderQuoteResponseDto;
 import com.lifeevent.lid.order.dto.OrderDetailDto;
 import com.lifeevent.lid.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -34,8 +35,8 @@ public class OrderController implements IOrderController {
 
     @Override
     @PostMapping("/checkout/quote")
-    public ResponseEntity<CheckoutResponseDto> checkoutQuote(String customerId, CheckoutCartRequestDto request) {
-        CheckoutResponseDto response = orderService.checkoutCart(customerId, request);
+    public ResponseEntity<OrderQuoteResponseDto> checkoutQuote(String customerId, CheckoutCartRequestDto request) {
+        OrderQuoteResponseDto response = orderService.checkoutQuote(customerId, request);
         return ResponseEntity.ok(response);
     }
 

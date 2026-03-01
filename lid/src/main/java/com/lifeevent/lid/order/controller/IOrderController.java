@@ -3,6 +3,7 @@ package com.lifeevent.lid.order.controller;
 import com.lifeevent.lid.order.dto.CheckoutCartRequestDto;
 import com.lifeevent.lid.order.dto.CheckoutCartSelectedRequestDto;
 import com.lifeevent.lid.order.dto.CheckoutResponseDto;
+import com.lifeevent.lid.order.dto.OrderQuoteResponseDto;
 import com.lifeevent.lid.order.dto.OrderDetailDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -54,7 +55,7 @@ public interface IOrderController {
     );
 
     @PostMapping("/checkout/quote")
-    ResponseEntity<CheckoutResponseDto> checkoutQuote(
+    ResponseEntity<OrderQuoteResponseDto> checkoutQuote(
             @RequestParam String customerId,
             @RequestBody CheckoutCartRequestDto request
     );

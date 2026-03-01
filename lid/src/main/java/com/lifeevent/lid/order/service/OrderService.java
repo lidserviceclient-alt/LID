@@ -3,6 +3,7 @@ package com.lifeevent.lid.order.service;
 import com.lifeevent.lid.order.dto.CheckoutCartRequestDto;
 import com.lifeevent.lid.order.dto.CheckoutCartSelectedRequestDto;
 import com.lifeevent.lid.order.dto.CheckoutResponseDto;
+import com.lifeevent.lid.order.dto.OrderQuoteResponseDto;
 import com.lifeevent.lid.order.dto.OrderDetailDto;
 import com.lifeevent.lid.order.enumeration.Status;
 
@@ -18,6 +19,11 @@ public interface OrderService {
      * Valider le panier complet du client
      */
     CheckoutResponseDto checkoutCart(String customerId, CheckoutCartRequestDto request);
+
+    /**
+     * Simuler le checkout (promo/fidélité) sans créer de commande
+     */
+    OrderQuoteResponseDto checkoutQuote(String customerId, CheckoutCartRequestDto request);
 
     /**
      * Valider une sélection d'articles fournie dans la requête

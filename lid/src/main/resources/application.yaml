@@ -96,29 +96,29 @@ config:
 # Configuration PayDunya
 paydunya:
   # Mode test ou production
-  mode: test
+  mode: ${PAYDUNYA_MODE:test}
   
   # Clés API (À remplacer par vos vraies clés de paydunya.com)
-  masterKey: ${PAYDUNYA_MASTER_KEY:}
-  privateKey: ${PAYDUNYA_PRIVATE_KEY:}
-  publicKey: ${PAYDUNYA_PUBLIC_KEY:}
-  token: ${PAYDUNYA_TOKEN:}
+  masterKey: ${PAYDUNYA_MASTER_KEY}
+  privateKey: ${PAYDUNYA_PRIVATE_KEY}
+  publicKey: ${PAYDUNYA_PUBLIC_KEY}
+  token: ${PAYDUNYA_TOKEN}
   
   # Configuration du magasin
-  storeName: LID E-commerce
-  storeTagline: Plateforme de vente en ligne
-  storePhoneNumber: +225XXXXXXXXXX
-  storePostalAddress: Abidjan, Côte d'Ivoire
-  storeWebsiteUrl: https://lid-ecommerce.com
-  storeLogoUrl: https://lid-ecommerce.com/logo.png
+  storeName: ${PAYDUNYA_STORE_NAME:LID E-commerce}
+  storeTagline: ${PAYDUNYA_STORE_TAGLINE:Plateforme de vente en ligne}
+  storePhoneNumber: ${PAYDUNYA_STORE_PHONE_NUMBER:+225XXXXXXXXXX}
+  storePostalAddress: ${PAYDUNYA_STORE_POSTAL_ADDRESS:Abidjan, Côte d'Ivoire}
+  storeWebsiteUrl: ${PAYDUNYA_STORE_WEBSITE_URL:https://lid-ecommerce.com}
+  storeLogoUrl: ${PAYDUNYA_STORE_LOGO_URL:https://lid-ecommerce.com/logo.png}
   
   # URLs de redirection
-  callbackUrl: https://api.lid-ecommerce.com/api/v1/webhooks/paydunya
-  returnUrl: https://lid-ecommerce.com/payment/success
-  cancelUrl: https://lid-ecommerce.com/payment/cancel
+  callbackUrl: ${PAYDUNYA_CALLBACK_URL:https://api.lid-ecommerce.com/api/v1/webhooks/paydunya}
+  returnUrl: ${PAYDUNYA_RETURN_URL:https://lid-ecommerce.com/payment/success}
+  cancelUrl: ${PAYDUNYA_CANCEL_URL:https://lid-ecommerce.com/payment/cancel}
   
   # Pays supportés (codes ISO 2)
-  supportedCountries: CI,SN,BJ,BF,CM,CG,GA,GW,ML
+  supportedCountries: ${PAYDUNYA_SUPPORTED_COUNTRIES:CI,SN,BJ,BF,CM,CG,GA,GW,ML}
 
 # Endpoints Actuator
 management:
