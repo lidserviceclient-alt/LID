@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { clearAccessToken, getAccessToken, setAccessToken } from './auth';
 
-const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:9000';
+const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'https://jean-emmanuel-diap.com/lid';
 const isDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true';
 
 if (isDebug) {

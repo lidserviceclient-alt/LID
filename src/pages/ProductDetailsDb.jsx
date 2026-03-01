@@ -252,11 +252,17 @@ export default function ProductDetailsDb() {
   const handleShare = async () => {
     if (typeof window === "undefined") return;
     try {
-      const url = window.location.href;
+      const productUrl = `${window.location.origin}/product/${product?.id}`;
+      const rawImage = product?.imageUrl || (Array.isArray(product?.images) ? product.images[0] : "");
+      const previewUrl = resolveImageSrc(rawImage) || productUrl;
       if (navigator.share) {
-        await navigator.share({ title: product?.name || "Produit", url });
+        await navigator.share({
+          title: product?.name || "Produit",
+          text: `Découvre ${product?.name || "ce produit"} sur LID ! ${productUrl}`,
+          url: previewUrl
+        });
       } else {
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(`${product?.name || "Produit"} - ${productUrl} ${previewUrl}`);
         toast.success("Lien copié");
       }
     } catch {

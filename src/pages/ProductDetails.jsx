@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { useCart } from "@/features/cart/CartContext";
 import { useWishlist } from "@/features/wishlist/WishlistContext";
 import { products, colors } from "@/assets/data/products";
+import { resolveBackendAssetUrl } from "@/services/categoryService";
 import ReviewSection from "../components/ReviewSection";
 import FavoriteNotification from "../components/FavoriteNotification";
 import CheckoutFlow from "../components/CheckoutFlow";
@@ -195,14 +196,17 @@ export default function ProductDetails() {
 
   const handleShare = async () => {
     try {
+      const productUrl = `${window.location.origin}/product/${product.id}`;
+      const rawImage = product?.imageUrl || product?.image || (Array.isArray(product?.images) ? product.images[0] : "");
+      const previewUrl = resolveBackendAssetUrl(rawImage) || productUrl;
       if (navigator.share) {
         await navigator.share({
           title: product.name,
-          text: `Découvre ${product.name} sur LID !`,
-          url: window.location.href,
+          text: `Découvre ${product.name} sur LID ! ${productUrl}`,
+          url: previewUrl,
         });
       } else {
-        await navigator.clipboard.writeText(window.location.href);
+        await navigator.clipboard.writeText(`${product.name} - ${productUrl} ${previewUrl}`);
         toast.success("Lien copié !");
       }
     } catch (err) {

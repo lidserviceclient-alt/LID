@@ -290,14 +290,16 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
     e.preventDefault();
     e.stopPropagation();
     try {
+      const productUrl = `${window.location.origin}/product/${wishlistId}`;
+      const previewUrl = imageSrc || productUrl;
       if (navigator.share) {
         await navigator.share({
           title: product.name,
-          text: `Découvre ${product.name} sur LID !`,
-          url: `${window.location.origin}/product/${wishlistId}`,
+          text: `Découvre ${product.name} sur LID ! ${productUrl}`,
+          url: previewUrl,
         });
       } else {
-        await navigator.clipboard.writeText(`${window.location.origin}/product/${wishlistId}`);
+        await navigator.clipboard.writeText(`${product.name} - ${productUrl} ${previewUrl}`);
         toast.success("Lien copié !");
       }
     } catch (err) {
