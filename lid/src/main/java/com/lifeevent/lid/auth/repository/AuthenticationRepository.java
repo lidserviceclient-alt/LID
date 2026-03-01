@@ -8,9 +8,12 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AuthenticationRepository extends JpaRepository<Authentication, String> {
+    Optional<Authentication> findByUserId(String userId);
+
     @Query("""
             select distinct a.userId
             from Authentication a

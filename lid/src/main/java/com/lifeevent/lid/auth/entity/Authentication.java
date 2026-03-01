@@ -6,6 +6,7 @@ import com.lifeevent.lid.common.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import jakarta.persistence.Id;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -13,6 +14,7 @@ import lombok.experimental.SuperBuilder;
 import java.util.List;
 
 @Entity
+@Table(name = "authentication")
 @SuperBuilder
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
@@ -26,5 +28,9 @@ public class Authentication extends BaseEntity {
     private String userId;
     @ElementCollection
     private List<UserRole> roles;
+
     private AuthenticationType type;
+
+    @Column(length = 255)
+    private String passwordHash;
 }

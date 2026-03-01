@@ -47,6 +47,18 @@ public interface IOrderController {
             )
             @RequestBody CheckoutCartRequestDto request);
 
+    @PostMapping("/checkout")
+    ResponseEntity<CheckoutResponseDto> checkout(
+            @RequestParam String customerId,
+            @RequestBody CheckoutCartRequestDto request
+    );
+
+    @PostMapping("/checkout/quote")
+    ResponseEntity<CheckoutResponseDto> checkoutQuote(
+            @RequestParam String customerId,
+            @RequestBody CheckoutCartRequestDto request
+    );
+
     @Operation(summary = "Checkout articles sélectionnés", description = "Crée une commande depuis une liste d'articles sélectionnés")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Commande créée avec succès"),

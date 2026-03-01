@@ -27,6 +27,19 @@ public class OrderController implements IOrderController {
     }
 
     @Override
+    @PostMapping("/checkout")
+    public ResponseEntity<CheckoutResponseDto> checkout(String customerId, CheckoutCartRequestDto request) {
+        return checkoutCart(customerId, request);
+    }
+
+    @Override
+    @PostMapping("/checkout/quote")
+    public ResponseEntity<CheckoutResponseDto> checkoutQuote(String customerId, CheckoutCartRequestDto request) {
+        CheckoutResponseDto response = orderService.checkoutCart(customerId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
     @PostMapping("/checkout/selected")
     public ResponseEntity<CheckoutResponseDto> checkoutSelectedArticles(String customerId, CheckoutCartSelectedRequestDto request) {
         CheckoutResponseDto response = orderService.checkoutSelectedArticles(customerId, request);

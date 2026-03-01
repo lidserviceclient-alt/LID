@@ -15,6 +15,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class JwtService {
+
     private final SecretKey secretKey;
 
     @Value("${config.security.app.issuer}")
@@ -23,7 +24,7 @@ public class JwtService {
     @Value("${config.security.app.access-ttl-minutes}")
     private long accessTtlMinutes;
 
-    public String generateAccessToken(String userId, String email, List<String> roles){
+    public String generateAccessToken(String userId, String email, List<String> roles) {
         Instant now = Instant.now();
         Instant exp = now.plusSeconds(accessTtlMinutes * 60);
 
@@ -38,8 +39,25 @@ public class JwtService {
                 .compact();
     }
 
-    public UserJwt extractUserFromJwt(Jwt jwt, List<String> roles) {
+    public String generateAccessToken(UserJwt userJwt, List<String> roles) {
+        Instant now = Instant.now();
+        Instant exp = now.plusSeconds(accessTtlMinutes * 60);
 
+        return Jwts.builder()
+                .issuer(issuer)
+                .subject(userJwt.getUserId())
+                .claim("email", userJwt.getEmail())
+                .claim("roles", roles)
+                .claim("firstName", userJwt.getFirstName())
+                .claim("lastName", userJwt.getLastName())
+                .claim("avatarUrl", userJwt.getAvatarUrl())
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(exp))
+                .signWith(secretKey)
+                .compact();
+    }
+
+    public UserJwt extractUserFromJwt(Jwt jwt, List<String> roles) {
         return UserJwt.builder()
                 .userId(jwt.getSubject())
                 .email(jwt.getClaimAsString("email"))
@@ -51,6 +69,4 @@ public class JwtService {
                 .roles(roles)
                 .build();
     }
-
-
 }

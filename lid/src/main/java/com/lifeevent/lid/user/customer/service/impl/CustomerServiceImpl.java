@@ -2,8 +2,12 @@ package com.lifeevent.lid.user.customer.service.impl;
 
 import com.lifeevent.lid.cart.service.CartService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.user.customer.dto.CustomerAddressDto;
 import com.lifeevent.lid.user.customer.dto.CustomerDto;
+import com.lifeevent.lid.user.customer.entity.CustomerAddress;
+import com.lifeevent.lid.user.customer.mapper.CustomerAddressMapper;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
+import com.lifeevent.lid.user.customer.repository.CustomerAddressRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.mapper.CustomerMapper;
 import com.lifeevent.lid.user.customer.service.CustomerService;
@@ -15,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Service Customer - délègue les opérations génériques à UserService,
@@ -27,7 +32,9 @@ import java.util.Optional;
 public class CustomerServiceImpl implements CustomerService {
     
     private final CustomerRepository customerRepository;
+    private final CustomerAddressRepository customerAddressRepository;
     private final CustomerMapper customerMapper;
+    private final CustomerAddressMapper customerAddressMapper;
     private final UserService userService;
     private final CartService cartService;
     
@@ -95,5 +102,81 @@ public class CustomerServiceImpl implements CustomerService {
     public boolean emailExists(String email) {
         // Déléguer à UserService pour vérifier TOUT utilisateur (Customer ou autre)
         return userService.emailExists(email);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CustomerAddressDto> listAddresses(String customerId) {
+        return customerAddressMapper.toDtoList(
+                customerAddressRepository.findByCustomer_UserIdOrderByCreatedAtDesc(customerId)
+        );
+    }
+
+    @Override
+    public CustomerAddressDto createAddress(String customerId, CustomerAddressDto dto) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId));
+
+        CustomerAddress entity = customerAddressMapper.toEntity(dto);
+        entity.setId(UUID.randomUUID().toString());
+        entity.setCustomer(customer);
+        if (entity.getIsDefault() == null) {
+            entity.setIsDefault(Boolean.FALSE);
+        }
+        if (Boolean.TRUE.equals(entity.getIsDefault())) {
+            unsetDefaultAddresses(customerId);
+        }
+        CustomerAddress saved = customerAddressRepository.save(entity);
+        return customerAddressMapper.toDto(saved);
+    }
+
+    @Override
+    public CustomerAddressDto updateAddress(String customerId, String addressId, CustomerAddressDto dto) {
+        CustomerAddress entity = findAddressOrThrow(customerId, addressId);
+        customerAddressMapper.updateEntityFromDto(dto, entity);
+        if (entity.getIsDefault() == null) {
+            entity.setIsDefault(Boolean.FALSE);
+        }
+        if (Boolean.TRUE.equals(entity.getIsDefault())) {
+            unsetDefaultAddresses(customerId);
+            entity.setIsDefault(Boolean.TRUE);
+        }
+        CustomerAddress saved = customerAddressRepository.save(entity);
+        return customerAddressMapper.toDto(saved);
+    }
+
+    @Override
+    public CustomerAddressDto setDefaultAddress(String customerId, String addressId) {
+        CustomerAddress entity = findAddressOrThrow(customerId, addressId);
+        unsetDefaultAddresses(customerId);
+        entity.setIsDefault(Boolean.TRUE);
+        CustomerAddress saved = customerAddressRepository.save(entity);
+        return customerAddressMapper.toDto(saved);
+    }
+
+    @Override
+    public void deleteAddress(String customerId, String addressId) {
+        CustomerAddress entity = findAddressOrThrow(customerId, addressId);
+        customerAddressRepository.delete(entity);
+    }
+
+    private CustomerAddress findAddressOrThrow(String customerId, String addressId) {
+        CustomerAddress address = customerAddressRepository.findById(addressId)
+                .orElseThrow(() -> new ResourceNotFoundException("CustomerAddress", "id", addressId));
+        String ownerId = address.getCustomer() != null ? address.getCustomer().getUserId() : null;
+        if (!customerId.equals(ownerId)) {
+            throw new ResourceNotFoundException("CustomerAddress", "id", addressId);
+        }
+        return address;
+    }
+
+    private void unsetDefaultAddresses(String customerId) {
+        List<CustomerAddress> defaults = customerAddressRepository.findByCustomer_UserIdAndIsDefaultTrue(customerId);
+        for (CustomerAddress address : defaults) {
+            address.setIsDefault(Boolean.FALSE);
+        }
+        if (!defaults.isEmpty()) {
+            customerAddressRepository.saveAll(defaults);
+        }
     }
 }

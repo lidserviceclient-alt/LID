@@ -58,17 +58,28 @@ public class BackOfficeMarketingAutomationService {
             throw new IllegalArgumentException("Campagne déjà envoyée");
         }
 
-        campaign.setStatus(MarketingCampaignStatus.SCHEDULED);
-        campaign.setScheduledAt(LocalDateTime.now());
-        campaign.setSentAt(null);
-        campaign.setNextRetryAt(null);
-        campaign.setLastError(null);
-        campaign.setAttempts(campaign.getAttempts() == null ? 0 : campaign.getAttempts());
-        campaign = marketingCampaignRepository.save(campaign);
+        campaign = restartCampaignDispatch(campaign);
 
         dispatchOneCampaign(campaign, Math.max(1, Math.min(batchSize, 50)));
         return marketingCampaignRepository.findById(campaignId)
                 .orElseThrow(() -> new ResourceNotFoundException("MarketingCampaign", "id", String.valueOf(campaignId)));
+    }
+
+    private MarketingCampaign restartCampaignDispatch(MarketingCampaign campaign) {
+        if (campaign.getId() != null && deliveryRepository.existsByCampaign_Id(campaign.getId())) {
+            deliveryRepository.deleteByCampaign_Id(campaign.getId());
+        }
+
+        campaign.setStatus(MarketingCampaignStatus.SCHEDULED);
+        campaign.setScheduledAt(LocalDateTime.now());
+        campaign.setSentAt(null);
+        campaign.setTargetCount(0L);
+        campaign.setSentCount(0L);
+        campaign.setFailedCount(0L);
+        campaign.setAttempts(0);
+        campaign.setNextRetryAt(null);
+        campaign.setLastError(null);
+        return marketingCampaignRepository.save(campaign);
     }
 
     @Scheduled(fixedDelayString = "${config.marketing.dispatch.delay-ms:30000}")

@@ -5,7 +5,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: update # à changer en prod
+      ddl-auto: create # à changer en prod
     defer-datasource-initialization: true
     properties:
       javax:
@@ -44,10 +44,10 @@ spring:
       initialize-database: always # à changer en prod
 
   mail:
-    host: ${SMTP_HOST:${MAIL_HOST:}}
-    port: ${SMTP_PORT:${MAIL_PORT:587}}
-    username: ${SMTP_USERNAME:${MAIL_USERNAME:}}
-    password: ${SMTP_PASSWORD:${MAIL_PASSWORD:}}
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
     properties:
       mail:
         smtp:
@@ -63,10 +63,10 @@ server:
 
 config:
   mail:
-    from: ${SMTP_FROM:${MAIL_FROM:${SMTP_USERNAME:${MAIL_USERNAME:no-reply@lid.local}}}}
+    from: ${SMTP_FROM}
   backoffice:
     messages:
-      default-recipients: ${BACKOFFICE_MESSAGES_DEFAULT_RECIPIENTS:}
+      default-recipients: ${BACKOFFICE_MESSAGES_DEFAULT_RECIPIENTS}
       retry-delay-ms: ${BACKOFFICE_MESSAGES_RETRY_DELAY_MS:60000}
   marketing:
     dispatch:

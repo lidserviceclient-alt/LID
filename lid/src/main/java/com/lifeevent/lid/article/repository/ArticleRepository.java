@@ -116,6 +116,25 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
             @Param("status") ArticleStatus status,
             Pageable pageable
     );
+
+    @Query("""
+        SELECT DISTINCT a
+        FROM Article a
+        LEFT JOIN a.categories c
+        WHERE a.status = :status
+          AND (:query IS NULL OR LOWER(a.name) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(COALESCE(a.brand, '')) LIKE LOWER(CONCAT('%', :query, '%')))
+          AND (:tokensEmpty = true
+               OR LOWER(COALESCE(c.name, '')) IN :categoryTokens
+               OR LOWER(COALESCE(c.slug, '')) IN :categoryTokens)
+    """)
+    Page<Article> searchCatalog(
+            @Param("status") ArticleStatus status,
+            @Param("query") String query,
+            @Param("categoryTokens") List<String> categoryTokens,
+            @Param("tokensEmpty") boolean tokensEmpty,
+            Pageable pageable
+    );
     
     /**
      * Récupérer tous les articles d'un partenaire avec pagination

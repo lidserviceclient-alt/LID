@@ -35,10 +35,10 @@ public class BackOfficeMessageServiceImpl implements BackOfficeMessageService {
     private final BackOfficeMessageMapper backOfficeMessageMapper;
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username:}")
+    @Value("${spring.mail.username}")
     private String fromAddress;
 
-    @Value("${config.backoffice.messages.default-recipients:}")
+    @Value("${config.backoffice.messages.default-recipients}")
     private String defaultRecipients;
 
     @Override

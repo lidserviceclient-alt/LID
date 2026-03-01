@@ -1,6 +1,7 @@
 package com.lifeevent.lid.user.customer.controller;
 
 import com.lifeevent.lid.user.customer.dto.CustomerDto;
+import com.lifeevent.lid.user.customer.dto.CustomerAddressDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -95,5 +96,24 @@ public interface ICustomerController {
     @ApiResponse(responseCode = "200", description = "Résultat de la vérification")
     ResponseEntity<Boolean> emailExists(
             @Parameter(description = "Email à vérifier", required = true) @PathVariable String email);
+
+    @GetMapping("/{customerId}/addresses")
+    ResponseEntity<List<CustomerAddressDto>> listAddresses(@PathVariable String customerId);
+
+    @PostMapping("/{customerId}/addresses")
+    ResponseEntity<CustomerAddressDto> createAddress(@PathVariable String customerId, @RequestBody CustomerAddressDto dto);
+
+    @PutMapping("/{customerId}/addresses/{addressId}")
+    ResponseEntity<CustomerAddressDto> updateAddress(
+            @PathVariable String customerId,
+            @PathVariable String addressId,
+            @RequestBody CustomerAddressDto dto
+    );
+
+    @PutMapping("/{customerId}/addresses/{addressId}/default")
+    ResponseEntity<CustomerAddressDto> setDefaultAddress(@PathVariable String customerId, @PathVariable String addressId);
+
+    @DeleteMapping("/{customerId}/addresses/{addressId}")
+    ResponseEntity<Void> deleteAddress(@PathVariable String customerId, @PathVariable String addressId);
 
 }

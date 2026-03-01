@@ -3,6 +3,7 @@ package com.lifeevent.lid.user.partner.repository;
 import com.lifeevent.lid.user.partner.entity.Partner;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -16,6 +17,18 @@ import java.util.Optional;
  */
 @Repository
 public interface PartnerRepository extends JpaRepository<Partner, String> {
+
+    @Modifying
+    @Query(value = "UPDATE user_entity SET user_type = 'PARTNER' WHERE user_id = :userId", nativeQuery = true)
+    void updateUserTypeToPartner(@Param("userId") String userId);
+
+    @Modifying
+    @Query(value = "DELETE FROM customer WHERE user_id = :userId", nativeQuery = true)
+    void deleteCustomerData(@Param("userId") String userId);
+
+    @Modifying
+    @Query(value = "INSERT INTO partner (user_id, registration_status, phone_number) VALUES (:userId, 'STEP_1_PENDING', :phone)", nativeQuery = true)
+    void insertInitialPartnerData(@Param("userId") String userId, @Param("phone") String phone);
     
     /**
      * Récupérer un Partner par email

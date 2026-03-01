@@ -1,4 +1,4 @@
-package com.lifeevent.lid.article.dto;
+package com.lifeevent.lid.catalog.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

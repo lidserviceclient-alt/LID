@@ -1,6 +1,7 @@
 package com.lifeevent.lid.user.partner.controller;
 
 import com.lifeevent.lid.common.util.ResponseUtils;
+import com.lifeevent.lid.common.security.SecurityUtils;
 import com.lifeevent.lid.user.partner.dto.*;
 import com.lifeevent.lid.user.partner.service.PartnerService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,13 @@ public class PartnerController implements IPartnerController {
     public ResponseEntity<PartnerResponseDto> registerStep1(@RequestBody PartnerRegisterStep1RequestDto dto) {
         PartnerResponseDto created = partnerService.registerStep1(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @Override
+    public ResponseEntity<PartnerResponseDto> upgradeToPartner(@RequestBody PartnerRegisterStep1RequestDto dto) {
+        String userId = SecurityUtils.getCurrentUserId();
+        PartnerResponseDto upgraded = partnerService.upgradeCustomerToPartner(userId, dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(upgraded);
     }
     
     @Override

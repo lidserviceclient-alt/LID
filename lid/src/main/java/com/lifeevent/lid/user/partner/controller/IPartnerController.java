@@ -46,6 +46,11 @@ public interface IPartnerController {
         )
         @RequestBody PartnerRegisterStep1RequestDto dto
     );
+
+    @PostMapping("/register/upgrade")
+    @SecurityRequirement(name = "Bearer Token")
+    @Operation(summary = "Upgrade customer vers partner")
+    ResponseEntity<PartnerResponseDto> upgradeToPartner(@RequestBody PartnerRegisterStep1RequestDto dto);
     
     /**
      * ÉTAPE 2 : Ajouter les infos de boutique

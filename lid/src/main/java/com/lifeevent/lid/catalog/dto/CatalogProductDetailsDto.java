@@ -1,0 +1,26 @@
+package com.lifeevent.lid.catalog.dto;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+public record CatalogProductDetailsDto(
+        String id,
+        String referenceProduitPartenaire,
+        String name,
+        String slug,
+        BigDecimal price,
+        String brand,
+        String description,
+        BigDecimal vat,
+        String categoryId,
+        String categoryName,
+        String categorySlug,
+        Boolean isFeatured,
+        Boolean isBestSeller,
+        String imageUrl,
+        List<String> images,
+        Integer stock,
+        LocalDateTime dateCreation
+) {
+}

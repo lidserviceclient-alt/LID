@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Optional;
+
 public interface ProductReviewRepository extends JpaRepository<ProductReview, Long> {
 
     @Query("""
@@ -35,4 +37,46 @@ public interface ProductReviewRepository extends JpaRepository<ProductReview, Lo
             @Param("includeDeleted") boolean includeDeleted,
             @Param("deletedOnly") boolean deletedOnly
     );
+
+    @Query("""
+        SELECT r
+        FROM ProductReview r
+        WHERE r.article.id = :articleId
+          AND r.validated = true
+          AND r.deletedAt IS NULL
+        ORDER BY r.createdAt DESC
+    """)
+    Page<ProductReview> findPublicByArticleId(
+            @Param("articleId") Long articleId,
+            Pageable pageable
+    );
+
+    @Query("""
+        SELECT r
+        FROM ProductReview r
+        WHERE r.article.id = :articleId
+          AND r.customer.userId = :customerUserId
+    """)
+    Optional<ProductReview> findByArticleIdAndCustomerUserId(
+            @Param("articleId") Long articleId,
+            @Param("customerUserId") String customerUserId
+    );
+
+    @Query("""
+        SELECT COALESCE(AVG(r.rating), 0)
+        FROM ProductReview r
+        WHERE r.article.id = :articleId
+          AND r.validated = true
+          AND r.deletedAt IS NULL
+    """)
+    Double avgPublicRatingByArticleId(@Param("articleId") Long articleId);
+
+    @Query("""
+        SELECT COUNT(r)
+        FROM ProductReview r
+        WHERE r.article.id = :articleId
+          AND r.validated = true
+          AND r.deletedAt IS NULL
+    """)
+    long countPublicByArticleId(@Param("articleId") Long articleId);
 }

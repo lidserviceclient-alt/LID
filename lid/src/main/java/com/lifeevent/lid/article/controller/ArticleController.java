@@ -16,8 +16,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Optional;
 
-// @RestController
-// @RequestMapping("/api/v1/articles")
+@RestController
+@RequestMapping("/api/v1/articles")
 @RequiredArgsConstructor
 public class ArticleController implements IArticleController {
     

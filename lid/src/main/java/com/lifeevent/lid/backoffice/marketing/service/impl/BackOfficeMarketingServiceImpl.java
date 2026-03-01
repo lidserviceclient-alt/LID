@@ -108,10 +108,22 @@ public class BackOfficeMarketingServiceImpl implements BackOfficeMarketingServic
 
     @Override
     public void deleteCampaign(Long id) {
+        ensureCampaignExists(id);
+        deleteCampaignDeliveries(id);
+        marketingCampaignRepository.deleteById(id);
+    }
+
+    private void ensureCampaignExists(Long id) {
         if (!marketingCampaignRepository.existsById(id)) {
             throw new ResourceNotFoundException("MarketingCampaign", "id", id.toString());
         }
-        marketingCampaignRepository.deleteById(id);
+    }
+
+    private void deleteCampaignDeliveries(Long campaignId) {
+        if (!marketingCampaignDeliveryRepository.existsByCampaign_Id(campaignId)) {
+            return;
+        }
+        marketingCampaignDeliveryRepository.deleteByCampaign_Id(campaignId);
     }
 
     private void applyDefaults(MarketingCampaign entity) {

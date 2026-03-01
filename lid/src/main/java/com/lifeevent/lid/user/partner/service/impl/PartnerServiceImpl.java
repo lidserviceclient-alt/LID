@@ -57,6 +57,28 @@ public class PartnerServiceImpl implements PartnerService {
         
         return partnerMapper.toResponseDto(saved);
     }
+
+    @Override
+    public PartnerResponseDto upgradeCustomerToPartner(String userId, PartnerRegisterStep1RequestDto dto) {
+        log.info("UPGRADE - Transformation Customer -> Partner pour userId: {}", userId);
+
+        partnerRepository.deleteCustomerData(userId);
+        partnerRepository.insertInitialPartnerData(userId, dto.getPhoneNumber());
+        partnerRepository.updateUserTypeToPartner(userId);
+
+        Partner partner = partnerRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Partner non trouvé après upgrade", "userId", userId));
+
+        if (dto.getFirstName() != null) {
+            partner.setFirstName(dto.getFirstName());
+        }
+        if (dto.getLastName() != null) {
+            partner.setLastName(dto.getLastName());
+        }
+
+        Partner saved = partnerRepository.save(partner);
+        return partnerMapper.toResponseDto(saved);
+    }
     
     @Override
     public PartnerResponseDto registerStep2(PartnerRegisterStep2RequestDto dto) {

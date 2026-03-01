@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
@@ -66,4 +67,32 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         ORDER BY o.createdAt DESC
     """)
     Page<Order> searchBackOffice(@Param("status") Status status, @Param("q") String q, Pageable pageable);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.customer
+        LEFT JOIN FETCH o.statusHistory
+        WHERE o.id = :id
+    """)
+    Optional<Order> findWithCustomerAndStatusHistoryById(@Param("id") Long id);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.customer
+        LEFT JOIN FETCH o.statusHistory
+        WHERE o.trackingNumber = :trackingNumber
+    """)
+    Optional<Order> findWithCustomerAndStatusHistoryByTrackingNumber(@Param("trackingNumber") String trackingNumber);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.customer
+        LEFT JOIN FETCH o.articles a
+        LEFT JOIN FETCH a.article
+        WHERE o.id = :id
+    """)
+    Optional<Order> findWithCustomerAndArticlesById(@Param("id") Long id);
 }

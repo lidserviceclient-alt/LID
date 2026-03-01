@@ -1,0 +1,47 @@
+package com.lifeevent.lid.ticket.controller;
+
+import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.ticket.dto.TicketEventDto;
+import com.lifeevent.lid.ticket.entity.TicketEvent;
+import com.lifeevent.lid.ticket.repository.TicketEventRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/tickets")
+@RequiredArgsConstructor
+public class TicketEventController {
+
+    private final TicketEventRepository ticketEventRepository;
+
+    @GetMapping
+    public List<TicketEventDto> list() {
+        List<TicketEvent> entities = ticketEventRepository.findAll(Sort.by(Sort.Direction.DESC, "eventDate"));
+        return entities.stream().map(this::toDto).toList();
+    }
+
+    @GetMapping("/{id}")
+    public TicketEventDto get(@PathVariable Long id) {
+        TicketEvent entity = ticketEventRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("TicketEvent", "id", id.toString()));
+        return toDto(entity);
+    }
+
+    private TicketEventDto toDto(TicketEvent entity) {
+        return TicketEventDto.builder()
+                .id(entity.getId())
+                .title(entity.getTitle())
+                .description(entity.getDescription())
+                .location(entity.getLocation())
+                .eventDate(entity.getEventDate())
+                .price(entity.getPrice())
+                .available(entity.getAvailable())
+                .build();
+    }
+}
