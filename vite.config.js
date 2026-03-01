@@ -8,7 +8,7 @@ export default defineConfig({
     port: 5174,
     proxy: {
       "/api": {
-        target: "http://localhost:9000",
+        target: "https://jean-emmanuel-diap.com/lid",
         changeOrigin: true
       }
     }
