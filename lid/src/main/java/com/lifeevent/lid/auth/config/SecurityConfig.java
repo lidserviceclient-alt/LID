@@ -1,15 +1,13 @@
 package com.lifeevent.lid.auth.config;
 
 import com.lifeevent.lid.auth.config.converter.LidRoleConverter;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -26,13 +24,9 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenResolv
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import java.util.List;
 
 @Configuration
 @EnableMethodSecurity(prePostEnabled = true, securedEnabled = true)
@@ -43,14 +37,10 @@ public class SecurityConfig {
 
     @Bean
     @Order(1)
-    SecurityFilterChain authChain(HttpSecurity http, ObjectProvider<CorsConfigurationSource> corsProvider) throws Exception {
-        CorsConfigurationSource cors = corsProvider.getIfAvailable();
-        if (cors != null) {
-            http.cors(corsSpec -> corsSpec.configurationSource(cors));
-        }
-
+    SecurityFilterChain authChain(HttpSecurity http) throws Exception {
         return http
-                .securityMatcher("/api/v1/auth/**")
+                .cors(Customizer.withDefaults())
+                .securityMatcher("/api/v1/auth/**", "/api/auth/**")
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .csrf(AbstractHttpConfigurer::disable)
                 .build();
@@ -59,16 +49,11 @@ public class SecurityConfig {
     @Bean
     @Order(2)
     SecurityFilterChain apiChain(HttpSecurity http,
-                                 JwtDecoder lidApplicationDecoder,
-                                 ObjectProvider<CorsConfigurationSource> corsProvider) throws Exception {
-        CorsConfigurationSource cors = corsProvider.getIfAvailable();
-        if (cors != null) {
-            http.cors(corsSpec -> corsSpec.configurationSource(cors));
-        }
-
+                                 JwtDecoder lidApplicationDecoder) throws Exception {
         boolean isLocal = isLocalProfile();
 
         return http
+                .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers(
                             "/swagger-ui/**",
@@ -87,12 +72,22 @@ public class SecurityConfig {
                             "/api/v1/partners/register/**",
                             "/api/v1/catalog/**",
                             "/api/v1/articles/search/**",
-                            "/api/v1/newsletter/**"
+                            "/api/v1/newsletter/**",
+                            // alias pour la migration
+                            "/api/webhooks/**",
+                            "/api/payments/verify/**",
+                            "/api/public/**",
+                            "/api/blog/**",
+                            "/api/tickets/**",
+                            "/api/partners/register/**",
+                            "/api/catalog/**",
+                            "/api/articles/search/**",
+                            "/api/newsletter/**"
                     ).permitAll();
 
                     if (isLocal) {
-                        auth.requestMatchers("/api/v1/checkout/**").permitAll();
-                        auth.requestMatchers(HttpMethod.GET, "/api/v1/articles/**").permitAll();
+                        auth.requestMatchers("/api/v1/checkout/**", "/api/checkout/**").permitAll();
+                        auth.requestMatchers(HttpMethod.GET, "/api/v1/articles/**", "/api/articles/**").permitAll();
                     }
 
                     auth.requestMatchers("/api/backoffice/logistics/**", "/api/v1/backoffice/logistics/**")
@@ -161,27 +156,6 @@ public class SecurityConfig {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(new LidRoleConverter());
         return converter;
-    }
-
-    @Bean
-    @Profile({"local", "LOCAL", "local-h2"})
-    @Primary
-    CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration cors = new CorsConfiguration();
-        cors.setAllowedOriginPatterns(List.of(
-                "http://localhost:*",
-                "http://127.0.0.1:*",
-                "http://*:*",
-                "https://*:*"
-        ));
-        cors.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        cors.setAllowedHeaders(List.of("*"));
-        cors.setAllowCredentials(true);
-        cors.setMaxAge(3600L);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", cors);
-        return source;
     }
 
     private boolean isLocalProfile() {

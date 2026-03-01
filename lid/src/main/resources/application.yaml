@@ -5,7 +5,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: create # à changer en prod
+      ddl-auto: update # à changer en prod
     defer-datasource-initialization: true
     properties:
       javax:
@@ -55,13 +55,17 @@ spring:
           starttls:
             enable: ${SMTP_STARTTLS_ENABLE:true}
             required: ${SMTP_STARTTLS_REQUIRED:false}
-
-
 server:
   port: 9000
 
 
 config:
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
+    allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
+    allowed-headers: ${CORS_ALLOWED_HEADERS:*}
+    allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
+    max-age: ${CORS_MAX_AGE:3600}
   mail:
     from: ${SMTP_FROM}
   backoffice:
