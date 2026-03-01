@@ -28,20 +28,38 @@ const ShippingLabel = forwardRef(({ order, customer, company }, ref) => {
   const customerName = customer?.name || order.customerName || "CLIENT";
   const customerPhone = customer?.phone || order.phone || "+225 05 00 00 00 00";
   const trackingNumber = order.trackingId || `LD${orderId.replace(/[^0-9]/g, "").slice(0, 10)}CI`;
-  const weight = order.weight || "none"; 
+  const weight = order.weight || "1.2 kg"; 
   const service = order.carrier || "Standard";
 
-  // QR Code Value (Simplified for better scannability)
-  // Format: SHIP:ORDER_ID:TRACKING
-  const qrValue = `SHIP:${orderId}:${trackingNumber}`;
+  // Function to increment tracking number for display
+  const getIncrementedTracking = (tn) => {
+    // Extract numeric part
+    const match = tn.match(/(\d+)/);
+    if (match) {
+      const numStr = match[0];
+      const num = parseInt(numStr, 10);
+      const nextNum = num + 1;
+      // Replace only the last occurrence of the number to be safe
+      const lastIndex = tn.lastIndexOf(numStr);
+      if (lastIndex !== -1) {
+         return tn.substring(0, lastIndex) + nextNum + tn.substring(lastIndex + numStr.length);
+      }
+    }
+    return tn + "1"; // Fallback
+  };
 
-return (
-  <div ref={ref} className="bg-white p-0 m-0 w-[684px] h-[576px] font-sans text-black relative print:w-full print:h-full overflow-hidden">
-    {/* BORDER CONTAINER */}
-    <div className="border-2 border-black h-full flex flex-col relative">
-      
-      {/* TOP SECTION: DESTINATAIRE (70%) + EXPEDITEUR (30%) */}
-      <div className="flex border-b border-black h-[180px]">
+  const incrementedTracking = getIncrementedTracking(trackingNumber);
+
+// QR Code Value: Use the one from props/order if available, otherwise generate
+  const qrValue = order.qrValue || order.qr || `SHIP:${orderId}:${trackingNumber}`;
+
+  return (
+    <div ref={ref} className="bg-white p-0 m-0 w-[384px] h-[576px] font-sans text-black relative print:w-full print:h-full overflow-hidden">
+      {/* BORDER CONTAINER */}
+      <div className="border-2 border-black h-full flex flex-col relative">
+        
+        {/* TOP SECTION: DESTINATAIRE (70%) + EXPEDITEUR (30%) */}
+        <div className="flex border-b border-black h-[180px]">
         {/* DESTINATAIRE */}
         <div className="flex-1 p-4 flex flex-col justify-center">
           <p className="text-sm font-semibold mb-1">{customerName}</p>
@@ -85,17 +103,17 @@ return (
       </div>
 
       {/* MIDDLE SECTION: INFO COLIS + QR */}
-      <div className="flex border-b border-black h[140px]">
+      <div className="flex border-b border-black h-[150px]">
         {/* INFO GAUCHE */}
         <div className="flex-1 flex flex-col text-[9px] p-2 relative">
            <div className="mb-1">
              <span className="font-bold">Num colis : </span>
              <span className="font-bold font-mono text-sm tracking-wide">{trackingNumber}</span>
            </div>
-           <p className="mb-0.5"><span className="text-gray-600">Site dépôt :</span> {companyAddress}</p>
-           <p className="mb-0.5"><span className="text-gray-600">Téléphone :</span> {companyPhone}</p>
+           <p className="mb-0.5"><span className="text-gray-600">Site dépôt :</span> {shippingAddress}</p>
+           <p className="mb-0.5"><span className="text-gray-600">Téléphone :</span> {customerPhone}</p>
            <p className="mb-0.5"><span className="text-gray-600">Code porte :</span> / <span className="text-gray-600">Interphone :</span></p>
-           <p className="mb-0.5"><span className="text-gray-600">Instructions :</span></p>
+           <p className="mb-0.5"><span className="text-gray-600">Instructions :</span> Colis remis en main propre.</p>
            <p className="mt-auto font-bold">Réf client : <span className="font-normal">{orderId}</span></p>
         </div>
 
@@ -112,7 +130,7 @@ return (
            </div>
            <div className="flex-1 flex items-center justify-center p-1">
               <div className="bg-white p-1">
-                <QRCode value={qrValue} size={85} level="L" />
+                <QRCode value={qrValue} size={100} level="L" />
               </div>
            </div>
         </div>
@@ -143,20 +161,20 @@ return (
 
         {/* HUGE ROUTING TEXT */}
         <div className="text-center mb-1">
-           <p className="text-3xl font-bold tracking-tight font-sans">FR-COL-1156-54SNA</p>
+           <p className="text-xl font-bold tracking-tight font-sans">{qrValue}</p>
         </div>
 
         {/* SORT CODE */}
         <div className="text-center mb-2">
-           <p className="text-sm font-bold text-gray-700">801-FR-54200</p>
-           <p className="text-[8px] text-gray-400 font-mono mt-0.5">{new Date().toLocaleString('fr-FR')} LID_DELIVERY v2.0</p>
+           <p className="text-sm font-bold text-gray-700">801-CI-54200</p>
+           <p className="text-[8px] text-gray-400 font-mono mt-0.5">{new Date().toLocaleString('fr-FR')} LID_DELIVERY v2.3</p>
         </div>
 
         {/* BARCODE */}
         <div className="flex items-center justify-center w-full overflow-hidden">
              <Barcode 
                value={trackingNumber.replace(/[^0-9A-Z]/g, "") || "123456789"}
-               width={2}
+               width={3}
                height={65}
                displayValue={false}
                background="transparent"
@@ -166,7 +184,7 @@ return (
         
         <div className="text-center mt-0.5 border-t border-gray-300 pt-0.5">
            <p className="text-[9px] uppercase font-mono tracking-widest text-gray-600">
-             {trackingNumber}
+             {incrementedTracking}
            </p>
         </div>
 

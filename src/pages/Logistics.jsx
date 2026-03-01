@@ -131,7 +131,8 @@ export default function Logistics() {
         shippingAddress: details.customerAddress,
         phone: details.customerPhone,
         carrier: details.carrier,
-        weight: "1.2 kg" // Default or calculate if item weights available
+        weight: "1.2 kg", 
+        qrValue: `SHIP:${details.id}`
       });
     } catch (e) {
       console.error("Failed to fetch shipment details for print", e);
