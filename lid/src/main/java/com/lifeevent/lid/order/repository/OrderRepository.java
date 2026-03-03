@@ -10,11 +10,20 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
+
+    interface CustomerOrderMetricsView {
+        String getCustomerId();
+        Long getOrders();
+        Double getSpent();
+        LocalDateTime getLastOrder();
+    }
     
     /**
      * Commandes d'un client avec pagination
@@ -95,4 +104,15 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         WHERE o.id = :id
     """)
     Optional<Order> findWithCustomerAndArticlesById(@Param("id") Long id);
+
+    @Query("""
+        SELECT o.customer.userId AS customerId,
+               COUNT(o) AS orders,
+               COALESCE(SUM(o.amount), 0) AS spent,
+               MAX(o.createdAt) AS lastOrder
+        FROM Order o
+        WHERE o.customer.userId IN :customerIds
+        GROUP BY o.customer.userId
+    """)
+    List<CustomerOrderMetricsView> aggregateMetricsByCustomerIds(@Param("customerIds") Collection<String> customerIds);
 }

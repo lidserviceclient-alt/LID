@@ -17,7 +17,18 @@ import java.util.List;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(uniqueConstraints = @UniqueConstraint(columnNames = "sku"))
+@Table(
+        name = "article",
+        uniqueConstraints = @UniqueConstraint(columnNames = "sku"),
+        indexes = {
+                @Index(name = "idx_article_status_updated_at", columnList = "status, updated_at"),
+                @Index(name = "idx_article_status_created_at", columnList = "status, created_at"),
+                @Index(name = "idx_article_featured_status_updated_at", columnList = "is_featured, status, updated_at"),
+                @Index(name = "idx_article_bestseller_status_updated_at", columnList = "is_best_seller, status, updated_at"),
+                @Index(name = "idx_article_flashsale_status_ends_at", columnList = "is_flash_sale, status, flash_sale_ends_at"),
+                @Index(name = "idx_article_reference_partner", columnList = "reference_partner")
+        }
+)
 public class Article extends BaseEntity {
 
     @Id
@@ -84,6 +95,15 @@ public class Article extends BaseEntity {
     private Boolean isBestSeller = false;
 
     @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "article_categories",
+            joinColumns = @JoinColumn(name = "article_id"),
+            inverseJoinColumns = @JoinColumn(name = "categories_id"),
+            indexes = {
+                    @Index(name = "idx_article_categories_article", columnList = "article_id"),
+                    @Index(name = "idx_article_categories_category", columnList = "categories_id")
+            }
+    )
     private List<Category> categories;
 
 }

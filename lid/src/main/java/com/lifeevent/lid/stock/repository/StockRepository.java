@@ -12,11 +12,17 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.time.LocalDate;
 import java.util.List;
 
 @Repository
 public interface StockRepository extends JpaRepository<Stock, Long> {
+
+    interface ArticleStockTotalView {
+        Long getArticleId();
+        Integer getStock();
+    }
     
     /**
      * Trouver les stocks d'un article
@@ -93,4 +99,12 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
      * Trouver les stocks expirés (date de péremption avant la date donnée)
      */
     List<Stock> findByBestBeforeBefore(LocalDate date);
+
+    @Query("""
+        SELECT s.article.id AS articleId, COALESCE(SUM(s.quantityAvailable), 0) AS stock
+        FROM Stock s
+        WHERE s.article.id IN :articleIds
+        GROUP BY s.article.id
+    """)
+    List<ArticleStockTotalView> sumAvailableByArticleIds(@Param("articleIds") Collection<Long> articleIds);
 }

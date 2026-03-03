@@ -65,6 +65,20 @@ public interface ICatalogController {
             @RequestParam(value = "sortKey", required = false) String sortKey
     );
 
+    @GetMapping("/collection")
+    @Operation(summary = "Collection catalogue (bootstrap en un appel)")
+    CatalogCollectionDto getCollection(
+            @RequestParam(value = "featuredLimit", required = false) Integer featuredLimit,
+            @RequestParam(value = "bestSellerLimit", required = false) Integer bestSellerLimit,
+            @RequestParam(value = "latestLimit", required = false) Integer latestLimit,
+            @RequestParam(value = "featuredCategoryLimit", required = false) Integer featuredCategoryLimit,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "24") int size,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "sortKey", required = false) String sortKey
+    );
+
     @GetMapping("/products/featured")
     @Operation(summary = "Produits featured")
     List<CatalogProductDto> listFeaturedProducts(@RequestParam(value = "limit", required = false) Integer limit);

@@ -18,7 +18,14 @@ import java.time.LocalDateTime;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "orders")
+@Table(
+        name = "orders",
+        indexes = {
+                @Index(name = "idx_orders_customer_created_at", columnList = "customer_user_id, created_at"),
+                @Index(name = "idx_orders_status_created_at", columnList = "current_status, created_at"),
+                @Index(name = "idx_orders_tracking_number", columnList = "tracking_number")
+        }
+)
 public class Order extends BaseEntity {
 
     @Id

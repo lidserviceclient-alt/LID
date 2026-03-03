@@ -81,6 +81,32 @@ public class CatalogController implements ICatalogController {
         return catalogService.listProducts(page, size, q, category, sortKey);
     }
 
+    @GetMapping("/collection")
+    @Override
+    public CatalogCollectionDto getCollection(
+            @RequestParam(value = "featuredLimit", required = false) Integer featuredLimit,
+            @RequestParam(value = "bestSellerLimit", required = false) Integer bestSellerLimit,
+            @RequestParam(value = "latestLimit", required = false) Integer latestLimit,
+            @RequestParam(value = "featuredCategoryLimit", required = false) Integer featuredCategoryLimit,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "24") int size,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "sortKey", required = false) String sortKey
+    ) {
+        return catalogService.getCollection(
+                featuredLimit,
+                bestSellerLimit,
+                latestLimit,
+                featuredCategoryLimit,
+                page,
+                size,
+                q,
+                category,
+                sortKey
+        );
+    }
+
     @GetMapping("/products/featured")
     @Override
     public List<CatalogProductDto> listFeaturedProducts(

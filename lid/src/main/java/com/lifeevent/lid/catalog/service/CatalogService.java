@@ -2,6 +2,7 @@ package com.lifeevent.lid.catalog.service;
 
 import com.lifeevent.lid.catalog.dto.ArticleCatalogDto;
 import com.lifeevent.lid.catalog.dto.CatalogCategoryDto;
+import com.lifeevent.lid.catalog.dto.CatalogCollectionDto;
 import com.lifeevent.lid.catalog.dto.CatalogProductDetailsDto;
 import com.lifeevent.lid.catalog.dto.CatalogProductDto;
 import com.lifeevent.lid.catalog.dto.CreateProductReviewRequest;
@@ -77,4 +78,16 @@ public interface CatalogService {
     long toggleLike(Long reviewId);
 
     void reportReview(Long reviewId, ReportProductReviewRequest request);
+
+    CatalogCollectionDto getCollection(
+            Integer featuredLimit,
+            Integer bestSellerLimit,
+            Integer latestLimit,
+            Integer featuredCategoryLimit,
+            int page,
+            int size,
+            String q,
+            String category,
+            String sortKey
+    );
 }

@@ -13,6 +13,13 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(
+        name = "order_article",
+        indexes = {
+                @Index(name = "idx_order_article_order", columnList = "order_id"),
+                @Index(name = "idx_order_article_article", columnList = "article_id")
+        }
+)
 public class OrderArticle extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

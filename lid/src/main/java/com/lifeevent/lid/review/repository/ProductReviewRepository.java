@@ -3,13 +3,22 @@ package com.lifeevent.lid.review.repository;
 import com.lifeevent.lid.review.entity.ProductReview;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface ProductReviewRepository extends JpaRepository<ProductReview, Long> {
+
+    interface ArticleReviewStatsView {
+        Long getArticleId();
+        Double getAvgRating();
+        Long getReviews();
+    }
 
     @Query("""
         SELECT r
@@ -46,6 +55,7 @@ public interface ProductReviewRepository extends JpaRepository<ProductReview, Lo
           AND r.deletedAt IS NULL
         ORDER BY r.createdAt DESC
     """)
+    @EntityGraph(attributePaths = {"article", "customer"})
     Page<ProductReview> findPublicByArticleId(
             @Param("articleId") Long articleId,
             Pageable pageable
@@ -79,4 +89,16 @@ public interface ProductReviewRepository extends JpaRepository<ProductReview, Lo
           AND r.deletedAt IS NULL
     """)
     long countPublicByArticleId(@Param("articleId") Long articleId);
+
+    @Query("""
+        SELECT r.article.id AS articleId,
+               COALESCE(AVG(r.rating), 0) AS avgRating,
+               COUNT(r) AS reviews
+        FROM ProductReview r
+        WHERE r.article.id IN :articleIds
+          AND r.validated = true
+          AND r.deletedAt IS NULL
+        GROUP BY r.article.id
+    """)
+    List<ArticleReviewStatsView> summarizePublicByArticleIds(@Param("articleIds") Collection<Long> articleIds);
 }

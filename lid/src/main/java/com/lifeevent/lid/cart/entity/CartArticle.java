@@ -13,7 +13,13 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "cart_article")
+@Table(
+        name = "cart_article",
+        indexes = {
+                @Index(name = "idx_cart_article_cart", columnList = "cart_id"),
+                @Index(name = "idx_cart_article_article", columnList = "article_id")
+        }
+)
 public class CartArticle extends BaseEntity {
 
     @Id

@@ -15,6 +15,12 @@ import java.time.LocalDateTime;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(
+        name = "status_history",
+        indexes = {
+                @Index(name = "idx_status_history_order_changed_at", columnList = "order_id, changed_at")
+        }
+)
 public class StatusHistory extends BaseEntity {
     
     @Id

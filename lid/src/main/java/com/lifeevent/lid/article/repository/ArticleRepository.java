@@ -4,6 +4,7 @@ import com.lifeevent.lid.article.entity.Article;
 import com.lifeevent.lid.article.enumeration.ArticleStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -45,24 +46,38 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     /**
      * Articles featured (lid choice)
      */
+    @EntityGraph(attributePaths = {"categories"})
     @Query("SELECT a FROM Article a WHERE a.isFeatured = true AND a.status = 'ACTIVE' ORDER BY a.updatedAt DESC")
     List<Article> findFeaturedArticles();
+
+    @EntityGraph(attributePaths = {"categories"})
+    Page<Article> findByIsFeaturedTrueAndStatusOrderByUpdatedAtDesc(ArticleStatus status, Pageable pageable);
 
     /**
      * Meilleures ventes
      */
+    @EntityGraph(attributePaths = {"categories"})
     @Query("SELECT a FROM Article a WHERE a.isBestSeller = true AND a.status = 'ACTIVE' ORDER BY a.updatedAt DESC")
     List<Article> findBestSellers();
+
+    @EntityGraph(attributePaths = {"categories"})
+    Page<Article> findByIsBestSellerTrueAndStatusOrderByUpdatedAtDesc(ArticleStatus status, Pageable pageable);
 
     /**
      * Ventes flash
      */
+    @EntityGraph(attributePaths = {"categories"})
     @Query("SELECT a FROM Article a WHERE a.isFlashSale = true AND a.flashSaleEndsAt > :now AND a.status = 'ACTIVE' ORDER BY a.flashSaleEndsAt ASC")
     List<Article> findFlashSales(@Param("now") LocalDateTime now);
+
+    @EntityGraph(attributePaths = {"categories"})
+    @Query("SELECT a FROM Article a WHERE a.isFlashSale = true AND a.flashSaleEndsAt > :now AND a.status = :status ORDER BY a.flashSaleEndsAt ASC")
+    Page<Article> findFlashSales(@Param("now") LocalDateTime now, @Param("status") ArticleStatus status, Pageable pageable);
 
     /**
      * Nouveautés (récemment créés)
      */
+    @EntityGraph(attributePaths = {"categories"})
     @Query("SELECT a FROM Article a WHERE a.status = 'ACTIVE' ORDER BY a.createdAt DESC")
     Page<Article> findNewArticles(Pageable pageable);
 
@@ -128,6 +143,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
                OR LOWER(COALESCE(c.name, '')) IN :categoryTokens
                OR LOWER(COALESCE(c.slug, '')) IN :categoryTokens)
     """)
+    @EntityGraph(attributePaths = {"categories"})
     Page<Article> searchCatalog(
             @Param("status") ArticleStatus status,
             @Param("query") String query,

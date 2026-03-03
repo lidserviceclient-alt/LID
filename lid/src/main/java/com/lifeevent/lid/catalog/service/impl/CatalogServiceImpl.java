@@ -58,36 +58,24 @@ public class CatalogServiceImpl implements CatalogService {
     @Transactional(readOnly = true)
     public Page<ArticleCatalogDto> getFeaturedArticles(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        List<ArticleCatalogDto> list = articleRepository.findFeaturedArticles().stream()
-                .skip((long) page * size)
-                .limit(size)
-                .map(catalogMapper::toArticleCatalogDto)
-                .toList();
-        return new PageImpl<>(list, pageable, list.size());
+        return articleRepository.findByIsFeaturedTrueAndStatusOrderByUpdatedAtDesc(ArticleStatus.ACTIVE, pageable)
+                .map(catalogMapper::toArticleCatalogDto);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ArticleCatalogDto> getBestSellers(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        List<ArticleCatalogDto> list = articleRepository.findBestSellers().stream()
-                .skip((long) page * size)
-                .limit(size)
-                .map(catalogMapper::toArticleCatalogDto)
-                .toList();
-        return new PageImpl<>(list, pageable, list.size());
+        return articleRepository.findByIsBestSellerTrueAndStatusOrderByUpdatedAtDesc(ArticleStatus.ACTIVE, pageable)
+                .map(catalogMapper::toArticleCatalogDto);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ArticleCatalogDto> getFlashSales(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        List<ArticleCatalogDto> list = articleRepository.findFlashSales(LocalDateTime.now()).stream()
-                .skip((long) page * size)
-                .limit(size)
-                .map(catalogMapper::toArticleCatalogDto)
-                .toList();
-        return new PageImpl<>(list, pageable, list.size());
+        return articleRepository.findFlashSales(LocalDateTime.now(), ArticleStatus.ACTIVE, pageable)
+                .map(catalogMapper::toArticleCatalogDto);
     }
 
     @Override
@@ -111,44 +99,42 @@ public class CatalogServiceImpl implements CatalogService {
     public Page<CatalogProductDto> listProducts(int page, int size, String q, String category, String sortKey) {
         Pageable pageable = PageRequest.of(safePage(page), safeSize(size), resolveSort(sortKey));
         SearchPayload payload = buildSearchPayload(q, category);
-        return articleRepository.searchCatalog(
+        Page<Article> articles = articleRepository.searchCatalog(
                 ArticleStatus.ACTIVE,
                 payload.query(),
                 payload.categoryTokens(),
                 payload.tokensEmpty(),
                 pageable
-        ).map(this::toCatalogProductDto);
+        );
+        return toCatalogProductPage(articles);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<CatalogProductDto> listFeaturedProducts(Integer limit) {
         int safeLimit = safeLimit(limit, 12);
-        return articleRepository.findFeaturedArticles().stream()
-                .limit(safeLimit)
-                .map(this::toCatalogProductDto)
-                .toList();
+        List<Article> articles = articleRepository
+                .findByIsFeaturedTrueAndStatusOrderByUpdatedAtDesc(ArticleStatus.ACTIVE, PageRequest.of(0, safeLimit))
+                .getContent();
+        return toCatalogProductList(articles);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<CatalogProductDto> listBestSellerProducts(Integer limit) {
         int safeLimit = safeLimit(limit, 12);
-        return articleRepository.findBestSellers().stream()
-                .limit(safeLimit)
-                .map(this::toCatalogProductDto)
-                .toList();
+        List<Article> articles = articleRepository
+                .findByIsBestSellerTrueAndStatusOrderByUpdatedAtDesc(ArticleStatus.ACTIVE, PageRequest.of(0, safeLimit))
+                .getContent();
+        return toCatalogProductList(articles);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<CatalogProductDto> listLatestProducts(Integer limit) {
         int safeLimit = safeLimit(limit, 20);
-        return articleRepository.findNewArticles(PageRequest.of(0, safeLimit))
-                .getContent()
-                .stream()
-                .map(this::toCatalogProductDto)
-                .toList();
+        List<Article> articles = articleRepository.findNewArticles(PageRequest.of(0, safeLimit)).getContent();
+        return toCatalogProductList(articles);
     }
 
     @Override
@@ -300,12 +286,44 @@ public class CatalogServiceImpl implements CatalogService {
         productReviewRepository.save(review);
     }
 
-    private CatalogProductDto toCatalogProductDto(Article article) {
-        return catalogMapper.toCatalogProductDto(
-                article,
-                computeStock(article.getId()),
-                normalizeDouble(productReviewRepository.avgPublicRatingByArticleId(article.getId())),
-                productReviewRepository.countPublicByArticleId(article.getId())
+    @Override
+    @Transactional(readOnly = true)
+    public CatalogCollectionDto getCollection(
+            Integer featuredLimit,
+            Integer bestSellerLimit,
+            Integer latestLimit,
+            Integer featuredCategoryLimit,
+            int page,
+            int size,
+            String q,
+            String category,
+            String sortKey
+    ) {
+        List<CatalogCategoryDto> categories = listCategories();
+        List<CatalogCategoryDto> featuredCategories = listFeaturedCategories(featuredCategoryLimit);
+        List<CatalogProductDto> featuredProducts = listFeaturedProducts(featuredLimit);
+        List<CatalogProductDto> bestSellerProducts = listBestSellerProducts(bestSellerLimit);
+        List<CatalogProductDto> latestProducts = listLatestProducts(latestLimit);
+        Page<CatalogProductDto> productsPage = listProducts(page, size, q, category, sortKey);
+
+        CatalogProductsPageDto products = new CatalogProductsPageDto(
+                productsPage.getContent(),
+                productsPage.getNumber(),
+                productsPage.getSize(),
+                productsPage.getTotalElements(),
+                productsPage.getTotalPages()
+        );
+
+        CatalogProductDto heroProduct = featuredProducts.isEmpty() ? null : featuredProducts.get(0);
+
+        return new CatalogCollectionDto(
+                categories,
+                featuredCategories,
+                heroProduct,
+                featuredProducts,
+                bestSellerProducts,
+                latestProducts,
+                products
         );
     }
 
@@ -316,6 +334,10 @@ public class CatalogServiceImpl implements CatalogService {
             throw new ResourceNotFoundException("Article", "id", String.valueOf(id));
         }
         return article;
+    }
+
+    private CatalogProductDto toCatalogProductDto(Article article) {
+        return toCatalogProductList(List.of(article)).get(0);
     }
 
     private int computeStock(Long articleId) {
@@ -443,4 +465,46 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     private record SearchPayload(String query, List<String> categoryTokens, boolean tokensEmpty) {}
+
+    private record ReviewStats(double avgRating, long reviews) {
+        private static final ReviewStats EMPTY = new ReviewStats(0d, 0L);
+    }
+
+    private Page<CatalogProductDto> toCatalogProductPage(Page<Article> articlePage) {
+        List<CatalogProductDto> content = toCatalogProductList(articlePage.getContent());
+        return new PageImpl<>(content, articlePage.getPageable(), articlePage.getTotalElements());
+    }
+
+    private List<CatalogProductDto> toCatalogProductList(List<Article> articles) {
+        if (articles == null || articles.isEmpty()) {
+            return List.of();
+        }
+        List<Long> articleIds = articles.stream().map(Article::getId).toList();
+
+        Map<Long, Integer> stockByArticleId = stockRepository.sumAvailableByArticleIds(articleIds).stream()
+                .collect(Collectors.toMap(
+                        StockRepository.ArticleStockTotalView::getArticleId,
+                        row -> row.getStock() == null ? 0 : row.getStock()
+                ));
+        Map<Long, ReviewStats> reviewStatsByArticleId = productReviewRepository
+                .summarizePublicByArticleIds(articleIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        ProductReviewRepository.ArticleReviewStatsView::getArticleId,
+                        row -> new ReviewStats(normalizeDouble(row.getAvgRating()), row.getReviews() == null ? 0L : row.getReviews()),
+                        (left, right) -> left
+                ));
+
+        return articles.stream()
+                .map(article -> {
+                    ReviewStats stats = reviewStatsByArticleId.getOrDefault(article.getId(), ReviewStats.EMPTY);
+                    return catalogMapper.toCatalogProductDto(
+                            article,
+                            stockByArticleId.getOrDefault(article.getId(), 0),
+                            stats.avgRating(),
+                            stats.reviews()
+                    );
+                })
+                .toList();
+    }
 }

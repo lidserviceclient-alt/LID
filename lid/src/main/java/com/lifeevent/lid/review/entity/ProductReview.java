@@ -17,7 +17,13 @@ import java.time.LocalDateTime;
 @SuperBuilder
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
-@Table(name = "product_review")
+@Table(
+        name = "product_review",
+        indexes = {
+                @Index(name = "idx_product_review_article_public_created", columnList = "article_id, validated, deleted_at, created_at"),
+                @Index(name = "idx_product_review_customer_article", columnList = "customer_id, article_id")
+        }
+)
 public class ProductReview extends BaseEntity {
 
     @Id

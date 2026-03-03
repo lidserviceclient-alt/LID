@@ -15,7 +15,12 @@ import java.time.LocalDate;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "stock")
+@Table(
+        name = "stock",
+        indexes = {
+                @Index(name = "idx_stock_article_id_id", columnList = "article_id, id")
+        }
+)
 public class Stock extends BaseEntity {
 
     @Id
