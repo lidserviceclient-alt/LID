@@ -1,10 +1,12 @@
 package com.lifeevent.lid.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.core.Authentication;
@@ -111,6 +113,15 @@ public class GlobalExceptionHandler {
     ResponseEntity<Void> handleNotAcceptable(HttpMediaTypeNotAcceptableException ex, WebRequest request) {
         log.warn("Not acceptable media type on {}: {}", request.getDescription(false), ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).build();
+    }
+
+    @ExceptionHandler({
+            DataAccessException.class,
+            JpaSystemException.class
+    })
+    ResponseEntity<ErrorResponseDto> handleDatabaseExceptions(Exception ex, WebRequest request) {
+        log.error("Database exception on {}", request.getDescription(false), ex);
+        return buildErrorDto("Database query failed.", request, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(UnsupportedOperationException.class)

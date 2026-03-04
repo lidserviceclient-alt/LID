@@ -25,9 +25,9 @@ public interface ProductReviewRepository extends JpaRepository<ProductReview, Lo
         FROM ProductReview r
         JOIN r.article a
         JOIN r.customer c
-        WHERE (:q IS NULL OR :q = '' OR LOWER(r.content) LIKE LOWER(CONCAT('%', :q, '%'))
-            OR LOWER(a.name) LIKE LOWER(CONCAT('%', :q, '%'))
-            OR LOWER(c.email) LIKE LOWER(CONCAT('%', :q, '%')))
+        WHERE (:q IS NULL OR :q = '' OR LOWER(CAST(r.content AS string)) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(CAST(a.name AS string)) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(CAST(c.email AS string)) LIKE LOWER(CONCAT('%', :q, '%')))
           AND (:productId IS NULL OR CAST(a.id as string) = :productId)
           AND (:userId IS NULL OR c.userId = :userId)
           AND (:validated IS NULL OR r.validated = :validated)

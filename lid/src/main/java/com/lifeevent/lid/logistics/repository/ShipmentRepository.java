@@ -19,11 +19,11 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
         SELECT s
         FROM Shipment s
         WHERE (:status IS NULL OR :status = '' OR s.status = :status)
-          AND (:carrier IS NULL OR :carrier = '' OR LOWER(s.carrier) LIKE LOWER(CONCAT('%', :carrier, '%')))
+          AND (:carrier IS NULL OR :carrier = '' OR LOWER(CAST(s.carrier AS string)) LIKE LOWER(CONCAT('%', :carrier, '%')))
           AND (
             :q IS NULL OR :q = '' OR
-            LOWER(s.trackingId) LIKE LOWER(CONCAT('%', :q, '%')) OR
-            LOWER(s.orderId) LIKE LOWER(CONCAT('%', :q, '%'))
+            LOWER(CAST(s.trackingId AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+            LOWER(CAST(s.orderId AS string)) LIKE LOWER(CONCAT('%', :q, '%'))
           )
         ORDER BY s.createdAt DESC
     """)

@@ -91,7 +91,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      * Recherche combinée : nom + catégorie
      */
     @Query("SELECT DISTINCT a FROM Article a JOIN a.categories c " +
-           "WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :name, '%')) " +
+           "WHERE LOWER(CAST(a.name AS string)) LIKE LOWER(CONCAT('%', :name, '%')) " +
            "AND c.id = :categoryId AND a.status = :status")
     Page<Article> findByNameAndCategoryAndStatus(@Param("name") String name, @Param("categoryId") Integer categoryId, @Param("status") ArticleStatus status, Pageable pageable);
     
@@ -99,7 +99,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      * Recherche combinée : nom + plage de prix
      */
     @Query("SELECT a FROM Article a " +
-           "WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :name, '%')) " +
+           "WHERE LOWER(CAST(a.name AS string)) LIKE LOWER(CONCAT('%', :name, '%')) " +
            "AND a.price BETWEEN :minPrice AND :maxPrice " +
            "AND a.status = :status " +
            "ORDER BY a.price ASC")
@@ -117,7 +117,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
         FROM Article a
         LEFT JOIN a.categories c
         WHERE a.status = :status
-          AND (:name IS NULL OR LOWER(a.name) LIKE LOWER(CONCAT('%', :name, '%')))
+          AND (:name IS NULL OR LOWER(CAST(a.name AS string)) LIKE LOWER(CONCAT('%', :name, '%')))
           AND (:categoryId IS NULL OR c.id = :categoryId)
           AND (:minPrice IS NULL OR a.price >= :minPrice)
           AND (:maxPrice IS NULL OR a.price <= :maxPrice)
@@ -137,11 +137,11 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
         FROM Article a
         LEFT JOIN a.categories c
         WHERE a.status = :status
-          AND (:query IS NULL OR LOWER(a.name) LIKE LOWER(CONCAT('%', :query, '%'))
-               OR LOWER(COALESCE(a.brand, '')) LIKE LOWER(CONCAT('%', :query, '%')))
+          AND (:query IS NULL OR LOWER(CAST(a.name AS string)) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(CAST(COALESCE(a.brand, '') AS string)) LIKE LOWER(CONCAT('%', :query, '%')))
           AND (:tokensEmpty = true
-               OR LOWER(COALESCE(c.name, '')) IN :categoryTokens
-               OR LOWER(COALESCE(c.slug, '')) IN :categoryTokens)
+               OR LOWER(CAST(COALESCE(c.name, '') AS string)) IN :categoryTokens
+               OR LOWER(CAST(COALESCE(c.slug, '') AS string)) IN :categoryTokens)
     """)
     @EntityGraph(attributePaths = {"categories"})
     Page<Article> searchCatalog(

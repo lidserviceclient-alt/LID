@@ -22,8 +22,8 @@ public interface ReturnRequestRepository extends JpaRepository<ReturnRequest, Lo
     @Query("""
             select r from ReturnRequest r
             where r.status = :status
-              and (lower(r.orderNumber) like lower(concat('%', :q, '%'))
-                   or lower(r.email) like lower(concat('%', :q, '%')))
+              and (lower(cast(r.orderNumber as string)) like lower(concat('%', :q, '%'))
+                   or lower(cast(r.email as string)) like lower(concat('%', :q, '%')))
             """)
     Page<ReturnRequest> searchByStatusAndQuery(
             @Param("status") ReturnRequestStatus status,

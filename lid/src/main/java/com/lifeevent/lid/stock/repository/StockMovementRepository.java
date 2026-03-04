@@ -16,7 +16,7 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
         SELECT sm
         FROM StockMovement sm
         JOIN sm.article a
-        WHERE (:sku IS NULL OR :sku = '' OR LOWER(a.sku) LIKE LOWER(CONCAT('%', :sku, '%')))
+        WHERE (:sku IS NULL OR :sku = '' OR LOWER(CAST(a.sku AS string)) LIKE LOWER(CONCAT('%', :sku, '%')))
           AND (:type IS NULL OR sm.type = :type)
         ORDER BY sm.createdAt DESC
     """)

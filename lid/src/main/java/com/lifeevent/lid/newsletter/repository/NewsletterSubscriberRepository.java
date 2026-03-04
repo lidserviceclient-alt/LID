@@ -21,7 +21,7 @@ public interface NewsletterSubscriberRepository extends JpaRepository<Newsletter
         SELECT n
         FROM NewsletterSubscriber n
         WHERE (:status IS NULL OR n.status = :status)
-          AND (:q IS NULL OR :q = '' OR LOWER(n.email) LIKE LOWER(CONCAT('%', :q, '%')))
+          AND (:q IS NULL OR :q = '' OR LOWER(CAST(n.email AS string)) LIKE LOWER(CONCAT('%', :q, '%')))
         ORDER BY n.createdAt DESC
     """)
     Page<NewsletterSubscriber> search(
