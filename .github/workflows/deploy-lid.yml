@@ -129,6 +129,7 @@ jobs:
           script: |
             set -euo pipefail
             cd ~/apps/lid
+            chmod +x ./scripts/*.sh
 
             WIPE_VOLUMES="${{ inputs.wipe_volumes || 'false' }}"
             if [ "${WIPE_VOLUMES}" = "true" ]; then
