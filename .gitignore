@@ -195,6 +195,7 @@ fabric.properties
 
 # Package Files #
 *.jar
+!lid/lib/paydunya_java_latest.jar
 *.war
 *.nar
 *.ear

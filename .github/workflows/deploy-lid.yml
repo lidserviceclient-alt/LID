@@ -85,12 +85,18 @@ jobs:
           docker push "${{ steps.release.outputs.lid_image }}"
 
       - name: Build deployment .env from GitHub secret
+        env:
+          LID_BUSINESS_ENV_FILE: ${{ secrets.LID_BUSINESS_ENV_FILE }}
         run: |
           set -euo pipefail
-          printf '%s\n' "${{ secrets.LID_BUSINESS_ENV_FILE }}" > deployment/.env
+          if [ -z "${LID_BUSINESS_ENV_FILE:-}" ]; then
+            echo "Missing GitHub secret: LID_BUSINESS_ENV_FILE"
+            exit 1
+          fi
+          printf '%s\n' "${LID_BUSINESS_ENV_FILE}" > deployment/.env
 
       - name: Clean remote deployment directory
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.2.4
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -115,7 +121,7 @@ jobs:
           overwrite: true
 
       - name: Deploy with docker compose
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.2.4
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -133,5 +139,6 @@ jobs:
               docker compose down --remove-orphans
             fi
 
+            echo "Deploying image: ${{ steps.release.outputs.lid_image }}"
             LID_API_IMAGE="${{ steps.release.outputs.lid_image }}" docker compose up -d --pull always --force-recreate lid-api
             docker compose ps
