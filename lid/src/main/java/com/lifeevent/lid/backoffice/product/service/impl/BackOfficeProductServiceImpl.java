@@ -246,7 +246,7 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
         if (categoryId == null) return;
         Optional<Category> categoryOpt = categoryRepository.findById(categoryId);
         if (categoryOpt.isEmpty()) return;
-        entity.setCategories(List.of(categoryOpt.get()));
+        entity.setCategories(new ArrayList<>(List.of(categoryOpt.get())));
     }
 
     private Integer parseCategoryId(BackOfficeProductDto dto) {

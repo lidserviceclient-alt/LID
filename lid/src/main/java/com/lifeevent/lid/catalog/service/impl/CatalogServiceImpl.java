@@ -374,11 +374,7 @@ public class CatalogServiceImpl implements CatalogService {
     private SearchPayload buildSearchPayload(String q, String category) {
         String query = normalize(q);
         List<String> categoryTokens = normalizeCategoryTokens(category);
-        boolean tokensEmpty = categoryTokens.isEmpty();
-        if (tokensEmpty) {
-            categoryTokens = List.of("");
-        }
-        return new SearchPayload(query, categoryTokens, tokensEmpty);
+        return new SearchPayload(query, categoryTokens, categoryTokens.isEmpty());
     }
 
     private List<String> normalizeCategoryTokens(String category) {

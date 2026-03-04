@@ -113,6 +113,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).build();
     }
 
+    @ExceptionHandler(UnsupportedOperationException.class)
+    ResponseEntity<ErrorResponseDto> handleUnsupportedOperation(UnsupportedOperationException ex, WebRequest request) {
+        if (isHibernateCollectionMutationError(ex)) {
+            log.error("Hibernate merge failed on immutable collection for {}", request.getDescription(false), ex);
+            return buildErrorDto("Database operation failed: immutable collection used in entity relationship.", request,
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        log.error("Unsupported operation on {}", request.getDescription(false), ex);
+        return buildErrorDto(ex, request, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
     @ExceptionHandler(Exception.class)
     ResponseEntity<ErrorResponseDto> handleException(Exception ex, WebRequest request) {
         log.error("Unhandled exception on {}", request.getDescription(false), ex);
@@ -121,5 +132,24 @@ public class GlobalExceptionHandler {
 
     private boolean isLocalProfile() {
         return activeProfile != null && (activeProfile.contains("local") || activeProfile.contains("local-h2"));
+    }
+
+    private boolean isHibernateCollectionMutationError(Throwable ex) {
+        Throwable current = ex;
+        while (current != null) {
+            for (StackTraceElement ste : current.getStackTrace()) {
+                String className = ste.getClassName();
+                String methodName = ste.getMethodName();
+                if (className != null
+                        && className.startsWith("org.hibernate")
+                        && ("replaceElements".equals(methodName)
+                        || "merge".equals(methodName)
+                        || className.contains("CollectionType"))) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

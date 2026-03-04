@@ -33,7 +33,18 @@ public interface IWishlistController {
     @GetMapping
     ResponseEntity<List<WishlistDto>> getWishlist(
             @Parameter(description = "ID du client", example = "1", required = true)
-            @RequestParam(defaultValue = "1") String customerId);
+            @RequestParam(required = true) String customerId);
+
+    @Operation(summary = "Récupérer la wishlist (alias path)", description = "Alias de compatibilité: /wishlist/{customerId}")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Liste des articles en wishlist"),
+        @ApiResponse(responseCode = "401", description = "Non autorisé"),
+        @ApiResponse(responseCode = "403", description = "Accès refusé - Can access only own wishlist")
+    })
+    @GetMapping("/{customerId}")
+    ResponseEntity<List<WishlistDto>> getWishlistByPath(
+            @Parameter(description = "ID du client", example = "11a418cf-5978-4d6a-a9d8-ffe61f6c1544", required = true)
+            @PathVariable String customerId);
     
     @Operation(summary = "Ajouter à la wishlist", description = "Ajoute un article à la liste de favoris du client (CUSTOMER or ADMIN)")
     @ApiResponses(value = {
@@ -42,12 +53,12 @@ public interface IWishlistController {
         @ApiResponse(responseCode = "401", description = "Non autorisé"),
         @ApiResponse(responseCode = "403", description = "Accès refusé - Can modify only own wishlist")
     })
-    @PostMapping("/{articleId}")
+    @PostMapping("/{articleId:\\d+}")
     ResponseEntity<WishlistDto> addToWishlist(
             @Parameter(description = "ID de l'article", example = "1", required = true)
             @PathVariable Long articleId,
             @Parameter(description = "ID du client", example = "1", required = true)
-            @RequestParam(defaultValue = "1") String customerId);
+            @RequestParam(required = true) String customerId);
     
     @Operation(summary = "Retirer de la wishlist", description = "Supprime un article de la liste de favoris du client (CUSTOMER or ADMIN)")
     @ApiResponses(value = {
@@ -56,12 +67,12 @@ public interface IWishlistController {
         @ApiResponse(responseCode = "401", description = "Non autorisé"),
         @ApiResponse(responseCode = "403", description = "Accès refusé - Can modify only own wishlist")
     })
-    @DeleteMapping("/{articleId}")
+    @DeleteMapping("/{articleId:\\d+}")
     ResponseEntity<Void> removeFromWishlist(
             @Parameter(description = "ID de l'article", example = "1", required = true)
             @PathVariable Long articleId,
             @Parameter(description = "ID du client", example = "1", required = true)
-            @RequestParam(defaultValue = "1") String customerId);
+            @RequestParam(required = true) String customerId);
     
     @Operation(summary = "Vérifier si en wishlist", description = "Retourne true si l'article est dans la liste de favoris (CUSTOMER or ADMIN)")
     @ApiResponses(value = {
@@ -69,10 +80,10 @@ public interface IWishlistController {
         @ApiResponse(responseCode = "401", description = "Non autorisé"),
         @ApiResponse(responseCode = "403", description = "Accès refusé - Can check only own wishlist")
     })
-    @GetMapping("/{articleId}/exists")
+    @GetMapping("/{articleId:\\d+}/exists")
     ResponseEntity<Boolean> isInWishlist(
             @Parameter(description = "ID de l'article", example = "1", required = true)
             @PathVariable Long articleId,
             @Parameter(description = "ID du client", example = "1", required = true)
-            @RequestParam(defaultValue = "1") String customerId);
+            @RequestParam(required = true) String customerId);
 }

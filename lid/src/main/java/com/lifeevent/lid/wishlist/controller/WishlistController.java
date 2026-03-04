@@ -22,23 +22,30 @@ public class WishlistController implements IWishlistController {
         List<WishlistDto> wishlist = wishlistService.getWishlist(customerId);
         return ResponseEntity.ok(wishlist);
     }
+
+    @Override
+    @GetMapping("/{customerId}")
+    public ResponseEntity<List<WishlistDto>> getWishlistByPath(@PathVariable String customerId) {
+        List<WishlistDto> wishlist = wishlistService.getWishlist(customerId);
+        return ResponseEntity.ok(wishlist);
+    }
     
     @Override
-    @PostMapping("/{articleId}")
+    @PostMapping("/{articleId:\\d+}")
     public ResponseEntity<WishlistDto> addToWishlist(Long articleId, String customerId) {
         WishlistDto added = wishlistService.addToWishlist(customerId, articleId);
         return ResponseEntity.status(HttpStatus.CREATED).body(added);
     }
     
     @Override
-    @DeleteMapping("/{articleId}")
+    @DeleteMapping("/{articleId:\\d+}")
     public ResponseEntity<Void> removeFromWishlist(Long articleId, String customerId) {
         wishlistService.removeFromWishlist(customerId, articleId);
         return ResponseEntity.noContent().build();
     }
     
     @Override
-    @GetMapping("/{articleId}/exists")
+    @GetMapping("/{articleId:\\d+}/exists")
     public ResponseEntity<Boolean> isInWishlist(Long articleId, String customerId) {
         boolean inWishlist = wishlistService.isInWishlist(customerId, articleId);
         return ResponseEntity.ok(inWishlist);
