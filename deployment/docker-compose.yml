@@ -21,6 +21,7 @@ services:
     volumes:
       - lid-db-data:/var/lib/postgresql/data
       - ./ddl.sql:/docker-entrypoint-initdb.d/10-ddl.sql:ro
+      - ./scripts:/opt/lid/scripts:ro
 
     networks:
       - lid
