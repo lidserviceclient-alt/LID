@@ -5,7 +5,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: update # à changer en prod
+      ddl-auto: create # à changer en prod
     defer-datasource-initialization: true
     properties:
       javax:
@@ -36,13 +36,6 @@ spring:
     console:
       enabled: true
   
-  # Configuration Spring Batch
-  batch:
-    job:
-      enabled: false
-    jdbc:
-      initialize-database: always # à changer en prod
-
   mail:
     host: ${SMTP_HOST}
     port: ${SMTP_PORT}

@@ -2,17 +2,14 @@ package com.lifeevent.lid.article.controller;
 
 import com.lifeevent.lid.article.dto.ArticleDto;
 import com.lifeevent.lid.article.service.ArticleService;
-import com.lifeevent.lid.batch.service.BatchService;
 import com.lifeevent.lid.common.util.ResponseUtils;
 import lombok.RequiredArgsConstructor;
-import org.springframework.batch.core.BatchStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Optional;
 
@@ -22,22 +19,13 @@ import java.util.Optional;
 public class ArticleController implements IArticleController {
     
     private final ArticleService articleService;
-    private final BatchService batchService;
-    
+
     @Override
     public ResponseEntity<ArticleDto> createArticle(@RequestBody ArticleDto dto) {
         ArticleDto created = articleService.createArticle(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    @Override
-    public ResponseEntity<String> importArticles(@RequestParam("file") MultipartFile file) {
-        BatchStatus status = batchService.launchArticlesImport(file);
-        if(status.isUnsuccessful())
-            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        return ResponseEntity.status(HttpStatus.CREATED).body("SUCCESS");
-    }
-    
     @Override
     public ResponseEntity<ArticleDto> getArticle(@PathVariable Long id) {
         Optional<ArticleDto> article = articleService.getArticleById(id);

@@ -1,0 +1,72 @@
+spring:
+  sql:
+    init:
+      mode: never
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    defer-datasource-initialization: false
+    properties:
+      jakarta:
+        persistence:
+          schema-generation:
+            database:
+              action: none
+            scripts:
+              action: create
+              create-target: ../deployment/ddl.sql
+            create-source: metadata
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+
+  datasource:
+    url: jdbc:h2:mem:ddlgen;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password: password
+
+  h2:
+    console:
+      enabled: false
+
+  mail:
+    host: localhost
+    port: 1025
+    username: test
+    password: test
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+            required: false
+
+config:
+  mail:
+    from: no-reply@lid.local
+  backoffice:
+    messages:
+      default-recipients: admin@lid.local
+      retry-delay-ms: 60000
+  marketing:
+    dispatch:
+      delay-ms: 30000
+      max-campaigns-per-run: 5
+      batch-size: 50
+  cors:
+    allowed-origin-patterns: http://localhost:*,http://127.0.0.1:*
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    allowed-headers: "*"
+    allow-credentials: true
+    max-age: 3600
+
+paydunya:
+  mode: test
+  masterKey: test-master-key
+  privateKey: test-private-key
+  publicKey: test-public-key
+  token: test-token

@@ -6,6 +6,8 @@ import com.lifeevent.lid.common.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.Id;
 import lombok.*;
@@ -27,8 +29,10 @@ public class Authentication extends BaseEntity {
     @Column(length = 128)
     private String userId;
     @ElementCollection
+    @Enumerated(EnumType.STRING)
     private List<UserRole> roles;
 
+    @Enumerated(EnumType.STRING)
     private AuthenticationType type;
 
     @Column(length = 255)

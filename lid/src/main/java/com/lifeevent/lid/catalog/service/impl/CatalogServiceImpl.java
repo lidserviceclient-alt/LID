@@ -5,6 +5,9 @@ import com.lifeevent.lid.article.entity.Category;
 import com.lifeevent.lid.article.enumeration.ArticleStatus;
 import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.article.repository.CategoryRepository;
+import com.lifeevent.lid.blog.dto.BlogPostDto;
+import com.lifeevent.lid.blog.entity.BlogPost;
+import com.lifeevent.lid.blog.repository.BlogPostRepository;
 import com.lifeevent.lid.catalog.dto.*;
 import com.lifeevent.lid.catalog.mapper.CatalogMapper;
 import com.lifeevent.lid.catalog.service.CatalogService;
@@ -17,6 +20,9 @@ import com.lifeevent.lid.review.repository.ProductReviewLikeRepository;
 import com.lifeevent.lid.review.repository.ProductReviewReportRepository;
 import com.lifeevent.lid.review.repository.ProductReviewRepository;
 import com.lifeevent.lid.stock.repository.StockRepository;
+import com.lifeevent.lid.ticket.dto.TicketEventDto;
+import com.lifeevent.lid.ticket.entity.TicketEvent;
+import com.lifeevent.lid.ticket.repository.TicketEventRepository;
 import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
@@ -52,6 +58,8 @@ public class CatalogServiceImpl implements CatalogService {
     private final ProductReviewReportRepository productReviewReportRepository;
     private final UserEntityRepository userEntityRepository;
     private final CustomerRepository customerRepository;
+    private final BlogPostRepository blogPostRepository;
+    private final TicketEventRepository ticketEventRepository;
     private final CatalogMapper catalogMapper;
 
     @Override
@@ -293,6 +301,8 @@ public class CatalogServiceImpl implements CatalogService {
             Integer bestSellerLimit,
             Integer latestLimit,
             Integer featuredCategoryLimit,
+            Integer postsLimit,
+            Integer ticketsLimit,
             int page,
             int size,
             String q,
@@ -305,6 +315,8 @@ public class CatalogServiceImpl implements CatalogService {
         List<CatalogProductDto> bestSellerProducts = listBestSellerProducts(bestSellerLimit);
         List<CatalogProductDto> latestProducts = listLatestProducts(latestLimit);
         Page<CatalogProductDto> productsPage = listProducts(page, size, q, category, sortKey);
+        List<BlogPostDto> posts = listRecentPosts(postsLimit);
+        List<TicketEventDto> tickets = listRecentTickets(ticketsLimit);
 
         CatalogProductsPageDto products = new CatalogProductsPageDto(
                 productsPage.getContent(),
@@ -323,7 +335,9 @@ public class CatalogServiceImpl implements CatalogService {
                 featuredProducts,
                 bestSellerProducts,
                 latestProducts,
-                products
+                products,
+                posts,
+                tickets
         );
     }
 
@@ -403,6 +417,50 @@ public class CatalogServiceImpl implements CatalogService {
 
     private boolean isActiveCategory(Category category) {
         return Boolean.TRUE.equals(category.getIsActivated());
+    }
+
+    private List<BlogPostDto> listRecentPosts(Integer limit) {
+        int safeLimit = safeLimit(limit, 6);
+        return blogPostRepository
+                .findAll(PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "publishedAt")))
+                .getContent()
+                .stream()
+                .map(this::toBlogPostDto)
+                .toList();
+    }
+
+    private List<TicketEventDto> listRecentTickets(Integer limit) {
+        int safeLimit = safeLimit(limit, 6);
+        return ticketEventRepository
+                .findAll(PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "eventDate")))
+                .getContent()
+                .stream()
+                .map(this::toTicketEventDto)
+                .toList();
+    }
+
+    private BlogPostDto toBlogPostDto(BlogPost entity) {
+        return BlogPostDto.builder()
+                .id(entity.getId())
+                .title(entity.getTitle())
+                .excerpt(entity.getExcerpt())
+                .content(entity.getContent())
+                .imageUrl(entity.getImageUrl())
+                .featured(entity.getFeatured())
+                .publishedAt(entity.getPublishedAt())
+                .build();
+    }
+
+    private TicketEventDto toTicketEventDto(TicketEvent entity) {
+        return TicketEventDto.builder()
+                .id(entity.getId())
+                .title(entity.getTitle())
+                .description(entity.getDescription())
+                .location(entity.getLocation())
+                .eventDate(entity.getEventDate())
+                .price(entity.getPrice())
+                .available(entity.getAvailable())
+                .build();
     }
 
     private Set<Long> findLikedReviewIds(String userId, List<ProductReview> reviews) {

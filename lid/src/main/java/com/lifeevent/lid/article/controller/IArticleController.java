@@ -11,9 +11,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 /**
  * Interface documentant les endpoints Article pour Swagger
@@ -35,33 +32,6 @@ public interface IArticleController {
             @ApiResponse(responseCode = "403", description = "Accès refusé")
     })
     ResponseEntity<ArticleDto> createArticle(@RequestBody ArticleDto dto);
-
-
-    @PostMapping(
-            value = "/import",
-            consumes = "multipart/form-data"
-    )
-    @SecurityRequirement(name = "Bearer Token")
-    @Operation(summary = "Importer des articles via CSV",
-            description = "Importe plusieurs articles à partir d'un fichier CSV (Partner/Admin)")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Import démarré avec succès"),
-            @ApiResponse(responseCode = "400", description = "Fichier invalide"),
-            @ApiResponse(responseCode = "500", description = "Erreur lors du traitement"),
-            @ApiResponse(responseCode = "401", description = "Non autorisé"),
-            @ApiResponse(responseCode = "403", description = "Accès refusé")
-    })
-    ResponseEntity<String> importArticles(
-            @Parameter(
-                    description = "Fichier CSV à importer",
-                    required = true,
-                    content = @Content(
-                            mediaType = "multipart/form-data",
-                            schema = @Schema(type = "string", format = "binary")
-                    )
-            )
-            @RequestParam("file") MultipartFile file
-    );
 
     @GetMapping("/{id}")
     @Operation(summary = "Récupérer un article par ID",

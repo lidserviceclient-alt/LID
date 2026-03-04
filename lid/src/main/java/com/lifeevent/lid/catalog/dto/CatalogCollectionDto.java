@@ -1,5 +1,8 @@
 package com.lifeevent.lid.catalog.dto;
 
+import com.lifeevent.lid.blog.dto.BlogPostDto;
+import com.lifeevent.lid.ticket.dto.TicketEventDto;
+
 import java.util.List;
 
 public record CatalogCollectionDto(
@@ -9,6 +12,8 @@ public record CatalogCollectionDto(
         List<CatalogProductDto> featuredProducts,
         List<CatalogProductDto> bestSellerProducts,
         List<CatalogProductDto> latestProducts,
-        CatalogProductsPageDto products
+        CatalogProductsPageDto products,
+        List<BlogPostDto> posts,
+        List<TicketEventDto> tickets
 ) {
 }

@@ -36,6 +36,7 @@ public class Shop extends BaseEntity {
     private String backgroundUrl;
 
     @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
     private ShopStatusEnum status;
     
     @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)

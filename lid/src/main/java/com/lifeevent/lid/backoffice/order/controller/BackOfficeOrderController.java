@@ -25,6 +25,7 @@ public class BackOfficeOrderController implements IBackOfficeOrderController {
 
     @Override
     public ResponseEntity<Page<BackOfficeOrderSummaryDto>> getOrders(int page, int size, BackOfficeOrderStatus status, String q) {
+        //throw new RuntimeException("dsdsdsds");
         return ResponseEntity.ok(backOfficeOrderService.getOrders(PageRequest.of(page, size), status, q));
     }
 

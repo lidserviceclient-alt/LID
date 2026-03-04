@@ -72,6 +72,8 @@ public interface ICatalogController {
             @RequestParam(value = "bestSellerLimit", required = false) Integer bestSellerLimit,
             @RequestParam(value = "latestLimit", required = false) Integer latestLimit,
             @RequestParam(value = "featuredCategoryLimit", required = false) Integer featuredCategoryLimit,
+            @RequestParam(value = "postsLimit", required = false) Integer postsLimit,
+            @RequestParam(value = "ticketsLimit", required = false) Integer ticketsLimit,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "24") int size,
             @RequestParam(value = "q", required = false) String q,

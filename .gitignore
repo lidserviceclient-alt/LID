@@ -258,6 +258,12 @@ Temporary Items
 target/
 pom.xml.tag
 pom.xml.releaseBackup
+
+# Environment files
+.env
+.env.*
+**/.env
+**/.env.*
 pom.xml.versionsBackup
 pom.xml.next
 release.properties

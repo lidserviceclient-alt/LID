@@ -84,6 +84,8 @@ public interface CatalogService {
             Integer bestSellerLimit,
             Integer latestLimit,
             Integer featuredCategoryLimit,
+            Integer postsLimit,
+            Integer ticketsLimit,
             int page,
             int size,
             String q,

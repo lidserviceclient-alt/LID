@@ -16,6 +16,7 @@
 	<properties>
 		<java.version>21</java.version>
 		<otelVersion>2.11.0</otelVersion>
+		<jib.to.image>jeanemmanuel01/lid:v1.0.1</jib.to.image>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -64,10 +65,6 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-batch</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -176,7 +173,7 @@
 				<version>3.4.5</version>
 				<configuration>
 					<to>
-						<image>jeanemmanuel01/${project.artifactId}:v1</image>
+						<image>${jib.to.image}</image>
 					</to>
 				</configuration>
 			</plugin>
