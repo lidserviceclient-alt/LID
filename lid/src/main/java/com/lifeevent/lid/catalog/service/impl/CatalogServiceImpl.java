@@ -113,11 +113,13 @@ public class CatalogServiceImpl implements CatalogService {
         
         SearchPayload payload = buildSearchPayload(q, category);
         log.info("Listing products with filters: page={}, size={}, q={}, category={}, sortKey={}, payload={}", page, size, q, category, sortKey, payload);
-        Page<Article> articles = (payload.query() == null && payload.categoryTokens() == null)
+        Page<Article> articles = (payload.queryEmpty() && payload.tokensEmpty())
                 ? articleRepository.findByStatus(ArticleStatus.ACTIVE, pageable)
                 : articleRepository.searchCatalog(
                 ArticleStatus.ACTIVE,
-                payload.query(),
+                payload.queryPattern(),
+                payload.queryEmpty(),
+                payload.tokensEmpty(),
                 payload.categoryTokens(),
                 pageable
         );
@@ -381,7 +383,11 @@ public class CatalogServiceImpl implements CatalogService {
     private SearchPayload buildSearchPayload(String q, String category) {
         String query = normalize(q);
         List<String> categoryTokens = normalizeCategoryTokens(category);
-        return new SearchPayload(query, categoryTokens);
+        boolean queryEmpty = query == null;
+        String queryPattern = queryEmpty ? null : "%" + query.toLowerCase(Locale.ROOT) + "%";
+        boolean tokensEmpty = categoryTokens == null || categoryTokens.isEmpty();
+        List<String> safeTokens = tokensEmpty ? List.of("__never_match__") : categoryTokens;
+        return new SearchPayload(queryPattern, queryEmpty, safeTokens, tokensEmpty);
     }
 
     private List<String> normalizeCategoryTokens(String category) {
@@ -526,7 +532,12 @@ public class CatalogServiceImpl implements CatalogService {
         return trimmed.isBlank() ? null : trimmed;
     }
 
-    private record SearchPayload(String query, List<String> categoryTokens) {}
+    private record SearchPayload(
+            String queryPattern,
+            boolean queryEmpty,
+            List<String> categoryTokens,
+            boolean tokensEmpty
+    ) {}
 
     private record ReviewStats(double avgRating, long reviews) {
         private static final ReviewStats EMPTY = new ReviewStats(0d, 0L);

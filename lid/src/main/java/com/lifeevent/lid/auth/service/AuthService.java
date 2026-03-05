@@ -579,7 +579,11 @@ public class AuthService {
     }
 
     private boolean isLocalProfile() {
-        return activeProfile != null && activeProfile.toLowerCase().contains("local");
+        if (activeProfile == null) {
+            return false;
+        }
+        String profile = activeProfile.toLowerCase();
+        return profile.contains("local") || profile.contains("db-prod");
     }
 
     private boolean isLocalH2Profile() {

@@ -31,7 +31,7 @@ spring:
       mode: always
       data-locations: classpath:data-h2-parity.sql
   profiles:
-    active: local
+    default: local
   h2:
     console:
       enabled: true

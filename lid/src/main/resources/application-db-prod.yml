@@ -1,0 +1,85 @@
+spring:
+  config:
+    activate:
+      on-profile: db-prod
+
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:5432/lid_db
+    username: lid_user
+    password: lid_pass
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 15
+      idle-timeout: 30000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    defer-datasource-initialization: false
+    properties:
+      jakarta:
+        persistence:
+          schema-generation:
+            database:
+              action: none
+            scripts:
+              action: none
+      javax:
+        persistence:
+          schema-generation:
+            database:
+              action: none
+            scripts:
+              action: none
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:data-db-prod.sql
+
+  h2:
+    console:
+      enabled: false
+
+  devtools:
+    restart:
+      enabled: false
+
+  mail:
+    host: localhost
+    port: 1025
+    username: test
+    password: test
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+            required: false
+
+config:
+  mail:
+    from: no-reply@lid.local
+  backoffice:
+    messages:
+      default-recipients: admin@lid.local
+      retry-delay-ms: 60000
+  marketing:
+    dispatch:
+      delay-ms: 30000
+      max-campaigns-per-run: 5
+      batch-size: 50
+  cors:
+    allowed-origin-patterns: http://localhost:*,http://127.0.0.1:*
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    allowed-headers: "*"
+    allow-credentials: true
+    max-age: 3600

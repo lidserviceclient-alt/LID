@@ -129,23 +129,32 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     );
 
     @Query("""
-        SELECT DISTINCT a
+        SELECT a
         FROM Article a
-        LEFT JOIN a.categories c
         WHERE a.status = :status
-          AND (:query IS NULL
-               OR LOWER(a.name) LIKE LOWER(CONCAT('%', :query, '%'))
-               OR LOWER(COALESCE(a.brand, '')) LIKE LOWER(CONCAT('%', :query, '%'))
-               OR LOWER(COALESCE(c.name, '')) LIKE LOWER(CONCAT('%', :query, '%'))
-               OR LOWER(COALESCE(c.slug, '')) LIKE LOWER(CONCAT('%', :query, '%')))
-          AND (:categoryTokens IS NULL
-               OR LOWER(c.slug) IN :categoryTokens
-               OR CAST(c.id AS string) IN :categoryTokens)
+          AND (:queryEmpty = true
+               OR LOWER(a.name) LIKE :queryPattern
+               OR LOWER(COALESCE(a.brand, '')) LIKE :queryPattern
+               OR EXISTS (
+                    SELECT 1
+                    FROM a.categories c
+                    WHERE LOWER(COALESCE(c.name, '')) LIKE :queryPattern
+                       OR LOWER(COALESCE(c.slug, '')) LIKE :queryPattern
+               ))
+          AND (:tokensEmpty = true
+               OR EXISTS (
+                    SELECT 1
+                    FROM a.categories c
+                    WHERE LOWER(COALESCE(c.slug, '')) IN :categoryTokens
+                       OR CAST(c.id AS string) IN :categoryTokens
+               ))
         ORDER BY a.createdAt DESC
     """)
     Page<Article> searchCatalog(
             @Param("status") ArticleStatus status,
-            @Param("query") String query,
+            @Param("queryPattern") String queryPattern,
+            @Param("queryEmpty") boolean queryEmpty,
+            @Param("tokensEmpty") boolean tokensEmpty,
             @Param("categoryTokens") List<String> categoryTokens,
             Pageable pageable
     );

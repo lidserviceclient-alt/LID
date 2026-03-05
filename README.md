@@ -1,14 +1,92 @@
 # lid-api
 Life Event Distribution Api repository
 
+# Run du projet
+
+## Prérequis
+- Java 21
+- Maven Wrapper (`./mvnw`)
+- Docker + Docker Compose (pour PostgreSQL local)
+
+## 1) Run local rapide (H2 en mémoire)
+Depuis `lid/` :
+
+```bash
+cd lid
+./mvnw spring-boot:run
+```
+
+API disponible sur `http://localhost:9000`.
+
+
+## 2) (optionnel : recréation des tables) Générer le DDL PostgreSQL (`deployment/ddl.sql`)
+Le projet fournit un profil dédié `ddl-postgres` (fichier `lid/src/main/resources/application-ddl-postgres.yaml`).
+
+Depuis `lid/` :
+
+```bash
+cd /Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid
+rm -f ../deployment/ddl.sql
+SPRING_PROFILES_ACTIVE=ddl-postgres ./mvnw -DskipTests spring-boot:run
+```
+
+Puis :
+1. Attendre le log `Started LidApplication`
+2. Stopper le process (`Ctrl+C`)
+3. Vérifier le fichier généré : `deployment/ddl.sql`
+
+Option robuste (désactive explicitement les anciennes clés `javax` au runtime) :
+
+```bash
+SPRING_PROFILES_ACTIVE=ddl-postgres \
+./mvnw -DskipTests spring-boot:run \
+-Dspring-boot.run.jvmArguments="-Dspring.jpa.properties.javax.persistence.schema-generation.database.action=none -Dspring.jpa.properties.javax.persistence.schema-generation.scripts.action=none"
+```
+
+## 3) Run local en mode DB prod-like (PostgreSQL)
+Un profil dédié existe : `application-db-prod.yml` (profil Spring `db-prod`).
+
+### Démarrer uniquement la base PostgreSQL locale
+Depuis `deployment/` :
+
+```bash
+docker rm -f lid-db
+
+docker run -d \
+  --name lid-db \
+  -p 55432:5432 \
+  -e POSTGRES_USER=lid_user \
+  -e POSTGRES_PASSWORD=lid_pass \
+  -e POSTGRES_DB=lid_db \
+  -v lid-db-data:/var/lib/postgresql/data \
+  -v /Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/deployment/ddl.sql:/docker-entrypoint-initdb.d/10-ddl.sql:ro \
+  postgres:15
+```
+
+### Lancer l'API en local connectée à PostgreSQL
+Depuis `lid/` :
+
+```bash
+SPRING_DATASOURCE_USERNAME=lid_user \
+SPRING_DATASOURCE_PASSWORD=lid_pass \
+SPRING_MAIL_HOST="${SMTP_HOST}" \
+SPRING_MAIL_PORT="${SMTP_PORT}" \
+SPRING_MAIL_USERNAME="${SMTP_USERNAME}" \
+SPRING_MAIL_PASSWORD="${SMTP_PASSWORD}" \
+SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH="${SMTP_AUTH}" \
+SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE="${SMTP_STARTTLS_ENABLE}" \
+SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED="${SMTP_STARTTLS_REQUIRED}" \
+CONFIG_MAIL_FROM="${SMTP_FROM}" \
+CONFIG_BACKOFFICE_MESSAGES_DEFAULT_RECIPIENTS="${BACKOFFICE_MESSAGES_DEFAULT_RECIPIENTS}" \
+./mvnw spring-boot:run 
+```
+
+
+
 # A ne pas oublier 
 
 - gestion du SameSite dans le cookie (confirmer cross domain ?)
-- est ce que 1 partner à 1 boutique ou plusieurs partners ont 1 boutique ? et qu'est ce qu'un partenaire peut faire (à part la gestion d'articles).
 - Reste la gestion des rôles
-- Lors de la création d'un partenaire, il faut que des mains catégories existent
-- Comment se log un partenaire ?
-- 
 
 
 
