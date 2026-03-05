@@ -113,16 +113,15 @@ public class CatalogServiceImpl implements CatalogService {
         
         SearchPayload payload = buildSearchPayload(q, category);
         log.info("Listing products with filters: page={}, size={}, q={}, category={}, sortKey={}, payload={}", page, size, q, category, sortKey, payload);
-        // Page<Article> articles = (payload.query() == null && payload.categoryTokens() == null)
-        //         ? articleRepository.findByStatus(ArticleStatus.ACTIVE, pageable)
-        //         : articleRepository.searchCatalog(
-        //         ArticleStatus.ACTIVE,
-        //         payload.query(),
-        //         payload.categoryTokens(),
-        //         pageable
-        // );
-        // return toCatalogProductPage(articles);
-        return Page.empty(pageable);
+        Page<Article> articles = (payload.query() == null && payload.categoryTokens() == null)
+                ? articleRepository.findByStatus(ArticleStatus.ACTIVE, pageable)
+                : articleRepository.searchCatalog(
+                ArticleStatus.ACTIVE,
+                payload.query(),
+                payload.categoryTokens(),
+                pageable
+        );
+        return toCatalogProductPage(articles);
     }
 
     @Override
