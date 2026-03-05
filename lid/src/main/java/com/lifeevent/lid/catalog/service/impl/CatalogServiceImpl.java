@@ -111,12 +111,11 @@ public class CatalogServiceImpl implements CatalogService {
         Pageable pageable = PageRequest.of(safePage(page), safeSize(size), resolveSort(sortKey));
         SearchPayload payload = buildSearchPayload(q, category);
         log.info("Listing products with filters: page={}, size={}, q={}, category={}, sortKey={}", page, size, q, category, sortKey);
-        Page<Article> articles = payload.tokensEmpty()
-                ? articleRepository.searchCatalogWithoutCategories(ArticleStatus.ACTIVE, payload.query(), pageable)
-                : articleRepository.searchCatalogWithCategories(
+        Page<Article> articles = articleRepository.searchCatalog(
                 ArticleStatus.ACTIVE,
                 payload.query(),
                 payload.categoryTokens(),
+                payload.tokensEmpty(),
                 pageable
         );
         return toCatalogProductPage(articles);
@@ -398,7 +397,7 @@ public class CatalogServiceImpl implements CatalogService {
             return null;
         }
         String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
+        return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
     }
 
     private int safePage(int page) {
