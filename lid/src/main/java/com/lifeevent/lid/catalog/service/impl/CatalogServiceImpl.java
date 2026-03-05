@@ -28,6 +28,8 @@ import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -45,6 +47,7 @@ import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
+@Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -107,6 +110,7 @@ public class CatalogServiceImpl implements CatalogService {
     public Page<CatalogProductDto> listProducts(int page, int size, String q, String category, String sortKey) {
         Pageable pageable = PageRequest.of(safePage(page), safeSize(size), resolveSort(sortKey));
         SearchPayload payload = buildSearchPayload(q, category);
+        log.info("Listing products with filters: page={}, size={}, q={}, category={}, sortKey={}", page, size, q, category, sortKey);
         Page<Article> articles = articleRepository.searchCatalog(
                 ArticleStatus.ACTIVE,
                 payload.query(),
