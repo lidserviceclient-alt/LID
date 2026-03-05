@@ -109,16 +109,20 @@ public class CatalogServiceImpl implements CatalogService {
     @Transactional(readOnly = true)
     public Page<CatalogProductDto> listProducts(int page, int size, String q, String category, String sortKey) {
         Pageable pageable = PageRequest.of(safePage(page), safeSize(size), resolveSort(sortKey));
+        log.info("pageable: {}", pageable);
+        
         SearchPayload payload = buildSearchPayload(q, category);
-        log.info("Listing products with filters: page={}, size={}, q={}, category={}, sortKey={}", page, size, q, category, sortKey);
-        Page<Article> articles = articleRepository.searchCatalog(
-                ArticleStatus.ACTIVE,
-                payload.query(),
-                payload.categoryTokens(),
-                payload.tokensEmpty(),
-                pageable
-        );
-        return toCatalogProductPage(articles);
+        log.info("Listing products with filters: page={}, size={}, q={}, category={}, sortKey={}, payload={}", page, size, q, category, sortKey, payload);
+        // Page<Article> articles = (payload.query() == null && payload.categoryTokens() == null)
+        //         ? articleRepository.findByStatus(ArticleStatus.ACTIVE, pageable)
+        //         : articleRepository.searchCatalog(
+        //         ArticleStatus.ACTIVE,
+        //         payload.query(),
+        //         payload.categoryTokens(),
+        //         pageable
+        // );
+        // return toCatalogProductPage(articles);
+        return Page.empty(pageable);
     }
 
     @Override
@@ -378,18 +382,19 @@ public class CatalogServiceImpl implements CatalogService {
     private SearchPayload buildSearchPayload(String q, String category) {
         String query = normalize(q);
         List<String> categoryTokens = normalizeCategoryTokens(category);
-        return new SearchPayload(query, categoryTokens, categoryTokens.isEmpty());
+        return new SearchPayload(query, categoryTokens);
     }
 
     private List<String> normalizeCategoryTokens(String category) {
         if (category == null || category.isBlank()) {
-            return List.of();
+            return null;
         }
-        return Arrays.stream(category.split(","))
+        List<String> tokens = Arrays.stream(category.split(","))
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
                 .map(value -> value.toLowerCase(Locale.ROOT))
                 .toList();
+        return tokens.isEmpty() ? null : tokens;
     }
 
     private String normalize(String value) {
@@ -397,7 +402,7 @@ public class CatalogServiceImpl implements CatalogService {
             return null;
         }
         String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private int safePage(int page) {
@@ -522,7 +527,7 @@ public class CatalogServiceImpl implements CatalogService {
         return trimmed.isBlank() ? null : trimmed;
     }
 
-    private record SearchPayload(String query, List<String> categoryTokens, boolean tokensEmpty) {}
+    private record SearchPayload(String query, List<String> categoryTokens) {}
 
     private record ReviewStats(double avgRating, long reviews) {
         private static final ReviewStats EMPTY = new ReviewStats(0d, 0L);

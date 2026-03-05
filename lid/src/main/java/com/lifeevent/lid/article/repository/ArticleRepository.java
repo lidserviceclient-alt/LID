@@ -129,26 +129,24 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     );
 
     @Query("""
-        SELECT a
+        SELECT DISTINCT a
         FROM Article a
+        LEFT JOIN a.categories c
         WHERE a.status = :status
           AND (:query IS NULL
-               OR LOWER(a.name) LIKE CONCAT('%', :query, '%')
-               OR LOWER(COALESCE(a.brand, '')) LIKE CONCAT('%', :query, '%'))
-          AND (:tokensEmpty = true
-               OR EXISTS (
-                    SELECT c.id
-                    FROM a.categories c
-                    WHERE LOWER(c.name) IN :categoryTokens
-                       OR LOWER(c.slug) IN :categoryTokens
-               ))
+               OR LOWER(a.name) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(COALESCE(a.brand, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(COALESCE(c.name, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(COALESCE(c.slug, '')) LIKE LOWER(CONCAT('%', :query, '%')))
+          AND (:categoryTokens IS NULL
+               OR LOWER(c.slug) IN :categoryTokens
+               OR CAST(c.id AS string) IN :categoryTokens)
         ORDER BY a.createdAt DESC
     """)
     Page<Article> searchCatalog(
             @Param("status") ArticleStatus status,
             @Param("query") String query,
             @Param("categoryTokens") List<String> categoryTokens,
-            @Param("tokensEmpty") boolean tokensEmpty,
             Pageable pageable
     );
     
