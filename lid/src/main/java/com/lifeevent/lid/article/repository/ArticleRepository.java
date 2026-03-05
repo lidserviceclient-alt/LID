@@ -50,7 +50,6 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @Query("SELECT a FROM Article a WHERE a.isFeatured = true AND a.status = 'ACTIVE' ORDER BY a.updatedAt DESC")
     List<Article> findFeaturedArticles();
 
-    @EntityGraph(attributePaths = {"categories"})
     Page<Article> findByIsFeaturedTrueAndStatusOrderByUpdatedAtDesc(ArticleStatus status, Pageable pageable);
 
     /**
@@ -60,7 +59,6 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @Query("SELECT a FROM Article a WHERE a.isBestSeller = true AND a.status = 'ACTIVE' ORDER BY a.updatedAt DESC")
     List<Article> findBestSellers();
 
-    @EntityGraph(attributePaths = {"categories"})
     Page<Article> findByIsBestSellerTrueAndStatusOrderByUpdatedAtDesc(ArticleStatus status, Pageable pageable);
 
     /**
@@ -70,14 +68,12 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @Query("SELECT a FROM Article a WHERE a.isFlashSale = true AND a.flashSaleEndsAt > :now AND a.status = 'ACTIVE' ORDER BY a.flashSaleEndsAt ASC")
     List<Article> findFlashSales(@Param("now") LocalDateTime now);
 
-    @EntityGraph(attributePaths = {"categories"})
     @Query("SELECT a FROM Article a WHERE a.isFlashSale = true AND a.flashSaleEndsAt > :now AND a.status = :status ORDER BY a.flashSaleEndsAt ASC")
     Page<Article> findFlashSales(@Param("now") LocalDateTime now, @Param("status") ArticleStatus status, Pageable pageable);
 
     /**
      * Nouveautés (récemment créés)
      */
-    @EntityGraph(attributePaths = {"categories"})
     @Query("SELECT a FROM Article a WHERE a.status = 'ACTIVE' ORDER BY a.createdAt DESC")
     Page<Article> findNewArticles(Pageable pageable);
 
@@ -133,17 +129,21 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     );
 
     @Query("""
-        SELECT DISTINCT a
+        SELECT a
         FROM Article a
-        LEFT JOIN a.categories c
         WHERE a.status = :status
-          AND (:query IS NULL OR LOWER(CAST(a.name AS string)) LIKE LOWER(CONCAT('%', :query, '%'))
-               OR LOWER(CAST(COALESCE(a.brand, '') AS string)) LIKE LOWER(CONCAT('%', :query, '%')))
+          AND (:query IS NULL
+               OR LOWER(a.name) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(COALESCE(a.brand, '')) LIKE LOWER(CONCAT('%', :query, '%')))
           AND (:tokensEmpty = true
-               OR LOWER(CAST(COALESCE(c.name, '') AS string)) IN :categoryTokens
-               OR LOWER(CAST(COALESCE(c.slug, '') AS string)) IN :categoryTokens)
+               OR EXISTS (
+                    SELECT c.id
+                    FROM a.categories c
+                    WHERE LOWER(c.name) IN :categoryTokens
+                       OR LOWER(c.slug) IN :categoryTokens
+               ))
+        ORDER BY a.createdAt DESC
     """)
-    @EntityGraph(attributePaths = {"categories"})
     Page<Article> searchCatalog(
             @Param("status") ArticleStatus status,
             @Param("query") String query,

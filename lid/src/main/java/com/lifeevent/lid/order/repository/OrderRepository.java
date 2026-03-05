@@ -29,10 +29,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
      * Commandes d'un client avec pagination
      * EntityGraph optimise le chargement du customer sans jointure inutile
      */
-    @EntityGraph(attributePaths = {"customer", "articles"})
+    @EntityGraph(attributePaths = {"customer"})
     Page<Order> findByCustomer_UserId(String customerId, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"customer", "articles"})
+    @EntityGraph(attributePaths = {"customer"})
     @Query("""
         SELECT o
         FROM Order o
@@ -61,7 +61,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @EntityGraph(attributePaths = {"customer"})
     List<Order> findByCustomerAndStatus(@Param("customerId") String customerId, @Param("status") Status status);
 
-    @EntityGraph(attributePaths = {"customer", "articles"})
+    @EntityGraph(attributePaths = {"customer"})
     @Query("""
         SELECT o
         FROM Order o
