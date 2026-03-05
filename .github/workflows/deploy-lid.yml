@@ -52,12 +52,19 @@ jobs:
             exit 1
           fi
 
+          SHORT_SHA="$(echo "${GITHUB_SHA}" | cut -c1-7)"
+          RELEASE_IMAGE="${LID_IMAGE_REPO}:${RELEASE_TAG}"
+          SHA_IMAGE="${LID_IMAGE_REPO}:${RELEASE_TAG}-${SHORT_SHA}"
+
           echo "release_tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
-          echo "lid_image=${LID_IMAGE_REPO}:${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
+          echo "short_sha=${SHORT_SHA}" >> "${GITHUB_OUTPUT}"
+          echo "lid_image_release=${RELEASE_IMAGE}" >> "${GITHUB_OUTPUT}"
+          echo "lid_image_sha=${SHA_IMAGE}" >> "${GITHUB_OUTPUT}"
+          echo "deploy_image=${SHA_IMAGE}" >> "${GITHUB_OUTPUT}"
 
       - name: Build phase (skip tests)
         working-directory: lid
-        run: mvn -B -DskipTests clean package
+        run: mvn -B -DskipTests clean compile
 
       - name: Generate deployment/ddl.sql with PostgreSQL dialect
         working-directory: lid
@@ -69,20 +76,18 @@ jobs:
             -Dspring-boot.run.arguments="--spring.main.web-application-type=none --spring.main.banner-mode=off" || true
           test -s ../deployment/ddl.sql
 
-      - name: Compile phase (jib dockerBuild)
-        working-directory: lid
-        run: mvn -B -DskipTests jib:dockerBuild -Djib.to.image="${{ steps.release.outputs.lid_image }}"
-
       - name: Login Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Tag and push images
-        run: |
-          set -euo pipefail
-          docker push "${{ steps.release.outputs.lid_image }}"
+      - name: Compile and push images (jib build + tags)
+        working-directory: lid
+        run: >
+          mvn -B -DskipTests compile jib:build
+          -Djib.to.image="${{ env.LID_IMAGE_REPO }}"
+          -Djib.to.tags="${{ steps.release.outputs.release_tag }},${{ steps.release.outputs.release_tag }}-${{ steps.release.outputs.short_sha }}"
 
       - name: Build deployment .env from GitHub secret
         env:
@@ -94,6 +99,8 @@ jobs:
             exit 1
           fi
           printf '%s\n' "${LID_BUSINESS_ENV_FILE}" > deployment/.env
+          echo "LID_API_IMAGE=${{ steps.release.outputs.deploy_image }}" >> deployment/.env
+          echo "Configured deployment image: ${{ steps.release.outputs.deploy_image }}"
 
       - name: Clean remote deployment directory
         uses: appleboy/ssh-action@v1.2.4
@@ -138,6 +145,11 @@ jobs:
               docker compose down --remove-orphans
             fi
 
-            echo "Deploying image: ${{ steps.release.outputs.lid_image }}"
-            LID_API_IMAGE="${{ steps.release.outputs.lid_image }}" docker compose up -d --pull always --force-recreate lid-api
+            echo "Deploying image: ${{ steps.release.outputs.deploy_image }}"
+            docker image rm "${{ steps.release.outputs.deploy_image }}" || true
+            docker compose pull lid-api
+            docker compose up -d --pull always --force-recreate lid-api
+            docker inspect lid-api --format 'Running image: {{.Config.Image}}'
+            docker inspect lid-api --format 'Running image id: {{.Image}}'
+            docker ps --no-trunc --filter name=lid-api
             docker compose ps
