@@ -11,11 +11,13 @@ import com.lifeevent.lid.backoffice.product.dto.BulkProductResult;
 import com.lifeevent.lid.backoffice.product.dto.BulkProductResultItem;
 import com.lifeevent.lid.backoffice.product.mapper.BackOfficeProductMapper;
 import com.lifeevent.lid.backoffice.product.service.BackOfficeProductService;
+import com.lifeevent.lid.cache.event.ProductCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.stock.entity.Stock;
 import com.lifeevent.lid.stock.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,7 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
     private final CategoryRepository categoryRepository;
     private final StockRepository stockRepository;
     private final BackOfficeProductMapper backOfficeProductMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -52,6 +55,7 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
         Article entity = buildArticleForCreate(dto);
         Article saved = saveArticle(entity);
         upsertStock(saved, dto != null ? dto.getStock() : null);
+        eventPublisher.publishEvent(new ProductCatalogChangedEvent(saved.getId() == null ? Set.of() : Set.of(saved.getId())));
         return toDtoWithExtras(saved);
     }
 
@@ -68,6 +72,7 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
         enrichExistingArticle(entity, dto);
         Article saved = saveArticle(entity);
         upsertStock(saved, dto != null ? dto.getStock() : null);
+        eventPublisher.publishEvent(new ProductCatalogChangedEvent(saved.getId() == null ? Set.of() : Set.of(saved.getId())));
         return toDtoWithExtras(saved);
     }
 
@@ -75,6 +80,7 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
     public void delete(Long id) {
         Article entity = findArticleOrThrow(id);
         deactivateAndSave(entity);
+        eventPublisher.publishEvent(new ProductCatalogChangedEvent(entity.getId() == null ? Set.of() : Set.of(entity.getId())));
     }
 
     @Override
@@ -104,11 +110,15 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
 
         int created = persistPreparedItems(preparedItems, results);
 
-        return BulkProductResult.builder()
+        BulkProductResult result = BulkProductResult.builder()
                 .total(total)
                 .created(created)
                 .results(results)
                 .build();
+        if (created > 0) {
+            eventPublisher.publishEvent(new ProductCatalogChangedEvent(Set.of()));
+        }
+        return result;
     }
 
     @Override
@@ -122,7 +132,11 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
         Set<Long> foundIds = extractFoundIds(found);
         List<String> notFoundIds = buildNotFoundIds(requested, foundIds);
 
-        return buildBulkDeleteResponse(requested.size(), found.size(), notFoundIds);
+        BulkProductDeleteResponse response = buildBulkDeleteResponse(requested.size(), found.size(), notFoundIds);
+        if (!foundIds.isEmpty()) {
+            eventPublisher.publishEvent(new ProductCatalogChangedEvent(foundIds));
+        }
+        return response;
     }
 
     private int persistPreparedItems(List<BulkPreparedItem> preparedItems, List<BulkProductResultItem> results) {

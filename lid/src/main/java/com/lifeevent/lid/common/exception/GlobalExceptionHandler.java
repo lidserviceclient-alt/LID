@@ -1,6 +1,8 @@
 package com.lifeevent.lid.common.exception;
 
+import com.lifeevent.lid.common.logging.InternalErrorAlertService;
 import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataAccessException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -28,7 +30,10 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 @Slf4j
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final InternalErrorAlertService internalErrorAlertService;
 
     @Value("${spring.profiles.active:}")
     private String activeProfile;
@@ -101,6 +106,9 @@ public class GlobalExceptionHandler {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
         }
         String message = ex.getReason() != null ? ex.getReason() : ex.getLocalizedMessage();
+        if (status.is5xxServerError()) {
+            internalErrorAlertService.notifyInternalError(request.getDescription(false), ex);
+        }
         return buildErrorDto(message, request, status);
     }
 
@@ -121,6 +129,7 @@ public class GlobalExceptionHandler {
     })
     ResponseEntity<ErrorResponseDto> handleDatabaseExceptions(Exception ex, WebRequest request) {
         log.error("Database exception on {}", request.getDescription(false), ex);
+        internalErrorAlertService.notifyInternalError(request.getDescription(false), ex);
         return buildErrorDto("Database query failed.", request, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
@@ -128,16 +137,19 @@ public class GlobalExceptionHandler {
     ResponseEntity<ErrorResponseDto> handleUnsupportedOperation(UnsupportedOperationException ex, WebRequest request) {
         if (isHibernateCollectionMutationError(ex)) {
             log.error("Hibernate merge failed on immutable collection for {}", request.getDescription(false), ex);
+            internalErrorAlertService.notifyInternalError(request.getDescription(false), ex);
             return buildErrorDto("Database operation failed: immutable collection used in entity relationship.", request,
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
         log.error("Unsupported operation on {}", request.getDescription(false), ex);
+        internalErrorAlertService.notifyInternalError(request.getDescription(false), ex);
         return buildErrorDto(ex, request, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ErrorResponseDto> handleException(Exception ex, WebRequest request) {
         log.error("Unhandled exception on {}", request.getDescription(false), ex);
+        internalErrorAlertService.notifyInternalError(request.getDescription(false), ex);
         return buildErrorDto(ex, request, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 

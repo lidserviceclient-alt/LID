@@ -53,6 +53,16 @@ server:
 
 
 config:
+  logs:
+    admin:
+      file-path: ${LOG_ADMIN_FILE_PATH:${logging.file.name:logs/lid.log}}
+      max-read-bytes: ${LOG_ADMIN_MAX_READ_BYTES:2097152}
+      include-archives-read: ${LOG_ADMIN_INCLUDE_ARCHIVES_READ:false}
+  alerts:
+    internal-error:
+      enabled: ${INTERNAL_ERROR_ALERT_ENABLED:true}
+      dedup-minutes: ${INTERNAL_ERROR_ALERT_DEDUP_MINUTES:10}
+      fallback-recipients: ${INTERNAL_ERROR_ALERT_FALLBACK_RECIPIENTS:}
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
     allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
@@ -143,6 +153,8 @@ info:
     version : "1.0.0"
 
 logging:
+  file:
+    name: ${LOGGING_FILE_NAME:logs/lid.log}
   level:
     com.lifeevent.lid: INFO
 

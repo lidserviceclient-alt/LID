@@ -8,6 +8,8 @@ import com.lifeevent.lid.article.repository.CategoryRepository;
 import com.lifeevent.lid.blog.dto.BlogPostDto;
 import com.lifeevent.lid.blog.entity.BlogPost;
 import com.lifeevent.lid.blog.repository.BlogPostRepository;
+import com.lifeevent.lid.cache.CatalogCacheNames;
+import com.lifeevent.lid.cache.event.ReviewCatalogChangedEvent;
 import com.lifeevent.lid.catalog.dto.*;
 import com.lifeevent.lid.catalog.mapper.CatalogMapper;
 import com.lifeevent.lid.catalog.service.CatalogService;
@@ -30,6 +32,8 @@ import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -64,6 +68,7 @@ public class CatalogServiceImpl implements CatalogService {
     private final BlogPostRepository blogPostRepository;
     private final TicketEventRepository ticketEventRepository;
     private final CatalogMapper catalogMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -128,6 +133,7 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CatalogCacheNames.FEATURED_PRODUCTS, key = "#limit == null ? 12 : #limit")
     public List<CatalogProductDto> listFeaturedProducts(Integer limit) {
         int safeLimit = safeLimit(limit, 12);
         List<Article> articles = articleRepository
@@ -138,6 +144,7 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CatalogCacheNames.BESTSELLER_PRODUCTS, key = "#limit == null ? 12 : #limit")
     public List<CatalogProductDto> listBestSellerProducts(Integer limit) {
         int safeLimit = safeLimit(limit, 12);
         List<Article> articles = articleRepository
@@ -148,6 +155,7 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CatalogCacheNames.LATEST_PRODUCTS, key = "#limit == null ? 20 : #limit")
     public List<CatalogProductDto> listLatestProducts(Integer limit) {
         int safeLimit = safeLimit(limit, 20);
         List<Article> articles = articleRepository.findNewArticles(PageRequest.of(0, safeLimit)).getContent();
@@ -163,6 +171,7 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CatalogCacheNames.PRODUCT_DETAILS, key = "#id")
     public CatalogProductDetailsDto getProductDetails(Long id) {
         Article article = getActiveArticleOrThrow(id);
         String image = article.getImg();
@@ -172,6 +181,7 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CatalogCacheNames.CATEGORIES)
     public List<CatalogCategoryDto> listCategories() {
         return categoryRepository.findAllByOrderByOrderIdxAsc().stream()
                 .filter(this::isActiveCategory)
@@ -181,6 +191,7 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CatalogCacheNames.FEATURED_CATEGORIES, key = "#limit == null ? 12 : #limit")
     public List<CatalogCategoryDto> listFeaturedCategories(Integer limit) {
         int safeLimit = safeLimit(limit, 12);
         return categoryRepository.findAllByOrderByOrderIdxAsc().stream()
@@ -193,6 +204,10 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PRODUCT_REVIEWS,
+            key = "T(java.lang.String).valueOf(#productId).concat(':').concat(T(java.lang.String).valueOf(#page)).concat(':').concat(T(java.lang.String).valueOf(#size))"
+    )
     public ProductReviewsResponse listProductReviews(Long productId, int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(size, 50));
@@ -240,6 +255,7 @@ public class CatalogServiceImpl implements CatalogService {
 
         ProductReview saved = productReviewRepository.save(review);
         boolean likedByMe = productReviewLikeRepository.findByReviewIdAndUserUserId(saved.getId(), userId).isPresent();
+        eventPublisher.publishEvent(new ReviewCatalogChangedEvent(Set.of(productId)));
         return catalogMapper.toProductReviewDto(saved, likedByMe);
     }
 
@@ -253,6 +269,8 @@ public class CatalogServiceImpl implements CatalogService {
         }
         review.setDeletedAt(LocalDateTime.now());
         productReviewRepository.save(review);
+        Long productId = review.getArticle() == null ? null : review.getArticle().getId();
+        eventPublisher.publishEvent(new ReviewCatalogChangedEvent(productId == null ? Set.of() : Set.of(productId)));
     }
 
     @Override
@@ -275,6 +293,8 @@ public class CatalogServiceImpl implements CatalogService {
         }
 
         productReviewRepository.save(review);
+        Long productId = review.getArticle() == null ? null : review.getArticle().getId();
+        eventPublisher.publishEvent(new ReviewCatalogChangedEvent(productId == null ? Set.of() : Set.of(productId)));
         return safeLong(review.getLikeCount());
     }
 
@@ -301,10 +321,16 @@ public class CatalogServiceImpl implements CatalogService {
 
         review.setReportCount(safeLong(review.getReportCount()) + 1);
         productReviewRepository.save(review);
+        Long productId = review.getArticle() == null ? null : review.getArticle().getId();
+        eventPublisher.publishEvent(new ReviewCatalogChangedEvent(productId == null ? Set.of() : Set.of(productId)));
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.COLLECTION,
+            condition = "(#q == null || #q.isBlank()) && (#category == null || #category.isBlank())"
+    )
     public CatalogCollectionDto getCollection(
             Integer featuredLimit,
             Integer bestSellerLimit,

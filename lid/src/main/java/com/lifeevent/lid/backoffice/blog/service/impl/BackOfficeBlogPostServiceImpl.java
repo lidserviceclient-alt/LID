@@ -5,8 +5,10 @@ import com.lifeevent.lid.backoffice.blog.mapper.BackOfficeBlogPostMapper;
 import com.lifeevent.lid.backoffice.blog.service.BackOfficeBlogPostService;
 import com.lifeevent.lid.blog.entity.BlogPost;
 import com.lifeevent.lid.blog.repository.BlogPostRepository;
+import com.lifeevent.lid.cache.event.BlogCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,7 @@ public class BackOfficeBlogPostServiceImpl implements BackOfficeBlogPostService 
 
     private final BlogPostRepository blogPostRepository;
     private final BackOfficeBlogPostMapper backOfficeBlogPostMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -40,6 +43,7 @@ public class BackOfficeBlogPostServiceImpl implements BackOfficeBlogPostService 
         BlogPost entity = backOfficeBlogPostMapper.toEntity(dto);
         applyDefaults(entity);
         BlogPost saved = blogPostRepository.save(entity);
+        eventPublisher.publishEvent(new BlogCatalogChangedEvent());
         return backOfficeBlogPostMapper.toDto(saved);
     }
 
@@ -49,6 +53,7 @@ public class BackOfficeBlogPostServiceImpl implements BackOfficeBlogPostService 
         backOfficeBlogPostMapper.updateEntityFromDto(dto, entity);
         applyDefaults(entity);
         BlogPost saved = blogPostRepository.save(entity);
+        eventPublisher.publishEvent(new BlogCatalogChangedEvent());
         return backOfficeBlogPostMapper.toDto(saved);
     }
 
@@ -58,6 +63,7 @@ public class BackOfficeBlogPostServiceImpl implements BackOfficeBlogPostService 
             throw new ResourceNotFoundException("BlogPost", "id", id.toString());
         }
         blogPostRepository.deleteById(id);
+        eventPublisher.publishEvent(new BlogCatalogChangedEvent());
     }
 
     private void applyDefaults(BlogPost entity) {

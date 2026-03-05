@@ -8,9 +8,11 @@ import com.lifeevent.lid.backoffice.category.dto.BulkCategoryResult;
 import com.lifeevent.lid.backoffice.category.dto.BulkCategoryResultItem;
 import com.lifeevent.lid.backoffice.category.mapper.BackOfficeCategoryMapper;
 import com.lifeevent.lid.backoffice.category.service.BackOfficeCategoryService;
+import com.lifeevent.lid.cache.event.CategoryCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
 
     private final CategoryRepository categoryRepository;
     private final BackOfficeCategoryMapper backOfficeCategoryMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -45,6 +48,7 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
         Category entity = backOfficeCategoryMapper.toEntity(dto);
         applyDefaults(entity, dto);
         Category saved = categoryRepository.save(entity);
+        eventPublisher.publishEvent(new CategoryCatalogChangedEvent());
         return backOfficeCategoryMapper.toDto(saved);
     }
 
@@ -55,6 +59,7 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
         backOfficeCategoryMapper.updateEntityFromDto(dto, entity);
         applyDefaults(entity, dto);
         Category saved = categoryRepository.save(entity);
+        eventPublisher.publishEvent(new CategoryCatalogChangedEvent());
         return backOfficeCategoryMapper.toDto(saved);
     }
 
@@ -62,11 +67,13 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
     public void delete(Integer id) {
         Category entity = findCategoryOrThrow(id);
         deactivateAndSave(entity);
+        eventPublisher.publishEvent(new CategoryCatalogChangedEvent());
     }
 
     @Override
     public void deleteAll() {
         deactivateAll();
+        eventPublisher.publishEvent(new CategoryCatalogChangedEvent());
     }
 
     @Override
@@ -96,23 +103,29 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
                 }
             }
         }
-        return BulkCategoryResult.builder()
+        BulkCategoryResult result = BulkCategoryResult.builder()
                 .total(total)
                 .created(created)
                 .results(results)
                 .build();
+        if (created > 0) {
+            eventPublisher.publishEvent(new CategoryCatalogChangedEvent());
+        }
+        return result;
     }
 
     @Override
     public void bulkDelete(List<Integer> ids) {
         if (ids == null || ids.isEmpty()) return;
         deactivateAllByIds(ids);
+        eventPublisher.publishEvent(new CategoryCatalogChangedEvent());
     }
 
     @Override
     public void purge(boolean withProducts) {
         // NOTE: withProducts reserved for future behavior; current purge = désactivation globale.
         deactivateAll();
+        eventPublisher.publishEvent(new CategoryCatalogChangedEvent());
     }
 
     private Category findCategoryOrThrow(Integer id) {

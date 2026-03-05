@@ -3,8 +3,10 @@ package com.lifeevent.lid.blog.controller;
 import com.lifeevent.lid.blog.dto.BlogPostDto;
 import com.lifeevent.lid.blog.entity.BlogPost;
 import com.lifeevent.lid.blog.repository.BlogPostRepository;
+import com.lifeevent.lid.cache.CatalogCacheNames;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,12 +23,14 @@ public class BlogPostController {
     private final BlogPostRepository blogPostRepository;
 
     @GetMapping
+    @Cacheable(cacheNames = CatalogCacheNames.BLOG_POSTS)
     public List<BlogPostDto> list() {
         List<BlogPost> entities = blogPostRepository.findAll(Sort.by(Sort.Direction.DESC, "publishedAt"));
         return entities.stream().map(this::toDto).toList();
     }
 
     @GetMapping("/{id}")
+    @Cacheable(cacheNames = CatalogCacheNames.BLOG_POST_DETAILS, key = "#id")
     public BlogPostDto get(@PathVariable Long id) {
         BlogPost entity = blogPostRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("BlogPost", "id", id.toString()));

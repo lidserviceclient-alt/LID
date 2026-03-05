@@ -8,10 +8,12 @@ import com.lifeevent.lid.article.mapper.ArticleMapper;
 import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.article.repository.CategoryRepository;
 import com.lifeevent.lid.article.service.ArticleService;
+import com.lifeevent.lid.cache.event.ProductCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -28,6 +30,7 @@ public class ArticleServiceImpl implements ArticleService {
     private final ArticleRepository articleRepository;
     private final CategoryRepository categoryRepository;
     private final ArticleMapper articleMapper;
+    private final ApplicationEventPublisher eventPublisher;
     
     @Override
     public ArticleDto createArticle(ArticleDto dto) {
@@ -35,6 +38,7 @@ public class ArticleServiceImpl implements ArticleService {
         Article article = articleMapper.toEntity(dto);
         article.setStatus(ArticleStatus.ACTIVE);
         Article saved = articleRepository.save(article);
+        eventPublisher.publishEvent(new ProductCatalogChangedEvent(saved.getId() == null ? java.util.Set.of() : java.util.Set.of(saved.getId())));
         return articleMapper.toDto(saved);
     }
     
@@ -109,6 +113,7 @@ public class ArticleServiceImpl implements ArticleService {
         
         articleMapper.updateEntityFromDto(dto, article);
         Article updated = articleRepository.save(article);
+        eventPublisher.publishEvent(new ProductCatalogChangedEvent(updated.getId() == null ? java.util.Set.of() : java.util.Set.of(updated.getId())));
         return articleMapper.toDto(updated);
     }
     
@@ -120,6 +125,7 @@ public class ArticleServiceImpl implements ArticleService {
         // Soft delete: changer le statut au lieu de supprimer physiquement
         article.setStatus(ArticleStatus.DRAFT);
         articleRepository.save(article);
+        eventPublisher.publishEvent(new ProductCatalogChangedEvent(java.util.Set.of(id)));
     }
 
     @Override
@@ -139,6 +145,7 @@ public class ArticleServiceImpl implements ArticleService {
         if (!article.getCategories().contains(category)) {
             article.getCategories().add(category);
             articleRepository.save(article);
+            eventPublisher.publishEvent(new ProductCatalogChangedEvent(java.util.Set.of(articleId)));
         }
     }
     
@@ -152,6 +159,7 @@ public class ArticleServiceImpl implements ArticleService {
         
         article.getCategories().remove(category);
         articleRepository.save(article);
+        eventPublisher.publishEvent(new ProductCatalogChangedEvent(java.util.Set.of(articleId)));
     }
     
     @Override

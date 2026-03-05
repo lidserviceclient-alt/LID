@@ -5,9 +5,11 @@ import com.lifeevent.lid.article.entity.Category;
 import com.lifeevent.lid.article.mapper.CategoryMapper;
 import com.lifeevent.lid.article.repository.CategoryRepository;
 import com.lifeevent.lid.article.service.CategoryService;
+import com.lifeevent.lid.cache.event.CategoryCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,12 +25,14 @@ public class CategoryServiceImpl implements CategoryService {
     
     private final CategoryRepository categoryRepository;
     private final CategoryMapper categoryMapper;
+    private final ApplicationEventPublisher eventPublisher;
     
     @Override
     public CategoryDto createCategory(CategoryDto dto) {
         log.info("Création d'une nouvelle catégorie: {}", dto.getName());
         Category category = categoryMapper.toEntity(dto);
         Category saved = categoryRepository.save(category);
+        eventPublisher.publishEvent(new CategoryCatalogChangedEvent());
         return categoryMapper.toDto(saved);
     }
     
@@ -59,6 +63,7 @@ public class CategoryServiceImpl implements CategoryService {
         
         categoryMapper.updateEntityFromDto(dto, category);
         Category updated = categoryRepository.save(category);
+        eventPublisher.publishEvent(new CategoryCatalogChangedEvent());
         return categoryMapper.toDto(updated);
     }
     
@@ -69,5 +74,6 @@ public class CategoryServiceImpl implements CategoryService {
             throw new ResourceNotFoundException("Category", "id", id.toString());
         }
         categoryRepository.deleteById(id);
+        eventPublisher.publishEvent(new CategoryCatalogChangedEvent());
     }
 }

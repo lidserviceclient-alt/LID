@@ -81,6 +81,55 @@ CONFIG_BACKOFFICE_MESSAGES_DEFAULT_RECIPIENTS="${BACKOFFICE_MESSAGES_DEFAULT_REC
 ./mvnw spring-boot:run 
 ```
 
+## 4) Stratégie de cache (implémentée)
+Le projet utilise Spring Cache + Caffeine (`CatalogCacheConfig`) avec invalidation événementielle après commit transaction (`@TransactionalEventListener(phase = AFTER_COMMIT)`).
+
+### Caches actifs et TTL
+- `catalog_collection`: 5 min
+- `catalog_categories`: 24 h
+- `catalog_featured_categories`: 6 h
+- `catalog_products_featured`: 20 min
+- `catalog_products_bestsellers`: 20 min
+- `catalog_products_latest`: 5 min
+- `catalog_product_details`: 20 min
+- `catalog_product_reviews`: 10 min
+- `blog_posts`: 30 min
+- `blog_post_details`: 30 min
+- `tickets`: 30 min
+- `ticket_details`: 30 min
+
+### Endpoints/lectures cachés
+- Catalog:
+  - featured, bestsellers, latest, product details
+  - categories, featured categories
+  - product reviews
+  - aggregate `getCollection` uniquement quand `q/category` sont vides (pas de cache sur recherche produit)
+- Blog:
+  - liste + détail
+- Tickets:
+  - liste + détail
+
+### Invalidation fiable (CRUD)
+Des événements de domaine sont publiés côté write:
+- `ProductCatalogChangedEvent`
+- `CategoryCatalogChangedEvent`
+- `BlogCatalogChangedEvent`
+- `TicketCatalogChangedEvent`
+- `ReviewCatalogChangedEvent`
+
+Puis `CatalogCacheInvalidationListener` délègue à `CatalogCacheInvalidator`:
+- Produit modifié: purge listes catalog + featured/bestseller/latest + détails produit impacté + reviews
+- Catégorie modifiée: purge listes catalog + catégories + featured catégories + détails/reviews produits
+- Blog modifié: purge `blog_posts`, `blog_post_details`, `catalog_collection`
+- Ticket modifié: purge `tickets`, `ticket_details`, `catalog_collection`
+- Review modifiée: purge listes catalog + détails produit impacté + reviews
+
+### Vérification rapide
+Depuis `lid/`:
+```bash
+./mvnw -q -DskipTests compile
+```
+Le build doit passer vert après toute modification de stratégie cache/invalidation.
 
 
 # A ne pas oublier 
@@ -90,115 +139,183 @@ CONFIG_BACKOFFICE_MESSAGES_DEFAULT_RECIPIENTS="${BACKOFFICE_MESSAGES_DEFAULT_REC
 
 
 
-## Modèle physique de base de donnée pour le site de e-commerce LID.
+## LID Database (from `deployment/ddl.sql`)
 
 ```mermaid
-classDiagram
-  direction BT
-
-  class ARTICLE {
-    character varying(31) DTYPE
-    character varying(13) EAN
-    character varying(255) NAME
-    integer PRICE
-    double precision VAT
-    character varying(255) IMG
-    integer ID
+erDiagram
+  ARTICLE {
+    bigint id PK
+    varchar name
+    varchar sku
+    varchar status
+  }
+  CATEGORY {
+    int id PK
+    varchar name
+    varchar slug
+  }
+  ARTICLE_CATEGORIES {
+    bigint article_id FK
+    int categories_id FK
+  }
+  USER_ENTITY {
+    varchar user_id PK
+    varchar email
+    varchar user_type
+  }
+  CUSTOMER {
+    varchar user_id PK
+  }
+  AUTHENTICATION {
+    varchar user_id PK
+    varchar type
+  }
+  AUTHENTICATION_ROLES {
+    varchar authentication_user_id FK
+    varchar roles
+  }
+  CART {
+    int id PK
+    varchar customer_user_id FK
+  }
+  CART_ARTICLE {
+    int id PK
+    int cart_id FK
+    bigint article_id FK
+  }
+  ORDERS {
+    bigint id PK
+    varchar customer_user_id FK
+    varchar current_status
+  }
+  ORDER_ARTICLE {
+    bigint id PK
+    bigint order_id FK
+    bigint article_id FK
+  }
+  STATUS_HISTORY {
+    bigint id PK
+    bigint order_id FK
+    varchar status
+  }
+  STOCK {
+    bigint id PK
+    bigint article_id FK
+  }
+  STOCK_MOVEMENT {
+    bigint id PK
+    bigint article_id FK
+  }
+  WISHLIST {
+    bigint id PK
+    varchar customer_user_id FK
+    bigint article_id FK
+  }
+  PRODUCT_REVIEW {
+    bigint id PK
+    varchar customer_id FK
+    bigint article_id FK
+  }
+  PRODUCT_REVIEW_LIKE {
+    bigint id PK
+    bigint review_id FK
+    varchar user_id FK
+  }
+  PRODUCT_REVIEW_REPORT {
+    bigint id PK
+    bigint review_id FK
+    varchar user_id FK
+  }
+  CUSTOMER_ADDRESS {
+    varchar id PK
+    varchar customer_id FK
+  }
+  LOYALTY_POINT_ADJUSTMENT {
+    bigint id PK
+    varchar customer_user_id FK
+  }
+  MARKETING_CAMPAIGN {
+    bigint id PK
+  }
+  MARKETING_CAMPAIGN_DELIVERY {
+    bigint id PK
+    bigint campaign_id FK
+  }
+  EMAIL_MESSAGE {
+    bigint id PK
+  }
+  EMAIL_MESSAGE_RECIPIENT {
+    bigint message_id FK
+    varchar recipient
+  }
+  PAYMENT {
+    bigint id PK
+  }
+  PAYMENT_TRANSACTIONS {
+    bigint id PK
+    bigint payment_id FK
+  }
+  REFUNDS {
+    bigint id PK
+    bigint payment_id FK
+  }
+  RETURN_REQUEST {
+    bigint id PK
+  }
+  RETURN_REQUEST_ITEM {
+    bigint id PK
+    bigint return_request_id FK
+  }
+  SHOP {
+    bigint shop_id PK
+    int main_category_id FK
+  }
+  PARTNER {
+    varchar user_id PK
+    bigint shop_id FK
+  }
+  PASSWORD_RESET_TOKEN {
+    uuid id PK
+    varchar user_id FK
   }
 
-  class STOCK {
-    integer ID
-    integer ARTICLE_ID
-    integer QUANTITY_AVAILABLE
-    integer QUANTITY_RESERVED
-    character varying(255) LOT
-    date BESTBEFORE
-  }
+  ARTICLE ||--o{ ARTICLE_CATEGORIES : "article_id"
+  CATEGORY ||--o{ ARTICLE_CATEGORIES : "categories_id"
+  AUTHENTICATION ||--o{ AUTHENTICATION_ROLES : "authentication_user_id"
 
-  class ARTICLE_CATEGORY {
-    integer ARTICLE_ID
-    integer CATEGORIES_ID
-  }
+  USER_ENTITY ||--|| CUSTOMER : "user_id"
+  CUSTOMER ||--o{ CUSTOMER_ADDRESS : "customer_id"
+  CUSTOMER ||--o{ CART : "customer_user_id"
+  CART ||--o{ CART_ARTICLE : "cart_id"
+  ARTICLE ||--o{ CART_ARTICLE : "article_id"
 
-  class CART {
-    timestamp CREATEDAT
-    integer CUSTOMER_ID
-    integer ID
-  }
+  CUSTOMER ||--o{ ORDERS : "customer_user_id"
+  ORDERS ||--o{ ORDER_ARTICLE : "order_id"
+  ARTICLE ||--o{ ORDER_ARTICLE : "article_id"
+  ORDERS ||--o{ STATUS_HISTORY : "order_id"
 
-  class CART_ARTICLE {
-    integer CART_ID
-    integer ARTICLES_ID
-    integer QUANTITY
-  }
+  ARTICLE ||--o{ STOCK : "article_id"
+  ARTICLE ||--o{ STOCK_MOVEMENT : "article_id"
+  ARTICLE ||--o{ WISHLIST : "article_id"
+  CUSTOMER ||--o{ WISHLIST : "customer_user_id"
 
-  class CATEGORY {
-    character varying(255) NAME
-    integer ORDERIDX
-    integer ID
-  }
+  ARTICLE ||--o{ PRODUCT_REVIEW : "article_id"
+  CUSTOMER ||--o{ PRODUCT_REVIEW : "customer_id"
+  PRODUCT_REVIEW ||--o{ PRODUCT_REVIEW_LIKE : "review_id"
+  USER_ENTITY ||--o{ PRODUCT_REVIEW_LIKE : "user_id"
+  PRODUCT_REVIEW ||--o{ PRODUCT_REVIEW_REPORT : "review_id"
+  USER_ENTITY ||--o{ PRODUCT_REVIEW_REPORT : "user_id"
 
-  class CUSTOMER {
-    character varying(255) EMAIL
-    character varying(255) FIRSTNAME
-    character varying(255) LASTNAME
-    character varying(255) PASSWORD
-    integer ACTIVECART_ID
-    character varying(255) LOGIN
-    integer ID
-  }
+  CUSTOMER ||--o{ LOYALTY_POINT_ADJUSTMENT : "customer_user_id"
+  MARKETING_CAMPAIGN ||--o{ MARKETING_CAMPAIGN_DELIVERY : "campaign_id"
+  EMAIL_MESSAGE ||--o{ EMAIL_MESSAGE_RECIPIENT : "message_id"
 
-  class ORDER {
-    integer AMOUNT
-    timestamp CREATEDON
-    tinyint CURRENTSTATUS
-    timestamp DELIVERYDATE
-    integer CUSTOMER_ID
-    integer ID
-  }
+  PAYMENT ||--o{ PAYMENT_TRANSACTIONS : "payment_id"
+  PAYMENT ||--o{ REFUNDS : "payment_id"
+  RETURN_REQUEST ||--o{ RETURN_REQUEST_ITEM : "return_request_id"
 
-  class ORDER_ARTICLE {
-    integer ORDER_ID
-    integer ARTICLES_ID
-    integer QUANTITY
-    integer PRICE_AT_ORDER
-  }
-
-  class ORDER_STATUSHISTORY {
-    integer ORDER_ID
-    integer HISTORY_ID
-  }
-
-  class STATUSHISTORY {
-    tinyint STATUS
-    timestamp STATUSDATE
-    integer ID
-  }
-
-  ARTICLE_CATEGORY --> "ARTICLE_ID:ID" ARTICLE
-  ARTICLE_CATEGORY --> "CATEGORIES_ID:ID" CATEGORY
-
-  STOCK --> "ARTICLE_ID:ID" ARTICLE
-
-  CART --> "CUSTOMER_ID:ID" CUSTOMER
-  CART_ARTICLE --> "ARTICLES_ID:ID" ARTICLE
-  CART_ARTICLE --> "CART_ID:ID" CART
-
-  CUSTOMER --> "ACTIVECART_ID:ID" CART
-
-  ORDER_ARTICLE --> "ARTICLES_ID:ID" ARTICLE
-  ORDER_ARTICLE --> "ORDER_ID:ID" ORDER
-
-  ORDER_STATUSHISTORY --> "ORDER_ID:ID" ORDER
-  ORDER_STATUSHISTORY --> "HISTORY_ID:ID" STATUSHISTORY
+  CATEGORY ||--o{ SHOP : "main_category_id"
+  SHOP ||--o| PARTNER : "shop_id"
+  USER_ENTITY ||--o| PARTNER : "user_id"
+  USER_ENTITY ||--o{ PASSWORD_RESET_TOKEN : "user_id"
 ```
-
-* Les identifiants sont numériques (int), et auto-générés.
-* Article
-  * Le champ `sku` est l'identifiant produit de l'article.
-  * Le champ `ean13` est le code-barre de l'article.
-  * `vat` est le taux de tva. (0.18 = 18% en CIV).
-* Category
-  * `orderIdx` est un entier qui permettra de trier les produits selon un ordre donné par l'administrateur.  
-* Perishable
-  * `lot` représente un texte permettant de dissocier les livraisons de produits frais.  

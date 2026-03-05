@@ -3,10 +3,12 @@ package com.lifeevent.lid.backoffice.ticket.service.impl;
 import com.lifeevent.lid.backoffice.ticket.dto.BackOfficeTicketEventDto;
 import com.lifeevent.lid.backoffice.ticket.mapper.BackOfficeTicketEventMapper;
 import com.lifeevent.lid.backoffice.ticket.service.BackOfficeTicketEventService;
+import com.lifeevent.lid.cache.event.TicketCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.ticket.entity.TicketEvent;
 import com.lifeevent.lid.ticket.repository.TicketEventRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,7 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
 
     private final TicketEventRepository ticketEventRepository;
     private final BackOfficeTicketEventMapper backOfficeTicketEventMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -39,6 +42,7 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
         TicketEvent entity = backOfficeTicketEventMapper.toEntity(dto);
         applyDefaults(entity);
         TicketEvent saved = ticketEventRepository.save(entity);
+        eventPublisher.publishEvent(new TicketCatalogChangedEvent());
         return backOfficeTicketEventMapper.toDto(saved);
     }
 
@@ -48,6 +52,7 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
         backOfficeTicketEventMapper.updateEntityFromDto(dto, entity);
         applyDefaults(entity);
         TicketEvent saved = ticketEventRepository.save(entity);
+        eventPublisher.publishEvent(new TicketCatalogChangedEvent());
         return backOfficeTicketEventMapper.toDto(saved);
     }
 
@@ -57,6 +62,7 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
             throw new ResourceNotFoundException("TicketEvent", "id", id.toString());
         }
         ticketEventRepository.deleteById(id);
+        eventPublisher.publishEvent(new TicketCatalogChangedEvent());
     }
 
     private void applyDefaults(TicketEvent entity) {

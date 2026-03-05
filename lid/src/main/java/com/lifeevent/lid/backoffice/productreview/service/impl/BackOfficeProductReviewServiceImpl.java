@@ -3,9 +3,11 @@ package com.lifeevent.lid.backoffice.productreview.service.impl;
 import com.lifeevent.lid.backoffice.productreview.dto.BackOfficeProductReviewDto;
 import com.lifeevent.lid.backoffice.productreview.dto.BackOfficeUpdateProductReviewRequest;
 import com.lifeevent.lid.backoffice.productreview.service.BackOfficeProductReviewService;
+import com.lifeevent.lid.cache.event.ReviewCatalogChangedEvent;
 import com.lifeevent.lid.review.entity.ProductReview;
 import com.lifeevent.lid.review.repository.ProductReviewRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,7 @@ import java.time.LocalDateTime;
 public class BackOfficeProductReviewServiceImpl implements BackOfficeProductReviewService {
 
     private final ProductReviewRepository productReviewRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -71,6 +74,7 @@ public class BackOfficeProductReviewServiceImpl implements BackOfficeProductRevi
         review.setDeletedAt(null);
 
         ProductReview saved = productReviewRepository.save(review);
+        publishReviewChanged(saved);
         return toDto(saved);
     }
 
@@ -79,28 +83,35 @@ public class BackOfficeProductReviewServiceImpl implements BackOfficeProductRevi
         ProductReview review = findByIdOrThrow(id);
         review.setValidated(true);
         review.setDeletedAt(null);
-        return toDto(productReviewRepository.save(review));
+        ProductReview saved = productReviewRepository.save(review);
+        publishReviewChanged(saved);
+        return toDto(saved);
     }
 
     @Override
     public BackOfficeProductReviewDto unvalidateReview(String id) {
         ProductReview review = findByIdOrThrow(id);
         review.setValidated(false);
-        return toDto(productReviewRepository.save(review));
+        ProductReview saved = productReviewRepository.save(review);
+        publishReviewChanged(saved);
+        return toDto(saved);
     }
 
     @Override
     public BackOfficeProductReviewDto restoreReview(String id) {
         ProductReview review = findByIdOrThrow(id);
         review.setDeletedAt(null);
-        return toDto(productReviewRepository.save(review));
+        ProductReview saved = productReviewRepository.save(review);
+        publishReviewChanged(saved);
+        return toDto(saved);
     }
 
     @Override
     public void deleteReview(String id) {
         ProductReview review = findByIdOrThrow(id);
         review.setDeletedAt(LocalDateTime.now());
-        productReviewRepository.save(review);
+        ProductReview saved = productReviewRepository.save(review);
+        publishReviewChanged(saved);
     }
 
     private ProductReview findByIdOrThrow(String id) {
@@ -139,5 +150,10 @@ public class BackOfficeProductReviewServiceImpl implements BackOfficeProductRevi
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private void publishReviewChanged(ProductReview review) {
+        Long productId = review == null || review.getArticle() == null ? null : review.getArticle().getId();
+        eventPublisher.publishEvent(new ReviewCatalogChangedEvent(productId == null ? java.util.Set.of() : java.util.Set.of(productId)));
     }
 }
