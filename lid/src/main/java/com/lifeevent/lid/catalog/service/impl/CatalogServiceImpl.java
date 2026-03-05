@@ -111,11 +111,12 @@ public class CatalogServiceImpl implements CatalogService {
         Pageable pageable = PageRequest.of(safePage(page), safeSize(size), resolveSort(sortKey));
         SearchPayload payload = buildSearchPayload(q, category);
         log.info("Listing products with filters: page={}, size={}, q={}, category={}, sortKey={}", page, size, q, category, sortKey);
-        Page<Article> articles = articleRepository.searchCatalog(
+        Page<Article> articles = payload.tokensEmpty()
+                ? articleRepository.searchCatalogWithoutCategories(ArticleStatus.ACTIVE, payload.query(), pageable)
+                : articleRepository.searchCatalogWithCategories(
                 ArticleStatus.ACTIVE,
                 payload.query(),
                 payload.categoryTokens(),
-                payload.tokensEmpty(),
                 pageable
         );
         return toCatalogProductPage(articles);
