@@ -539,7 +539,7 @@
         details TEXT,
         email varchar(255) not null,
         updated_by varchar(255),
-        status enum ('APPROVED','COMPLETED','REJECTED','SUBMITTED') not null,
+        status enum ('SUBMITTED','UNDER_REVIEW','APPROVED','REJECTED','REFUNDED','COMPLETED','CLOSED') not null,
         primary key (id)
     );
 

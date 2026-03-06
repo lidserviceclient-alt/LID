@@ -73,6 +73,9 @@ public class AuthService {
     @Value("${spring.profiles.active:}")
     private String activeProfile;
 
+    @Value("${server.servlet.context-path:}")
+    private String servletContextPath;
+
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final String UUID_REGEX =
             "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
@@ -168,7 +171,17 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public RefreshResponse refresh(String refreshTokenId) {
-        RefreshToken rt = refreshTokenService.validate(UUID.fromString(refreshTokenId));
+        if (refreshTokenId == null || refreshTokenId.isBlank()) {
+            throw new IllegalArgumentException("Refresh token manquant");
+        }
+        UUID refreshTokenUuid;
+        try {
+            refreshTokenUuid = UUID.fromString(refreshTokenId.trim());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Refresh token invalide");
+        }
+
+        RefreshToken rt = refreshTokenService.validate(refreshTokenUuid);
         assertUserNotBlocked(rt.getUserId());
 
         UserDto userDto = userService.getUserById(rt.getUserId());
@@ -544,7 +557,7 @@ public class AuthService {
         Cookie cookie = new Cookie("refresh_token", id.toString());
         cookie.setHttpOnly(true);
         cookie.setSecure(!isLocalProfile());
-        cookie.setPath("/api/v1/auth/refresh");
+        cookie.setPath(resolveRefreshCookiePath());
         cookie.setMaxAge((int) Duration.ofDays(refreshTtlDays).getSeconds());
         response.addCookie(cookie);
     }
@@ -553,9 +566,23 @@ public class AuthService {
         Cookie cookie = new Cookie("refresh_token", "");
         cookie.setHttpOnly(true);
         cookie.setSecure(!isLocalProfile());
-        cookie.setPath("/api/v1/auth/refresh");
+        cookie.setPath(resolveRefreshCookiePath());
         cookie.setMaxAge(0);
         response.addCookie(cookie);
+    }
+
+    private String resolveRefreshCookiePath() {
+        String base = servletContextPath == null ? "" : servletContextPath.trim();
+        if (base.isEmpty() || "/".equals(base)) {
+            return "/api/v1/auth/refresh";
+        }
+        if (!base.startsWith("/")) {
+            base = "/" + base;
+        }
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return base + "/api/v1/auth/refresh";
     }
 
     private String generateResetCode() {

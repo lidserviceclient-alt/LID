@@ -44,7 +44,7 @@ public class AuthController implements IAuthController {
     }
 
     @Override
-    public RefreshResponse refresh(@CookieValue(name = "refresh_token") String refreshTokenId) {
+    public RefreshResponse refresh(@CookieValue(name = "refresh_token", required = false) String refreshTokenId) {
         return authService.refresh(refreshTokenId);
     }
 

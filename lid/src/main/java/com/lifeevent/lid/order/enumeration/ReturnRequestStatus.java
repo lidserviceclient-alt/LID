@@ -2,7 +2,10 @@ package com.lifeevent.lid.order.enumeration;
 
 public enum ReturnRequestStatus {
     SUBMITTED,
+    UNDER_REVIEW,
     APPROVED,
     REJECTED,
-    COMPLETED
+    REFUNDED,
+    COMPLETED,
+    CLOSED
 }

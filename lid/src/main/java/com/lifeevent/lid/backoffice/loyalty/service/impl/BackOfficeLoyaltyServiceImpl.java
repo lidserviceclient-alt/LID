@@ -59,7 +59,7 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
     @Override
     @Transactional(readOnly = true)
     public BackOfficeLoyaltyOverviewDto getOverview() {
-        LoyaltyConfig config = getOrCreateConfigEntity();
+        LoyaltyConfig config = getConfigEntityOrDefault();
         List<LoyaltyTier> tiers = getSortedTiers();
         Map<String, Integer> pointsByCustomerId = computePointsByCustomer();
 
@@ -103,7 +103,7 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
     @Override
     @Transactional(readOnly = true)
     public BackOfficeLoyaltyConfigDto getConfig() {
-        return backOfficeLoyaltyConfigMapper.toDto(getOrCreateConfigEntity());
+        return backOfficeLoyaltyConfigMapper.toDto(getConfigEntityOrDefault());
     }
 
     @Override
@@ -262,12 +262,20 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
 
     private LoyaltyConfig getOrCreateConfigEntity() {
         return loyaltyConfigRepository.findAll().stream().findFirst().orElseGet(() ->
-                loyaltyConfigRepository.save(LoyaltyConfig.builder()
-                        .pointsPerFcfa(DEFAULT_POINTS_PER_FCFA)
-                        .valuePerPointFcfa(DEFAULT_VALUE_PER_POINT_FCFA)
-                        .retentionDays(DEFAULT_RETENTION_DAYS)
-                        .build())
+                loyaltyConfigRepository.save(defaultConfigEntity())
         );
+    }
+
+    private LoyaltyConfig getConfigEntityOrDefault() {
+        return loyaltyConfigRepository.findAll().stream().findFirst().orElseGet(this::defaultConfigEntity);
+    }
+
+    private LoyaltyConfig defaultConfigEntity() {
+        return LoyaltyConfig.builder()
+                .pointsPerFcfa(DEFAULT_POINTS_PER_FCFA)
+                .valuePerPointFcfa(DEFAULT_VALUE_PER_POINT_FCFA)
+                .retentionDays(DEFAULT_RETENTION_DAYS)
+                .build();
     }
 
     private List<LoyaltyTier> getSortedTiers() {
@@ -279,7 +287,7 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
     }
 
     private Map<String, Integer> computePointsByCustomer() {
-        LoyaltyConfig config = getOrCreateConfigEntity();
+        LoyaltyConfig config = getConfigEntityOrDefault();
         double pointsPerFcfa = safeDouble(config.getPointsPerFcfa(), DEFAULT_POINTS_PER_FCFA);
 
         Map<String, Integer> points = new HashMap<>();
@@ -435,7 +443,7 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
     }
 
     private List<BackOfficeLoyaltyTransactionDto> buildOrderTransactions(String userId) {
-        LoyaltyConfig config = getOrCreateConfigEntity();
+        LoyaltyConfig config = getConfigEntityOrDefault();
         double pointsPerFcfa = safeDouble(config.getPointsPerFcfa(), DEFAULT_POINTS_PER_FCFA);
 
         List<BackOfficeLoyaltyTransactionDto> items = new ArrayList<>();

@@ -60,7 +60,7 @@ public interface IAuthController {
     })
     RefreshResponse refresh(
             @Parameter(description = "Refresh token en cookie", required = true)
-            @CookieValue(name = "refresh_token") String refreshTokenId
+            @CookieValue(name = "refresh_token", required = false) String refreshTokenId
     );
 
     @PostMapping("/logout")
