@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, MotionConfig } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, ShieldCheck, Zap, Truck, ArrowUpRight } from "lucide-react";
@@ -43,9 +43,11 @@ const DesktopSectionHeader = ({ title, linkTo, linkText = "Voir tout" }) => (
   </div>
 );
 
-const BentoCard = ({ title, image_url, count, slug, className, large = false }) => {
+const BentoCard = ({ title, image_url, count, slug, className, large = false, enableMotion = true }) => {
   const safeSlug = `${slug || ""}`.trim();
   const to = safeSlug ? `/shop?category=${encodeURIComponent(safeSlug)}` : "/shop";
+  const ImageTag = enableMotion ? motion.img : "img";
+  const imageMotionProps = enableMotion ? { whileHover: { scale: 1.05 } } : {};
 
   return (
     <Link
@@ -53,7 +55,7 @@ const BentoCard = ({ title, image_url, count, slug, className, large = false }) 
       className={cn("group relative overflow-hidden rounded-3xl cursor-pointer", className)}
     >
     <div className="absolute inset-0 bg-neutral-900/20 group-hover:bg-neutral-900/40 transition-colors duration-500 z-10" />
-    <motion.img 
+    <ImageTag 
       src={image_url || CATEGORY_FALLBACK_IMAGE} 
       alt={title} 
       width="800"
@@ -63,7 +65,7 @@ const BentoCard = ({ title, image_url, count, slug, className, large = false }) 
         e.currentTarget.onerror = null;
         e.currentTarget.src = CATEGORY_FALLBACK_IMAGE;
       }}
-      whileHover={{ scale: 1.05 }}
+      {...imageMotionProps}
     />
     
     <div className="absolute inset-0 z-20 p-6 md:p-8 flex flex-col justify-between">
@@ -279,12 +281,13 @@ export default function Home() {
     <div className="min-h-screen bg-white dark:bg-neutral-950">
 
       {/* ================= MOBILE LAYOUT (md:hidden) ================= */}
-      <div className="md:hidden pb-24 flex flex-col gap-8">
-        
-        {/* Mobile Hero */}
-        <div className="-mt-1">
-          <Hero />
-        </div>
+      <MotionConfig reducedMotion="always">
+        <div className="md:hidden pb-24 flex flex-col gap-8 mobile-no-motion">
+          
+          {/* Mobile Hero */}
+          <div className="-mt-1">
+            <Hero enableMotion={false} />
+          </div>
 
         {/* Reassurance Grid (Compact) - always visible on mobile */}
         <div className="px-4 grid grid-cols-2 gap-3">
@@ -310,7 +313,7 @@ export default function Home() {
 
         {hasFlashSale ? (
           <div className="px-4">
-            <Offer />
+            <Offer enableMotion={false} />
           </div>
         ) : null}
 
@@ -327,6 +330,7 @@ export default function Home() {
                     slug={featuredBento[0].slug}
                     className="col-span-2 sm:col-span-2"
                     large
+                    enableMotion={false}
                   />
                 ) : null}
                 {featuredBento[1] ? (
@@ -336,6 +340,7 @@ export default function Home() {
                     count={featuredBento[1].count}
                     slug={featuredBento[1].slug}
                     className="col-span-1"
+                    enableMotion={false}
                   />
                 ) : null}
                 {featuredBento[2] ? (
@@ -345,6 +350,7 @@ export default function Home() {
                     count={featuredBento[2].count}
                     slug={featuredBento[2].slug}
                     className="col-span-1"
+                    enableMotion={false}
                   />
                 ) : null}
                 {featuredBento[3] ? (
@@ -355,6 +361,7 @@ export default function Home() {
                     slug={featuredBento[3].slug}
                     className="col-span-2 sm:col-span-2"
                     large
+                    enableMotion={false}
                   />
                 ) : null}
               </div>
@@ -369,7 +376,7 @@ export default function Home() {
             <div className="flex overflow-x-auto px-4 gap-4 snap-x no-scrollbar">
               {mobileFeaturedProducts.map(product => (
                 <div key={product.id} className="min-w-[240px] max-w-[240px] snap-center">
-                  <ProductCard product={product} />
+                  <ProductCard product={product} enableMotion={false} />
                 </div>
               ))}
             </div>
@@ -382,7 +389,7 @@ export default function Home() {
             <div className="flex overflow-x-auto px-4 gap-4 pb-8 snap-x no-scrollbar">
               {mobileBestSellers.map(product => (
                 <div key={product.id} className="min-w-[240px] max-w-[240px] snap-center">
-                  <ProductCard product={product} />
+                  <ProductCard product={product} enableMotion={false} />
                 </div>
               ))}
             </div>
@@ -390,15 +397,16 @@ export default function Home() {
         ) : null}
 
         <div className="">
-          <Promotion/>
+          <Promotion enableMotion={false} />
         </div>
 
-        {/* Newsletter Mobile */}
-        <div className="px-4">
-           <Newsletter />
-        </div>
+          {/* Newsletter Mobile */}
+          <div className="px-4">
+             <Newsletter />
+          </div>
 
-      </div>
+        </div>
+      </MotionConfig>
 
 
       {/* ================= DESKTOP LAYOUT (hidden md:block) ================= */}

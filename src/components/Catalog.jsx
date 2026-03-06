@@ -256,7 +256,7 @@ const FiltersContent = ({
   );
 };
 
-export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) => {
+export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid', enableMotion = true }) => {
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const wishlistId = product?.id ?? product?.articleId ?? product?.productId;
@@ -276,6 +276,12 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
   const hasRealImage = Boolean(resolvedImage) && !imageFailed;
   const imageSrc = hasRealImage ? resolvedImage : FALLBACK_PRODUCT_IMAGE;
   const imageIsPlaceholder = !hasRealImage;
+  const CardWrapper = enableMotion ? motion.div : "div";
+  const ImageWrapper = enableMotion ? motion.div : "div";
+  const ImageTag = enableMotion ? motion.img : "img";
+  const cardMotionProps = enableMotion ? { layout: true } : {};
+  const imageWrapperMotionProps = enableMotion ? { layoutId: `product-bg-${product.id}` } : {};
+  const imageMotionProps = enableMotion ? { whileHover: { scale: 1.1 }, transition: { duration: 0.4 } } : {};
 
   const handleWishlist = (e) => {
     e.preventDefault();
@@ -309,13 +315,13 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
 
   if (viewMode === 'list') {
     return (
-      <motion.div
-        layout
+      <CardWrapper
+        {...cardMotionProps}
         className="group flex flex-col sm:flex-row w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative"
       >
         {/* Image Area - Smaller for List View */}
-        <motion.div 
-          layoutId={`product-bg-${product.id}`}
+        <ImageWrapper 
+          {...imageWrapperMotionProps}
           className="relative w-full sm:w-48 aspect-[4/5] sm:aspect-square bg-neutral-100 dark:bg-neutral-800 overflow-hidden flex-shrink-0"
         >
           {/* Badges */}
@@ -328,18 +334,17 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
           </div>
           
           <Link to={`/product/${wishlistId}`} className="block w-full h-full">
-            <motion.img 
+            <ImageTag 
               src={imageSrc} 
               alt={product.name}
               width="400"
               height="500"
               onError={() => setImageFailed(true)}
-              whileHover={{ scale: 1.1 }}
-              transition={{ duration: 0.4 }}
+              {...imageMotionProps}
               className={`w-full h-full object-contain ${imageIsPlaceholder ? "opacity-30" : "mix-blend-multiply dark:mix-blend-normal"}`}
             />
           </Link>
-        </motion.div>
+        </ImageWrapper>
 
         {/* Product Details - List Layout */}
         <div className="flex-1 flex flex-col p-4 gap-2">
@@ -431,13 +436,13 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
              </button>
           </div>
         </div>
-      </motion.div>
+      </CardWrapper>
     );
   }
 
   return (
-    <motion.div
-      layout
+    <CardWrapper
+      {...cardMotionProps}
       className="group flex flex-col h-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative"
     >
       {/* Image Area */}
@@ -475,15 +480,14 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
         </div>
 
         <Link to={`/product/${wishlistId}`} className="block w-full h-full">
-          <motion.img 
+          <ImageTag 
             src={imageSrc} 
             alt={product.name}
             width="400"
             height="500"
             loading="lazy"
             onError={() => setImageFailed(true)}
-            whileHover={{ scale: 1.1 }}
-            transition={{ duration: 0.4 }}
+            {...imageMotionProps}
             className={`w-full h-full ${imageIsPlaceholder ? "object-contain opacity-30 p-8" : "object-cover"}`}
           />
         </Link>
@@ -561,7 +565,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid' }) =>
            </button>
         </div>
       </div>
-    </motion.div>
+    </CardWrapper>
   );
 };
 

@@ -22,6 +22,12 @@
   margin: 0;
   padding: 0;
 }
+.mobile-no-motion *,
+.mobile-no-motion *::before,
+.mobile-no-motion *::after {
+  animation: none !important;
+  transition: none !important;
+}
 /**
  * Police
  */

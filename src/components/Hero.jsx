@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import { ContainerTextFlip } from './textAnimat.jsx';
 import { useNavigate } from 'react-router-dom';
-import { getCatalogProductsPage } from '@/services/productService';
-import { resolveBackendAssetUrl } from '@/services/categoryService';
+import { HERO_PRODUCTS } from '@/assets/data/heroProducts';
 
 const users = [
   "https://i.pinimg.com/736x/db/2b/8b/db2b8bb42bb8494e4640759c66914915.jpg",
@@ -13,8 +12,51 @@ const users = [
   "https://i.pinimg.com/1200x/b8/e3/0c/b8e30c0bd21299e768d315448e6d60a0.jpg"
 ];
 
-const MarqueeRow = ({ items, direction = "left", speed = 10 }) => {
+const MarqueeRow = ({ items, direction = "left", speed = 10, enableMotion = true }) => {
   if (!items || items.length === 0) return null;
+  if (!enableMotion) {
+    return (
+      <div className="flex overflow-hidden relative z-0 py-4">
+        <div className="flex gap-4 flex-shrink-0 px-2">
+          {items.map((product, i) => {
+            const hasImage = Boolean(product?.img);
+            const src = hasImage ? product.img : "/imgs/logo.png";
+            const imgClass = hasImage
+              ? "w-full h-full object-cover opacity-90 grayscale group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700 ease-out"
+              : "w-full h-full object-contain opacity-30 p-10 transition-all duration-700 ease-out";
+
+            return (
+              <div key={i} className="relative group w-[280px] sm:w-[350px] aspect-[4/5] flex-shrink-0 overflow-hidden rounded-xl bg-neutral-100 shadow-sm border border-neutral-200/50">
+                <img
+                  src={src}
+                  alt={product.name}
+                  width="100%"
+                  height="100%"
+                  loading={i < 4 ? "eager" : "lazy"}
+                  fetchPriority={i < 4 ? "high" : "auto"}
+                  className={imgClass}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = "/imgs/logo.png";
+                    e.currentTarget.className = "w-full h-full object-contain opacity-30 p-10 transition-all duration-700 ease-out";
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                <div className="absolute bottom-0 left-0 p-6 translate-y-4 group-hover:translate-y-0 transition-transform duration-500 z-10">
+                  <div className="flex items-center gap-2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
+                    <span className="bg-orange-600 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">New</span>
+                  </div>
+                  <h3 className="text-neutral-900 text-2xl font-black italic uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity duration-500">{product.name}</h3>
+                  <p className="text-neutral-600 font-mono text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500">{product.price}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex overflow-hidden relative z-0 py-4">
       <motion.div
@@ -69,11 +111,10 @@ const MarqueeRow = ({ items, direction = "left", speed = 10 }) => {
   );
 };
 
-export default function Hero() {
+export default function Hero({ enableMotion = true }) {
   const navigate = useNavigate();
   const { scrollY } = useScroll();
   const y = useTransform(scrollY, [0, 500], [0, 200]);
-  const [catalogProducts, setCatalogProducts] = useState([]);
 
   const sentence = {
     hidden: { opacity: 1 },
@@ -103,57 +144,12 @@ export default function Hero() {
     // Optional: Add interaction logic here if needed
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    getCatalogProductsPage(0, 10)
-      .then((data) => {
-        if (cancelled) return;
-        setCatalogProducts(Array.isArray(data?.content) ? data.content : []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setCatalogProducts([]);
-      })
-      .finally(() => {
-        if (cancelled) return;
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const apiItems = useMemo(() => {
-    return (Array.isArray(catalogProducts) ? catalogProducts : [])
-      .map((product, index) => {
-        const amount = Number(product?.price ?? product?.prix ?? product?.amount);
-        const currency = `${product?.currency || product?.devise || "FCFA"}`.trim() || "FCFA";
-        const price = Number.isFinite(amount) && amount > 0 ? `${amount.toLocaleString()} ${currency}` : `${product?.price || product?.prix || ""}`.trim() || "—";
-        return {
-          id: product?.id,
-          img: resolveBackendAssetUrl(product?.imageUrl || product?.image),
-          name: `${product?.name || product?.nom || product?.title || `Produit ${index + 1}`}`.trim(),
-          price
-        };
-      })
-      .filter((item) => item.img || item.name)
-      .slice(0, 10);
-  }, [catalogProducts]);
-
-  const fallbackItems = useMemo(() => {
-    return Array.from({ length: 10 }).map((_, index) => ({
-      id: `placeholder-${index}`,
-      img: "",
-      name: "Ajoutez vos produits",
-      price: ""
-    }));
-  }, []);
-
   const [row1Items, row2Items] = useMemo(() => {
-    const items = apiItems.length > 0 ? apiItems : fallbackItems;
+    const items = Array.isArray(HERO_PRODUCTS) ? HERO_PRODUCTS : [];
     if (items.length <= 1) return [items, items];
     const mid = Math.ceil(items.length / 2);
     return [items.slice(0, mid), items.slice(mid)];
-  }, [apiItems, fallbackItems]);
+  }, []);
 
   return (
     <section 
@@ -172,37 +168,45 @@ export default function Hero() {
 
       {/* Main Content Layer */}
       <div className="absolute -top-[20%] inset-0 flex flex-col items-center justify-center z-20 pointer-events-none">
-        <motion.h1 
-          key="hero-title-anim"
-          style={{ y }}
-          variants={sentence}
-          initial="hidden"
-          animate="visible"
-          className="text-[18vw] md:text-[15vw] leading-[0.8] font-black text-neutral-900 text-center tracking-tighter select-none mix-blend-hard-light"
-        >
-          <div className="inline-block overflow-hidden">
-            { "MARKET".split("").map((char, index) => (
-              <motion.span key={index} variants={letter} className="inline-block">
-                {char}
-              </motion.span>
-            ))}
-          </div>
-          <br />
-          <motion.span 
-            className="text-transparent stroke-text-dark inline-block overflow-hidden"
+        {enableMotion ? (
+          <motion.h1 
+            key="hero-title-anim"
+            style={{ y }}
             variants={sentence}
+            initial="hidden"
+            animate="visible"
+            className="text-[18vw] md:text-[15vw] leading-[0.8] font-black text-neutral-900 text-center tracking-tighter select-none mix-blend-hard-light"
           >
-              <motion.span  className="inline-block">
-                <ContainerTextFlip words={["Exclusivité", "Tendance", "Simple", "Livraison facile"]} className="text-transparent stroke-text-dark inline-block overflow-hidden" />
-              </motion.span>
-          </motion.span>
-        </motion.h1>
+            <div className="inline-block overflow-hidden">
+              { "MARKET".split("").map((char, index) => (
+                <motion.span key={index} variants={letter} className="inline-block">
+                  {char}
+                </motion.span>
+              ))}
+            </div>
+            <br />
+            <motion.span 
+              className="text-transparent stroke-text-dark inline-block overflow-hidden"
+              variants={sentence}
+            >
+                <motion.span  className="inline-block">
+                  <ContainerTextFlip words={["Exclusivité", "Tendance", "Simple", "Livraison facile"]} className="text-transparent stroke-text-dark inline-block overflow-hidden" />
+                </motion.span>
+            </motion.span>
+          </motion.h1>
+        ) : (
+          <h1 className="text-[18vw] md:text-[15vw] leading-[0.8] font-black text-neutral-900 text-center tracking-tighter select-none mix-blend-hard-light">
+            <span className="inline-block">MARKET</span>
+            <br />
+            <span className="text-transparent stroke-text-dark inline-block overflow-hidden">Exclusivité</span>
+          </h1>
+        )}
       </div>
 
       {/* Marquee Layers */}
       <div className="relative z-10 flex flex-col gap-8 -rotate-2 scale-105 origin-center transform-gpu">
-        <MarqueeRow items={row1Items} direction="left" speed={150} />
-        <MarqueeRow items={row2Items} direction="right" speed={140} />
+        <MarqueeRow items={row1Items} direction="left" speed={150} enableMotion={enableMotion} />
+        <MarqueeRow items={row2Items} direction="right" speed={140} enableMotion={enableMotion} />
       </div>
 
       {/* Floating UI Controls */}
@@ -211,17 +215,17 @@ export default function Hero() {
 
           {/* Right: Partner Button (User Request) */}
           <motion.button 
-            whileHover={{ scale: 1.05 }}
+            whileHover={enableMotion ? { scale: 1.05 } : undefined}
             onClick={() => navigate('/seller-join')}
-            whileTap={{ scale: 0.95 }}
+            whileTap={enableMotion ? { scale: 0.95 } : undefined}
             className="group relative px-8 py-4 bg-white/80 backdrop-blur-md border border-white/50 text-neutral-900 rounded-full flex items-center gap-4 shadow-2xl shadow-black/5 hover:bg-white transition-colors"
           >
              <div className="flex items-center -space-x-3 group-hover:-space-x-1 transition-all duration-300"> 
                {users.map((img, i) => ( 
                  <motion.img 
-                   initial={{ opacity: 0, x: -10 }}
-                   animate={{ opacity: 1, x: 0 }}
-                   transition={{ delay: i * 0.1 }}
+                   initial={enableMotion ? { opacity: 0, x: -10 } : false}
+                   animate={enableMotion ? { opacity: 1, x: 0 } : false}
+                   transition={enableMotion ? { delay: i * 0.1 } : undefined}
                    key={i} 
                    src={img} 
                    alt="user" 

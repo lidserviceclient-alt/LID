@@ -8,7 +8,7 @@ import CheckoutFlow from "./CheckoutFlow";
 import { resolveBackendAssetUrl } from "@/services/categoryService";
 import { useFlashSaleProduct } from "@/features/flashSale/useFlashSaleProduct";
 
-export default function Offer({ className, onClose }) {
+export default function Offer({ className, onClose, enableMotion = true }) {
   const [particles, setParticles] = useState([]);
   const [isFlipped, setIsFlipped] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
@@ -38,6 +38,101 @@ export default function Offer({ className, onClose }) {
   }, []); // Empty dependency array ensures this runs once on mount
 
   if (!offerProduct) return null;
+  if (!enableMotion) {
+    return (
+      <section className={cn("w-full py-12 md:py-24 bg-neutral-950 text-white overflow-hidden relative rounded-3xl mx-auto max-w-full bg-[url('/imgs/wall-1.jpg')] bg-cover bg-center bg-no-repeat", className)}>
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 z-50 p-2 bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-full text-white/70 hover:text-white transition-all active:scale-90"
+          >
+            <X size={24} />
+          </button>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/80 to-neutral-950/40 z-0" />
+        <div className="max-w-7xl mx-auto px-4 md:px-8 relative z-10 grid lg:grid-cols-2 gap-12 items-center">
+          <div className="space-y-6 text-center lg:text-left">
+            <div className="flex justify-center lg:justify-start">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+                <TicketPercent className="w-4 h-4 text-orange-400 fill-orange-400" />
+                <span className="text-sm font-semibold tracking-wide bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
+                  OFFRE EXCLUSIVE
+                </span>
+              </div>
+            </div>
+
+            <h2 className="text-4xl sm:text-5xl md:text-7xl font-black font-sans tracking-tight leading-tight">
+              FUTURE <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-200 to-neutral-500">
+                COLLECTION
+              </span>
+            </h2>
+
+            <p className="text-base sm:text-lg text-neutral-400 max-w-lg leading-relaxed mx-auto lg:mx-0">
+              Plongez dans une nouvelle dimension de style. Une fusion parfaite entre design futuriste et confort absolu. L'avenir de la mode est ici.
+            </p>
+
+            <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center lg:justify-start">
+              <button 
+                type="button"
+                disabled={!offerProduct}
+                onClick={() => offerProduct && setShowCheckout(true)}
+                className="group relative px-8 py-4 bg-white text-black rounded-full font-bold text-lg overflow-hidden transition-all inline-flex items-center justify-center w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="relative flex items-center gap-2">
+                  Commander maintenant
+                  <ArrowRight className="w-5 h-5" />
+                </span>
+              </button>
+              <Link
+                to={offerProduct?.id ? `/product/${offerProduct.id}` : "/shop"}
+                onClick={() => onClose && onClose()}
+                className="px-8 py-4 bg-transparent border border-white/20 text-white rounded-full font-bold text-lg inline-flex items-center justify-center cursor-pointer w-full sm:w-auto"
+              >
+                Voir les détails
+              </Link>
+            </div>
+          </div>
+
+          <div className="flex justify-center w-full">
+            <div className="relative w-full max-w-[320px] md:max-w-[400px] h-[420px] md:h-[500px] rounded-[30px] overflow-hidden bg-neutral-900 border border-white/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-800/50 to-black/50" />
+              <div className="absolute inset-0 flex items-center justify-center p-6">
+                <img
+                  src={offerImageSrc}
+                  alt={offerProduct?.name || "Produit"}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = "/imgs/logo.png";
+                  }}
+                  className={cn(
+                    "w-full h-full object-contain",
+                    offerProduct?.imageUrl || offerProduct?.image ? "opacity-100" : "opacity-30"
+                  )}
+                />
+              </div>
+              <div className="absolute bottom-4 left-4">
+                <div className="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/20 shadow-xl">
+                  <h3 className="text-lg md:text-2xl font-bold text-white">
+                    {offerPrice > 0 ? `${offerPrice.toLocaleString()} FCFA` : "—"}
+                  </h3>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <CheckoutFlow 
+          isOpen={showCheckout} 
+          onClose={() => setShowCheckout(false)} 
+          product={offerProduct}
+          selectedColor={offerProduct?.color || "Noir"}
+          selectedSize={offerProduct?.sizes?.[0] || "42"}
+          quantity={1}
+        />
+      </section>
+    );
+  }
 
   return (
     <section className={cn("w-full py-12 md:py-24 bg-neutral-950 text-white overflow-hidden relative rounded-3xl mx-auto max-w-full perspective-1000 bg-[url('/imgs/wall-1.jpg')] bg-cover bg-center bg-no-repeat", className)}>
