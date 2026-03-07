@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, Navigate } from 'react-router-dom'
 import ScrollToTop from './components/ScrollToTop'
 import { Toaster } from 'sonner'
 import Loader from './components/Loader'
@@ -16,6 +16,12 @@ const Login = lazy(() => import('./pages/Login.jsx'))
 const Callback = lazy(() => import('./pages/Callback.jsx')) // OIDC Callback
 const Seller = lazy(() => import('./pages/Seller.jsx'))
 const SellerDashboard = lazy(() => import('./pages/SellerDashboard/index'))
+const BackofficeSeller = lazy(() => import('./pages/backofficeSeller/index'))
+const BackofficeDashboard = lazy(() => import('./pages/backofficeSeller/Dashboard'))
+const BackofficeProducts = lazy(() => import('./pages/backofficeSeller/ProductManagement'))
+const BackofficeOrders = lazy(() => import('./pages/backofficeSeller/Orders'))
+const BackofficeCategories = lazy(() => import('./pages/backofficeSeller/Categories'))
+const BackofficeSettings = lazy(() => import('./pages/backofficeSeller/Settings'))
 const Wishlist = lazy(() => import('./pages/Wishlist.jsx'))
 const Profile = lazy(() => import('./pages/Profile.jsx'))
 const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess.jsx'))
@@ -35,6 +41,7 @@ const OrderTracking = lazy(() => import('./pages/OrderTracking.jsx'))
 const Returns = lazy(() => import('./pages/Returns.jsx'))
 const Delivery = lazy(() => import('./pages/Delivery.jsx'))
 const NotFound = lazy(() => import('./pages/NotFound.jsx'))
+const Test = lazy(() => import('./pages/Test.jsx'))
 
 
 
@@ -54,6 +61,16 @@ function App() {
           <Route path="/callback" element={<Callback />} />
           <Route path="/seller-join" element={<Seller />} />
           <Route path="/dashboard/seller" element={<SellerDashboard />} />
+
+          <Route path="/sel-off" element={<BackofficeSeller />}>
+             <Route index element={<Navigate to="dashboard" replace />} />
+             <Route path="products" element={<BackofficeProducts />} />
+             <Route path="categories" element={<BackofficeCategories />} />
+             <Route path="dashboard" element={<BackofficeDashboard />} />
+             <Route path="orders" element={<BackofficeOrders />} />
+             <Route path="settings" element={<BackofficeSettings />} />
+          </Route>
+          
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} /> 
             <Route path="shop" element={<Catalogue />} />
@@ -62,8 +79,9 @@ function App() {
             <Route path="tickets" element={<TicketCatalog />} />
             <Route path="tickets/:id" element={<TicketDetails />} />
 
-            {/* <Route path="sellers" element={<SellersList />} />
-            <Route path="sellers/:id" element={<SellerDetails />} /> */}
+            {/**/} 
+            <Route path="sellers" element={<SellersList />} />
+            <Route path="sellers/:id" element={<SellerDetails />} /> 
             
             <Route path="cart" element={<Cart />} />
             <Route path="wishlist" element={<Wishlist />} />
@@ -85,6 +103,7 @@ function App() {
             <Route path="product/:id" element={<ProductDetails />} />
           </Route>
           <Route path="*" element={<NotFound />} />
+          <Route path="/test" element={<Test />} />
         </Routes>
       </Suspense>
     </>

@@ -385,6 +385,7 @@ export default function Header() {
                 <nav className="flex items-center gap-10">
                     {[
                       { label: 'Accueil', path: '/' },
+                      { label: 'Partenaires', path: '/sellers' }, 
                       { label: 'Catalogues', path: '/shop' },
                       { label: 'Billetterie', path: '/tickets' },
                       { label: 'Blog', path: '/blog' },

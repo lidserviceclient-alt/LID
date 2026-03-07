@@ -12,6 +12,7 @@ import {
   Heart,
   ChevronRight,
   Clock,
+  Store,
   Camera,
   Printer
 } from 'lucide-react';
@@ -930,6 +931,9 @@ export default function Profile() {
                 active={activeTab === 'addresses'} 
                 onClick={() => setActiveTab('addresses')} 
               />
+              <Link to="/sel-off">
+                <SidebarItem icon={Store} label="Ma boutique" active={false} onClick={() => {}} />
+              </Link>
               <SidebarItem 
                 icon={CreditCard} 
                 label="Moyens de paiement" 

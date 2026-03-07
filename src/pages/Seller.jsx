@@ -461,7 +461,7 @@ export default function Seller() {
                            <div className="relative z-10 flex flex-col items-center">
                               <div className="w-24 h-24 rounded-full border-4 border-white shadow-xl mb-4 overflow-hidden bg-neutral-100">
                                  {currentUser?.avatarUrl ? (
-                                    <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                    <img src={currentUser.avatarUrl} alt="Avatar client" className="w-full h-full object-cover" />
                                  ) : (
                                     <div className="w-full h-full flex items-center justify-center text-neutral-400">
                                        <User size={40} />
@@ -566,20 +566,32 @@ export default function Seller() {
                         /* Guest View */
                         <>
                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                             <Field label="Prénom" icon={User} placeholder="Jean" value={formData.firstName} onChange={e => handleChange("firstName", e.target.value)} />
-                             <Field label="Nom" placeholder="Dupont" value={formData.lastName} onChange={e => handleChange("lastName", e.target.value)} />
+
+                             <Field 
+                                label="Prénom" 
+                                icon={User} 
+                                placeholder="Jean" 
+                                value={formData.firstName} 
+                                onChange={e => handleChange("firstName", e.target.value)} 
+                             />
+                             <Field 
+                                label="Nom" 
+                                placeholder="koffi" 
+                                value={formData.lastName} 
+                                onChange={e => handleChange("lastName", e.target.value)} 
+                              />
                            </div>
                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                              <Field 
                                 label="Email Professionnel" 
                                 icon={Mail} 
                                 type="email" 
-                                placeholder="contact@boutique.com" 
+                                placeholder="jeankoffi@mail.com" 
                                 value={formData.email} 
                                 onChange={e => handleChange("email", e.target.value)}
                                 error={emailError ? " " : null} // Just to trigger red border
                              />
-                             <Field label="Téléphone Mobile" icon={Phone} placeholder="+221 77 000 00 00" value={formData.phone} onChange={e => handleChange("phone", e.target.value)} />
+                             <Field label="Téléphone Mobile" icon={Phone} placeholder="+225 77 000 00 00" value={formData.phone} onChange={e => handleChange("phone", e.target.value)} />
                            </div>
                            
                            {/* Email Collision Alert */}
@@ -629,19 +641,15 @@ export default function Seller() {
                  {step === 2 && (
                    <motion.div key="step2" {...stepAnim} className="space-y-6">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                       <Field label="Nom de la Boutique" icon={Store} placeholder="Ex: Dakar Shop" value={formData.storeName} onChange={e => handleChange("storeName", e.target.value)} />
+                       <Field label="Nom de la Boutique" icon={Store} placeholder="Ex: Babi Shop" value={formData.storeName} onChange={e => handleChange("storeName", e.target.value)} />
                        <div className="space-y-1.5">
-                         <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Catégorie Principale</label>
+                         <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Type de boutique</label>
                          <select 
                             className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3.5 text-sm outline-none focus:border-[#6aa200] focus:ring-4 focus:ring-[#6aa200]/10 transition-all"
                             value={formData.category}
                             onChange={e => handleChange("category", e.target.value)}
                          >
-                           <option value="fashion">Mode & Accessoires</option>
-                           <option value="tech">High-Tech & Électronique</option>
-                           <option value="home">Maison & Décoration</option>
-                           <option value="beauty">Beauté & Santé</option>
-                           <option value="food">Alimentation</option>
+                           <option value="fashion"></option>
                          </select>
                        </div>
                      </div>
