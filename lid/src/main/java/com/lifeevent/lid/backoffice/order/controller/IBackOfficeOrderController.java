@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.order.controller;
 
 import com.lifeevent.lid.backoffice.order.dto.BackOfficeCreateOrderRequest;
+import com.lifeevent.lid.backoffice.order.dto.BackOfficeOrderCreateBootstrapDto;
 import com.lifeevent.lid.backoffice.order.dto.BackOfficeOrderQuoteResponse;
 import com.lifeevent.lid.backoffice.order.dto.BackOfficeOrderSummaryDto;
 import com.lifeevent.lid.backoffice.order.enumeration.BackOfficeOrderStatus;
@@ -20,6 +21,14 @@ import java.util.List;
 
 @Tag(name = "BackOffice - Orders", description = "API back-office pour gérer les commandes")
 public interface IBackOfficeOrderController {
+
+    @GetMapping("/create-bootstrap")
+    ResponseEntity<BackOfficeOrderCreateBootstrapDto> getCreateBootstrap(
+            @RequestParam(defaultValue = "0") int customersPage,
+            @RequestParam(defaultValue = "20") int customersSize,
+            @RequestParam(defaultValue = "0") int productsPage,
+            @RequestParam(defaultValue = "20") int productsSize
+    );
 
     @GetMapping
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les commandes")

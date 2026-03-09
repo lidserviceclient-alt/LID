@@ -1,5 +1,6 @@
 package com.lifeevent.lid.user.customer.profile.controller;
 
+import com.lifeevent.lid.user.customer.profile.dto.CustomerCheckoutCollectionDto;
 import com.lifeevent.lid.user.customer.profile.dto.CustomerProfileCollectionDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -18,4 +19,8 @@ public interface ICustomerProfileController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     );
+
+    @GetMapping("/checkout/collection")
+    @Operation(summary = "Collection checkout du client connecté")
+    ResponseEntity<CustomerCheckoutCollectionDto> getMyCheckoutCollection();
 }

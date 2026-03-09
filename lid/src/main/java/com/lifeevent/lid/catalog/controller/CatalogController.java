@@ -111,6 +111,14 @@ public class CatalogController implements ICatalogController {
         );
     }
 
+    @GetMapping("/layout/collection")
+    @Override
+    public CatalogLayoutCollectionDto getLayoutCollection(
+            @RequestParam(value = "latestLimit", required = false) Integer latestLimit
+    ) {
+        return catalogService.getLayoutCollection(latestLimit);
+    }
+
     @GetMapping("/products/featured")
     @Override
     public List<CatalogProductDto> listFeaturedProducts(
@@ -145,6 +153,16 @@ public class CatalogController implements ICatalogController {
     @Override
     public CatalogProductDetailsDto getProductDetails(@PathVariable Long id) {
         return catalogService.getProductDetails(id);
+    }
+
+    @GetMapping("/products/{id}/collection")
+    @Override
+    public CatalogProductPageCollectionDto getProductPageCollection(
+            @PathVariable Long id,
+            @RequestParam(value = "relatedLimit", required = false) Integer relatedLimit,
+            @RequestParam(value = "sortKey", required = false) String sortKey
+    ) {
+        return catalogService.getProductPageCollection(id, relatedLimit, sortKey);
     }
 
     @GetMapping("/categories")

@@ -1,11 +1,13 @@
 package com.lifeevent.lid.backoffice.loyalty.controller;
 
 import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyAdjustPointsRequest;
+import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyCollectionDto;
 import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyConfigDto;
 import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyCustomerDto;
 import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyOverviewDto;
 import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyTierDto;
 import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyTransactionDto;
+import com.lifeevent.lid.backoffice.loyalty.service.BackOfficeLoyaltyCollectionService;
 import com.lifeevent.lid.backoffice.loyalty.service.BackOfficeLoyaltyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,6 +24,12 @@ import java.util.List;
 public class BackOfficeLoyaltyController implements IBackOfficeLoyaltyController {
 
     private final BackOfficeLoyaltyService backOfficeLoyaltyService;
+    private final BackOfficeLoyaltyCollectionService backOfficeLoyaltyCollectionService;
+
+    @Override
+    public ResponseEntity<BackOfficeLoyaltyCollectionDto> getCollection(String q, int page, int size, Integer topLimit) {
+        return ResponseEntity.ok(backOfficeLoyaltyCollectionService.getCollection(q, page, size, topLimit));
+    }
 
     @Override
     public ResponseEntity<BackOfficeLoyaltyOverviewDto> getOverview() {

@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.loyalty.controller;
 
 import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyAdjustPointsRequest;
+import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyCollectionDto;
 import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyConfigDto;
 import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyCustomerDto;
 import com.lifeevent.lid.backoffice.loyalty.dto.BackOfficeLoyaltyOverviewDto;
@@ -23,6 +24,14 @@ import java.util.List;
 
 @Tag(name = "BackOffice - Loyalty", description = "API back-office pour la fidélité")
 public interface IBackOfficeLoyaltyController {
+
+    @GetMapping("/collection")
+    ResponseEntity<BackOfficeLoyaltyCollectionDto> getCollection(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Integer topLimit
+    );
 
     @GetMapping("/overview")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Vue d'ensemble fidélité")

@@ -14,6 +14,9 @@ public interface IBackOfficeSettingController {
     @GetMapping
     ResponseEntity<BackOfficeSettingPageDto> getSettingsPage();
 
+    @GetMapping("/collection")
+    ResponseEntity<BackOfficeSettingPageDto> getSettingsCollection();
+
     @GetMapping("/shop-profile")
     ResponseEntity<BackOfficeSettingShopProfileDto> getShopProfile();
     @PutMapping("/shop-profile")

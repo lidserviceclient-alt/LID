@@ -1,11 +1,13 @@
 package com.lifeevent.lid.backoffice.logistics.controller;
 
 import com.lifeevent.lid.backoffice.logistics.dto.BackOfficeShipmentDeliveryConfirmRequest;
+import com.lifeevent.lid.backoffice.logistics.dto.BackOfficeLogisticsCollectionDto;
 import com.lifeevent.lid.backoffice.logistics.dto.BackOfficeShipmentDetailDto;
 import com.lifeevent.lid.backoffice.logistics.dto.BackOfficeShipmentDto;
 import com.lifeevent.lid.backoffice.logistics.dto.BackOfficeShipmentScanRequest;
 import com.lifeevent.lid.backoffice.logistics.dto.BackOfficeShipmentStatusUpdateRequest;
 import com.lifeevent.lid.backoffice.logistics.dto.LogisticsKpisDto;
+import com.lifeevent.lid.backoffice.logistics.service.BackOfficeLogisticsCollectionService;
 import com.lifeevent.lid.backoffice.logistics.service.BackOfficeLogisticsService;
 import com.lifeevent.lid.logistics.enumeration.ShipmentStatus;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,25 @@ import org.springframework.web.bind.annotation.*;
 public class BackOfficeLogisticsController implements IBackOfficeLogisticsController {
 
     private final BackOfficeLogisticsService backOfficeLogisticsService;
+    private final BackOfficeLogisticsCollectionService backOfficeLogisticsCollectionService;
+
+    @Override
+    public ResponseEntity<BackOfficeLogisticsCollectionDto> getCollection(
+            Integer days,
+            int page,
+            int size,
+            ShipmentStatus status,
+            String carrier,
+            String q,
+            int deliveredPage,
+            int deliveredSize,
+            ShipmentStatus deliveredStatus,
+            String deliveredCarrier,
+            String deliveredQ
+    ) {
+        return ResponseEntity.ok(backOfficeLogisticsCollectionService
+                .getCollection(days, page, size, status, carrier, q, deliveredPage, deliveredSize, deliveredStatus, deliveredCarrier, deliveredQ));
+    }
 
     @Override
     public ResponseEntity<LogisticsKpisDto> getKpis(Integer days) {

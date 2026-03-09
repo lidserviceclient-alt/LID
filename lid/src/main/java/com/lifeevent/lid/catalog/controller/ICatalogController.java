@@ -81,6 +81,12 @@ public interface ICatalogController {
             @RequestParam(value = "sortKey", required = false) String sortKey
     );
 
+    @GetMapping("/layout/collection")
+    @Operation(summary = "Collection layout e-commerce (catégories + latest)")
+    CatalogLayoutCollectionDto getLayoutCollection(
+            @RequestParam(value = "latestLimit", required = false) Integer latestLimit
+    );
+
     @GetMapping("/products/featured")
     @Operation(summary = "Produits featured")
     List<CatalogProductDto> listFeaturedProducts(@RequestParam(value = "limit", required = false) Integer limit);
@@ -100,6 +106,14 @@ public interface ICatalogController {
     @GetMapping("/products/{id}/details")
     @Operation(summary = "Détail produit complet")
     CatalogProductDetailsDto getProductDetails(@PathVariable Long id);
+
+    @GetMapping("/products/{id}/collection")
+    @Operation(summary = "Collection page produit (détail + liés)")
+    CatalogProductPageCollectionDto getProductPageCollection(
+            @PathVariable Long id,
+            @RequestParam(value = "relatedLimit", required = false) Integer relatedLimit,
+            @RequestParam(value = "sortKey", required = false) String sortKey
+    );
 
     @GetMapping("/categories")
     @Operation(summary = "Lister les catégories")

@@ -1,7 +1,9 @@
 package com.lifeevent.lid.backoffice.promo.controller;
 
 import com.lifeevent.lid.backoffice.promo.dto.BackOfficePromoCodeDto;
+import com.lifeevent.lid.backoffice.promo.dto.BackOfficePromoCodeCollectionDto;
 import com.lifeevent.lid.backoffice.promo.dto.PromoCodeStatsDto;
+import com.lifeevent.lid.backoffice.promo.service.BackOfficePromoCodeCollectionService;
 import com.lifeevent.lid.backoffice.promo.service.BackOfficePromoCodeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,6 +18,12 @@ import java.util.List;
 public class BackOfficePromoCodeController implements IBackOfficePromoCodeController {
 
     private final BackOfficePromoCodeService backOfficePromoCodeService;
+    private final BackOfficePromoCodeCollectionService backOfficePromoCodeCollectionService;
+
+    @Override
+    public ResponseEntity<BackOfficePromoCodeCollectionDto> getCollection(Integer days) {
+        return ResponseEntity.ok(backOfficePromoCodeCollectionService.getCollection(days));
+    }
 
     @Override
     public ResponseEntity<List<BackOfficePromoCodeDto>> getAll() {

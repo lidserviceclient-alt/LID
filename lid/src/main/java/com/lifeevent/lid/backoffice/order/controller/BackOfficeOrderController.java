@@ -1,9 +1,11 @@
 package com.lifeevent.lid.backoffice.order.controller;
 
 import com.lifeevent.lid.backoffice.order.dto.BackOfficeCreateOrderRequest;
+import com.lifeevent.lid.backoffice.order.dto.BackOfficeOrderCreateBootstrapDto;
 import com.lifeevent.lid.backoffice.order.dto.BackOfficeOrderQuoteResponse;
 import com.lifeevent.lid.backoffice.order.dto.BackOfficeOrderSummaryDto;
 import com.lifeevent.lid.backoffice.order.enumeration.BackOfficeOrderStatus;
+import com.lifeevent.lid.backoffice.order.service.BackOfficeOrderBootstrapService;
 import com.lifeevent.lid.backoffice.order.service.BackOfficeOrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,6 +24,18 @@ import java.util.Map;
 public class BackOfficeOrderController implements IBackOfficeOrderController {
 
     private final BackOfficeOrderService backOfficeOrderService;
+    private final BackOfficeOrderBootstrapService backOfficeOrderBootstrapService;
+
+    @Override
+    public ResponseEntity<BackOfficeOrderCreateBootstrapDto> getCreateBootstrap(
+            int customersPage,
+            int customersSize,
+            int productsPage,
+            int productsSize
+    ) {
+        return ResponseEntity.ok(backOfficeOrderBootstrapService
+                .getCreateBootstrap(customersPage, customersSize, productsPage, productsSize));
+    }
 
     @Override
     public ResponseEntity<Page<BackOfficeOrderSummaryDto>> getOrders(int page, int size, BackOfficeOrderStatus status, String q) {

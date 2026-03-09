@@ -376,6 +376,26 @@ public class CatalogServiceImpl implements CatalogService {
         );
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public CatalogLayoutCollectionDto getLayoutCollection(Integer latestLimit) {
+        return new CatalogLayoutCollectionDto(
+                listCategories(),
+                listLatestProducts(latestLimit)
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CatalogProductPageCollectionDto getProductPageCollection(Long id, Integer relatedLimit, String sortKey) {
+        CatalogProductDto product = getProduct(id);
+        int safeRelatedLimit = safeRelatedLimit(relatedLimit);
+        String safeSortKey = normalizeSortKeyOrDefault(sortKey, "newest");
+
+        List<CatalogProductDto> related = buildRelatedProducts(product, safeRelatedLimit, safeSortKey);
+        return new CatalogProductPageCollectionDto(product, related);
+    }
+
     private Article getActiveArticleOrThrow(Long id) {
         Article article = articleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Article", "id", String.valueOf(id)));
@@ -404,6 +424,55 @@ public class CatalogServiceImpl implements CatalogService {
             return Sort.by(Sort.Direction.DESC, "price");
         }
         return Sort.by(Sort.Direction.DESC, "createdAt");
+    }
+
+    private List<CatalogProductDto> buildRelatedProducts(CatalogProductDto product, int limit, String sortKey) {
+        List<CatalogProductDto> candidates = new ArrayList<>();
+        String categoryToken = normalize(product.categorySlug());
+        String productId = product.id();
+
+        if (categoryToken != null) {
+            List<CatalogProductDto> categoryProducts = listProducts(0, 24, null, categoryToken, sortKey).getContent();
+            appendRelatedCandidates(candidates, categoryProducts, productId);
+        }
+
+        if (candidates.size() < limit) {
+            List<CatalogProductDto> fallbackProducts = listProducts(0, 80, null, null, sortKey).getContent();
+            appendRelatedCandidates(candidates, fallbackProducts, productId);
+        }
+
+        return deduplicateAndLimit(candidates, limit, productId);
+    }
+
+    private void appendRelatedCandidates(List<CatalogProductDto> target, List<CatalogProductDto> source, String productId) {
+        if (source == null || source.isEmpty()) {
+            return;
+        }
+        for (CatalogProductDto item : source) {
+            if (item == null || item.id() == null || Objects.equals(item.id(), productId)) {
+                continue;
+            }
+            target.add(item);
+        }
+    }
+
+    private List<CatalogProductDto> deduplicateAndLimit(List<CatalogProductDto> source, int limit, String productId) {
+        if (source == null || source.isEmpty()) {
+            return List.of();
+        }
+        List<CatalogProductDto> result = new ArrayList<>(limit);
+        Set<String> seen = new HashSet<>();
+        for (CatalogProductDto item : source) {
+            if (item == null || item.id() == null || Objects.equals(item.id(), productId) || seen.contains(item.id())) {
+                continue;
+            }
+            seen.add(item.id());
+            result.add(item);
+            if (result.size() >= limit) {
+                break;
+            }
+        }
+        return result;
     }
 
     private SearchPayload buildSearchPayload(String q, String category) {
@@ -449,6 +518,15 @@ public class CatalogServiceImpl implements CatalogService {
             return fallback;
         }
         return Math.min(Math.max(limit, 1), 50);
+    }
+
+    private int safeRelatedLimit(Integer limit) {
+        return safeLimit(limit, 8);
+    }
+
+    private String normalizeSortKeyOrDefault(String sortKey, String fallback) {
+        String normalized = normalize(sortKey);
+        return normalized == null ? fallback : normalized;
     }
 
     private boolean isActiveCategory(Category category) {

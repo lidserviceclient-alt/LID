@@ -3,7 +3,9 @@ package com.lifeevent.lid.catalog.service;
 import com.lifeevent.lid.catalog.dto.ArticleCatalogDto;
 import com.lifeevent.lid.catalog.dto.CatalogCategoryDto;
 import com.lifeevent.lid.catalog.dto.CatalogCollectionDto;
+import com.lifeevent.lid.catalog.dto.CatalogLayoutCollectionDto;
 import com.lifeevent.lid.catalog.dto.CatalogProductDetailsDto;
+import com.lifeevent.lid.catalog.dto.CatalogProductPageCollectionDto;
 import com.lifeevent.lid.catalog.dto.CatalogProductDto;
 import com.lifeevent.lid.catalog.dto.CreateProductReviewRequest;
 import com.lifeevent.lid.catalog.dto.ProductReviewDto;
@@ -92,4 +94,8 @@ public interface CatalogService {
             String category,
             String sortKey
     );
+
+    CatalogLayoutCollectionDto getLayoutCollection(Integer latestLimit);
+
+    CatalogProductPageCollectionDto getProductPageCollection(Long id, Integer relatedLimit, String sortKey);
 }

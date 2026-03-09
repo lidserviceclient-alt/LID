@@ -1,5 +1,6 @@
 package com.lifeevent.lid.user.customer.profile.controller;
 
+import com.lifeevent.lid.user.customer.profile.dto.CustomerCheckoutCollectionDto;
 import com.lifeevent.lid.user.customer.profile.dto.CustomerProfileCollectionDto;
 import com.lifeevent.lid.user.customer.profile.service.CustomerProfileService;
 import lombok.RequiredArgsConstructor;
@@ -19,5 +20,11 @@ public class CustomerProfileController implements ICustomerProfileController {
     @PreAuthorize("hasAnyRole('CUSTOMER','ADMIN','SUPER_ADMIN')")
     public ResponseEntity<CustomerProfileCollectionDto> getMyCollection(int page, int size) {
         return ResponseEntity.ok(customerProfileService.getMyCollection(page, size));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('CUSTOMER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<CustomerCheckoutCollectionDto> getMyCheckoutCollection() {
+        return ResponseEntity.ok(customerProfileService.getMyCheckoutCollection());
     }
 }

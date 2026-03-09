@@ -25,6 +25,11 @@ public class BackOfficeSettingController implements IBackOfficeSettingController
     }
 
     @Override
+    public ResponseEntity<BackOfficeSettingPageDto> getSettingsCollection() {
+        return ResponseEntity.ok(backOfficeSettingService.getPage());
+    }
+
+    @Override
     public ResponseEntity<BackOfficeSettingShopProfileDto> getShopProfile() {
         return ResponseEntity.ok(backOfficeSettingService.getShopProfile());
     }

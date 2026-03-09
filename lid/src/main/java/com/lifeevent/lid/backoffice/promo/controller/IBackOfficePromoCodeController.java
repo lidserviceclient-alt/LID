@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.promo.controller;
 
 import com.lifeevent.lid.backoffice.promo.dto.BackOfficePromoCodeDto;
+import com.lifeevent.lid.backoffice.promo.dto.BackOfficePromoCodeCollectionDto;
 import com.lifeevent.lid.backoffice.promo.dto.PromoCodeStatsDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -17,6 +18,11 @@ import java.util.List;
 
 @Tag(name = "BackOffice - Promo Codes", description = "API back-office pour gérer les codes promo")
 public interface IBackOfficePromoCodeController {
+
+    @GetMapping("/collection")
+    ResponseEntity<BackOfficePromoCodeCollectionDto> getCollection(
+            @RequestParam(required = false) Integer days
+    );
 
     @GetMapping
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les codes promo")

@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.logistics.controller;
 
 import com.lifeevent.lid.backoffice.logistics.dto.BackOfficeShipmentDeliveryConfirmRequest;
+import com.lifeevent.lid.backoffice.logistics.dto.BackOfficeLogisticsCollectionDto;
 import com.lifeevent.lid.backoffice.logistics.dto.BackOfficeShipmentDetailDto;
 import com.lifeevent.lid.backoffice.logistics.dto.BackOfficeShipmentDto;
 import com.lifeevent.lid.backoffice.logistics.dto.BackOfficeShipmentScanRequest;
@@ -19,6 +20,21 @@ import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "BackOffice - Logistics", description = "API back-office pour la logistique")
 public interface IBackOfficeLogisticsController {
+
+    @GetMapping("/collection")
+    ResponseEntity<BackOfficeLogisticsCollectionDto> getCollection(
+            @RequestParam(required = false) Integer days,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) ShipmentStatus status,
+            @RequestParam(required = false) String carrier,
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int deliveredPage,
+            @RequestParam(defaultValue = "20") int deliveredSize,
+            @RequestParam(required = false) ShipmentStatus deliveredStatus,
+            @RequestParam(required = false) String deliveredCarrier,
+            @RequestParam(required = false) String deliveredQ
+    );
 
     @GetMapping("/kpis")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "KPIs logistiques")
