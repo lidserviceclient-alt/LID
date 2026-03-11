@@ -96,6 +96,8 @@ public class SecurityConfig {
                             .hasAnyRole("ADMIN", "SUPER_ADMIN", "LIVREUR");
                     auth.requestMatchers("/api/backoffice/notifications/**", "/api/v1/backoffice/notifications/**")
                             .hasAnyRole("ADMIN", "SUPER_ADMIN", "LIVREUR");
+                    auth.requestMatchers("/api/backoffice/partners/me/**", "/api/v1/backoffice/partners/me/**")
+                            .hasAnyRole("PARTNER", "ADMIN", "SUPER_ADMIN");
                     auth.requestMatchers("/api/backoffice/**", "/api/v1/backoffice/**")
                             .hasAnyRole("ADMIN", "SUPER_ADMIN");
 
