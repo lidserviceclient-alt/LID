@@ -54,6 +54,12 @@ public class Partner extends UserEntity {
     
     @Column(length = 100)
     private String country;
+
+    @Column(length = 64)
+    private String ninea;
+
+    @Column(length = 128)
+    private String rccm;
     
     /**
      * URL du document de registration commercial
@@ -61,6 +67,34 @@ public class Partner extends UserEntity {
      */
     @Column(length = 1000)
     private String businessRegistrationDocumentUrl;
+
+    @Column(length = 255)
+    private String bankName;
+
+    @Column(length = 255)
+    private String accountHolder;
+
+    @Column(length = 128)
+    private String rib;
+
+    @Column(length = 128)
+    private String iban;
+
+    @Column(length = 128)
+    private String swift;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean contractAccepted = false;
+
+    @Column(length = 1000)
+    private String idDocumentUrl;
+
+    @Column(length = 1000)
+    private String nineaDocumentUrl;
+
+    @Column(length = 1000)
+    private String supportingDocumentsZipUrl;
     
     /**
      * Statut d'enregistrement pour tracker la progression du Partner

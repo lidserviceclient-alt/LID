@@ -1,8 +1,8 @@
 package com.lifeevent.lid.message.controller;
 
-import com.lifeevent.lid.backoffice.message.dto.BackOfficeMessageDto;
-import com.lifeevent.lid.backoffice.message.dto.CreateBackOfficeMessageRequest;
-import com.lifeevent.lid.backoffice.message.service.BackOfficeMessageService;
+import com.lifeevent.lid.backoffice.lid.message.dto.BackOfficeMessageDto;
+import com.lifeevent.lid.backoffice.lid.message.dto.CreateBackOfficeMessageRequest;
+import com.lifeevent.lid.backoffice.lid.message.service.BackOfficeMessageService;
 import com.lifeevent.lid.message.dto.PublicContactRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

@@ -1,6 +1,9 @@
 package com.lifeevent.lid.user.partner.repository;
 
 import com.lifeevent.lid.user.partner.entity.Partner;
+import com.lifeevent.lid.user.partner.entity.PartnerRegistrationStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -49,4 +52,30 @@ public interface PartnerRepository extends JpaRepository<Partner, String> {
     @EntityGraph(attributePaths = {"shop"})
     @Query("SELECT p FROM Partner p WHERE p.userId = :userId")
     Optional<Partner> findByUserIdWithShop(@Param("userId") String userId);
+
+    @EntityGraph(attributePaths = {"shop", "shop.mainCategory"})
+    @Query("""
+        SELECT p
+        FROM Partner p
+        LEFT JOIN p.shop s
+        WHERE p.registrationStatus = :status
+          AND (
+            :queryEmpty = true OR
+            LOWER(COALESCE(p.firstName, '')) LIKE :queryPattern OR
+            LOWER(COALESCE(p.lastName, '')) LIKE :queryPattern OR
+            LOWER(COALESCE(p.email, '')) LIKE :queryPattern OR
+            LOWER(COALESCE(s.shopName, '')) LIKE :queryPattern
+          )
+        ORDER BY p.createdAt DESC
+    """)
+    Page<Partner> searchVerifiedForCatalog(
+            @Param("status") PartnerRegistrationStatus status,
+            @Param("queryPattern") String queryPattern,
+            @Param("queryEmpty") boolean queryEmpty,
+            Pageable pageable
+    );
+
+    @EntityGraph(attributePaths = {"shop", "shop.mainCategory"})
+    @Query("SELECT p FROM Partner p WHERE p.userId = :userId AND p.registrationStatus = :status")
+    Optional<Partner> findVerifiedByUserIdWithShop(@Param("userId") String userId, @Param("status") PartnerRegistrationStatus status);
 }

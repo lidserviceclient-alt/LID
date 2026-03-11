@@ -33,12 +33,12 @@ public interface IPartnerController {
         @ApiResponse(
             responseCode = "201",
             description = "Partner créé avec succès",
-            content = @Content(schema = @Schema(implementation = PartnerResponseDto.class))
+            content = @Content(schema = @Schema(implementation = PartnerRegisterStep1ResponseDto.class))
         ),
         @ApiResponse(responseCode = "400", description = "Données invalides"),
         @ApiResponse(responseCode = "409", description = "Email déjà existant")
     })
-    ResponseEntity<PartnerResponseDto> registerStep1(
+    ResponseEntity<PartnerRegisterStep1ResponseDto> registerStep1(
         @io.swagger.v3.oas.annotations.parameters.RequestBody(
             description = "Infos de compte Partner",
             required = true,
@@ -59,8 +59,8 @@ public interface IPartnerController {
     @PostMapping("/register/step-2")
     @SecurityRequirement(name = "Bearer Token")
     @Operation(
-        summary = "Étape 2 - Ajouter les infos de boutique",
-        description = "Crée la boutique du Partner avec nom, catégorie principale, description (Own profile or ADMIN)"
+        summary = "Étape 2 - Infos business/légales (texte)",
+        description = "Enregistre les infos boutique + siège social/NINEA/RCCM (Own profile or ADMIN)"
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -83,39 +83,14 @@ public interface IPartnerController {
     );
 
     /**
-     * Récupérer les infos de l'ÉTAPE 1
-     * ENDPOINT PROTÉGÉ (Own profile or ADMIN)
-     */
-    @GetMapping("/register/step-1/{partnerId}")
-    @SecurityRequirement(name = "Bearer Token")
-    @Operation(
-        summary = "Récupérer les infos de l'étape 1",
-        description = "Retourne les infos de base du Partner pour l'étape 1 (Own profile or ADMIN)"
-    )
-    @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "200",
-            description = "Partner trouvé",
-            content = @Content(schema = @Schema(implementation = PartnerResponseDto.class))
-        ),
-        @ApiResponse(responseCode = "401", description = "Non autorisé"),
-        @ApiResponse(responseCode = "403", description = "Accès refusé - Can view only own profile"),
-        @ApiResponse(responseCode = "404", description = "Partner non trouvé")
-    })
-    ResponseEntity<PartnerResponseDto> getRegisterStep1(
-        @Parameter(description = "ID du Partner", required = true)
-        @PathVariable String partnerId
-    );
-    
-    /**
      * ÉTAPE 3 : Ajouter les infos légales
      * ENDPOINT PROTÉGÉ (Partner or ADMIN)
      */
     @PostMapping("/register/step-3")
     @SecurityRequirement(name = "Bearer Token")
     @Operation(
-        summary = "Étape 3 - Ajouter les infos légales",
-        description = "Complète l'enregistrement avec adresse, ville, pays et document de registration (Own profile or ADMIN)"
+        summary = "Étape 3 - URLs médias/documents",
+        description = "Enregistre les URLs uploadées (logo, bannière, document commercial) (Own profile or ADMIN)"
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -137,62 +112,29 @@ public interface IPartnerController {
         @RequestBody PartnerRegisterStep3RequestDto dto
     );
 
-    /**
-     * Récupérer les infos de l'ÉTAPE 2
-     * ENDPOINT PROTÉGÉ (Own profile or ADMIN)
-     */
-    @GetMapping("/register/step-2/{partnerId}")
+    @PostMapping("/register/step-4")
     @SecurityRequirement(name = "Bearer Token")
-    @Operation(
-        summary = "Récupérer les infos de l'étape 2",
-        description = "Retourne les infos boutique du Partner pour l'étape 2 (Own profile or ADMIN)"
-    )
-    @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "200",
-            description = "Partner trouvé",
-            content = @Content(schema = @Schema(implementation = PartnerResponseDto.class))
-        ),
-        @ApiResponse(responseCode = "401", description = "Non autorisé"),
-        @ApiResponse(responseCode = "403", description = "Accès refusé - Can view only own profile"),
-        @ApiResponse(responseCode = "404", description = "Partner non trouvé")
-    })
-    ResponseEntity<PartnerResponseDto> getRegisterStep2(
-        @Parameter(description = "ID du Partner", required = true)
-        @PathVariable String partnerId
+    @Operation(summary = "Étape 4 - Contrat + pièces finales")
+    ResponseEntity<PartnerResponseDto> registerStep4(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Contrat + pièces finales",
+                    required = true,
+                    content = @Content(schema = @Schema(implementation = PartnerRegisterStep4RequestDto.class))
+            )
+            @RequestBody PartnerRegisterStep4RequestDto dto
     );
 
-    /**
-     * Récupérer les infos de l'ÉTAPE 3
-     * ENDPOINT PROTÉGÉ (Own profile or ADMIN)
-     */
-    @GetMapping("/register/step-3/{partnerId}")
+    @GetMapping("/register/aggregate")
     @SecurityRequirement(name = "Bearer Token")
-    @Operation(
-        summary = "Récupérer les infos de l'étape 3",
-        description = "Retourne les infos légales du Partner pour l'étape 3 (Own profile or ADMIN)"
-    )
-    @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "200",
-            description = "Partner trouvé",
-            content = @Content(schema = @Schema(implementation = PartnerResponseDto.class))
-        ),
-        @ApiResponse(responseCode = "401", description = "Non autorisé"),
-        @ApiResponse(responseCode = "403", description = "Accès refusé - Can view only own profile"),
-        @ApiResponse(responseCode = "404", description = "Partner non trouvé")
-    })
-    ResponseEntity<PartnerResponseDto> getRegisterStep3(
-        @Parameter(description = "ID du Partner", required = true)
-        @PathVariable String partnerId
-    );
-    
+    @Operation(summary = "Agrégat des étapes d'inscription partner")
+    ResponseEntity<PartnerRegistrationAggregateDto> getRegistrationAggregate();
+
     /**
      * Récupérer un Partner par ID
      * ENDPOINT PROTÉGÉ (Own profile or ADMIN)
      */
     @GetMapping("/{partnerId}")
-    @SecurityRequirement(name = "Bearer Token")
+    //@SecurityRequirement(name = "Bearer Token")
     @Operation(
         summary = "Récupérer un Partner",
         description = "Récupère les détails complets d'un Partner avec ses infos de boutique et légales (Own profile or ADMIN)"
@@ -217,7 +159,7 @@ public interface IPartnerController {
      * ENDPOINT PROTÉGÉ (Own profile or ADMIN)
      */
     @PutMapping("/{partnerId}")
-    @SecurityRequirement(name = "Bearer Token")
+    //@SecurityRequirement(name = "Bearer Token")
     @Operation(
         summary = "Mettre à jour un Partner",
         description = "Met à jour les infos générales d'un Partner (nom, prénom, téléphone) (Own profile or ADMIN)"
@@ -244,7 +186,7 @@ public interface IPartnerController {
      * ENDPOINT PROTÉGÉ (ADMIN only)
      */
     @DeleteMapping("/{partnerId}")
-    @SecurityRequirement(name = "Bearer Token")
+    //@SecurityRequirement(name = "Bearer Token")
     @Operation(
         summary = "Supprimer un Partner",
         description = "Supprime complètement un Partner et ses données associées (ADMIN only)"

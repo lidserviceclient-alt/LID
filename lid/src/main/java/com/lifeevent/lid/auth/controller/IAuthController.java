@@ -45,7 +45,15 @@ public interface IAuthController {
             @ApiResponse(responseCode = "200", description = "Authentification réussie"),
             @ApiResponse(responseCode = "400", description = "Identifiants invalides")
     })
-    AuthResponse loginLocal(@Valid @RequestBody LoginRequest request);
+    AuthResponse loginLidBackofficeLocal(@Valid @RequestBody LoginRequest request);
+
+    @PostMapping("/login/local/partner")
+    @Operation(summary = "Connexion locale partner")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Authentification réussie"),
+            @ApiResponse(responseCode = "400", description = "Identifiants invalides")
+    })
+    AuthResponse loginPartnerLocal(@Valid @RequestBody LoginRequest request);
 
     @PostMapping("/login/local/verify")
     @Operation(summary = "Validation MFA admin")

@@ -34,8 +34,13 @@ public class AuthController implements IAuthController {
     }
 
     @Override
-    public AuthResponse loginLocal(@Valid @RequestBody LoginRequest request) {
-        return authService.loginLocal(request);
+    public AuthResponse loginLidBackofficeLocal(@Valid @RequestBody LoginRequest request) {
+        return authService.loginLidBackofficeLocal(request);
+    }
+
+    @Override
+    public AuthResponse loginPartnerLocal(@Valid @RequestBody LoginRequest request) {
+        return authService.loginPartnerLocal(request);
     }
 
     @Override

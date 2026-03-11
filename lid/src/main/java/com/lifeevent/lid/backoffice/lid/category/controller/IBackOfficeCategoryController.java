@@ -1,0 +1,78 @@
+package com.lifeevent.lid.backoffice.lid.category.controller;
+
+import com.lifeevent.lid.backoffice.lid.category.dto.BackOfficeCategoryDto;
+import com.lifeevent.lid.backoffice.lid.category.dto.BulkCategoryCreateRequest;
+import com.lifeevent.lid.backoffice.lid.category.dto.BulkCategoryDeleteRequest;
+import com.lifeevent.lid.backoffice.lid.category.dto.BulkCategoryResult;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@Tag(name = "BackOffice - Catégories", description = "API back-office pour gérer les catégories")
+public interface IBackOfficeCategoryController {
+
+    @GetMapping
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les catégories")
+    @ApiResponse(responseCode = "200", description = "Liste des catégories")
+    ResponseEntity<List<BackOfficeCategoryDto>> getAll();
+
+    @GetMapping("/{id}")
+    ResponseEntity<BackOfficeCategoryDto> getById(@PathVariable Integer id);
+
+    @PostMapping
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Créer une catégorie")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Catégorie créée",
+                    content = @Content(schema = @Schema(implementation = BackOfficeCategoryDto.class))),
+            @ApiResponse(responseCode = "400", description = "Données invalides")
+    })
+    ResponseEntity<BackOfficeCategoryDto> create(@RequestBody BackOfficeCategoryDto dto);
+
+    @PutMapping("/{id}")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Mettre à jour une catégorie")
+    ResponseEntity<BackOfficeCategoryDto> update(
+            @Parameter(description = "ID de la catégorie", required = true)
+            @PathVariable Integer id,
+            @RequestBody BackOfficeCategoryDto dto
+    );
+
+    @DeleteMapping("/{id}")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Supprimer une catégorie")
+    ResponseEntity<Void> delete(
+            @Parameter(description = "ID de la catégorie", required = true)
+            @PathVariable Integer id
+    );
+
+    @DeleteMapping({"", "/"})
+    ResponseEntity<Void> deleteAll();
+
+    @PostMapping("/bulk")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Créer des catégories en masse")
+    ResponseEntity<BulkCategoryResult> bulkCreate(@RequestBody BulkCategoryCreateRequest request);
+
+    @PostMapping("/bulk-delete")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Supprimer des catégories en masse")
+    ResponseEntity<Void> bulkDelete(@RequestBody BulkCategoryDeleteRequest request);
+
+    @PostMapping("/purge")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Purger les catégories")
+    ResponseEntity<Void> purge(@RequestParam(value = "withProducts", required = false, defaultValue = "false") boolean withProducts);
+
+    @PostMapping("/upload-image")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Uploader une image de catégorie")
+    ResponseEntity<Object> uploadImage(@RequestParam("file") MultipartFile file);
+
+    @GetMapping("/image/{filename}")
+    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Récupérer une image de catégorie")
+    ResponseEntity<org.springframework.core.io.Resource> getImage(@PathVariable String filename);
+}

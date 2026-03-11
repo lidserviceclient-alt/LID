@@ -92,10 +92,6 @@ config:
       jwk-set-uri: ${GOOGLE_JWK_SET_URI:https://www.googleapis.com/oauth2/v3/certs}
       client-id: ${GOOGLE_CLIENT_ID:local-google-client-id}
 
-
-
-
-
 # Configuration PayDunya
 paydunya:
   # Mode test ou production
@@ -157,6 +153,16 @@ logging:
     name: ${LOGGING_FILE_NAME:logs/lid.log}
   level:
     com.lifeevent.lid: INFO
+
+backblaze:
+  bucket-id: ${BACKBLAZE_BUCKET_ID:}
+  bucket-name: ${BACKBLAZE_BUCKET_NAME:}
+  public-base-url: ${BACKBLAZE_PUBLIC_BASE_URL:}
+
+storage:
+  local:
+    base-path: ${LOCAL_STORAGE_BASE_PATH:target/lid-storage}
+    public-base-url: ${LOCAL_STORAGE_PUBLIC_BASE_URL:target/lid-storage}
 
 # Configuration Swagger/OpenAPI
 springdoc:

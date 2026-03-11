@@ -9,7 +9,7 @@ import com.lifeevent.lid.auth.entity.RefreshToken;
 import com.lifeevent.lid.auth.enums.OneTimeCodePurpose;
 import com.lifeevent.lid.auth.repository.AuthenticationRepository;
 import com.lifeevent.lid.auth.repository.PasswordResetTokenRepository;
-import com.lifeevent.lid.backoffice.setting.repository.BackOfficeSecuritySettingRepository;
+import com.lifeevent.lid.backoffice.lid.setting.repository.BackOfficeSecuritySettingRepository;
 import com.lifeevent.lid.cart.service.CartService;
 import com.lifeevent.lid.common.service.EmailService;
 import com.lifeevent.lid.user.common.dto.UserDto;
@@ -18,11 +18,11 @@ import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.customer.dto.CustomerDto;
 import com.lifeevent.lid.user.customer.service.CustomerService;
+import com.lifeevent.lid.user.partner.mapper.PartnerMapper;
 import com.lifeevent.lid.user.partner.dto.PartnerResponseDto;
 import com.lifeevent.lid.user.partner.entity.Partner;
 import com.lifeevent.lid.user.partner.entity.PartnerRegistrationStatus;
 import com.lifeevent.lid.user.partner.repository.PartnerRepository;
-import com.lifeevent.lid.user.partner.service.PartnerService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -40,6 +40,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.FORBIDDEN;
@@ -52,7 +53,7 @@ public class AuthService {
     private final BearerTokenResolver bearerTokenResolver;
     private final JwtService jwtService;
     private final CustomerService customerService;
-    private final PartnerService partnerService;
+    private final PartnerMapper partnerMapper;
     private final PartnerRepository partnerRepository;
     private final UserService userService;
     private final RefreshTokenService refreshTokenService;
@@ -102,7 +103,9 @@ public class AuthService {
         assertUserNotBlocked(userJwt.getUserId());
 
         Authentication authentication = upsertAuthentication(userJwt.getUserId(), UserRole.CUSTOMER);
-        PartnerResponseDto partner = partnerService.getPartnerById(userJwt.getUserId()).orElse(null);
+        PartnerResponseDto partner = partnerRepository.findByUserIdWithShop(userJwt.getUserId())
+                .map(partnerMapper::toResponseDto)
+                .orElse(null);
         authentication = (partner != null)
                 ? syncPartnerRole(authentication, partner.getRegistrationStatus())
                 : removeRole(authentication, UserRole.PARTNER);
@@ -123,7 +126,8 @@ public class AuthService {
         assertUserNotBlocked(userJwt.getUserId());
 
         Authentication authentication = getOrCreateAuthentication(userJwt.getUserId());
-        PartnerResponseDto loggedPartner = partnerService.getPartnerById(userJwt.getUserId())
+        PartnerResponseDto loggedPartner = partnerRepository.findByUserIdWithShop(userJwt.getUserId())
+                .map(partnerMapper::toResponseDto)
                 .orElseGet(() -> createPartnerFromGoogle(userJwt));
         authentication = syncPartnerRole(authentication, loggedPartner.getRegistrationStatus());
 
@@ -137,20 +141,13 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse loginLocal(LoginRequest request) {
-        UserEntity user = findUserByEmailOrThrow(request.getEmail());
-        assertUserNotBlocked(user.getUserId());
+    public AuthResponse loginLidBackofficeLocal(LoginRequest request) {
+        return loginLocal(request, this::assertBackOfficeRoleOrThrow, true);
+    }
 
-        Authentication auth = findLocalAuthenticationOrThrow(user);
-        assertBackOfficeRoleOrThrow(auth);
-        assertPasswordMatchesOrThrow(request.getPassword(), auth.getPasswordHash());
-
-        if (requiresAdminMfa(auth)) {
-            return startAdminMfa(user);
-        }
-
-        String accessToken = buildAccessTokenForUser(user, auth);
-        return new AuthResponse(accessToken, Boolean.FALSE, null, null);
+    @Transactional
+    public AuthResponse loginPartnerLocal(LoginRequest request) {
+        return loginLocal(request, this::assertPartnerRoleOrThrow, false);
     }
 
     @Transactional
@@ -343,14 +340,7 @@ public class AuthService {
                 .build();
 
         Partner saved = partnerRepository.save(partner);
-        return partnerService.getPartnerById(saved.getUserId())
-                .orElseGet(() -> PartnerResponseDto.builder()
-                        .userId(saved.getUserId())
-                        .firstName(saved.getFirstName())
-                        .lastName(saved.getLastName())
-                        .email(saved.getEmail())
-                        .registrationStatus(saved.getRegistrationStatus())
-                        .build());
+        return partnerMapper.toResponseDto(saved);
     }
 
     private CustomerDto ensureCustomerAndCart(UserJwt userJwt) {
@@ -379,12 +369,35 @@ public class AuthService {
         return auth;
     }
 
+    private AuthResponse loginLocal(LoginRequest request, Consumer<Authentication> roleCheck, boolean withMfa) {
+        UserEntity user = findUserByEmailOrThrow(request.getEmail());
+        assertUserNotBlocked(user.getUserId());
+
+        Authentication auth = findLocalAuthenticationOrThrow(user);
+        roleCheck.accept(auth);
+        assertPasswordMatchesOrThrow(request.getPassword(), auth.getPasswordHash());
+
+        if (withMfa && requiresAdminMfa(auth)) {
+            return startAdminMfa(user);
+        }
+
+        String accessToken = buildAccessTokenForUser(user, auth);
+        return new AuthResponse(accessToken, Boolean.FALSE, null, null);
+    }
+
     private void assertBackOfficeRoleOrThrow(Authentication auth) {
         List<UserRole> roles = auth.getRoles() == null ? List.of() : auth.getRoles();
         boolean allowed = roles.contains(UserRole.ADMIN)
                 || roles.contains(UserRole.SUPER_ADMIN)
                 || roles.contains(UserRole.LIVREUR);
         if (!allowed) {
+            throw new IllegalArgumentException("Acces refuse");
+        }
+    }
+
+    private void assertPartnerRoleOrThrow(Authentication auth) {
+        List<UserRole> roles = auth.getRoles() == null ? List.of() : auth.getRoles();
+        if (!roles.contains(UserRole.PARTNER)) {
             throw new IllegalArgumentException("Acces refuse");
         }
     }
@@ -530,6 +543,44 @@ public class AuthService {
         if (blocked) {
             throw new ResponseStatusException(FORBIDDEN, "Compte utilisateur bloque.");
         }
+    }
+
+    public String hashLocalPassword(String rawPassword) {
+        if (rawPassword == null || rawPassword.isBlank()) {
+            throw new IllegalArgumentException("Mot de passe manquant");
+        }
+        return passwordEncoder.encode(rawPassword);
+    }
+
+    @Transactional
+    public void upsertLocalAuthentication(String userId,
+                                          String passwordHash,
+                                          AuthenticationType type,
+                                          List<UserRole> roles) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("userId manquant");
+        }
+        Authentication auth = authenticationRepository.findByUserId(userId)
+                .orElseGet(() -> Authentication.builder().userId(userId).roles(new ArrayList<>()).build());
+        auth.setType(type == null ? AuthenticationType.LOCAL : type);
+        auth.setPasswordHash(passwordHash);
+        auth.setRoles(new ArrayList<>(roles == null ? List.of() : roles));
+        authenticationRepository.save(auth);
+    }
+
+    @Transactional
+    public void upsertPartnerLocalAuthentication(String userId, String passwordHash) {
+        upsertLocalAuthentication(userId, passwordHash, AuthenticationType.LOCAL, List.of(UserRole.PARTNER));
+    }
+
+    @Transactional(readOnly = true)
+    public String generateAccessToken(String userId, String email, List<String> roles) {
+        return jwtService.generateAccessToken(userId, email, roles);
+    }
+
+    @Transactional(readOnly = true)
+    public String generatePartnerAccessToken(String userId, String email) {
+        return generateAccessToken(userId, email, List.of(UserRole.PARTNER.name()));
     }
 
     private void issueRefreshTokenCookie(HttpServletResponse response, String userId) {

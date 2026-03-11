@@ -164,4 +164,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      */
     Page<Article> findByReferencePartner(String partnerId, Pageable pageable);
 
+    Page<Article> findByReferencePartnerAndStatus(String partnerId, ArticleStatus status, Pageable pageable);
+
+    long countByReferencePartner(String partnerId);
+
 }

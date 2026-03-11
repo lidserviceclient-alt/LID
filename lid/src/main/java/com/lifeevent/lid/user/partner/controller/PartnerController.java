@@ -22,8 +22,8 @@ public class PartnerController implements IPartnerController {
     private final PartnerService partnerService;
     
     @Override
-    public ResponseEntity<PartnerResponseDto> registerStep1(@RequestBody PartnerRegisterStep1RequestDto dto) {
-        PartnerResponseDto created = partnerService.registerStep1(dto);
+    public ResponseEntity<PartnerRegisterStep1ResponseDto> registerStep1(@RequestBody PartnerRegisterStep1RequestDto dto) {
+        PartnerRegisterStep1ResponseDto created = partnerService.registerStep1(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
@@ -39,12 +39,6 @@ public class PartnerController implements IPartnerController {
         PartnerResponseDto updated = partnerService.registerStep2(dto);
         return ResponseEntity.ok(updated);
     }
-
-    @Override
-    public ResponseEntity<PartnerResponseDto> getRegisterStep1(@PathVariable String partnerId) {
-        Optional<PartnerResponseDto> partner = partnerService.getPartnerById(partnerId);
-        return ResponseUtils.getOrNotFound(partner, "Partner", partnerId);
-    }
     
     @Override
     public ResponseEntity<PartnerResponseDto> registerStep3(@RequestBody PartnerRegisterStep3RequestDto dto) {
@@ -53,17 +47,16 @@ public class PartnerController implements IPartnerController {
     }
 
     @Override
-    public ResponseEntity<PartnerResponseDto> getRegisterStep2(@PathVariable String partnerId) {
-        Optional<PartnerResponseDto> partner = partnerService.getPartnerById(partnerId);
-        return ResponseUtils.getOrNotFound(partner, "Partner", partnerId);
+    public ResponseEntity<PartnerResponseDto> registerStep4(@RequestBody PartnerRegisterStep4RequestDto dto) {
+        PartnerResponseDto updated = partnerService.registerStep4(dto);
+        return ResponseEntity.ok(updated);
     }
 
     @Override
-    public ResponseEntity<PartnerResponseDto> getRegisterStep3(@PathVariable String partnerId) {
-        Optional<PartnerResponseDto> partner = partnerService.getPartnerById(partnerId);
-        return ResponseUtils.getOrNotFound(partner, "Partner", partnerId);
+    public ResponseEntity<PartnerRegistrationAggregateDto> getRegistrationAggregate() {
+        return ResponseEntity.ok(partnerService.getRegistrationAggregate());
     }
-    
+
     @Override
     public ResponseEntity<PartnerResponseDto> getPartner(@PathVariable String partnerId) {
         Optional<PartnerResponseDto> partner = partnerService.getPartnerById(partnerId);

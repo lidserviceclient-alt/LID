@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
 
-@RestController
+//@RestController
 @RequestMapping("/api/v1/articles")
 @RequiredArgsConstructor
 public class ArticleController implements IArticleController {

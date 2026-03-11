@@ -14,9 +14,6 @@ import lombok.*;
 @Builder
 public class PartnerRegisterStep2RequestDto {
     
-    @Schema(description = "ID du Partner", example = "google-12345")
-    private String partnerId;
-    
     @Schema(description = "Nom de la boutique", example = "Electronics Paradise")
     private String shopName;
     
@@ -25,4 +22,22 @@ public class PartnerRegisterStep2RequestDto {
     
     @Schema(description = "Description de la boutique", example = "Vente d'électronique haute gamme")
     private String shopDescription;
+
+    @Schema(description = "Description courte", example = "Boutique tech premium")
+    private String description;
+
+    @Schema(description = "Adresse du siège social", example = "123 Rue de Commerce, Dakar")
+    private String headOfficeAddress;
+
+    @Schema(description = "Ville", example = "Dakar")
+    private String city;
+
+    @Schema(description = "Pays", example = "Sénégal")
+    private String country;
+
+    @Schema(description = "Numéro NINEA", example = "123456789")
+    private String ninea;
+
+    @Schema(description = "Numéro RCCM", example = "SN-DKR-2026-A-0001")
+    private String rccm;
 }

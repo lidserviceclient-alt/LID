@@ -41,9 +41,27 @@ public class PartnerResponseDto {
     
     @Schema(description = "Pays", example = "France")
     private String country;
+
+    @Schema(description = "Numéro NINEA", example = "123456789")
+    private String ninea;
+
+    @Schema(description = "Numéro RCCM", example = "SN-DKR-2026-A-0001")
+    private String rccm;
     
     @Schema(description = "URL du document d'enregistrement commercial", example = "https://documents.example.com/registration.pdf")
     private String businessRegistrationDocumentUrl;
+
+    @Schema(description = "Contrat accepté", example = "true")
+    private Boolean contractAccepted;
+
+    @Schema(description = "URL document d'identité", example = "https://documents.example.com/id.pdf")
+    private String idDocumentUrl;
+
+    @Schema(description = "URL document NINEA", example = "https://documents.example.com/ninea.pdf")
+    private String nineaDocumentUrl;
+
+    @Schema(description = "URL ZIP des pièces complémentaires", example = "https://documents.example.com/supporting.zip")
+    private String supportingDocumentsZipUrl;
     
     @Schema(description = "Statut d'enregistrement", example = "STEP_1_PENDING")
     private PartnerRegistrationStatus registrationStatus;

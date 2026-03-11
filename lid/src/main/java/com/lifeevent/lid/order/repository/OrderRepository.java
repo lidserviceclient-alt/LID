@@ -2,6 +2,7 @@ package com.lifeevent.lid.order.repository;
 
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.enumeration.Status;
+import com.lifeevent.lid.user.customer.entity.Customer;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -23,6 +24,11 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         Long getOrders();
         Double getSpent();
         LocalDateTime getLastOrder();
+    }
+
+    interface PartnerOrderMetricsView {
+        Long getOrders();
+        Double getRevenue();
     }
     
     /**
@@ -115,4 +121,44 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         GROUP BY o.customer.userId
     """)
     List<CustomerOrderMetricsView> aggregateMetricsByCustomerIds(@Param("customerIds") Collection<String> customerIds);
+
+    @EntityGraph(attributePaths = {"customer"})
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        JOIN o.articles oa
+        JOIN oa.article a
+        WHERE a.referencePartner = :partnerId
+        ORDER BY o.createdAt DESC
+    """)
+    Page<Order> findByPartnerId(@Param("partnerId") String partnerId, Pageable pageable);
+
+    @Query("""
+        SELECT DISTINCT o.customer
+        FROM Order o
+        JOIN o.articles oa
+        JOIN oa.article a
+        WHERE a.referencePartner = :partnerId
+        ORDER BY o.customer.createdAt DESC
+    """)
+    Page<Customer> findCustomersByPartnerId(@Param("partnerId") String partnerId, Pageable pageable);
+
+    @Query("""
+        SELECT COUNT(DISTINCT o) AS orders, COALESCE(SUM(o.amount), 0) AS revenue
+        FROM Order o
+        JOIN o.articles oa
+        JOIN oa.article a
+        WHERE a.referencePartner = :partnerId
+    """)
+    PartnerOrderMetricsView aggregateMetricsByPartnerId(@Param("partnerId") String partnerId);
+
+    @Query("""
+        SELECT COUNT(DISTINCT c.userId)
+        FROM Order o
+        JOIN o.customer c
+        JOIN o.articles oa
+        JOIN oa.article a
+        WHERE a.referencePartner = :partnerId
+    """)
+    long countDistinctCustomersByPartnerId(@Param("partnerId") String partnerId);
 }
