@@ -542,6 +542,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .prenom(input != null ? input.getPrenom() : null)
                 .nom(input != null ? input.getNom() : null)
                 .email(input != null ? input.getEmail() : null)
+                .password(input != null ? input.getPassword() : null)
                 .telephone(input != null ? input.getTelephone() : null)
                 .emailVerifie(Boolean.TRUE)
                 .role(role)

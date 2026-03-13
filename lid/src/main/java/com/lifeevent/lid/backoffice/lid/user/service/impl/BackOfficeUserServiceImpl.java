@@ -1,8 +1,10 @@
 package com.lifeevent.lid.backoffice.lid.user.service.impl;
 
+import com.lifeevent.lid.auth.constant.AuthenticationType;
 import com.lifeevent.lid.auth.constant.UserRole;
 import com.lifeevent.lid.auth.entity.Authentication;
 import com.lifeevent.lid.auth.repository.AuthenticationRepository;
+import com.lifeevent.lid.auth.service.AuthService;
 import com.lifeevent.lid.backoffice.lid.user.dto.BackOfficeUserDto;
 import com.lifeevent.lid.backoffice.lid.user.dto.CreateBackOfficeCourierRequest;
 import com.lifeevent.lid.backoffice.lid.user.mapper.BackOfficeUserMapper;
@@ -36,6 +38,7 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
     private final PartnerRepository partnerRepository;
     private final AuthenticationRepository authenticationRepository;
     private final BackOfficeUserMapper backOfficeUserMapper;
+    private final AuthService authService;
 
     @Override
     @Transactional(readOnly = true)
@@ -91,7 +94,11 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
                 : UUID.randomUUID().toString();
         UserEntity entity = buildEntityFromDto(dto, userId);
         UserEntity saved = saveEntity(entity);
-        Authentication auth = upsertAuth(userId, dto != null ? dto.getRole() : null);
+        Authentication auth = upsertAuth(
+                userId,
+                dto != null ? dto.getRole() : null,
+                dto != null ? dto.getPassword() : null
+        );
         return backOfficeUserMapper.toDto(saved, auth);
     }
 
@@ -108,7 +115,11 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
 
         backOfficeUserMapper.updateEntityFromDto(dto, entity);
         UserEntity saved = saveEntity(entity);
-        Authentication auth = upsertAuth(id, dto != null ? dto.getRole() : null);
+        Authentication auth = upsertAuth(
+                id,
+                dto != null ? dto.getRole() : null,
+                dto != null ? dto.getPassword() : null
+        );
         return backOfficeUserMapper.toDto(saved, auth);
     }
 
@@ -204,14 +215,33 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
         return userEntityRepository.save(entity);
     }
 
-    private Authentication upsertAuth(String userId, String role) {
+    private Authentication upsertAuth(String userId, String role, String rawPassword) {
         if (userId == null || userId.isBlank() || role == null || role.isBlank()) {
             return authenticationRepository.findById(userId).orElse(null);
         }
+
+        String normalizedRole = role.trim().toUpperCase();
+        boolean requiresLocalPassword = "LIVREUR".equals(normalizedRole);
+
         Authentication auth = authenticationRepository.findById(userId)
                 .orElseGet(() -> Authentication.builder().userId(userId).build());
         // Hibernate may clear/replace this collection during merge, so it must stay mutable.
-        auth.setRoles(new ArrayList<>(mapRole(role)));
+        auth.setRoles(new ArrayList<>(mapRole(normalizedRole)));
+
+        if (requiresLocalPassword) {
+            String trimmedPassword = rawPassword == null ? "" : rawPassword.trim();
+            if (!trimmedPassword.isBlank()) {
+                String effectivePasswordHash = authService.hashLocalPassword(trimmedPassword);
+                authService.upsertLocalAuthentication(
+                        userId,
+                        effectivePasswordHash,
+                        AuthenticationType.LOCAL,
+                        mapRole(normalizedRole)
+                );
+                return authenticationRepository.findById(userId).orElse(null);
+            }
+        }
+
         return authenticationRepository.save(auth);
     }
 
@@ -230,6 +260,7 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
                 .prenom(request != null ? request.getPrenom() : null)
                 .nom(request != null ? request.getNom() : null)
                 .email(request != null ? request.getEmail() : null)
+                .password(request != null ? request.getPassword() : null)
                 .telephone(request != null ? request.getTelephone() : null)
                 .emailVerifie(Boolean.TRUE)
                 .blocked(Boolean.FALSE)
