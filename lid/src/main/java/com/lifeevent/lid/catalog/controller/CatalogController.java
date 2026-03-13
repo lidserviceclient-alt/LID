@@ -145,24 +145,24 @@ public class CatalogController implements ICatalogController {
 
     @GetMapping("/products/{id}")
     @Override
-    public CatalogProductDto getProduct(@PathVariable Long id) {
-        return catalogService.getProduct(id);
+    public CatalogProductDto getProduct(@PathVariable String id) {
+        return catalogService.getProduct(parseProductId(id));
     }
 
     @GetMapping("/products/{id}/details")
     @Override
-    public CatalogProductDetailsDto getProductDetails(@PathVariable Long id) {
-        return catalogService.getProductDetails(id);
+    public CatalogProductDetailsDto getProductDetails(@PathVariable String id) {
+        return catalogService.getProductDetails(parseProductId(id));
     }
 
     @GetMapping("/products/{id}/collection")
     @Override
     public CatalogProductPageCollectionDto getProductPageCollection(
-            @PathVariable Long id,
+            @PathVariable String id,
             @RequestParam(value = "relatedLimit", required = false) Integer relatedLimit,
             @RequestParam(value = "sortKey", required = false) String sortKey
     ) {
-        return catalogService.getProductPageCollection(id, relatedLimit, sortKey);
+        return catalogService.getProductPageCollection(parseProductId(id), relatedLimit, sortKey);
     }
 
     @GetMapping("/categories")
@@ -221,5 +221,9 @@ public class CatalogController implements ICatalogController {
             @Valid @RequestBody ReportProductReviewRequest request
     ) {
         catalogService.reportReview(reviewId, request);
+    }
+
+    private Long parseProductId(String rawId) {
+        return Long.valueOf(rawId.trim());
     }
 }

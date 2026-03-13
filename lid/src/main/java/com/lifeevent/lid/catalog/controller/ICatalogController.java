@@ -101,16 +101,16 @@ public interface ICatalogController {
 
     @GetMapping("/products/{id}")
     @Operation(summary = "Détail produit")
-    CatalogProductDto getProduct(@PathVariable Long id);
+    CatalogProductDto getProduct(@PathVariable String id);
 
     @GetMapping("/products/{id}/details")
     @Operation(summary = "Détail produit complet")
-    CatalogProductDetailsDto getProductDetails(@PathVariable Long id);
+    CatalogProductDetailsDto getProductDetails(@PathVariable String id);
 
     @GetMapping("/products/{id}/collection")
     @Operation(summary = "Collection page produit (détail + liés)")
     CatalogProductPageCollectionDto getProductPageCollection(
-            @PathVariable Long id,
+            @PathVariable String id,
             @RequestParam(value = "relatedLimit", required = false) Integer relatedLimit,
             @RequestParam(value = "sortKey", required = false) String sortKey
     );
