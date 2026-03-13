@@ -12,7 +12,7 @@
         updated_at timestamp(6),
         brand varchar(255),
         created_by varchar(255),
-        description varchar(255),
+        description TEXT,
         ean varchar(255) unique,
         img varchar(255),
         name varchar(255) not null,
@@ -392,15 +392,26 @@
     );
 
     create table partner (
+        contract_accepted boolean not null,
         shop_id bigint unique,
         phone_number varchar(20),
+        ninea varchar(64),
         city varchar(100),
         country varchar(100),
+        iban varchar(128),
+        rccm varchar(128),
+        rib varchar(128),
+        swift varchar(128),
         user_id varchar(128) not null,
         head_office_address varchar(500),
         business_registration_document_url varchar(1000),
+        id_document_url varchar(1000),
+        ninea_document_url varchar(1000),
+        supporting_documents_zip_url varchar(1000),
+        account_holder varchar(255),
+        bank_name varchar(255),
         password_hash varchar(255),
-        registration_status varchar(255) not null check (registration_status in ('STEP_1_PENDING','STEP_2_PENDING','STEP_3_PENDING','VERIFIED','REJECTED')),
+        registration_status varchar(255) not null check (registration_status in ('STEP_1_PENDING','STEP_2_PENDING','STEP_3_PENDING','STEP_4_PENDING','UNDER_REVIEW','VERIFIED','REJECTED')),
         primary key (user_id)
     );
 

@@ -9,6 +9,9 @@ import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.discount.entity.Discount;
 import com.lifeevent.lid.discount.enumeration.DiscountType;
 import com.lifeevent.lid.discount.repository.DiscountRepository;
+import com.lifeevent.lid.logistics.entity.Shipment;
+import com.lifeevent.lid.logistics.enumeration.ShipmentStatus;
+import com.lifeevent.lid.logistics.repository.ShipmentRepository;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.entity.OrderArticle;
 import com.lifeevent.lid.order.entity.StatusHistory;
@@ -26,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +47,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
     private final ArticleRepository articleRepository;
     private final DiscountRepository discountRepository;
     private final StockRepository stockRepository;
+    private final ShipmentRepository shipmentRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -178,7 +183,68 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
         order.getStatusHistory().add(history);
         order.setCurrentStatus(mapped);
         Order saved = orderRepository.save(order);
+        syncShipmentForOrderStatus(saved, status);
         return toSummary(saved);
+    }
+
+    private void syncShipmentForOrderStatus(Order order, BackOfficeOrderStatus status) {
+        if (order == null || order.getId() == null || status == null) {
+            return;
+        }
+
+        String orderId = String.valueOf(order.getId());
+        Shipment shipment = findOrCreateShipment(orderId);
+
+        switch (status) {
+            case EXPEDIEE -> applyExpedieeShipmentState(shipment, orderId);
+            case LIVREE -> applyLivreeShipmentState(shipment);
+            case ANNULEE -> applyAnnuleeShipmentState(shipment);
+            default -> {
+                // No shipment side effect for CREEE/PAYEE/REMBOURSEE.
+            }
+        }
+
+        if (shipment.getStatus() != null) {
+            shipmentRepository.save(shipment);
+        }
+    }
+
+    private Shipment findOrCreateShipment(String orderId) {
+        return shipmentRepository.findByOrderId(orderId)
+                .orElseGet(() -> Shipment.builder().orderId(orderId).build());
+    }
+
+    private void applyExpedieeShipmentState(Shipment shipment, String orderId) {
+        // Keep default handoff step for delivery app: "A recuperer" first.
+        if (shipment.getStatus() == null || shipment.getStatus() == ShipmentStatus.ECHEC) {
+            shipment.setStatus(ShipmentStatus.EN_PREPARATION);
+        }
+        if (isBlank(shipment.getTrackingId())) {
+            shipment.setTrackingId("TRK-" + orderId);
+        }
+        if (isBlank(shipment.getCarrier())) {
+            shipment.setCarrier("Transporteur");
+        }
+        if (shipment.getEta() == null) {
+            shipment.setEta(LocalDate.now().plusDays(2));
+        }
+        shipment.setDeliveredAt(null);
+    }
+
+    private void applyLivreeShipmentState(Shipment shipment) {
+        shipment.setStatus(ShipmentStatus.LIVREE);
+        if (shipment.getDeliveredAt() == null) {
+            shipment.setDeliveredAt(LocalDateTime.now());
+        }
+    }
+
+    private void applyAnnuleeShipmentState(Shipment shipment) {
+        shipment.setStatus(ShipmentStatus.ECHEC);
+        shipment.setDeliveredAt(null);
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     @Override
