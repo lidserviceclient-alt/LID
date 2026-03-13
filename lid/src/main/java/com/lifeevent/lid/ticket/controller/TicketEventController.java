@@ -43,8 +43,11 @@ public class TicketEventController {
                 .title(entity.getTitle())
                 .description(entity.getDescription())
                 .location(entity.getLocation())
+                .date(entity.getEventDate())
                 .eventDate(entity.getEventDate())
                 .price(entity.getPrice())
+                .imageUrl(entity.getImageUrl())
+                .category(entity.getCategory())
                 .available(entity.getAvailable())
                 .build();
     }

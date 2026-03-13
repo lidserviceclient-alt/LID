@@ -16,7 +16,10 @@ public class TicketEventDto {
     private String title;
     private String description;
     private String location;
+    private LocalDateTime date;
     private LocalDateTime eventDate;
     private Double price;
+    private String imageUrl;
+    private String category;
     private Boolean available;
 }
