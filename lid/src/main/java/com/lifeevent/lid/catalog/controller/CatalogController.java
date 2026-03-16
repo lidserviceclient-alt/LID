@@ -2,6 +2,7 @@ package com.lifeevent.lid.catalog.controller;
 
 import com.lifeevent.lid.catalog.dto.*;
 import com.lifeevent.lid.catalog.service.CatalogService;
+import com.lifeevent.lid.catalog.service.PartnerCatalogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -16,6 +17,7 @@ import java.util.List;
 public class CatalogController implements ICatalogController {
 
     private final CatalogService catalogService;
+    private final PartnerCatalogService partnerCatalogService;
 
     @GetMapping("/featured")
     @Override
@@ -146,13 +148,13 @@ public class CatalogController implements ICatalogController {
     @GetMapping("/products/{id}")
     @Override
     public CatalogProductDto getProduct(@PathVariable String id) {
-        return catalogService.getProduct(parseProductId(id));
+        return catalogService.getProduct(id);
     }
 
     @GetMapping("/products/{id}/details")
     @Override
     public CatalogProductDetailsDto getProductDetails(@PathVariable String id) {
-        return catalogService.getProductDetails(parseProductId(id));
+        return catalogService.getProductDetails(id);
     }
 
     @GetMapping("/products/{id}/collection")
@@ -162,7 +164,7 @@ public class CatalogController implements ICatalogController {
             @RequestParam(value = "relatedLimit", required = false) Integer relatedLimit,
             @RequestParam(value = "sortKey", required = false) String sortKey
     ) {
-        return catalogService.getProductPageCollection(parseProductId(id), relatedLimit, sortKey);
+        return catalogService.getProductPageCollection(id, relatedLimit, sortKey);
     }
 
     @GetMapping("/categories")
@@ -177,6 +179,33 @@ public class CatalogController implements ICatalogController {
             @RequestParam(value = "limit", required = false) Integer limit
     ) {
         return catalogService.listFeaturedCategories(limit);
+    }
+
+    @GetMapping("/partners")
+    @Override
+    public Page<PartnerCatalogPartnerDto> listPartners(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String q
+    ) {
+        return partnerCatalogService.listPartners(page, size, q);
+    }
+
+    @GetMapping("/partners/{partnerId}")
+    @Override
+    public PartnerCatalogPartnerDetailsDto getPartner(@PathVariable String partnerId) {
+        return partnerCatalogService.getPartnerDetails(partnerId);
+    }
+
+    @GetMapping("/partners/{partnerId}/products")
+    @Override
+    public Page<PartnerCatalogProductDto> listPartnerProducts(
+            @PathVariable String partnerId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sortKey
+    ) {
+        return partnerCatalogService.listPartnerProducts(partnerId, page, size, sortKey);
     }
 
     @GetMapping("/products/{productId}/reviews")
@@ -223,7 +252,4 @@ public class CatalogController implements ICatalogController {
         catalogService.reportReview(reviewId, request);
     }
 
-    private Long parseProductId(String rawId) {
-        return Long.valueOf(rawId.trim());
-    }
 }

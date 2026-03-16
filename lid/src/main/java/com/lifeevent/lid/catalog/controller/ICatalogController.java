@@ -123,6 +123,27 @@ public interface ICatalogController {
     @Operation(summary = "Catégories featured")
     List<CatalogCategoryDto> listFeaturedCategories(@RequestParam(value = "limit", required = false) Integer limit);
 
+    @GetMapping("/partners")
+    @Operation(summary = "Lister les partenaires")
+    Page<PartnerCatalogPartnerDto> listPartners(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String q
+    );
+
+    @GetMapping("/partners/{partnerId}")
+    @Operation(summary = "Détail partenaire")
+    PartnerCatalogPartnerDetailsDto getPartner(@PathVariable String partnerId);
+
+    @GetMapping("/partners/{partnerId}/products")
+    @Operation(summary = "Produits d'un partenaire")
+    Page<PartnerCatalogProductDto> listPartnerProducts(
+            @PathVariable String partnerId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sortKey
+    );
+
     @GetMapping("/products/{productId}/reviews")
     @Operation(summary = "Lister les avis")
     ProductReviewsResponse listReviews(

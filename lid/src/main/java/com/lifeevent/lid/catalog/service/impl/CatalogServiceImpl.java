@@ -171,9 +171,26 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
+    public CatalogProductDto getProduct(String idOrReference) {
+        Article article = resolveActiveArticleOrThrow(idOrReference);
+        return toCatalogProductDto(article);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     @Cacheable(cacheNames = CatalogCacheNames.PRODUCT_DETAILS, key = "#id")
     public CatalogProductDetailsDto getProductDetails(Long id) {
         Article article = getActiveArticleOrThrow(id);
+        String image = article.getImg();
+        List<String> images = image == null || image.isBlank() ? List.of() : List.of(image);
+        return catalogMapper.toCatalogProductDetailsDto(article, computeStock(article.getId()), images);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CatalogCacheNames.PRODUCT_DETAILS, key = "#idOrReference")
+    public CatalogProductDetailsDto getProductDetails(String idOrReference) {
+        Article article = resolveActiveArticleOrThrow(idOrReference);
         String image = article.getImg();
         List<String> images = image == null || image.isBlank() ? List.of() : List.of(image);
         return catalogMapper.toCatalogProductDetailsDto(article, computeStock(article.getId()), images);
@@ -396,6 +413,17 @@ public class CatalogServiceImpl implements CatalogService {
         return new CatalogProductPageCollectionDto(product, related);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public CatalogProductPageCollectionDto getProductPageCollection(String idOrReference, Integer relatedLimit, String sortKey) {
+        CatalogProductDto product = getProduct(idOrReference);
+        int safeRelatedLimit = safeRelatedLimit(relatedLimit);
+        String safeSortKey = normalizeSortKeyOrDefault(sortKey, "newest");
+
+        List<CatalogProductDto> related = buildRelatedProducts(product, safeRelatedLimit, safeSortKey);
+        return new CatalogProductPageCollectionDto(product, related);
+    }
+
     private Article getActiveArticleOrThrow(Long id) {
         Article article = articleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Article", "id", String.valueOf(id)));
@@ -403,6 +431,58 @@ public class CatalogServiceImpl implements CatalogService {
             throw new ResourceNotFoundException("Article", "id", String.valueOf(id));
         }
         return article;
+    }
+
+    private Article resolveActiveArticleOrThrow(String idOrReference) {
+        String normalized = normalizeBlank(idOrReference);
+        if (normalized == null) {
+            throw new ResourceNotFoundException("Article", "id", String.valueOf(idOrReference));
+        }
+
+        Long id = tryParseLong(normalized);
+        if (id != null) {
+            return getActiveArticleOrThrow(id);
+        }
+
+        Article article = findActiveByReference(normalized)
+                .or(() -> {
+                    String cleaned = trimTrailingPunctuation(normalized);
+                    if (Objects.equals(cleaned, normalized)) {
+                        return Optional.empty();
+                    }
+                    return findActiveByReference(cleaned);
+                })
+                .orElseThrow(() -> new ResourceNotFoundException("Article", "id", normalized));
+        return article;
+    }
+
+    private Optional<Article> findActiveByReference(String reference) {
+        return articleRepository.findBySku(reference)
+                .filter(article -> article.getStatus() == ArticleStatus.ACTIVE)
+                .or(() -> articleRepository.findByEan(reference)
+                        .filter(article -> article.getStatus() == ArticleStatus.ACTIVE))
+                .or(() -> articleRepository
+                        .findByNameContainingIgnoreCaseAndStatus(reference, ArticleStatus.ACTIVE, PageRequest.of(0, 1))
+                        .stream()
+                        .findFirst());
+    }
+
+    private Long tryParseLong(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.valueOf(value);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private String trimTrailingPunctuation(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.replaceAll("[\\p{Punct}\\s]+$", "");
     }
 
     private CatalogProductDto toCatalogProductDto(Article article) {

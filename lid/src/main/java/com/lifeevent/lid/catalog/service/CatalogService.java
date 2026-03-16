@@ -64,8 +64,10 @@ public interface CatalogService {
     List<CatalogProductDto> listLatestProducts(Integer limit);
 
     CatalogProductDto getProduct(Long id);
+    CatalogProductDto getProduct(String idOrReference);
 
     CatalogProductDetailsDto getProductDetails(Long id);
+    CatalogProductDetailsDto getProductDetails(String idOrReference);
 
     List<CatalogCategoryDto> listCategories();
 
@@ -98,4 +100,5 @@ public interface CatalogService {
     CatalogLayoutCollectionDto getLayoutCollection(Integer latestLimit);
 
     CatalogProductPageCollectionDto getProductPageCollection(Long id, Integer relatedLimit, String sortKey);
+    CatalogProductPageCollectionDto getProductPageCollection(String idOrReference, Integer relatedLimit, String sortKey);
 }
