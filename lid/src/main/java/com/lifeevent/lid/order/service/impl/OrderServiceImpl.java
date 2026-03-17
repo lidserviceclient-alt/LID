@@ -52,7 +52,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -127,7 +127,9 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     public Optional<OrderDetailDto> getOrderById(Long orderId) {
         log.info("Récupération de la commande: {}", orderId);
-        return orderRepository.findById(orderId).map(this::mapToDetailDto);
+        return orderRepository.findWithDetailsById(orderId)
+                .map(this::attachStatusHistory)
+                .map(this::mapToDetailDto);
     }
 
     @Override
@@ -137,10 +139,40 @@ public class OrderServiceImpl implements OrderService {
         getRequiredCustomer(customerId);
 
         Pageable pageable = PageRequest.of(page, size);
-        return orderRepository.findByCustomer_UserId(customerId, pageable)
-                .stream()
-                .map(this::mapToDetailDto)
-                .toList();
+        List<Long> orderIds = orderRepository.findIdsByCustomerUserId(customerId, pageable).getContent();
+        if (orderIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Order> ordersById = new HashMap<>();
+        for (Order order : orderRepository.findWithArticlesAndStatusHistoryByIdIn(orderIds)) {
+            ordersById.put(order.getId(), order);
+        }
+        for (Order orderWithHistory : orderRepository.findWithStatusHistoryByIdIn(orderIds)) {
+            Order baseOrder = ordersById.get(orderWithHistory.getId());
+            if (baseOrder != null) {
+                baseOrder.setStatusHistory(orderWithHistory.getStatusHistory());
+            }
+        }
+        List<OrderDetailDto> out = new ArrayList<>();
+        for (Long id : orderIds) {
+            Order order = ordersById.get(id);
+            if (order != null) {
+                out.add(mapToDetailDto(order));
+            }
+        }
+        return out;
+    }
+
+    private Order attachStatusHistory(Order order) {
+        if (order == null || order.getId() == null) {
+            return order;
+        }
+        return orderRepository.findWithCustomerAndStatusHistoryById(order.getId())
+                .map(withHistory -> {
+                    order.setStatusHistory(withHistory.getStatusHistory());
+                    return order;
+                })
+                .orElse(order);
     }
 
     @Override
@@ -422,9 +454,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private Optional<LoyaltyTier> resolveTier(int points) {
-        return loyaltyTierRepository.findAll().stream()
-                .filter(tier -> tier != null && tier.getMinPoints() != null && points >= tier.getMinPoints())
-                .max(Comparator.comparing(LoyaltyTier::getMinPoints));
+        return loyaltyTierRepository.findTopByMinPointsLessThanEqualOrderByMinPointsDesc(points);
     }
 
     private double parseDiscountPercent(String benefits) {

@@ -14,7 +14,13 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "stock_movement")
+@Table(
+        name = "stock_movement",
+        indexes = {
+                @Index(name = "idx_stock_movement_article_created_at", columnList = "article_id, created_at"),
+                @Index(name = "idx_stock_movement_type_created_at", columnList = "type, created_at")
+        }
+)
 public class StockMovement extends BaseEntity {
 
     @Id

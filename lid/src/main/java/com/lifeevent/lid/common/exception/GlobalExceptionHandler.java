@@ -132,7 +132,7 @@ public class GlobalExceptionHandler {
     ResponseEntity<ErrorResponseDto> handleDatabaseExceptions(Exception ex, WebRequest request) {
         log.error("Database exception on {}", request.getDescription(false), ex);
         internalErrorAlertService.notifyInternalError(request.getDescription(false), ex);
-        return buildErrorDto("Database query failed.", request, HttpStatus.INTERNAL_SERVER_ERROR);
+        return buildErrorDto(ex, request, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(UnsupportedOperationException.class)
@@ -140,8 +140,7 @@ public class GlobalExceptionHandler {
         if (isHibernateCollectionMutationError(ex)) {
             log.error("Hibernate merge failed on immutable collection for {}", request.getDescription(false), ex);
             internalErrorAlertService.notifyInternalError(request.getDescription(false), ex);
-            return buildErrorDto("Database operation failed: immutable collection used in entity relationship.", request,
-                    HttpStatus.INTERNAL_SERVER_ERROR);
+            return buildErrorDto(ex, request, HttpStatus.INTERNAL_SERVER_ERROR);
         }
         log.error("Unsupported operation on {}", request.getDescription(false), ex);
         internalErrorAlertService.notifyInternalError(request.getDescription(false), ex);

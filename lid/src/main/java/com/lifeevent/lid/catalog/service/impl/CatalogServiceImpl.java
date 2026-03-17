@@ -29,6 +29,7 @@ import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,6 +46,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.FORBIDDEN;
@@ -56,6 +60,7 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 @Transactional
 @RequiredArgsConstructor
 public class CatalogServiceImpl implements CatalogService {
+    private static final long AGGREGATION_TIMEOUT_SECONDS = 8L;
 
     private final ArticleRepository articleRepository;
     private final CategoryRepository categoryRepository;
@@ -69,6 +74,8 @@ public class CatalogServiceImpl implements CatalogService {
     private final TicketEventRepository ticketEventRepository;
     private final CatalogMapper catalogMapper;
     private final ApplicationEventPublisher eventPublisher;
+    @Resource(name = "aggregatorExecutor")
+    private Executor aggregatorExecutor;
 
     @Override
     @Transactional(readOnly = true)
@@ -227,18 +234,28 @@ public class CatalogServiceImpl implements CatalogService {
     )
     public ProductReviewsResponse listProductReviews(Long productId, int page, int size) {
         int safePage = Math.max(0, page);
-        int safeSize = Math.max(1, Math.min(size, 50));
+        int safeSize = Math.max(1, size);
 
-        Page<ProductReview> result = productReviewRepository.findPublicByArticleId(
+        CompletableFuture<Page<ProductReview>> resultFuture = supplyCatalogAsync(() -> productReviewRepository.findPublicByArticleId(
                 productId,
                 PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"))
+        ));
+        CompletableFuture<Double> avgRatingFuture = supplyCatalogAsync(
+                () -> normalizeDouble(productReviewRepository.avgPublicRatingByArticleId(productId))
         );
+        CompletableFuture<Long> reviewCountFuture = supplyCatalogAsync(
+                () -> productReviewRepository.countPublicByArticleId(productId)
+        );
+
+        CompletableFuture.allOf(resultFuture, avgRatingFuture, reviewCountFuture).join();
+
+        Page<ProductReview> result = resultFuture.join();
 
         String currentUserId = SecurityUtils.isAuthenticated() ? SecurityUtils.getCurrentUserId() : null;
         Set<Long> likedByMe = findLikedReviewIds(currentUserId, result.getContent());
 
-        double avgRating = normalizeDouble(productReviewRepository.avgPublicRatingByArticleId(productId));
-        long reviewCount = productReviewRepository.countPublicByArticleId(productId);
+        double avgRating = avgRatingFuture.join();
+        long reviewCount = reviewCountFuture.join();
 
         List<ProductReviewDto> content = result.getContent().stream()
                 .map(review -> catalogMapper.toProductReviewDto(review, likedByMe.contains(review.getId())))
@@ -361,14 +378,39 @@ public class CatalogServiceImpl implements CatalogService {
             String category,
             String sortKey
     ) {
-        List<CatalogCategoryDto> categories = listCategories();
-        List<CatalogCategoryDto> featuredCategories = listFeaturedCategories(featuredCategoryLimit);
-        List<CatalogProductDto> featuredProducts = listFeaturedProducts(featuredLimit);
-        List<CatalogProductDto> bestSellerProducts = listBestSellerProducts(bestSellerLimit);
-        List<CatalogProductDto> latestProducts = listLatestProducts(latestLimit);
-        Page<CatalogProductDto> productsPage = listProducts(page, size, q, category, sortKey);
-        List<BlogPostDto> posts = listRecentPosts(postsLimit);
-        List<TicketEventDto> tickets = listRecentTickets(ticketsLimit);
+        CompletableFuture<List<CatalogCategoryDto>> categoriesFuture = supplyCatalogAsync(this::listCategories);
+        CompletableFuture<List<CatalogCategoryDto>> featuredCategoriesFuture =
+                supplyCatalogAsync(() -> listFeaturedCategories(featuredCategoryLimit));
+        CompletableFuture<List<CatalogProductDto>> featuredProductsFuture =
+                supplyCatalogAsync(() -> listFeaturedProducts(featuredLimit));
+        CompletableFuture<List<CatalogProductDto>> bestSellerProductsFuture =
+                supplyCatalogAsync(() -> listBestSellerProducts(bestSellerLimit));
+        CompletableFuture<List<CatalogProductDto>> latestProductsFuture =
+                supplyCatalogAsync(() -> listLatestProducts(latestLimit));
+        CompletableFuture<Page<CatalogProductDto>> productsPageFuture =
+                supplyCatalogAsync(() -> listProducts(page, size, q, category, sortKey));
+        CompletableFuture<List<BlogPostDto>> postsFuture = supplyCatalogAsync(() -> listRecentPosts(postsLimit));
+        CompletableFuture<List<TicketEventDto>> ticketsFuture = supplyCatalogAsync(() -> listRecentTickets(ticketsLimit));
+
+        CompletableFuture.allOf(
+                categoriesFuture,
+                featuredCategoriesFuture,
+                featuredProductsFuture,
+                bestSellerProductsFuture,
+                latestProductsFuture,
+                productsPageFuture,
+                postsFuture,
+                ticketsFuture
+        ).join();
+
+        List<CatalogCategoryDto> categories = categoriesFuture.join();
+        List<CatalogCategoryDto> featuredCategories = featuredCategoriesFuture.join();
+        List<CatalogProductDto> featuredProducts = featuredProductsFuture.join();
+        List<CatalogProductDto> bestSellerProducts = bestSellerProductsFuture.join();
+        List<CatalogProductDto> latestProducts = latestProductsFuture.join();
+        Page<CatalogProductDto> productsPage = productsPageFuture.join();
+        List<BlogPostDto> posts = postsFuture.join();
+        List<TicketEventDto> tickets = ticketsFuture.join();
 
         CatalogProductsPageDto products = new CatalogProductsPageDto(
                 productsPage.getContent(),
@@ -396,10 +438,11 @@ public class CatalogServiceImpl implements CatalogService {
     @Override
     @Transactional(readOnly = true)
     public CatalogLayoutCollectionDto getLayoutCollection(Integer latestLimit) {
-        return new CatalogLayoutCollectionDto(
-                listCategories(),
-                listLatestProducts(latestLimit)
-        );
+        CompletableFuture<List<CatalogCategoryDto>> categoriesFuture = supplyCatalogAsync(this::listCategories);
+        CompletableFuture<List<CatalogProductDto>> latestProductsFuture =
+                supplyCatalogAsync(() -> listLatestProducts(latestLimit));
+        CompletableFuture.allOf(categoriesFuture, latestProductsFuture).join();
+        return new CatalogLayoutCollectionDto(categoriesFuture.join(), latestProductsFuture.join());
     }
 
     @Override
@@ -490,9 +533,8 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     private int computeStock(Long articleId) {
-        return stockRepository.findByArticleId(articleId).stream()
-                .map(stock -> stock.getQuantityAvailable() == null ? 0 : stock.getQuantityAvailable())
-                .reduce(0, Integer::sum);
+        Integer stock = stockRepository.sumAvailableByArticleId(articleId);
+        return stock == null ? 0 : stock;
     }
 
     private Sort resolveSort(String sortKey) {
@@ -510,15 +552,17 @@ public class CatalogServiceImpl implements CatalogService {
         List<CatalogProductDto> candidates = new ArrayList<>();
         String categoryToken = normalize(product.categorySlug());
         String productId = product.id();
+        CompletableFuture<List<CatalogProductDto>> fallbackFuture =
+                supplyCatalogAsync(() -> listProducts(0, 80, null, null, sortKey).getContent());
+        CompletableFuture<List<CatalogProductDto>> categoryFuture = categoryToken == null
+                ? CompletableFuture.completedFuture(List.of())
+                : supplyCatalogAsync(() -> listProducts(0, 24, null, categoryToken, sortKey).getContent());
 
-        if (categoryToken != null) {
-            List<CatalogProductDto> categoryProducts = listProducts(0, 24, null, categoryToken, sortKey).getContent();
-            appendRelatedCandidates(candidates, categoryProducts, productId);
-        }
+        CompletableFuture.allOf(categoryFuture, fallbackFuture).join();
 
+        appendRelatedCandidates(candidates, categoryFuture.join(), productId);
         if (candidates.size() < limit) {
-            List<CatalogProductDto> fallbackProducts = listProducts(0, 80, null, null, sortKey).getContent();
-            appendRelatedCandidates(candidates, fallbackProducts, productId);
+            appendRelatedCandidates(candidates, fallbackFuture.join(), productId);
         }
 
         return deduplicateAndLimit(candidates, limit, productId);
@@ -590,14 +634,14 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     private int safeSize(int size) {
-        return Math.min(Math.max(size, 1), 200);
+        return Math.max(size, 1);
     }
 
     private int safeLimit(Integer limit, int fallback) {
         if (limit == null) {
             return fallback;
         }
-        return Math.min(Math.max(limit, 1), 50);
+        return Math.max(limit, 1);
     }
 
     private int safeRelatedLimit(Integer limit) {
@@ -723,6 +767,11 @@ public class CatalogServiceImpl implements CatalogService {
             boolean tokensEmpty
     ) {}
 
+    private <T> CompletableFuture<T> supplyCatalogAsync(Supplier<T> supplier) {
+        return CompletableFuture.supplyAsync(supplier, aggregatorExecutor)
+                .orTimeout(AGGREGATION_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
     private record ReviewStats(double avgRating, long reviews) {
         private static final ReviewStats EMPTY = new ReviewStats(0d, 0L);
     }
@@ -738,19 +787,18 @@ public class CatalogServiceImpl implements CatalogService {
         }
         List<Long> articleIds = articles.stream().map(Article::getId).toList();
 
-        Map<Long, Integer> stockByArticleId = stockRepository.sumAvailableByArticleIds(articleIds).stream()
-                .collect(Collectors.toMap(
-                        StockRepository.ArticleStockTotalView::getArticleId,
-                        row -> row.getStock() == null ? 0 : row.getStock()
-                ));
-        Map<Long, ReviewStats> reviewStatsByArticleId = productReviewRepository
-                .summarizePublicByArticleIds(articleIds)
-                .stream()
-                .collect(Collectors.toMap(
-                        ProductReviewRepository.ArticleReviewStatsView::getArticleId,
-                        row -> new ReviewStats(normalizeDouble(row.getAvgRating()), row.getReviews() == null ? 0L : row.getReviews()),
-                        (left, right) -> left
-                ));
+        Map<Long, Integer> stockByArticleId;
+        Map<Long, ReviewStats> reviewStatsByArticleId;
+        if (isAggregatorThread()) {
+            stockByArticleId = loadStockByArticleId(articleIds);
+            reviewStatsByArticleId = loadReviewStatsByArticleId(articleIds);
+        } else {
+            CompletableFuture<Map<Long, Integer>> stockFuture = supplyCatalogAsync(() -> loadStockByArticleId(articleIds));
+            CompletableFuture<Map<Long, ReviewStats>> reviewStatsFuture = supplyCatalogAsync(() -> loadReviewStatsByArticleId(articleIds));
+            CompletableFuture.allOf(stockFuture, reviewStatsFuture).join();
+            stockByArticleId = stockFuture.join();
+            reviewStatsByArticleId = reviewStatsFuture.join();
+        }
 
         return articles.stream()
                 .map(article -> {
@@ -763,5 +811,28 @@ public class CatalogServiceImpl implements CatalogService {
                     );
                 })
                 .toList();
+    }
+
+    private Map<Long, Integer> loadStockByArticleId(List<Long> articleIds) {
+        return stockRepository.sumAvailableByArticleIds(articleIds).stream()
+                .collect(Collectors.toMap(
+                        StockRepository.ArticleStockTotalView::getArticleId,
+                        row -> row.getStock() == null ? 0 : row.getStock()
+                ));
+    }
+
+    private Map<Long, ReviewStats> loadReviewStatsByArticleId(List<Long> articleIds) {
+        return productReviewRepository
+                .summarizePublicByArticleIds(articleIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        ProductReviewRepository.ArticleReviewStatsView::getArticleId,
+                        row -> new ReviewStats(normalizeDouble(row.getAvgRating()), row.getReviews() == null ? 0L : row.getReviews()),
+                        (left, right) -> left
+                ));
+    }
+
+    private boolean isAggregatorThread() {
+        return Thread.currentThread().getName().startsWith("aggregator-");
     }
 }

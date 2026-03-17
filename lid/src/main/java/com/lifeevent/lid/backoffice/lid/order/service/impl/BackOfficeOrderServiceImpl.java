@@ -32,7 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -74,12 +76,16 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
             if (orderOpt.isPresent()) {
                 Order o = orderOpt.get();
                 if (mappedStatus == null || o.getCurrentStatus() == mappedStatus) {
-                    return new org.springframework.data.domain.PageImpl<>(List.of(toSummary(o)), pageable, 1);
+                    return new org.springframework.data.domain.PageImpl<>(
+                            List.of(toSummary(o, Map.of(o.getId(), countItems(o)))),
+                            pageable,
+                            1
+                    );
                 }
             }
         }
-        return orderRepository.searchBackOffice(mappedStatus, query, pageable)
-                .map(this::toSummary);
+        Page<Order> ordersPage = orderRepository.searchBackOffice(mappedStatus, query, pageable);
+        return mapOrdersToSummaryPage(ordersPage, pageable);
     }
 
     @Override
@@ -91,8 +97,8 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
         customerRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId));
         Status mappedStatus = mapToOrderStatus(status);
-        return orderRepository.searchByCustomerBackOffice(customerId, mappedStatus, pageable)
-                .map(this::toSummary);
+        Page<Order> ordersPage = orderRepository.searchByCustomerBackOffice(customerId, mappedStatus, pageable);
+        return mapOrdersToSummaryPage(ordersPage, pageable);
     }
 
     @Override
@@ -288,7 +294,29 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
                 .build();
     }
 
+    private Page<BackOfficeOrderSummaryDto> mapOrdersToSummaryPage(Page<Order> ordersPage, Pageable pageable) {
+        List<Order> orders = ordersPage.getContent();
+        if (orders.isEmpty()) {
+            return new org.springframework.data.domain.PageImpl<>(List.of(), pageable, ordersPage.getTotalElements());
+        }
+        List<Long> orderIds = orders.stream().map(Order::getId).toList();
+        Map<Long, Integer> itemsByOrderId = new HashMap<>();
+        for (OrderRepository.OrderItemsCountView row : orderRepository.aggregateItemsCountByOrderIds(orderIds)) {
+            if (row.getOrderId() != null) {
+                itemsByOrderId.put(row.getOrderId(), row.getItems() == null ? 0 : row.getItems().intValue());
+            }
+        }
+        List<BackOfficeOrderSummaryDto> content = orders.stream()
+                .map(order -> toSummary(order, itemsByOrderId))
+                .toList();
+        return new org.springframework.data.domain.PageImpl<>(content, pageable, ordersPage.getTotalElements());
+    }
+
     private BackOfficeOrderSummaryDto toSummary(Order order) {
+        return toSummary(order, Map.of(order.getId(), countItems(order)));
+    }
+
+    private BackOfficeOrderSummaryDto toSummary(Order order, Map<Long, Integer> itemsByOrderId) {
         String customerLabel = "-";
         if (order.getCustomer() != null) {
             String first = order.getCustomer().getFirstName() == null ? "" : order.getCustomer().getFirstName();
@@ -298,14 +326,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
             customerLabel = full.isEmpty() ? email : (email.isEmpty() ? full : full + " • " + email);
         }
 
-        int itemsCount = 0;
-        if (order.getArticles() != null) {
-            for (OrderArticle oa : order.getArticles()) {
-                if (oa != null && oa.getQuantity() != null) {
-                    itemsCount += oa.getQuantity();
-                }
-            }
-        }
+        int itemsCount = itemsByOrderId.getOrDefault(order.getId(), 0);
 
         return BackOfficeOrderSummaryDto.builder()
                 .id(order.getId())
@@ -315,6 +336,19 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
                 .status(mapToBackOfficeStatus(order.getCurrentStatus()))
                 .dateCreation(order.getCreatedAt())
                 .build();
+    }
+
+    private int countItems(Order order) {
+        if (order == null || order.getArticles() == null) {
+            return 0;
+        }
+        int total = 0;
+        for (OrderArticle oa : order.getArticles()) {
+            if (oa != null && oa.getQuantity() != null) {
+                total += oa.getQuantity();
+            }
+        }
+        return total;
     }
 
     private Status mapToOrderStatus(BackOfficeOrderStatus status) {

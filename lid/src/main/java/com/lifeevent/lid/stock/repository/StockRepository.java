@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
@@ -100,6 +101,11 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
      */
     List<Stock> findByBestBeforeBefore(LocalDate date);
 
+    long countByQuantityAvailableLessThan(Integer threshold);
+
+    @EntityGraph(attributePaths = {"article"})
+    Page<Stock> findByQuantityAvailableLessThanOrderByQuantityAvailableAsc(Integer threshold, Pageable pageable);
+
     @Query("""
         SELECT s.article.id AS articleId, COALESCE(SUM(s.quantityAvailable), 0) AS stock
         FROM Stock s
@@ -107,4 +113,11 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
         GROUP BY s.article.id
     """)
     List<ArticleStockTotalView> sumAvailableByArticleIds(@Param("articleIds") Collection<Long> articleIds);
+
+    @Query("""
+        SELECT COALESCE(SUM(s.quantityAvailable), 0)
+        FROM Stock s
+        WHERE s.article.id = :articleId
+    """)
+    Integer sumAvailableByArticleId(@Param("articleId") Long articleId);
 }

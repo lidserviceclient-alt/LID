@@ -19,7 +19,7 @@ public class BackOfficeProductReviewController implements IBackOfficeProductRevi
 
     @Override
     public ResponseEntity<Page<BackOfficeProductReviewDto>> getReviews(int page, int size, String q, String productId, String userId, String status) {
-        PageRequest pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(size, 1), 200));
+        PageRequest pageable = PageRequest.of(Math.max(0, page), Math.max(size, 1));
         return ResponseEntity.ok(backOfficeProductReviewService.getReviews(pageable, q, productId, userId, status));
     }
 

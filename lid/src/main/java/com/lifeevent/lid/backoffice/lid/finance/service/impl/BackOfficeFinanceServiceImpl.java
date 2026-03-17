@@ -8,6 +8,7 @@ import com.lifeevent.lid.payment.entity.Refund;
 import com.lifeevent.lid.payment.enums.PaymentStatus;
 import com.lifeevent.lid.payment.repository.PaymentRepository;
 import com.lifeevent.lid.payment.repository.RefundRepository;
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -19,14 +20,21 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 @Service
 @Transactional
 @RequiredArgsConstructor
 public class BackOfficeFinanceServiceImpl implements BackOfficeFinanceService {
+    private static final long AGGREGATION_TIMEOUT_SECONDS = 8L;
 
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
+    @Resource(name = "aggregatorExecutor")
+    private Executor aggregatorExecutor;
 
     @Override
     @Transactional(readOnly = true)
@@ -34,12 +42,35 @@ public class BackOfficeFinanceServiceImpl implements BackOfficeFinanceService {
         int safeDays = normalizeDays(days);
         LocalDateTime from = LocalDateTime.now().minusDays(safeDays);
 
-        BigDecimal inflows = sumPaymentAmounts(PaymentStatus.COMPLETED, from);
-        BigDecimal outflows = sumRefundAmounts("COMPLETED", from);
-        BigDecimal pending = sumPaymentAmounts(PaymentStatus.PENDING, from);
+        CompletableFuture<BigDecimal> inflowsFuture = supplyAggregationAsync(
+                () -> safeAmount(paymentRepository.sumAmountByStatusFrom(PaymentStatus.COMPLETED, from))
+        );
+        CompletableFuture<BigDecimal> outflowsFuture = supplyAggregationAsync(
+                () -> safeAmount(refundRepository.sumAmountByStatusFrom("COMPLETED", from))
+        );
+        CompletableFuture<BigDecimal> pendingFuture = supplyAggregationAsync(
+                () -> safeAmount(paymentRepository.sumAmountByStatusFrom(PaymentStatus.PENDING, from))
+        );
+        CompletableFuture<BigDecimal> totalSuccessFuture = supplyAggregationAsync(
+                () -> safeAmount(paymentRepository.sumAmountByStatusFrom(PaymentStatus.COMPLETED, null))
+        );
+        CompletableFuture<BigDecimal> totalRefundsFuture = supplyAggregationAsync(
+                () -> safeAmount(refundRepository.sumAmountByStatusFrom("COMPLETED", null))
+        );
 
-        BigDecimal totalSuccess = sumPaymentAmounts(PaymentStatus.COMPLETED, null);
-        BigDecimal totalRefunds = sumRefundAmounts("COMPLETED", null);
+        CompletableFuture.allOf(
+                inflowsFuture,
+                outflowsFuture,
+                pendingFuture,
+                totalSuccessFuture,
+                totalRefundsFuture
+        ).join();
+
+        BigDecimal inflows = inflowsFuture.join();
+        BigDecimal outflows = outflowsFuture.join();
+        BigDecimal pending = pendingFuture.join();
+        BigDecimal totalSuccess = totalSuccessFuture.join();
+        BigDecimal totalRefunds = totalRefundsFuture.join();
         BigDecimal available = totalSuccess.subtract(totalRefunds);
 
         return BackOfficeFinanceOverviewDto.builder()
@@ -49,6 +80,11 @@ public class BackOfficeFinanceServiceImpl implements BackOfficeFinanceService {
                 .pending(pending)
                 .updatedAt(LocalDateTime.now())
                 .build();
+    }
+
+    private <T> CompletableFuture<T> supplyAggregationAsync(Supplier<T> supplier) {
+        return CompletableFuture.supplyAsync(supplier, aggregatorExecutor)
+                .orTimeout(AGGREGATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     @Override
@@ -131,36 +167,6 @@ public class BackOfficeFinanceServiceImpl implements BackOfficeFinanceService {
         return rows;
     }
 
-    private BigDecimal sumPaymentAmounts(PaymentStatus status, LocalDateTime from) {
-        BigDecimal total = BigDecimal.ZERO;
-        for (Payment payment : paymentRepository.findByStatus(status)) {
-            if (!isAfterOrNullDate(payment.getPaymentDate(), payment.getCreatedAt(), from)) {
-                continue;
-            }
-            total = total.add(safeAmount(payment.getAmount()));
-        }
-        return total;
-    }
-
-    private BigDecimal sumRefundAmounts(String status, LocalDateTime from) {
-        BigDecimal total = BigDecimal.ZERO;
-        for (Refund refund : refundRepository.findByStatus(status)) {
-            if (!isAfterOrNullDate(refund.getProcessedDate(), refund.getCreatedAt(), from)) {
-                continue;
-            }
-            total = total.add(safeAmount(refund.getAmount()));
-        }
-        return total;
-    }
-
-    private boolean isAfterOrNullDate(LocalDateTime primaryDate, LocalDateTime fallbackDate, LocalDateTime from) {
-        if (from == null) {
-            return true;
-        }
-        LocalDateTime date = primaryDate != null ? primaryDate : fallbackDate;
-        return date == null || !date.isBefore(from);
-    }
-
     private int normalizeDays(Integer days) {
         if (days == null) {
             return 30;
@@ -172,7 +178,7 @@ public class BackOfficeFinanceServiceImpl implements BackOfficeFinanceService {
         if (size == null) {
             return 50;
         }
-        return Math.max(1, Math.min(size, 200));
+        return Math.max(1, size);
     }
 
     private BigDecimal safeAmount(BigDecimal amount) {

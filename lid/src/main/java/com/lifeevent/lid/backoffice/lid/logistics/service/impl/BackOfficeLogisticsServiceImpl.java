@@ -490,12 +490,11 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     }
 
     private double computeAverageDelayDays(LocalDateTime from) {
-        List<Shipment> deliveredShipments = shipmentRepository.findAll().stream()
-                .filter(shipment -> shipment.getCreatedAt() != null && !shipment.getCreatedAt().isBefore(from))
-                .filter(shipment -> shipment.getStatus() == ShipmentStatus.LIVREE)
-                .filter(shipment -> shipment.getEta() != null)
-                .filter(shipment -> shipment.getDeliveredAt() != null)
-                .toList();
+        List<Shipment> deliveredShipments = shipmentRepository
+                .findByStatusAndCreatedAtGreaterThanEqualAndEtaIsNotNullAndDeliveredAtIsNotNull(
+                        ShipmentStatus.LIVREE,
+                        from
+                );
 
         if (deliveredShipments.isEmpty()) {
             return 0d;

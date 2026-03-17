@@ -5,6 +5,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCache;
 import org.springframework.cache.support.SimpleCacheManager;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -13,24 +14,31 @@ import java.util.concurrent.TimeUnit;
 
 @Configuration
 @EnableCaching
+@EnableConfigurationProperties(CatalogCacheProperties.class)
 public class CatalogCacheConfig {
+
+    private final CatalogCacheProperties properties;
+
+    public CatalogCacheConfig(CatalogCacheProperties properties) {
+        this.properties = properties;
+    }
 
     @Bean
     public CacheManager cacheManager() {
         SimpleCacheManager manager = new SimpleCacheManager();
         manager.setCaches(List.of(
-                buildCache(CatalogCacheNames.COLLECTION, 5, 1_000),
-                buildCache(CatalogCacheNames.CATEGORIES, 24 * 60, 500),
-                buildCache(CatalogCacheNames.FEATURED_CATEGORIES, 6 * 60, 500),
-                buildCache(CatalogCacheNames.FEATURED_PRODUCTS, 20, 1_000),
-                buildCache(CatalogCacheNames.BESTSELLER_PRODUCTS, 20, 1_000),
-                buildCache(CatalogCacheNames.LATEST_PRODUCTS, 5, 1_000),
-                buildCache(CatalogCacheNames.PRODUCT_DETAILS, 20, 10_000),
-                buildCache(CatalogCacheNames.PRODUCT_REVIEWS, 10, 10_000),
-                buildCache(CatalogCacheNames.BLOG_POSTS, 30, 1_000),
-                buildCache(CatalogCacheNames.BLOG_POST_DETAILS, 30, 2_000),
-                buildCache(CatalogCacheNames.TICKETS, 30, 1_000),
-                buildCache(CatalogCacheNames.TICKET_DETAILS, 30, 2_000)
+                buildCache(CatalogCacheNames.COLLECTION, properties.getCollectionTtlMinutes(), properties.getCollectionMaxSize()),
+                buildCache(CatalogCacheNames.CATEGORIES, properties.getCategoriesTtlMinutes(), properties.getCategoriesMaxSize()),
+                buildCache(CatalogCacheNames.FEATURED_CATEGORIES, properties.getFeaturedCategoriesTtlMinutes(), properties.getFeaturedCategoriesMaxSize()),
+                buildCache(CatalogCacheNames.FEATURED_PRODUCTS, properties.getFeaturedProductsTtlMinutes(), properties.getFeaturedProductsMaxSize()),
+                buildCache(CatalogCacheNames.BESTSELLER_PRODUCTS, properties.getBestsellerProductsTtlMinutes(), properties.getBestsellerProductsMaxSize()),
+                buildCache(CatalogCacheNames.LATEST_PRODUCTS, properties.getLatestProductsTtlMinutes(), properties.getLatestProductsMaxSize()),
+                buildCache(CatalogCacheNames.PRODUCT_DETAILS, properties.getProductDetailsTtlMinutes(), properties.getProductDetailsMaxSize()),
+                buildCache(CatalogCacheNames.PRODUCT_REVIEWS, properties.getProductReviewsTtlMinutes(), properties.getProductReviewsMaxSize()),
+                buildCache(CatalogCacheNames.BLOG_POSTS, properties.getBlogPostsTtlMinutes(), properties.getBlogPostsMaxSize()),
+                buildCache(CatalogCacheNames.BLOG_POST_DETAILS, properties.getBlogPostDetailsTtlMinutes(), properties.getBlogPostDetailsMaxSize()),
+                buildCache(CatalogCacheNames.TICKETS, properties.getTicketsTtlMinutes(), properties.getTicketsMaxSize()),
+                buildCache(CatalogCacheNames.TICKET_DETAILS, properties.getTicketDetailsTtlMinutes(), properties.getTicketDetailsMaxSize())
         ));
         return manager;
     }

@@ -2,6 +2,8 @@ package com.lifeevent.lid.user.customer.service;
 
 import com.lifeevent.lid.user.customer.dto.CustomerDto;
 import com.lifeevent.lid.user.customer.dto.CustomerAddressDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,7 +23,7 @@ public interface CustomerService {
     /**
      * Lister tous les clients
      */
-    List<CustomerDto> getAllCustomers();
+    Page<CustomerDto> getAllCustomers(Pageable pageable);
     
     /**
      * Recherche par email

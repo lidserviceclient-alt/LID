@@ -2,6 +2,8 @@ package com.lifeevent.lid.user.common.service;
 
 
 import com.lifeevent.lid.user.common.dto.UserDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,7 +20,7 @@ public interface UserService {
      * Lister tous les utilisateurs (Parents + Enfants via discriminator)
      * Requête optimisée sans jointures inutiles
      */
-    List<UserDto> getAllUsers();
+    Page<UserDto> getAllUsers(Pageable pageable);
     
     /**
      * Recherche par email sur TOUS les utilisateurs

@@ -26,10 +26,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -46,7 +48,13 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
     @Override
     @Transactional(readOnly = true)
     public Page<BackOfficeProductDto> getAll(Pageable pageable) {
-        return articleRepository.findAll(pageable).map(this::toDtoWithExtras);
+        Page<Article> page = articleRepository.findAllWithCategories(pageable);
+        List<Article> articles = page.getContent();
+        Map<Long, Integer> stockByArticleId = loadStockByArticleIds(articles.stream().map(Article::getId).toList());
+        List<BackOfficeProductDto> content = articles.stream()
+                .map(article -> toDtoWithExtras(article, stockByArticleId.getOrDefault(article.getId(), 0)))
+                .toList();
+        return new org.springframework.data.domain.PageImpl<>(content, pageable, page.getTotalElements());
     }
 
     @Override
@@ -170,6 +178,10 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
     }
 
     private BackOfficeProductDto toDtoWithExtras(Article entity) {
+        return toDtoWithExtras(entity, aggregateStock(entity.getId()));
+    }
+
+    private BackOfficeProductDto toDtoWithExtras(Article entity, int stock) {
         BackOfficeProductDto dto = backOfficeProductMapper.toDto(entity);
         dto.setImg(entity != null ? entity.getImg() : null);
         dto.setImageUrl(entity != null ? entity.getImg() : null);
@@ -179,7 +191,7 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
             dto.setCategoryId(cat.getId() != null ? String.valueOf(cat.getId()) : null);
             dto.setCategory(cat.getName());
         }
-        dto.setStock(aggregateStock(entity.getId()));
+        dto.setStock(stock);
         return dto;
     }
 
@@ -294,6 +306,18 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
                 .filter(Objects::nonNull)
                 .mapToInt(Integer::intValue)
                 .sum();
+    }
+
+    private Map<Long, Integer> loadStockByArticleIds(List<Long> articleIds) {
+        if (articleIds == null || articleIds.isEmpty()) {
+            return Map.of();
+        }
+        return stockRepository.sumAvailableByArticleIds(articleIds).stream()
+                .collect(Collectors.toMap(
+                        StockRepository.ArticleStockTotalView::getArticleId,
+                        row -> row.getStock() == null ? 0 : row.getStock(),
+                        (left, right) -> left
+                ));
     }
 
     private void upsertStock(Article article, Integer stockValue) {

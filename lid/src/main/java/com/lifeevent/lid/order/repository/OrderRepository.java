@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -29,6 +30,26 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     interface PartnerOrderMetricsView {
         Long getOrders();
         Double getRevenue();
+    }
+
+    interface OrderItemsCountView {
+        Long getOrderId();
+        Long getItems();
+    }
+
+    interface CustomerDeliveredAmountView {
+        String getCustomerId();
+        Double getAmount();
+    }
+
+    interface CustomerOrdersCountView {
+        String getCustomerId();
+        Long getOrders();
+    }
+
+    interface DailyOrdersCountView {
+        LocalDate getDay();
+        Long getOrders();
     }
     
     /**
@@ -112,6 +133,41 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findWithCustomerAndArticlesById(@Param("id") Long id);
 
     @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.customer
+        LEFT JOIN FETCH o.articles a
+        LEFT JOIN FETCH a.article
+        WHERE o.id = :id
+    """)
+    Optional<Order> findWithDetailsById(@Param("id") Long id);
+
+    @Query("""
+        SELECT o.id
+        FROM Order o
+        WHERE o.customer.userId = :customerId
+        ORDER BY o.createdAt DESC
+    """)
+    Page<Long> findIdsByCustomerUserId(@Param("customerId") String customerId, Pageable pageable);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.articles oa
+        LEFT JOIN FETCH oa.article
+        WHERE o.id IN :orderIds
+    """)
+    List<Order> findWithArticlesAndStatusHistoryByIdIn(@Param("orderIds") Collection<Long> orderIds);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.statusHistory
+        WHERE o.id IN :orderIds
+    """)
+    List<Order> findWithStatusHistoryByIdIn(@Param("orderIds") Collection<Long> orderIds);
+
+    @Query("""
         SELECT o.customer.userId AS customerId,
                COUNT(o) AS orders,
                COALESCE(SUM(o.amount), 0) AS spent,
@@ -121,6 +177,37 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         GROUP BY o.customer.userId
     """)
     List<CustomerOrderMetricsView> aggregateMetricsByCustomerIds(@Param("customerIds") Collection<String> customerIds);
+
+    @Query("""
+        SELECT o.customer.userId AS customerId,
+               COALESCE(SUM(o.amount), 0) AS amount
+        FROM Order o
+        WHERE o.currentStatus = :status
+          AND o.customer.userId IN :customerIds
+        GROUP BY o.customer.userId
+    """)
+    List<CustomerDeliveredAmountView> aggregateAmountByCustomerIdsAndStatus(
+            @Param("customerIds") Collection<String> customerIds,
+            @Param("status") Status status
+    );
+
+    @Query("""
+        SELECT o.customer.userId AS customerId,
+               COUNT(o) AS orders
+        FROM Order o
+        WHERE o.createdAt >= :from
+        GROUP BY o.customer.userId
+    """)
+    List<CustomerOrdersCountView> aggregateOrderCountByCustomerFrom(@Param("from") LocalDateTime from);
+
+    @Query("""
+        SELECT oa.order.id AS orderId,
+               COALESCE(SUM(oa.quantity), 0) AS items
+        FROM OrderArticle oa
+        WHERE oa.order.id IN :orderIds
+        GROUP BY oa.order.id
+    """)
+    List<OrderItemsCountView> aggregateItemsCountByOrderIds(@Param("orderIds") Collection<Long> orderIds);
 
     @EntityGraph(attributePaths = {"customer"})
     @Query("""
@@ -161,4 +248,39 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         WHERE a.referencePartner = :partnerId
     """)
     long countDistinctCustomersByPartnerId(@Param("partnerId") String partnerId);
+
+    @Query("""
+        SELECT COALESCE(SUM(o.amount), 0)
+        FROM Order o
+    """)
+    double sumAmount();
+
+    long countByCurrentStatus(Status status);
+
+    long countByCurrentStatusIn(Collection<Status> statuses);
+
+    @Query("""
+        SELECT o.createdAt
+        FROM Order o
+        WHERE o.createdAt >= :from
+    """)
+    List<LocalDateTime> findCreatedAtFrom(@Param("from") LocalDateTime from);
+
+    @Query("""
+        SELECT CAST(o.createdAt as date) AS day,
+               COUNT(o) AS orders
+        FROM Order o
+        WHERE o.createdAt >= :from
+        GROUP BY CAST(o.createdAt as date)
+    """)
+    List<DailyOrdersCountView> aggregateOrderCountByDayFrom(@Param("from") LocalDateTime from);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.articles oa
+        LEFT JOIN FETCH oa.article a
+        WHERE o.createdAt >= :from
+    """)
+    List<Order> findWithArticlesFrom(@Param("from") LocalDateTime from);
 }

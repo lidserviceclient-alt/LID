@@ -18,7 +18,9 @@ import java.time.LocalDate;
 @Table(
         name = "stock",
         indexes = {
-                @Index(name = "idx_stock_article_id_id", columnList = "article_id, id")
+                @Index(name = "idx_stock_article_id_id", columnList = "article_id, id"),
+                @Index(name = "idx_stock_quantity_available", columnList = "quantity_available"),
+                @Index(name = "idx_stock_best_before", columnList = "best_before")
         }
 )
 public class Stock extends BaseEntity {

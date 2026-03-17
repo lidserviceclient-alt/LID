@@ -12,7 +12,14 @@ import java.time.LocalDateTime;
  * Entité représentant un remboursement
  */
 @Entity
-@Table(name = "refunds")
+@Table(
+        name = "refunds",
+        indexes = {
+                @Index(name = "idx_refunds_status_processed_date_created_at", columnList = "status, processed_date, created_at"),
+                @Index(name = "idx_refunds_payment_id", columnList = "payment_id"),
+                @Index(name = "idx_refunds_refund_id", columnList = "refund_id")
+        }
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @SuperBuilder
 public class Refund extends BaseEntity {
     

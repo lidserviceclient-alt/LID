@@ -26,8 +26,8 @@ public class BackOfficePromoCodeController implements IBackOfficePromoCodeContro
     }
 
     @Override
-    public ResponseEntity<List<BackOfficePromoCodeDto>> getAll() {
-        return ResponseEntity.ok(backOfficePromoCodeService.getAll());
+    public ResponseEntity<List<BackOfficePromoCodeDto>> getAll(int page, int size) {
+        return ResponseEntity.ok(backOfficePromoCodeService.getAll(page, size));
     }
 
     @Override

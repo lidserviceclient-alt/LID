@@ -7,7 +7,9 @@ import com.lifeevent.lid.cache.CatalogCacheNames;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,8 +26,15 @@ public class BlogPostController {
 
     @GetMapping
     @Cacheable(cacheNames = CatalogCacheNames.BLOG_POSTS)
-    public List<BlogPostDto> list() {
-        List<BlogPost> entities = blogPostRepository.findAll(Sort.by(Sort.Direction.DESC, "publishedAt"));
+    public List<BlogPostDto> list(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, size);
+        List<BlogPost> entities = blogPostRepository
+                .findAll(PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "publishedAt")))
+                .getContent();
         return entities.stream().map(this::toDto).toList();
     }
 

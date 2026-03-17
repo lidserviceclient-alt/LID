@@ -24,13 +24,13 @@ import com.lifeevent.lid.backoffice.lid.setting.entity.SecurityActivityEntity;
 import com.lifeevent.lid.backoffice.lid.setting.repository.SecurityActivityRepository;
 import com.lifeevent.lid.logistics.entity.Shipment;
 import com.lifeevent.lid.logistics.repository.ShipmentRepository;
-import com.lifeevent.lid.order.entity.Order;
-import com.lifeevent.lid.order.entity.OrderArticle;
 import com.lifeevent.lid.order.enumeration.Status;
+import com.lifeevent.lid.order.repository.OrderArticleRepository;
 import com.lifeevent.lid.order.repository.OrderRepository;
 import com.lifeevent.lid.stock.entity.Stock;
 import com.lifeevent.lid.stock.repository.StockRepository;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -48,6 +48,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 @Service
 @Transactional
@@ -57,9 +61,11 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
     private static final int LOW_STOCK_THRESHOLD = 10;
     private static final int SERIES_DAYS_DEFAULT = 12;
     private static final int SERIES_DAYS_MAX = 365;
+    private static final long AGGREGATION_TIMEOUT_SECONDS = 8L;
 
     private final BackOfficeOrderService backOfficeOrderService;
     private final OrderRepository orderRepository;
+    private final OrderArticleRepository orderArticleRepository;
     private final ShipmentRepository shipmentRepository;
     private final StockRepository stockRepository;
     private final ArticleRepository articleRepository;
@@ -67,28 +73,39 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
     private final CustomerRepository customerRepository;
     private final BackOfficePromoCodeService backOfficePromoCodeService;
     private final AuthenticationRepository authenticationRepository;
+    @Resource(name = "aggregatorExecutor")
+    private Executor aggregatorExecutor;
 
     @Override
     @Transactional(readOnly = true)
     public BackOfficeDashboardResponseDto getDashboard() {
-        List<Order> orders = orderRepository.findAll();
+        CompletableFuture<Long> totalOrdersFuture = supplyOverviewAsync(orderRepository::count);
+        CompletableFuture<Double> totalRevenueFuture = supplyOverviewAsync(orderRepository::sumAmount);
+        CompletableFuture<Long> pendingOrdersFuture = supplyOverviewAsync(() -> orderRepository.countByCurrentStatus(Status.PENDING));
+        CompletableFuture<Long> activeProductsFuture = supplyOverviewAsync(
+                () -> articleRepository.countByStatus(ArticleStatus.ACTIVE)
+        );
+        CompletableFuture<Long> customersFuture = supplyOverviewAsync(customerRepository::count);
+        CompletableFuture<Long> lowStockFuture = supplyOverviewAsync(
+                () -> stockRepository.countByQuantityAvailableLessThan(LOW_STOCK_THRESHOLD)
+        );
 
-        long totalOrders = orders.size();
-        double totalRevenue = orders.stream().mapToDouble(order -> order.getAmount() == null ? 0d : order.getAmount()).sum();
-        long pendingOrders = orders.stream().filter(order -> order.getCurrentStatus() == Status.PENDING).count();
-        long activeProducts = articleRepository.findByStatus(ArticleStatus.ACTIVE, PageRequest.of(0, 1)).getTotalElements();
-        long customers = customerRepository.count();
-        long lowStock = stockRepository.findAll().stream()
-                .filter(stock -> stock.getQuantityAvailable() != null && stock.getQuantityAvailable() < LOW_STOCK_THRESHOLD)
-                .count();
+        CompletableFuture.allOf(
+                totalOrdersFuture,
+                totalRevenueFuture,
+                pendingOrdersFuture,
+                activeProductsFuture,
+                customersFuture,
+                lowStockFuture
+        ).join();
 
         return BackOfficeDashboardResponseDto.builder()
-                .totalOrders(totalOrders)
-                .totalRevenue(totalRevenue)
-                .pendingOrders(pendingOrders)
-                .activeProducts(activeProducts)
-                .customers(customers)
-                .lowStock(lowStock)
+                .totalOrders(totalOrdersFuture.join())
+                .totalRevenue(totalRevenueFuture.join())
+                .pendingOrders(pendingOrdersFuture.join())
+                .activeProducts(activeProductsFuture.join())
+                .customers(customersFuture.join())
+                .lowStock(lowStockFuture.join())
                 .build();
     }
 
@@ -96,18 +113,44 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
     @Transactional(readOnly = true)
     public BackOfficeOverviewDto getOverview(Integer days) {
         int seriesDays = normalizeDays(days);
+        CompletableFuture<BackOfficeDashboardResponseDto> dashboardFuture = supplyOverviewAsync(this::getDashboard);
+        CompletableFuture<List<BackOfficeOverviewOrderSummaryDto>> recentOrdersFuture = supplyOverviewAsync(this::buildRecentOrders);
+        CompletableFuture<List<BackOfficeOverviewOrderPipelineStepDto>> orderPipelineFuture = supplyOverviewAsync(this::buildOrderPipeline);
+        CompletableFuture<List<Integer>> analyticsSeriesFuture = supplyOverviewAsync(() -> buildAnalyticsSeries(seriesDays));
+        CompletableFuture<List<Integer>> promoUsageSeriesFuture = supplyOverviewAsync(() -> buildPromoUsageSeries(seriesDays));
+        CompletableFuture<List<BackOfficeOverviewLowStockItemDto>> lowStockFuture = supplyOverviewAsync(this::buildLowStock);
+        CompletableFuture<List<BackOfficeOverviewTopProductDto>> topProductsFuture = supplyOverviewAsync(this::buildTopProducts);
+        CompletableFuture<List<BackOfficeOverviewTeamActivityItemDto>> teamActivityFuture = supplyOverviewAsync(this::buildTeamActivity);
+        CompletableFuture<BackOfficeOverviewTeamProductivityDto> teamProductivityFuture = supplyOverviewAsync(this::buildTeamProductivity);
+
+        CompletableFuture.allOf(
+                dashboardFuture,
+                recentOrdersFuture,
+                orderPipelineFuture,
+                analyticsSeriesFuture,
+                promoUsageSeriesFuture,
+                lowStockFuture,
+                topProductsFuture,
+                teamActivityFuture,
+                teamProductivityFuture
+        ).join();
 
         return BackOfficeOverviewDto.builder()
-                .dashboard(getDashboard())
-                .recentOrders(buildRecentOrders())
-                .orderPipeline(buildOrderPipeline())
-                .analyticsSeries(buildAnalyticsSeries(seriesDays))
-                .promoUsageSeries(buildPromoUsageSeries(seriesDays))
-                .lowStock(buildLowStock())
-                .topProducts(buildTopProducts())
-                .teamActivity(buildTeamActivity())
-                .teamProductivity(buildTeamProductivity())
+                .dashboard(dashboardFuture.join())
+                .recentOrders(recentOrdersFuture.join())
+                .orderPipeline(orderPipelineFuture.join())
+                .analyticsSeries(analyticsSeriesFuture.join())
+                .promoUsageSeries(promoUsageSeriesFuture.join())
+                .lowStock(lowStockFuture.join())
+                .topProducts(topProductsFuture.join())
+                .teamActivity(teamActivityFuture.join())
+                .teamProductivity(teamProductivityFuture.join())
                 .build();
+    }
+
+    private <T> CompletableFuture<T> supplyOverviewAsync(Supplier<T> supplier) {
+        return CompletableFuture.supplyAsync(supplier, aggregatorExecutor)
+                .orTimeout(AGGREGATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     private int normalizeDays(Integer days) {
@@ -119,10 +162,17 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
 
     private List<BackOfficeOverviewOrderSummaryDto> buildRecentOrders() {
         List<BackOfficeOrderSummaryDto> recent = backOfficeOrderService.getRecentOrders();
+        List<String> orderIds = recent.stream()
+                .map(BackOfficeOrderSummaryDto::getId)
+                .filter(Objects::nonNull)
+                .map(String::valueOf)
+                .toList();
         Map<String, Shipment> shipmentsByOrder = new HashMap<>();
-        for (Shipment shipment : shipmentRepository.findAll()) {
-            if (shipment != null && shipment.getOrderId() != null) {
-                shipmentsByOrder.put(shipment.getOrderId(), shipment);
+        if (!orderIds.isEmpty()) {
+            for (Shipment shipment : shipmentRepository.findByOrderIdIn(orderIds)) {
+                if (shipment != null && shipment.getOrderId() != null) {
+                    shipmentsByOrder.put(shipment.getOrderId(), shipment);
+                }
             }
         }
 
@@ -149,11 +199,10 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
     }
 
     private List<BackOfficeOverviewOrderPipelineStepDto> buildOrderPipeline() {
-        List<Order> orders = orderRepository.findAll();
-        long nouvelles = orders.stream().filter(order -> order.getCurrentStatus() == Status.PENDING).count();
-        long preparation = orders.stream().filter(order -> order.getCurrentStatus() == Status.PAID || order.getCurrentStatus() == Status.PROCESSING).count();
-        long expediees = orders.stream().filter(order -> order.getCurrentStatus() == Status.READY_TO_DELIVER || order.getCurrentStatus() == Status.DELIVERY_IN_PROGRESS).count();
-        long retours = orders.stream().filter(order -> order.getCurrentStatus() == Status.REFUNDED || order.getCurrentStatus() == Status.CANCELED).count();
+        long nouvelles = orderRepository.countByCurrentStatus(Status.PENDING);
+        long preparation = orderRepository.countByCurrentStatusIn(List.of(Status.PAID, Status.PROCESSING));
+        long expediees = orderRepository.countByCurrentStatusIn(List.of(Status.READY_TO_DELIVER, Status.DELIVERY_IN_PROGRESS));
+        long retours = orderRepository.countByCurrentStatusIn(List.of(Status.REFUNDED, Status.CANCELED));
 
         return List.of(
                 BackOfficeOverviewOrderPipelineStepDto.builder().label("Nouvelles").value(nouvelles).build(),
@@ -166,12 +215,13 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
     private List<Integer> buildAnalyticsSeries(int days) {
         LocalDate start = LocalDate.now().minusDays(days - 1L);
         Map<LocalDate, Integer> byDay = new HashMap<>();
-        for (Order order : orderRepository.findAll()) {
-            if (order.getCreatedAt() == null) {
+        LocalDateTime from = start.atStartOfDay();
+        for (OrderRepository.DailyOrdersCountView row : orderRepository.aggregateOrderCountByDayFrom(from)) {
+            if (row.getDay() == null) {
                 continue;
             }
-            LocalDate day = order.getCreatedAt().toLocalDate();
-            byDay.merge(day, 1, Integer::sum);
+            long count = row.getOrders() == null ? 0L : row.getOrders();
+            byDay.put(row.getDay(), (int) Math.min(Integer.MAX_VALUE, Math.max(0L, count)));
         }
 
         List<Integer> series = new ArrayList<>(days);
@@ -198,11 +248,9 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
 
     private List<BackOfficeOverviewLowStockItemDto> buildLowStock() {
         List<BackOfficeOverviewLowStockItemDto> rows = new ArrayList<>();
-        List<Stock> lowStocks = stockRepository.findAll().stream()
-                .filter(stock -> stock.getQuantityAvailable() != null && stock.getQuantityAvailable() < LOW_STOCK_THRESHOLD)
-                .sorted(Comparator.comparing(Stock::getQuantityAvailable, Comparator.nullsLast(Integer::compareTo)))
-                .limit(5)
-                .toList();
+        List<Stock> lowStocks = stockRepository
+                .findByQuantityAvailableLessThanOrderByQuantityAvailableAsc(LOW_STOCK_THRESHOLD, PageRequest.of(0, 5))
+                .getContent();
 
         for (Stock stock : lowStocks) {
             Article article = stock.getArticle();
@@ -223,42 +271,33 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
         LocalDateTime pivot = now.minusDays(7);
         LocalDateTime from = now.minusDays(14);
 
-        Map<Long, BigDecimal> currentRevenueByProduct = new HashMap<>();
-        Map<Long, BigDecimal> previousRevenueByProduct = new HashMap<>();
+        List<OrderArticleRepository.ProductRevenueSplitView> topRows = orderArticleRepository
+                .aggregateRevenueSplitByArticleFrom(from, pivot)
+                .stream()
+                .sorted(Comparator.comparing(
+                        row -> BigDecimal.valueOf(row.getCurrentRevenue() == null ? 0d : row.getCurrentRevenue()),
+                        Comparator.reverseOrder()
+                ))
+                .limit(3)
+                .toList();
 
-        for (Order order : orderRepository.findAll()) {
-            if (order.getCreatedAt() == null || order.getCreatedAt().isBefore(from)) {
-                continue;
-            }
-            if (order.getArticles() == null) {
-                continue;
-            }
-
-            Map<Long, BigDecimal> targetRevenue = order.getCreatedAt().isAfter(pivot)
-                    ? currentRevenueByProduct
-                    : previousRevenueByProduct;
-
-            for (OrderArticle orderArticle : order.getArticles()) {
-                if (orderArticle == null || orderArticle.getArticle() == null) {
-                    continue;
-                }
-                long articleId = orderArticle.getArticle().getId();
-                BigDecimal lineTotal = BigDecimal.valueOf(orderArticle.getPriceAtOrder() == null ? 0d : orderArticle.getPriceAtOrder())
-                        .multiply(BigDecimal.valueOf(orderArticle.getQuantity() == null ? 0 : orderArticle.getQuantity()));
-                targetRevenue.merge(articleId, lineTotal, BigDecimal::add);
-            }
+        List<Long> articleIds = topRows.stream()
+                .map(OrderArticleRepository.ProductRevenueSplitView::getArticleId)
+                .filter(Objects::nonNull)
+                .toList();
+        Map<Long, Article> articleById = new HashMap<>();
+        for (Article article : articleRepository.findAllById(articleIds)) {
+            articleById.put(article.getId(), article);
         }
 
-        return currentRevenueByProduct.entrySet().stream()
-                .sorted(Map.Entry.<Long, BigDecimal>comparingByValue().reversed())
-                .limit(3)
-                .map(entry -> {
-                    Article article = articleRepository.findById(entry.getKey()).orElse(null);
+        return topRows.stream()
+                .map(row -> {
+                    Article article = articleById.get(row.getArticleId());
                     String category = article != null && article.getCategories() != null && !article.getCategories().isEmpty()
                             ? article.getCategories().get(0).getName()
                             : "-";
-                    BigDecimal current = entry.getValue();
-                    BigDecimal previous = previousRevenueByProduct.getOrDefault(entry.getKey(), BigDecimal.ZERO);
+                    BigDecimal current = BigDecimal.valueOf(row.getCurrentRevenue() == null ? 0d : row.getCurrentRevenue());
+                    BigDecimal previous = BigDecimal.valueOf(row.getPreviousRevenue() == null ? 0d : row.getPreviousRevenue());
                     return BackOfficeOverviewTopProductDto.builder()
                             .name(article == null ? null : article.getName())
                             .category(category)

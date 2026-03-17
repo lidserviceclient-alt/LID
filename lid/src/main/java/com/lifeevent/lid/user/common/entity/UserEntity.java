@@ -16,7 +16,8 @@ import lombok.experimental.SuperBuilder;
 @Inheritance(strategy = InheritanceType.JOINED)
 @Table(
         indexes = {
-                @Index(name = "idx_user_email", columnList = "email")
+                @Index(name = "idx_user_email", columnList = "email"),
+                @Index(name = "idx_user_user_type_created_at", columnList = "user_type, created_at")
         }
 )
 @DiscriminatorColumn(name = "user_type")

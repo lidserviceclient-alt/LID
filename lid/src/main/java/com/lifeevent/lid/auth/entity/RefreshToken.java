@@ -4,13 +4,19 @@ import com.lifeevent.lid.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
-import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.UUID;
 
 
 @Entity
+@Table(
+        name = "refresh_token",
+        indexes = {
+                @Index(name = "idx_refresh_token_user_revoked_expires_at", columnList = "user_id, revoked, expires_at"),
+                @Index(name = "idx_refresh_token_expires_at", columnList = "expires_at")
+        }
+)
 @SuperBuilder
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)

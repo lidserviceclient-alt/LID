@@ -140,17 +140,14 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
     }
 
     private void deactivateAllByIds(List<Integer> ids) {
-        List<Category> categories = categoryRepository.findAllById(ids);
-        if (categories.isEmpty()) return;
-        categories.forEach(category -> category.setIsActivated(Boolean.FALSE));
-        categoryRepository.saveAll(categories);
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        categoryRepository.deactivateAllByIds(ids);
     }
 
     private void deactivateAll() {
-        List<Category> categories = categoryRepository.findAll();
-        if (categories.isEmpty()) return;
-        categories.forEach(category -> category.setIsActivated(Boolean.FALSE));
-        categoryRepository.saveAll(categories);
+        categoryRepository.deactivateAllActivated();
     }
 
     private void applyDefaults(Category entity, BackOfficeCategoryDto dto) {

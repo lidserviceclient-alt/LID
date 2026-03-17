@@ -14,6 +14,15 @@ import java.time.LocalDateTime;
  * Entité représentant une transaction de paiement PayDunya
  */
 @Entity
+@Table(
+        name = "payment",
+        indexes = {
+                @Index(name = "idx_payment_status_payment_date_created_at", columnList = "status, payment_date, created_at"),
+                @Index(name = "idx_payment_order_id", columnList = "order_id"),
+                @Index(name = "idx_payment_transaction_id", columnList = "transaction_id"),
+                @Index(name = "idx_payment_customer_email", columnList = "customer_email")
+        }
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @SuperBuilder
 public class Payment extends BaseEntity {
     

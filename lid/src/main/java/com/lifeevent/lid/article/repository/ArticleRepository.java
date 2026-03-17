@@ -16,6 +16,10 @@ import java.util.Optional;
 
 @Repository
 public interface ArticleRepository extends JpaRepository<Article, Long> {
+
+    @EntityGraph(attributePaths = {"categories"})
+    @Query("SELECT a FROM Article a")
+    Page<Article> findAllWithCategories(Pageable pageable);
     
     /**
      * Trouver par SKU (clé métier)
@@ -31,6 +35,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
      * Recherche par statut avec pagination
      */
     Page<Article> findByStatus(ArticleStatus status, Pageable pageable);
+    long countByStatus(ArticleStatus status);
     
     /**
      * Recherche par nom - ACTIVE uniquement

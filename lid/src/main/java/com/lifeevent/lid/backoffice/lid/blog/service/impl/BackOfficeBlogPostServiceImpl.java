@@ -9,6 +9,7 @@ import com.lifeevent.lid.cache.event.BlogCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,8 +28,12 @@ public class BackOfficeBlogPostServiceImpl implements BackOfficeBlogPostService 
 
     @Override
     @Transactional(readOnly = true)
-    public List<BackOfficeBlogPostDto> getAll() {
-        List<BlogPost> entities = blogPostRepository.findAll(Sort.by(Sort.Direction.DESC, "publishedAt"));
+    public List<BackOfficeBlogPostDto> getAll(int page, int size) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, size);
+        List<BlogPost> entities = blogPostRepository
+                .findAll(PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "publishedAt")))
+                .getContent();
         return backOfficeBlogPostMapper.toDtoList(entities);
     }
 

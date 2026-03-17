@@ -52,7 +52,7 @@ public class BackOfficeLogServiceImpl implements BackOfficeLogService {
     @Override
     public BackOfficeLogPageDto list(int page, int size, String from, String to, String level, String logger, String q) {
         int safePage = Math.max(page, 0);
-        int safeSize = Math.max(1, Math.min(size, 500));
+        int safeSize = Math.max(1, size);
         int requested = safePage * safeSize;
         int wanted = Math.min(Integer.MAX_VALUE - 1, requested + safeSize + 1); // +1 to detect hasMore
 

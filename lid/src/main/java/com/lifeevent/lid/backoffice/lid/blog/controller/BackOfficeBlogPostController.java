@@ -18,8 +18,8 @@ public class BackOfficeBlogPostController implements IBackOfficeBlogPostControll
     private final BackOfficeBlogPostService backOfficeBlogPostService;
 
     @Override
-    public ResponseEntity<List<BackOfficeBlogPostDto>> getAll() {
-        return ResponseEntity.ok(backOfficeBlogPostService.getAll());
+    public ResponseEntity<List<BackOfficeBlogPostDto>> getAll(int page, int size) {
+        return ResponseEntity.ok(backOfficeBlogPostService.getAll(page, size));
     }
 
     @Override

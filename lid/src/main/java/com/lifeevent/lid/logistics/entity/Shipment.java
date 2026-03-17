@@ -16,7 +16,15 @@ import java.time.LocalDateTime;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "shipment")
+@Table(
+        name = "shipment",
+        indexes = {
+                @Index(name = "idx_shipment_order_id", columnList = "order_id"),
+                @Index(name = "idx_shipment_tracking_id", columnList = "tracking_id"),
+                @Index(name = "idx_shipment_status_created_at", columnList = "status, created_at"),
+                @Index(name = "idx_shipment_carrier_created_at", columnList = "carrier, created_at")
+        }
+)
 public class Shipment extends BaseEntity {
 
     @Id

@@ -13,6 +13,11 @@ import java.util.List;
 @Repository
 public interface LoyaltyPointAdjustmentRepository extends JpaRepository<LoyaltyPointAdjustment, Long> {
 
+    interface CustomerDeltaView {
+        String getCustomerId();
+        Long getDelta();
+    }
+
     Page<LoyaltyPointAdjustment> findByCustomer_UserIdOrderByCreatedAtDesc(String userId, Pageable pageable);
     List<LoyaltyPointAdjustment> findByCustomer_UserIdOrderByCreatedAtDesc(String userId);
 
@@ -21,4 +26,13 @@ public interface LoyaltyPointAdjustmentRepository extends JpaRepository<LoyaltyP
 
     @Query("SELECT COALESCE(SUM(a.deltaPoints), 0) FROM LoyaltyPointAdjustment a")
     long sumAllDeltas();
+
+    @Query("""
+        SELECT a.customer.userId AS customerId,
+               COALESCE(SUM(a.deltaPoints), 0) AS delta
+        FROM LoyaltyPointAdjustment a
+        WHERE a.customer.userId IN :customerIds
+        GROUP BY a.customer.userId
+    """)
+    List<CustomerDeltaView> sumDeltaByCustomerIds(@Param("customerIds") List<String> customerIds);
 }

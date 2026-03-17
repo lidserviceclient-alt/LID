@@ -18,7 +18,12 @@ import java.util.UUID;
 @SuperBuilder
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
-@Table(name = "newsletter_subscriber")
+@Table(
+        name = "newsletter_subscriber",
+        indexes = {
+                @Index(name = "idx_newsletter_status_created_at", columnList = "status, created_at")
+        }
+)
 public class NewsletterSubscriber extends BaseEntity {
 
     @Id

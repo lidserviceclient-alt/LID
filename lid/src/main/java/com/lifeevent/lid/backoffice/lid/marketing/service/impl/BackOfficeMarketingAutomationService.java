@@ -12,6 +12,7 @@ import com.lifeevent.lid.marketing.repository.MarketingCampaignRepository;
 import com.lifeevent.lid.newsletter.enumeration.NewsletterSubscriberStatus;
 import com.lifeevent.lid.newsletter.repository.NewsletterSubscriberRepository;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
+import jakarta.annotation.Resource;
 import jakarta.mail.internet.InternetAddress;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +42,9 @@ public class BackOfficeMarketingAutomationService {
     private final NewsletterSubscriberRepository newsletterSubscriberRepository;
     private final CustomerRepository customerRepository;
     private final JavaMailSender mailSender;
+    @Resource(name = "externalIoExecutor")
+    private Executor externalIoExecutor;
+    private final AtomicBoolean dispatchJobRunning = new AtomicBoolean(false);
 
     @Value("${spring.mail.username:}")
     private String fromEmail;
@@ -84,11 +90,18 @@ public class BackOfficeMarketingAutomationService {
 
     @Scheduled(fixedDelayString = "${config.marketing.dispatch.delay-ms:30000}")
     public void dispatchDue() {
-        try {
-            dispatchDueInternal();
-        } catch (Exception ex) {
-            log.warn("Marketing dispatch error: {}", ex.getMessage());
+        if (!dispatchJobRunning.compareAndSet(false, true)) {
+            return;
         }
+        externalIoExecutor.execute(() -> {
+            try {
+                dispatchDueInternal();
+            } catch (Exception ex) {
+                log.warn("Marketing dispatch error: {}", ex.getMessage());
+            } finally {
+                dispatchJobRunning.set(false);
+            }
+        });
     }
 
     @Transactional

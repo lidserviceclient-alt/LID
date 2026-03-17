@@ -12,6 +12,7 @@ import com.lifeevent.lid.marketing.enumeration.MarketingCampaignStatus;
 import com.lifeevent.lid.marketing.enumeration.MarketingCampaignType;
 import com.lifeevent.lid.marketing.repository.MarketingCampaignDeliveryRepository;
 import com.lifeevent.lid.marketing.repository.MarketingCampaignRepository;
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -23,17 +24,24 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 @Service
 @Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class BackOfficeMarketingServiceImpl implements BackOfficeMarketingService {
+    private static final long AGGREGATION_TIMEOUT_SECONDS = 8L;
 
     private final MarketingCampaignRepository marketingCampaignRepository;
     private final MarketingCampaignDeliveryRepository marketingCampaignDeliveryRepository;
     private final BackOfficeMarketingCampaignMapper backOfficeMarketingCampaignMapper;
     private final BackOfficeMarketingAutomationService backOfficeMarketingAutomationService;
+    @Resource(name = "aggregatorExecutor")
+    private Executor aggregatorExecutor;
 
     @Override
     @Transactional(readOnly = true)
@@ -41,16 +49,26 @@ public class BackOfficeMarketingServiceImpl implements BackOfficeMarketingServic
         int safeDays = normalizeDays(days);
         LocalDateTime from = LocalDateTime.now().minusDays(safeDays);
 
-        double revenue = safeDouble(marketingCampaignRepository.sumRevenueFrom(from));
-        double budget = safeDouble(marketingCampaignRepository.sumBudgetFrom(from));
-        double roi = budget > 0d ? revenue / budget : 0d;
+        CompletableFuture<Double> revenueFuture = supplyAggregationAsync(() -> safeDouble(marketingCampaignRepository.sumRevenueFrom(from)));
+        CompletableFuture<Double> budgetFuture = supplyAggregationAsync(() -> safeDouble(marketingCampaignRepository.sumBudgetFrom(from)));
+        CompletableFuture<List<MarketingChannelShareDto>> channelsFuture = supplyAggregationAsync(() -> buildChannelShares(from));
 
-        List<MarketingChannelShareDto> channels = buildChannelShares(from);
+        CompletableFuture.allOf(revenueFuture, budgetFuture, channelsFuture).join();
+
+        double revenue = revenueFuture.join();
+        double budget = budgetFuture.join();
+        double roi = budget > 0d ? revenue / budget : 0d;
+        List<MarketingChannelShareDto> channels = channelsFuture.join();
         return MarketingOverviewDto.builder()
                 .roiGlobal(roi)
                 .budgetSpent(budget)
                 .channels(channels)
                 .build();
+    }
+
+    private <T> CompletableFuture<T> supplyAggregationAsync(Supplier<T> supplier) {
+        return CompletableFuture.supplyAsync(supplier, aggregatorExecutor)
+                .orTimeout(AGGREGATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     @Override

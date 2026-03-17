@@ -14,6 +14,8 @@ import com.lifeevent.lid.user.customer.service.CustomerService;
 import com.lifeevent.lid.user.common.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,9 +65,8 @@ public class CustomerServiceImpl implements CustomerService {
     
     @Override
     @Transactional(readOnly = true)
-    public List<CustomerDto> getAllCustomers() {
-        // Requête optimisée qui charge UNIQUEMENT les Customers, pas tous les UserEntity
-        return customerMapper.toDtoList(customerRepository.findAll());
+    public Page<CustomerDto> getAllCustomers(Pageable pageable) {
+        return customerRepository.findAll(pageable).map(customerMapper::toDto);
     }
     
     @Override

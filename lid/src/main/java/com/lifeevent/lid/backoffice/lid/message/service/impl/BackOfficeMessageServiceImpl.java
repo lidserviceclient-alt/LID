@@ -8,6 +8,7 @@ import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.message.entity.EmailMessage;
 import com.lifeevent.lid.message.enumeration.MessageStatus;
 import com.lifeevent.lid.message.repository.EmailMessageRepository;
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -24,6 +25,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @Transactional
@@ -34,6 +37,9 @@ public class BackOfficeMessageServiceImpl implements BackOfficeMessageService {
     private final EmailMessageRepository emailMessageRepository;
     private final BackOfficeMessageMapper backOfficeMessageMapper;
     private final JavaMailSender mailSender;
+    @Resource(name = "externalIoExecutor")
+    private Executor externalIoExecutor;
+    private final AtomicBoolean retryJobRunning = new AtomicBoolean(false);
 
     @Value("${spring.mail.username}")
     private String fromAddress;
@@ -79,6 +85,19 @@ public class BackOfficeMessageServiceImpl implements BackOfficeMessageService {
 
     @Scheduled(fixedDelayString = "${config.backoffice.messages.retry-delay-ms:60000}")
     public void retryFailedMessages() {
+        if (!retryJobRunning.compareAndSet(false, true)) {
+            return;
+        }
+        externalIoExecutor.execute(() -> {
+            try {
+                retryFailedMessagesInternal();
+            } finally {
+                retryJobRunning.set(false);
+            }
+        });
+    }
+
+    private void retryFailedMessagesInternal() {
         LocalDateTime now = LocalDateTime.now();
         List<EmailMessage> dueMessages = emailMessageRepository
                 .findByStatusAndNextRetryAtBeforeOrderByNextRetryAtAsc(MessageStatus.FAILED, now);

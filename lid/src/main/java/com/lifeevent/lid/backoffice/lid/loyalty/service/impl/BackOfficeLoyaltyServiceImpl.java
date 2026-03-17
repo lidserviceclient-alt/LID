@@ -34,7 +34,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -261,13 +260,13 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
     }
 
     private LoyaltyConfig getOrCreateConfigEntity() {
-        return loyaltyConfigRepository.findAll().stream().findFirst().orElseGet(() ->
+        return loyaltyConfigRepository.findTopByOrderByIdAsc().orElseGet(() ->
                 loyaltyConfigRepository.save(defaultConfigEntity())
         );
     }
 
     private LoyaltyConfig getConfigEntityOrDefault() {
-        return loyaltyConfigRepository.findAll().stream().findFirst().orElseGet(this::defaultConfigEntity);
+        return loyaltyConfigRepository.findTopByOrderByIdAsc().orElseGet(this::defaultConfigEntity);
     }
 
     private LoyaltyConfig defaultConfigEntity() {
@@ -279,7 +278,7 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
     }
 
     private List<LoyaltyTier> getSortedTiers() {
-        List<LoyaltyTier> tiers = new ArrayList<>(loyaltyTierRepository.findAll());
+        List<LoyaltyTier> tiers = new ArrayList<>(loyaltyTierRepository.findAllByOrderByMinPointsAscNameAsc());
         tiers.sort(Comparator
                 .comparing(LoyaltyTier::getMinPoints, Comparator.nullsLast(Integer::compareTo))
                 .thenComparing(LoyaltyTier::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
@@ -287,35 +286,61 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
     }
 
     private Map<String, Integer> computePointsByCustomer() {
+        List<String> customerIds = customerRepository.findAllBasic().stream()
+                .map(CustomerRepository.CustomerBasicView::getUserId)
+                .filter(Objects::nonNull)
+                .toList();
+        return computePointsByCustomerIds(customerIds);
+    }
+
+    private Map<String, Integer> computePointsByCustomerIds(List<String> customerIds) {
         LoyaltyConfig config = getConfigEntityOrDefault();
         double pointsPerFcfa = safeDouble(config.getPointsPerFcfa(), DEFAULT_POINTS_PER_FCFA);
+        if (customerIds == null || customerIds.isEmpty()) {
+            return Map.of();
+        }
 
         Map<String, Integer> points = new HashMap<>();
-        for (Order order : orderRepository.findAll()) {
-            String customerId = extractCustomerId(order);
-            if (customerId == null || !isDelivered(order)) {
+        for (String customerId : customerIds) {
+            points.put(customerId, 0);
+        }
+
+        for (OrderRepository.CustomerDeliveredAmountView row :
+                orderRepository.aggregateAmountByCustomerIdsAndStatus(customerIds, Status.DELIVERED)) {
+            if (row.getCustomerId() == null) {
                 continue;
             }
-
-            int earned = toPoints(order.getAmount(), pointsPerFcfa);
-            points.merge(customerId, earned, Integer::sum);
+            points.put(row.getCustomerId(), toPoints(row.getAmount(), pointsPerFcfa));
         }
 
-        for (Customer customer : customerRepository.findAll()) {
-            points.putIfAbsent(customer.getUserId(), 0);
-        }
-
-        for (Customer customer : customerRepository.findAll()) {
-            long delta = loyaltyPointAdjustmentRepository.sumDeltaByCustomerId(customer.getUserId());
-            int current = points.getOrDefault(customer.getUserId(), 0);
-            points.put(customer.getUserId(), Math.max(0, current + (int) delta));
+        for (LoyaltyPointAdjustmentRepository.CustomerDeltaView row :
+                loyaltyPointAdjustmentRepository.sumDeltaByCustomerIds(customerIds)) {
+            if (row.getCustomerId() == null) {
+                continue;
+            }
+            int current = points.getOrDefault(row.getCustomerId(), 0);
+            long safeDelta = row.getDelta() == null ? 0L : row.getDelta();
+            points.put(row.getCustomerId(), Math.max(0, current + (int) safeDelta));
         }
 
         return points;
     }
 
     private int computeCustomerPoints(String userId) {
-        return computePointsByCustomer().getOrDefault(userId, 0);
+        String safeUserId = trimToNull(userId);
+        if (safeUserId == null) {
+            return 0;
+        }
+
+        LoyaltyConfig config = getConfigEntityOrDefault();
+        double pointsPerFcfa = safeDouble(config.getPointsPerFcfa(), DEFAULT_POINTS_PER_FCFA);
+        int earned = orderRepository.aggregateAmountByCustomerIdsAndStatus(List.of(safeUserId), Status.DELIVERED).stream()
+                .findFirst()
+                .map(OrderRepository.CustomerDeliveredAmountView::getAmount)
+                .map(amount -> toPoints(amount, pointsPerFcfa))
+                .orElse(0);
+        int delta = (int) loyaltyPointAdjustmentRepository.sumDeltaByCustomerId(safeUserId);
+        return Math.max(0, earned + delta);
     }
 
     private List<BackOfficeLoyaltyTierDto> toTierDtosWithMembers(List<LoyaltyTier> tiers, Map<String, Integer> pointsByCustomerId) {
@@ -366,15 +391,12 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
         LocalDateTime from = LocalDateTime.now().minusDays(days);
 
         Map<String, Integer> counts = new HashMap<>();
-        for (Order order : orderRepository.findAll()) {
-            if (order.getCreatedAt() == null || order.getCreatedAt().isBefore(from)) {
+        for (OrderRepository.CustomerOrdersCountView row : orderRepository.aggregateOrderCountByCustomerFrom(from)) {
+            if (row.getCustomerId() == null) {
                 continue;
             }
-            String customerId = extractCustomerId(order);
-            if (customerId == null) {
-                continue;
-            }
-            counts.merge(customerId, 1, Integer::sum);
+            long orders = row.getOrders() == null ? 0L : row.getOrders();
+            counts.put(row.getCustomerId(), (int) Math.min(Integer.MAX_VALUE, Math.max(0L, orders)));
         }
 
         long clients = counts.size();
@@ -388,12 +410,19 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
 
     private List<BackOfficeLoyaltyCustomerDto> getSortedCustomers(String query) {
         List<LoyaltyTier> tiers = getSortedTiers();
-        Map<String, Integer> pointsByCustomerId = computePointsByCustomer();
-
         String normalizedQuery = trimToNull(query);
+        List<CustomerRepository.CustomerBasicView> customerViews = normalizedQuery == null
+                ? customerRepository.findAllBasic()
+                : customerRepository.searchBasic(normalizedQuery);
+        List<String> customerIds = customerViews.stream()
+                .map(CustomerRepository.CustomerBasicView::getUserId)
+                .filter(Objects::nonNull)
+                .toList();
+        Map<String, Integer> pointsByCustomerId = computePointsByCustomerIds(customerIds);
+
         List<BackOfficeLoyaltyCustomerDto> customers = new ArrayList<>();
-        for (Customer customer : customerRepository.findAll()) {
-            if (!matchesCustomerQuery(customer, normalizedQuery)) {
+        for (CustomerRepository.CustomerBasicView customer : customerViews) {
+            if (customer.getUserId() == null) {
                 continue;
             }
 
@@ -413,20 +442,6 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
                 .thenComparing(BackOfficeLoyaltyCustomerDto::getEmail, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
 
         return customers;
-    }
-
-    private boolean matchesCustomerQuery(Customer customer, String normalizedQuery) {
-        if (normalizedQuery == null) {
-            return true;
-        }
-
-        String email = lowerOrEmpty(customer.getEmail());
-        String firstName = lowerOrEmpty(customer.getFirstName());
-        String lastName = lowerOrEmpty(customer.getLastName());
-        String phone = lowerOrEmpty(customer.getPhoneNumber());
-        String q = normalizedQuery.toLowerCase(Locale.ROOT);
-
-        return email.contains(q) || firstName.contains(q) || lastName.contains(q) || phone.contains(q);
     }
 
     private LoyaltyTier resolveTier(int points, List<LoyaltyTier> sortedTiers) {
@@ -492,13 +507,6 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
         return new PageImpl<>(items.subList(fromIndex, toIndex), pageable, items.size());
     }
 
-    private String extractCustomerId(Order order) {
-        if (order == null || order.getCustomer() == null) {
-            return null;
-        }
-        return trimToNull(order.getCustomer().getUserId());
-    }
-
     private boolean isDelivered(Order order) {
         return order != null && order.getCurrentStatus() == Status.DELIVERED;
     }
@@ -529,7 +537,4 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private String lowerOrEmpty(String value) {
-        return value == null ? "" : value.toLowerCase(Locale.ROOT);
-    }
 }

@@ -45,7 +45,7 @@ public class InternalErrorAlertService {
 
     private final Map<String, Instant> sentByFingerprint = new ConcurrentHashMap<>();
 
-    @Async
+    @Async("externalIoExecutor")
     public void notifyInternalError(String apiPath, Exception ex) {
         if (!enabled || ex == null) {
             return;

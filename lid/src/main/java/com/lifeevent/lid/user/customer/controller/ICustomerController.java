@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -53,7 +54,10 @@ public interface ICustomerController {
         @ApiResponse(responseCode = "401", description = "Non autorisé"),
         @ApiResponse(responseCode = "403", description = "Accès refusé - Admin only")
     })
-    ResponseEntity<List<CustomerDto>> getAllCustomers();
+    ResponseEntity<Page<CustomerDto>> getAllCustomers(
+            @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Taille de page") @RequestParam(defaultValue = "10") int size
+    );
     
     @GetMapping("/email/{email}")
     @Operation(summary = "Récupérer un client par email", description = "Récupère un client à partir de son adresse email (ADMIN only)")

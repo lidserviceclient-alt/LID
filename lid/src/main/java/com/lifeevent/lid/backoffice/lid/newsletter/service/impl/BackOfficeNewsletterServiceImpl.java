@@ -7,6 +7,7 @@ import com.lifeevent.lid.newsletter.entity.NewsletterSubscriber;
 import com.lifeevent.lid.newsletter.enumeration.NewsletterSubscriberSource;
 import com.lifeevent.lid.newsletter.enumeration.NewsletterSubscriberStatus;
 import com.lifeevent.lid.newsletter.repository.NewsletterSubscriberRepository;
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,26 +16,48 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 @Service
 @Transactional
 @RequiredArgsConstructor
 public class BackOfficeNewsletterServiceImpl implements BackOfficeNewsletterService {
+    private static final long AGGREGATION_TIMEOUT_SECONDS = 8L;
 
     private final NewsletterSubscriberRepository newsletterSubscriberRepository;
+    @Resource(name = "aggregatorExecutor")
+    private Executor aggregatorExecutor;
 
     @Override
     @Transactional(readOnly = true)
     public BackOfficeNewsletterStatsDto getStats() {
-        long total = newsletterSubscriberRepository.count();
-        long subscribed = newsletterSubscriberRepository.countByStatus(NewsletterSubscriberStatus.SUBSCRIBED);
-        long unsubscribed = newsletterSubscriberRepository.countByStatus(NewsletterSubscriberStatus.UNSUBSCRIBED);
+        CompletableFuture<Long> totalFuture = supplyAggregationAsync(newsletterSubscriberRepository::count);
+        CompletableFuture<Long> subscribedFuture = supplyAggregationAsync(
+                () -> newsletterSubscriberRepository.countByStatus(NewsletterSubscriberStatus.SUBSCRIBED)
+        );
+        CompletableFuture<Long> unsubscribedFuture = supplyAggregationAsync(
+                () -> newsletterSubscriberRepository.countByStatus(NewsletterSubscriberStatus.UNSUBSCRIBED)
+        );
+
+        CompletableFuture.allOf(totalFuture, subscribedFuture, unsubscribedFuture).join();
+
+        long total = totalFuture.join();
+        long subscribed = subscribedFuture.join();
+        long unsubscribed = unsubscribedFuture.join();
 
         return BackOfficeNewsletterStatsDto.builder()
                 .total(total)
                 .subscribed(subscribed)
                 .unsubscribed(unsubscribed)
                 .build();
+    }
+
+    private <T> CompletableFuture<T> supplyAggregationAsync(Supplier<T> supplier) {
+        return CompletableFuture.supplyAsync(supplier, aggregatorExecutor)
+                .orTimeout(AGGREGATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     @Override

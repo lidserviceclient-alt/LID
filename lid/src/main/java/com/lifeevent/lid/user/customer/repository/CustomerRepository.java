@@ -1,7 +1,6 @@
 package com.lifeevent.lid.user.customer.repository;
 
 import com.lifeevent.lid.user.customer.entity.Customer;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,6 +11,14 @@ import java.util.Optional;
 
 @Repository
 public interface CustomerRepository extends JpaRepository<Customer, String> {
+
+    interface CustomerBasicView {
+        String getUserId();
+        String getEmail();
+        String getFirstName();
+        String getLastName();
+        String getPhoneNumber();
+    }
     
     /**
      * Recherche par email - charge UNIQUEMENT le Customer avec ses données spécifiques
@@ -27,12 +34,6 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
     boolean existsByEmail(@Param("email") String email);
     
     /**
-     * Récupérer tous les Customers avec leur avatar
-     */
-    @Query("SELECT c FROM Customer c")
-    List<Customer> findAll();
-    
-    /**
      * Récupérer un Customer par ID avec tous ses champs
      */
     @Query("SELECT c FROM Customer c WHERE c.userId = :userId")
@@ -43,4 +44,31 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
 
     @Query("SELECT c.phoneNumber FROM Customer c WHERE c.phoneNumber IS NOT NULL")
     List<String> findClientPhones();
+
+    @Query("""
+        SELECT c.userId AS userId,
+               c.email AS email,
+               c.firstName AS firstName,
+               c.lastName AS lastName,
+               c.phoneNumber AS phoneNumber
+        FROM Customer c
+    """)
+    List<CustomerBasicView> findAllBasic();
+
+    @Query("""
+        SELECT c.userId AS userId,
+               c.email AS email,
+               c.firstName AS firstName,
+               c.lastName AS lastName,
+               c.phoneNumber AS phoneNumber
+        FROM Customer c
+        WHERE (
+            :q IS NULL OR :q = '' OR
+            LOWER(CAST(c.email AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+            LOWER(CAST(c.firstName AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+            LOWER(CAST(c.lastName AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+            LOWER(CAST(c.phoneNumber AS string)) LIKE LOWER(CONCAT('%', :q, '%'))
+        )
+    """)
+    List<CustomerBasicView> searchBasic(@Param("q") String q);
 }

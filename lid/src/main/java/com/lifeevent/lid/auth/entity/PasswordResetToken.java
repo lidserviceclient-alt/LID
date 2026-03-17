@@ -11,7 +11,14 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "password_reset_token")
+@Table(
+        name = "password_reset_token",
+        indexes = {
+                @Index(name = "idx_prt_code_purpose", columnList = "code, purpose"),
+                @Index(name = "idx_prt_user_purpose_used", columnList = "user_id, purpose, used"),
+                @Index(name = "idx_prt_expiry_date", columnList = "expiry_date")
+        }
+)
 @Getter
 @Setter
 @SuperBuilder

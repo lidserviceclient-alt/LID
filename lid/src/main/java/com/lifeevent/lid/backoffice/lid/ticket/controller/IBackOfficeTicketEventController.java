@@ -17,7 +17,10 @@ public interface IBackOfficeTicketEventController {
 
     @GetMapping
     @ApiResponse(responseCode = "200", description = "Liste des évènements")
-    ResponseEntity<List<BackOfficeTicketEventDto>> getAll();
+    ResponseEntity<List<BackOfficeTicketEventDto>> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    );
 
     @GetMapping("/{id}")
     ResponseEntity<BackOfficeTicketEventDto> getById(

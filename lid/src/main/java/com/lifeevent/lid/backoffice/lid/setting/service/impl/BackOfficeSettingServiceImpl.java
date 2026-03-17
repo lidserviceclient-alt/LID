@@ -9,6 +9,7 @@ import com.lifeevent.lid.backoffice.lid.user.dto.BackOfficeUserDto;
 import com.lifeevent.lid.backoffice.lid.user.service.BackOfficeUserService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
+import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -22,6 +23,10 @@ import org.springframework.web.server.ResponseStatusException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +34,7 @@ import java.util.*;
 public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
 
     private static final int SETTINGS_USERS_FETCH_SIZE = 500;
+    private static final long AGGREGATION_TIMEOUT_SECONDS = 8L;
 
     private final BackOfficeUserService backOfficeUserService;
     private final BackOfficeAppConfigRepository appConfigRepository;
@@ -39,20 +45,50 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
     private final BackOfficeIntegrationSettingRepository integrationSettingRepository;
     private final BackOfficeNotificationPreferenceRepository notificationPreferenceRepository;
     private final SecurityActivityRepository securityActivityRepository;
+    @Resource(name = "aggregatorExecutor")
+    private Executor aggregatorExecutor;
 
     @Override
     public BackOfficeSettingPageDto getPage() {
+        CompletableFuture<BackOfficeSettingShopProfileDto> shopProfileFuture = supplyAggregationAsync(this::getShopProfile);
+        CompletableFuture<List<BackOfficeSettingSocialLinkDto>> socialLinksFuture = supplyAggregationAsync(this::getSocialLinks);
+        CompletableFuture<List<BackOfficeSettingFreeShippingRuleDto>> freeShippingRulesFuture = supplyAggregationAsync(this::getFreeShippingRules);
+        CompletableFuture<List<BackOfficeSettingShippingMethodDto>> shippingMethodsFuture = supplyAggregationAsync(this::getShippingMethods);
+        CompletableFuture<List<BackOfficeUserDto>> couriersFuture = supplyAggregationAsync(this::getCouriers);
+        CompletableFuture<List<BackOfficeUserDto>> teamMembersFuture = supplyAggregationAsync(this::getTeamMembers);
+        CompletableFuture<BackOfficeSettingSecurityDto> securityFuture = supplyAggregationAsync(this::getSecurity);
+        CompletableFuture<BackOfficeSettingIntegrationsDto> integrationsFuture = supplyAggregationAsync(this::getIntegrations);
+        CompletableFuture<List<BackOfficeSettingNotificationPreferenceDto>> notificationPreferencesFuture =
+                supplyAggregationAsync(this::getNotificationPreferences);
+
+        CompletableFuture.allOf(
+                shopProfileFuture,
+                socialLinksFuture,
+                freeShippingRulesFuture,
+                shippingMethodsFuture,
+                couriersFuture,
+                teamMembersFuture,
+                securityFuture,
+                integrationsFuture,
+                notificationPreferencesFuture
+        ).join();
+
         return BackOfficeSettingPageDto.builder()
-                .shopProfile(getShopProfile())
-                .socialLinks(getSocialLinks())
-                .freeShippingRules(getFreeShippingRules())
-                .shippingMethods(getShippingMethods())
-                .couriers(getCouriers())
-                .teamMembers(getTeamMembers())
-                .security(getSecurity())
-                .integrations(getIntegrations())
-                .notificationPreferences(getNotificationPreferences())
+                .shopProfile(shopProfileFuture.join())
+                .socialLinks(socialLinksFuture.join())
+                .freeShippingRules(freeShippingRulesFuture.join())
+                .shippingMethods(shippingMethodsFuture.join())
+                .couriers(couriersFuture.join())
+                .teamMembers(teamMembersFuture.join())
+                .security(securityFuture.join())
+                .integrations(integrationsFuture.join())
+                .notificationPreferences(notificationPreferencesFuture.join())
                 .build();
+    }
+
+    private <T> CompletableFuture<T> supplyAggregationAsync(Supplier<T> supplier) {
+        return CompletableFuture.supplyAsync(supplier, aggregatorExecutor)
+                .orTimeout(AGGREGATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     @Override
@@ -125,7 +161,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
 
     @Override
     public List<BackOfficeSettingFreeShippingRuleDto> getFreeShippingRules() {
-        return freeShippingRuleRepository.findAll().stream().map(this::toFreeShippingDto).toList();
+        return freeShippingRuleRepository.findAllByOrderByCreatedAtDesc().stream().map(this::toFreeShippingDto).toList();
     }
 
     @Override
@@ -400,7 +436,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
 
     @Override
     public byte[] exportSecurityActivityCsv(int size) {
-        int safeSize = Math.max(1, Math.min(size, 500));
+        int safeSize = Math.max(1, size);
         List<SecurityActivityEntity> rows = securityActivityRepository
                 .findAllByOrderByEventAtDesc(PageRequest.of(0, safeSize))
                 .getContent();
@@ -494,7 +530,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
 
     @Override
     public List<BackOfficeSettingNotificationPreferenceDto> getNotificationPreferences() {
-        return notificationPreferenceRepository.findAll().stream()
+        return notificationPreferenceRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(this::toNotificationPreferenceDto)
                 .toList();
     }
@@ -527,7 +563,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
     }
 
     private void unsetDefaultShippingMethods() {
-        List<BackOfficeShippingMethodEntity> methods = shippingMethodRepository.findAll();
+        List<BackOfficeShippingMethodEntity> methods = shippingMethodRepository.findAllByOrderBySortOrderAscCreatedAtAsc();
         for (BackOfficeShippingMethodEntity method : methods) {
             if (Boolean.TRUE.equals(method.getIsDefault())) {
                 method.setIsDefault(Boolean.FALSE);

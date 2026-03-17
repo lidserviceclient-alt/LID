@@ -43,36 +43,54 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
     @Override
     @Transactional(readOnly = true)
     public Page<BackOfficeUserDto> getAll(Pageable pageable, String role, String q) {
-        List<UserEntity> users = userEntityRepository.findAll();
-        if (users.isEmpty()) {
+        String roleFilter = role == null ? "" : role.trim().toUpperCase();
+        String query = q == null ? "" : q.trim().toLowerCase();
+        Class<? extends UserEntity> roleClass = resolveRoleClass(roleFilter);
+
+        if (isAuthRole(roleFilter)) {
+            return getAllByAuthRole(pageable, roleFilter, query);
+        }
+
+        Page<UserEntity> usersPage = userEntityRepository.search(roleClass, query, pageable);
+        if (usersPage.isEmpty()) {
             return Page.empty(pageable);
         }
 
-        Map<String, Authentication> authMap = loadAuthMap(users);
-        String roleFilter = role == null ? "" : role.trim().toUpperCase();
-        String query = q == null ? "" : q.trim().toLowerCase();
-
-        List<BackOfficeUserDto> filtered = new ArrayList<>();
-        for (UserEntity user : users) {
+        Map<String, Authentication> authMap = loadAuthMap(usersPage.getContent());
+        List<BackOfficeUserDto> content = new ArrayList<>();
+        for (UserEntity user : usersPage.getContent()) {
             Authentication auth = authMap.get(user.getUserId());
             BackOfficeUserDto dto = backOfficeUserMapper.toDto(user, auth);
-            if (!roleFilter.isEmpty() && (dto.getRole() == null || !dto.getRole().equalsIgnoreCase(roleFilter))) {
-                continue;
-            }
-            if (!query.isEmpty() && !matchesQuery(user, dto, query)) {
-                continue;
-            }
-            filtered.add(dto);
+            content.add(dto);
+        }
+        return new PageImpl<>(content, pageable, usersPage.getTotalElements());
+    }
+
+    private Page<BackOfficeUserDto> getAllByAuthRole(Pageable pageable, String roleFilter, String query) {
+        List<String> roles = mapAuthRoles(roleFilter);
+        Page<String> idsPage = authenticationRepository.searchUserIdsByRolesIn(roles, query, pageable);
+        if (idsPage.isEmpty()) {
+            return Page.empty(pageable);
         }
 
-        int total = filtered.size();
-        int start = Math.toIntExact(pageable.getOffset());
-        if (start >= total) {
-            return new PageImpl<>(List.of(), pageable, total);
-        }
-        int end = Math.min(start + pageable.getPageSize(), total);
-        List<BackOfficeUserDto> pageContent = filtered.subList(start, end);
-        return new PageImpl<>(pageContent, pageable, total);
+        List<String> ids = idsPage.getContent();
+        Map<String, UserEntity> usersById = userEntityRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(UserEntity::getUserId, u -> u));
+        Map<String, Authentication> authById = authenticationRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Authentication::getUserId, a -> a));
+
+        List<BackOfficeUserDto> content = ids.stream()
+                .map(id -> {
+                    UserEntity user = usersById.get(id);
+                    if (user == null) {
+                        return null;
+                    }
+                    return backOfficeUserMapper.toDto(user, authById.get(id));
+                })
+                .filter(Objects::nonNull)
+                .toList();
+
+        return new PageImpl<>(content, pageable, idsPage.getTotalElements());
     }
 
     @Override
@@ -152,18 +170,28 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
                 .collect(Collectors.toMap(Authentication::getUserId, a -> a));
     }
 
-    private boolean matchesQuery(UserEntity user, BackOfficeUserDto dto, String query) {
-        String id = user.getUserId() == null ? "" : user.getUserId().toLowerCase();
-        String email = user.getEmail() == null ? "" : user.getEmail().toLowerCase();
-        String first = user.getFirstName() == null ? "" : user.getFirstName().toLowerCase();
-        String last = user.getLastName() == null ? "" : user.getLastName().toLowerCase();
-        String name = ((dto.getPrenom() == null ? "" : dto.getPrenom()) + " " + (dto.getNom() == null ? "" : dto.getNom())).toLowerCase();
+    private Class<? extends UserEntity> resolveRoleClass(String role) {
+        if (role == null || role.isBlank()) {
+            return null;
+        }
+        return switch (role) {
+            case "CLIENT" -> Customer.class;
+            case "PARTENAIRE" -> Partner.class;
+            default -> null;
+        };
+    }
 
-        return id.contains(query)
-                || email.contains(query)
-                || first.contains(query)
-                || last.contains(query)
-                || name.contains(query);
+    private boolean isAuthRole(String role) {
+        return "ADMIN".equals(role) || "SUPER_ADMIN".equals(role) || "LIVREUR".equals(role);
+    }
+
+    private List<String> mapAuthRoles(String role) {
+        return switch (role) {
+            case "ADMIN" -> List.of("ADMIN");
+            case "SUPER_ADMIN" -> List.of("SUPER_ADMIN");
+            case "LIVREUR" -> List.of("LIVREUR");
+            default -> List.of();
+        };
     }
 
     private UserEntity buildEntityFromDto(BackOfficeUserDto dto, String userId) {

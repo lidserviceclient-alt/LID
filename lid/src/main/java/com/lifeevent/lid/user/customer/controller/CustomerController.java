@@ -5,6 +5,8 @@ import com.lifeevent.lid.user.customer.dto.CustomerDto;
 import com.lifeevent.lid.user.customer.service.CustomerService;
 import com.lifeevent.lid.common.util.ResponseUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,9 +36,8 @@ public class CustomerController implements ICustomerController {
     }
     
     @Override
-    public ResponseEntity<List<CustomerDto>> getAllCustomers() {
-        List<CustomerDto> customers = customerService.getAllCustomers();
-        return ResponseEntity.ok(customers);
+    public ResponseEntity<Page<CustomerDto>> getAllCustomers(int page, int size) {
+        return ResponseEntity.ok(customerService.getAllCustomers(PageRequest.of(page, size)));
     }
     
     @Override

@@ -16,7 +16,13 @@ import java.time.LocalDateTime;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "discount")
+@Table(
+        name = "discount",
+        indexes = {
+                @Index(name = "idx_discount_active_period", columnList = "is_active, start_at, end_at"),
+                @Index(name = "idx_discount_created_at", columnList = "created_at")
+        }
+)
 public class Discount extends BaseEntity {
 
     @Id

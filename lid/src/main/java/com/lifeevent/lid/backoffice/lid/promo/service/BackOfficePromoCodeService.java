@@ -6,7 +6,7 @@ import com.lifeevent.lid.backoffice.lid.promo.dto.PromoCodeStatsDto;
 import java.util.List;
 
 public interface BackOfficePromoCodeService {
-    List<BackOfficePromoCodeDto> getAll();
+    List<BackOfficePromoCodeDto> getAll(int page, int size);
     BackOfficePromoCodeDto getById(Long id);
     BackOfficePromoCodeDto create(BackOfficePromoCodeDto dto);
     BackOfficePromoCodeDto update(Long id, BackOfficePromoCodeDto dto);

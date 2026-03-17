@@ -195,11 +195,14 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     }
 
     private int safePageSize(int size) {
-        return Math.min(Math.max(size, 1), 100);
+        return Math.max(size, 1);
     }
 
     private int safeLimit(int limit, int fallback) {
-        return Math.min(Math.max(limit, 1), 50);
+        if (limit <= 0) {
+            return Math.max(1, fallback);
+        }
+        return limit;
     }
 
     private String normalizeOrCurrent(String value, String current) {

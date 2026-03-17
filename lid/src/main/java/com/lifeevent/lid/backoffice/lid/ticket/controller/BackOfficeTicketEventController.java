@@ -18,8 +18,8 @@ public class BackOfficeTicketEventController implements IBackOfficeTicketEventCo
     private final BackOfficeTicketEventService backOfficeTicketEventService;
 
     @Override
-    public ResponseEntity<List<BackOfficeTicketEventDto>> getAll() {
-        return ResponseEntity.ok(backOfficeTicketEventService.getAll());
+    public ResponseEntity<List<BackOfficeTicketEventDto>> getAll(int page, int size) {
+        return ResponseEntity.ok(backOfficeTicketEventService.getAll(page, size));
     }
 
     @Override

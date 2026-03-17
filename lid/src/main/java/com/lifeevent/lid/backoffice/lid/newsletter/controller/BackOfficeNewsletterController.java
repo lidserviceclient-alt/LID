@@ -28,7 +28,7 @@ public class BackOfficeNewsletterController implements IBackOfficeNewsletterCont
 
     @Override
     public ResponseEntity<Page<BackOfficeNewsletterSubscriberDto>> getSubscribers(NewsletterSubscriberStatus status, String q, int page, int size) {
-        PageRequest pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(size, 1), 200), Sort.by(Sort.Direction.DESC, "createdAt"));
+        PageRequest pageable = PageRequest.of(Math.max(0, page), Math.max(size, 1), Sort.by(Sort.Direction.DESC, "createdAt"));
         return ResponseEntity.ok(backOfficeNewsletterService.getSubscribers(status, q, pageable));
     }
 

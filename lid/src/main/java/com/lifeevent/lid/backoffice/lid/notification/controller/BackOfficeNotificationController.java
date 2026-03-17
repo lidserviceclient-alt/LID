@@ -64,7 +64,7 @@ public class BackOfficeNotificationController implements IBackOfficeNotification
     }
 
     private int safeSize(int size) {
-        return Math.max(1, Math.min(size, 100));
+        return Math.max(1, size);
     }
 
     private LocalDateTime parseSince(String since) {

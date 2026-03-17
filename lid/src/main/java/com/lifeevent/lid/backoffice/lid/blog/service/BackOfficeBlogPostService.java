@@ -5,7 +5,7 @@ import com.lifeevent.lid.backoffice.lid.blog.dto.BackOfficeBlogPostDto;
 import java.util.List;
 
 public interface BackOfficeBlogPostService {
-    List<BackOfficeBlogPostDto> getAll();
+    List<BackOfficeBlogPostDto> getAll(int page, int size);
     BackOfficeBlogPostDto getById(Long id);
     BackOfficeBlogPostDto create(BackOfficeBlogPostDto dto);
     BackOfficeBlogPostDto update(Long id, BackOfficeBlogPostDto dto);

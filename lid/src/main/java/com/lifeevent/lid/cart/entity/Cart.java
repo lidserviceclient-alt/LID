@@ -15,6 +15,12 @@ import java.util.List;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(
+        name = "cart",
+        indexes = {
+                @Index(name = "idx_cart_customer_user_id", columnList = "customer_user_id")
+        }
+)
 public class Cart extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     private Customer customer;

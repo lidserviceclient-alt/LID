@@ -1,6 +1,9 @@
 spring:
   application:
     name: lid
+  threads:
+    virtual:
+      enabled: ${SPRING_THREADS_VIRTUAL_ENABLED:false}
 
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
@@ -53,6 +56,32 @@ server:
 
 
 config:
+  cache:
+    catalog:
+      collection-ttl-minutes: ${CATALOG_CACHE_COLLECTION_TTL_MINUTES:30}
+      categories-ttl-minutes: ${CATALOG_CACHE_CATEGORIES_TTL_MINUTES:1440}
+      featured-categories-ttl-minutes: ${CATALOG_CACHE_FEATURED_CATEGORIES_TTL_MINUTES:720}
+      featured-products-ttl-minutes: ${CATALOG_CACHE_FEATURED_PRODUCTS_TTL_MINUTES:180}
+      bestseller-products-ttl-minutes: ${CATALOG_CACHE_BESTSELLER_PRODUCTS_TTL_MINUTES:180}
+      latest-products-ttl-minutes: ${CATALOG_CACHE_LATEST_PRODUCTS_TTL_MINUTES:30}
+      product-details-ttl-minutes: ${CATALOG_CACHE_PRODUCT_DETAILS_TTL_MINUTES:240}
+      product-reviews-ttl-minutes: ${CATALOG_CACHE_PRODUCT_REVIEWS_TTL_MINUTES:60}
+      blog-posts-ttl-minutes: ${CATALOG_CACHE_BLOG_POSTS_TTL_MINUTES:120}
+      blog-post-details-ttl-minutes: ${CATALOG_CACHE_BLOG_POST_DETAILS_TTL_MINUTES:240}
+      tickets-ttl-minutes: ${CATALOG_CACHE_TICKETS_TTL_MINUTES:120}
+      ticket-details-ttl-minutes: ${CATALOG_CACHE_TICKET_DETAILS_TTL_MINUTES:240}
+      collection-max-size: ${CATALOG_CACHE_COLLECTION_MAX_SIZE:1000}
+      categories-max-size: ${CATALOG_CACHE_CATEGORIES_MAX_SIZE:500}
+      featured-categories-max-size: ${CATALOG_CACHE_FEATURED_CATEGORIES_MAX_SIZE:500}
+      featured-products-max-size: ${CATALOG_CACHE_FEATURED_PRODUCTS_MAX_SIZE:1000}
+      bestseller-products-max-size: ${CATALOG_CACHE_BESTSELLER_PRODUCTS_MAX_SIZE:1000}
+      latest-products-max-size: ${CATALOG_CACHE_LATEST_PRODUCTS_MAX_SIZE:1000}
+      product-details-max-size: ${CATALOG_CACHE_PRODUCT_DETAILS_MAX_SIZE:10000}
+      product-reviews-max-size: ${CATALOG_CACHE_PRODUCT_REVIEWS_MAX_SIZE:10000}
+      blog-posts-max-size: ${CATALOG_CACHE_BLOG_POSTS_MAX_SIZE:1000}
+      blog-post-details-max-size: ${CATALOG_CACHE_BLOG_POST_DETAILS_MAX_SIZE:2000}
+      tickets-max-size: ${CATALOG_CACHE_TICKETS_MAX_SIZE:1000}
+      ticket-details-max-size: ${CATALOG_CACHE_TICKET_DETAILS_MAX_SIZE:2000}
   logs:
     admin:
       file-path: ${LOG_ADMIN_FILE_PATH:${logging.file.name:logs/lid.log}}

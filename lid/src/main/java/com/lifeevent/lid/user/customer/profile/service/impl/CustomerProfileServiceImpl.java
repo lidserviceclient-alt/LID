@@ -37,7 +37,7 @@ public class CustomerProfileServiceImpl implements CustomerProfileService {
         CustomerDto customer = loadCustomer(customerId);
 
         int safePage = Math.max(0, page);
-        int safeSize = Math.max(1, Math.min(size, 50));
+        int safeSize = Math.max(1, size);
 
         List<OrderDetailDto> orders = orderService.getOrdersByCustomer(customerId, safePage, safeSize);
         List<WishlistDto> wishlist = wishlistService.getWishlist(customerId);

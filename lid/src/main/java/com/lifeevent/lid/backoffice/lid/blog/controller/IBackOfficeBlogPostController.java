@@ -17,7 +17,10 @@ public interface IBackOfficeBlogPostController {
 
     @GetMapping
     @ApiResponse(responseCode = "200", description = "Liste des articles blog")
-    ResponseEntity<List<BackOfficeBlogPostDto>> getAll();
+    ResponseEntity<List<BackOfficeBlogPostDto>> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    );
 
     @GetMapping("/{id}")
     ResponseEntity<BackOfficeBlogPostDto> getById(

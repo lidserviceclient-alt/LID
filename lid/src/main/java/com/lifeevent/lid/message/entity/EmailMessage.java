@@ -17,7 +17,13 @@ import java.util.List;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "email_message")
+@Table(
+        name = "email_message",
+        indexes = {
+                @Index(name = "idx_email_message_created_at", columnList = "created_at"),
+                @Index(name = "idx_email_message_status_next_retry_at", columnList = "status, next_retry_at")
+        }
+)
 public class EmailMessage extends BaseEntity {
 
     @Id
@@ -31,7 +37,13 @@ public class EmailMessage extends BaseEntity {
     private String body;
 
     @ElementCollection
-    @CollectionTable(name = "email_message_recipient", joinColumns = @JoinColumn(name = "message_id"))
+    @CollectionTable(
+            name = "email_message_recipient",
+            joinColumns = @JoinColumn(name = "message_id"),
+            indexes = {
+                    @Index(name = "idx_email_message_recipient_message", columnList = "message_id")
+            }
+    )
     @Column(name = "recipient", nullable = false)
     @Builder.Default
     private List<String> recipients = new ArrayList<>();

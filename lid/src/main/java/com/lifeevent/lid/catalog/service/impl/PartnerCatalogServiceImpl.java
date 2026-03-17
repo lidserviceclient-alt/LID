@@ -32,7 +32,7 @@ public class PartnerCatalogServiceImpl implements PartnerCatalogService {
 
     @Override
     public Page<PartnerCatalogPartnerDto> listPartners(int page, int size, String q) {
-        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 50), Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.max(size, 1), Sort.by(Sort.Direction.DESC, "createdAt"));
         SearchQuery query = buildSearchQuery(q);
         return partnerRepository.searchVerifiedForCatalog(
                         PartnerRegistrationStatus.VERIFIED,
@@ -54,7 +54,7 @@ public class PartnerCatalogServiceImpl implements PartnerCatalogService {
     @Override
     public Page<PartnerCatalogProductDto> listPartnerProducts(String partnerId, int page, int size, String sortKey) {
         ensurePartnerExists(partnerId);
-        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), resolveSort(sortKey));
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.max(size, 1), resolveSort(sortKey));
         return articleRepository.findByReferencePartnerAndStatus(partnerId, ArticleStatus.ACTIVE, pageable)
                 .map(this::toProductDto);
     }

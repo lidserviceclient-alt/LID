@@ -10,12 +10,15 @@ import com.lifeevent.lid.discount.enumeration.DiscountTarget;
 import com.lifeevent.lid.discount.repository.DiscountRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,8 +33,12 @@ public class BackOfficePromoCodeServiceImpl implements BackOfficePromoCodeServic
 
     @Override
     @Transactional(readOnly = true)
-    public List<BackOfficePromoCodeDto> getAll() {
-        List<BackOfficePromoCodeDto> dtos = backOfficePromoCodeMapper.toDtoList(discountRepository.findAll());
+    public List<BackOfficePromoCodeDto> getAll(int page, int size) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, size);
+        List<BackOfficePromoCodeDto> dtos = backOfficePromoCodeMapper.toDtoList(
+                discountRepository.findAll(PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent()
+        );
         for (BackOfficePromoCodeDto dto : dtos) {
             enrichDto(dto);
         }
@@ -78,18 +85,9 @@ public class BackOfficePromoCodeServiceImpl implements BackOfficePromoCodeServic
     @Transactional(readOnly = true)
     public PromoCodeStatsDto getStats(Integer days) {
         int count = normalizeDays(days);
-        List<Discount> discounts = discountRepository.findAll();
-
-        long totalUsages = 0L;
-        double totalReduction = 0d;
-        for (Discount discount : discounts) {
-            int usageCount = discount.getUsageCount() == null ? 0 : Math.max(0, discount.getUsageCount());
-            double value = discount.getValue() == null ? 0d : Math.max(0d, discount.getValue());
-            totalUsages += usageCount;
-            totalReduction += (usageCount * value);
-        }
-
-        List<Long> series = buildUsageSeries(discounts, count);
+        long totalUsages = discountRepository.sumUsageCount();
+        double totalReduction = discountRepository.sumUsageReduction();
+        List<Long> series = buildUsageSeries(count);
         return PromoCodeStatsDto.builder()
                 .totalUsages(totalUsages)
                 .totalReduction(totalReduction)
@@ -104,17 +102,17 @@ public class BackOfficePromoCodeServiceImpl implements BackOfficePromoCodeServic
         return Math.max(1, Math.min(days, 365));
     }
 
-    private List<Long> buildUsageSeries(List<Discount> discounts, int days) {
+    private List<Long> buildUsageSeries(int days) {
         LocalDate start = LocalDate.now().minusDays(days - 1L);
+        LocalDateTime from = start.atStartOfDay();
         Map<LocalDate, Long> usageByDay = new HashMap<>();
 
-        for (Discount discount : discounts) {
-            if (discount == null || discount.getCreatedAt() == null) {
+        for (DiscountRepository.DailyUsageView row : discountRepository.aggregateUsageByDayFrom(from)) {
+            if (row == null || row.getDay() == null) {
                 continue;
             }
-            LocalDate day = discount.getCreatedAt().toLocalDate();
-            long usageCount = discount.getUsageCount() == null ? 0L : Math.max(0, discount.getUsageCount());
-            usageByDay.merge(day, usageCount, Long::sum);
+            long usageCount = row.getUsage() == null ? 0L : Math.max(0L, row.getUsage());
+            usageByDay.put(row.getDay(), usageCount);
         }
 
         List<Long> series = new ArrayList<>(days);

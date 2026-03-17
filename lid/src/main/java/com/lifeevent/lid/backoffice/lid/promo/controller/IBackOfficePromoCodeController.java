@@ -27,7 +27,10 @@ public interface IBackOfficePromoCodeController {
     @GetMapping
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les codes promo")
     @ApiResponse(responseCode = "200", description = "Liste des codes promo")
-    ResponseEntity<List<BackOfficePromoCodeDto>> getAll();
+    ResponseEntity<List<BackOfficePromoCodeDto>> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    );
 
     @GetMapping("/{id}")
     ResponseEntity<BackOfficePromoCodeDto> getById(

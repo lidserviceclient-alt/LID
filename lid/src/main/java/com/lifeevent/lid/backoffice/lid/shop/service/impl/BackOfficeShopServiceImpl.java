@@ -20,7 +20,7 @@ public class BackOfficeShopServiceImpl implements BackOfficeShopService {
     @Override
     @Transactional(readOnly = true)
     public List<BackOfficeShopDto> getShops() {
-        return shopRepository.findAll().stream()
+        return shopRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(this::toDto)
                 .toList();
     }
