@@ -1,0 +1,53 @@
+package com.lifeevent.lid.wishlist.controller;
+
+import com.lifeevent.lid.wishlist.dto.WishlistDto;
+import com.lifeevent.lid.wishlist.service.WishlistService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/wishlist")
+@RequiredArgsConstructor
+public class WishlistController implements IWishlistController {
+    
+    private final WishlistService wishlistService;
+    
+    @Override
+    @GetMapping
+    public ResponseEntity<List<WishlistDto>> getWishlist(String customerId) {
+        List<WishlistDto> wishlist = wishlistService.getWishlist(customerId);
+        return ResponseEntity.ok(wishlist);
+    }
+
+    @Override
+    @GetMapping("/{customerId}")
+    public ResponseEntity<List<WishlistDto>> getWishlistByPath(@PathVariable String customerId) {
+        List<WishlistDto> wishlist = wishlistService.getWishlist(customerId);
+        return ResponseEntity.ok(wishlist);
+    }
+    
+    @Override
+    @PostMapping("/{articleId:\\d+}")
+    public ResponseEntity<WishlistDto> addToWishlist(Long articleId, String customerId) {
+        WishlistDto added = wishlistService.addToWishlist(customerId, articleId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(added);
+    }
+    
+    @Override
+    @DeleteMapping("/{articleId:\\d+}")
+    public ResponseEntity<Void> removeFromWishlist(Long articleId, String customerId) {
+        wishlistService.removeFromWishlist(customerId, articleId);
+        return ResponseEntity.noContent().build();
+    }
+    
+    @Override
+    @GetMapping("/{articleId:\\d+}/exists")
+    public ResponseEntity<Boolean> isInWishlist(Long articleId, String customerId) {
+        boolean inWishlist = wishlistService.isInWishlist(customerId, articleId);
+        return ResponseEntity.ok(inWishlist);
+    }
+}

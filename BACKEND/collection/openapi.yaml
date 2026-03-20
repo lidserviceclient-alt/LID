@@ -1,0 +1,1074 @@
+openapi: 3.0.1
+info:
+  title: LID - Life Event Distribution API
+  description: API REST complète pour la gestion d'une plateforme d'e-commerce de
+    distribution d'événements
+  contact:
+    name: LID Team
+    email: support@lid.com
+  license:
+    name: Apache 2.0
+  version: 1.0.0
+servers:
+- url: http://localhost:9000
+  description: Development Server
+- url: https://api.lid.com
+  description: Production Server
+tags:
+- name: Articles
+  description: API pour gérer les articles de la plateforme e-commerce
+- name: Paniers
+  description: API pour gérer les paniers d'achat (carts)
+- name: Clients
+  description: API pour gérer les clients de la plateforme
+- name: Actuator
+  description: Monitor and interact
+  externalDocs:
+    description: Spring Boot Actuator Web API Documentation
+    url: https://docs.spring.io/spring-boot/docs/current/actuator-api/html/
+paths:
+  /api/customers/{id}:
+    get:
+      tags:
+      - Clients
+      summary: Récupérer un client par ID
+      description: Récupère les détails d'un client spécifique
+      operationId: getCustomer
+      parameters:
+      - name: id
+        in: path
+        description: ID du client
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "404":
+          description: Client non trouvé
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CustomerDto"
+        "200":
+          description: Client trouvé
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CustomerDto"
+    put:
+      tags:
+      - Clients
+      summary: Mettre à jour un client
+      description: Met à jour les informations d'un client existant
+      operationId: updateCustomer
+      parameters:
+      - name: id
+        in: path
+        description: ID du client
+        required: true
+        schema:
+          type: integer
+          format: int32
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerDto"
+        required: true
+      responses:
+        "404":
+          description: Client non trouvé
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CustomerDto"
+        "400":
+          description: Données invalides
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CustomerDto"
+        "200":
+          description: Client mis à jour avec succès
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CustomerDto"
+    delete:
+      tags:
+      - Clients
+      summary: Supprimer un client
+      description: Supprime un client de la plateforme
+      operationId: deleteCustomer
+      parameters:
+      - name: id
+        in: path
+        description: ID du client
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "404":
+          description: Client non trouvé
+        "204":
+          description: Client supprimé avec succès
+  /api/categories/{id}:
+    get:
+      tags:
+      - category-controller
+      operationId: getCategory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CategoryDto"
+    put:
+      tags:
+      - category-controller
+      operationId: updateCategory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int32
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CategoryDto"
+    delete:
+      tags:
+      - category-controller
+      operationId: deleteCategory
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: OK
+  /api/articles/{id}:
+    get:
+      tags:
+      - Articles
+      summary: Récupérer un article par ID
+      description: Récupère les détails d'un article spécifique
+      operationId: getArticle
+      parameters:
+      - name: id
+        in: path
+        description: ID de l'article
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: Article non trouvé
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+        "200":
+          description: Article trouvé
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+    put:
+      tags:
+      - Articles
+      summary: Mettre à jour un article
+      description: Met à jour les informations d'un article existant
+      operationId: updateArticle
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArticleDto"
+        required: true
+      responses:
+        "200":
+          description: Article mis à jour avec succès
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+        "404":
+          description: Article non trouvé
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+        "400":
+          description: Données invalides
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+    delete:
+      tags:
+      - Articles
+      summary: Supprimer un article
+      description: Supprime un article de la plateforme
+      operationId: deleteArticle
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "204":
+          description: Article supprimé avec succès
+        "404":
+          description: Article non trouvé
+  /api/customers:
+    get:
+      tags:
+      - Clients
+      summary: Lister tous les clients
+      description: Récupère la liste complète de tous les clients
+      operationId: getAllCustomers
+      responses:
+        "200":
+          description: Liste des clients
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CustomerDto"
+    post:
+      tags:
+      - Clients
+      summary: Créer un nouveau client
+      description: Crée un nouveau profil client dans la plateforme
+      operationId: createCustomer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerDto"
+        required: true
+      responses:
+        "409":
+          description: Email ou login déjà existant
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CustomerDto"
+        "400":
+          description: Données invalides
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CustomerDto"
+        "201":
+          description: Client créé avec succès
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CustomerDto"
+  /api/categories:
+    get:
+      tags:
+      - category-controller
+      operationId: getAllCategories
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryDto"
+    post:
+      tags:
+      - category-controller
+      operationId: createCategory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CategoryDto"
+  /api/carts/{customerId}/articles/{articleId}:
+    post:
+      tags:
+      - Paniers
+      summary: Ajouter un article au panier
+      description: Ajoute un article au panier d'un client (ou augmente la quantité
+        si l'article est déjà présent)
+      operationId: addArticle
+      parameters:
+      - name: customerId
+        in: path
+        description: ID du client
+        required: true
+        schema:
+          type: integer
+          format: int32
+      - name: articleId
+        in: path
+        description: ID de l'article à ajouter
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: Client ou article non trouvé
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CartDto"
+        "200":
+          description: Article ajouté avec succès
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CartDto"
+    delete:
+      tags:
+      - Paniers
+      summary: Retirer un article du panier
+      description: Supprime complètement un article du panier d'un client
+      operationId: removeArticle
+      parameters:
+      - name: customerId
+        in: path
+        description: ID du client
+        required: true
+        schema:
+          type: integer
+          format: int32
+      - name: articleId
+        in: path
+        description: ID de l'article à retirer
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "404":
+          description: "Client, panier ou article non trouvé"
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CartDto"
+        "200":
+          description: Article retiré avec succès
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CartDto"
+  /api/articles:
+    get:
+      tags:
+      - Articles
+      summary: Lister tous les articles
+      description: Récupère la liste complète de tous les articles
+      operationId: getAllArticles
+      responses:
+        "200":
+          description: Liste des articles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+    post:
+      tags:
+      - Articles
+      summary: Créer un nouvel article
+      description: Crée un nouvel article dans la plateforme
+      operationId: createArticle
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArticleDto"
+        required: true
+      responses:
+        "201":
+          description: Article créé avec succès
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+        "400":
+          description: Données invalides
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+        "409":
+          description: Article déjà existant
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+  /api/articles/{articleId}/categories/{categoryId}:
+    post:
+      tags:
+      - Articles
+      summary: Ajouter une catégorie à un article
+      description: Associe une catégorie à un article existant
+      operationId: addCategoryToArticle
+      parameters:
+      - name: articleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: categoryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "404":
+          description: Article ou catégorie non trouvé
+        "409":
+          description: Catégorie déjà associée
+        "204":
+          description: Catégorie ajoutée avec succès
+    delete:
+      tags:
+      - Articles
+      summary: Retirer une catégorie d'un article
+      description: Dissocie une catégorie d'un article
+      operationId: removeCategoryFromArticle
+      parameters:
+      - name: articleId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: categoryId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "204":
+          description: Catégorie retirée avec succès
+        "404":
+          description: Article ou catégorie non trouvé
+  /api/articles/import:
+    post:
+      tags:
+      - Articles
+      summary: Importer des articles via CSV
+      description: Importe plusieurs articles à partir d'un fichier CSV
+      operationId: importArticles
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              required:
+              - file
+              type: object
+              properties:
+                file:
+                  type: string
+                  description: Fichier CSV à importer
+                  format: binary
+      responses:
+        "500":
+          description: Erreur lors du traitement
+          content:
+            '*/*':
+              schema:
+                type: string
+        "400":
+          description: Fichier invalide
+          content:
+            '*/*':
+              schema:
+                type: string
+        "201":
+          description: Import démarré avec succès
+          content:
+            '*/*':
+              schema:
+                type: string
+  /api/customers/login/{login}:
+    get:
+      tags:
+      - Clients
+      summary: Récupérer un client par login
+      description: Récupère un client à partir de son login
+      operationId: getCustomerByLogin
+      parameters:
+      - name: login
+        in: path
+        description: Login du client
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Client trouvé
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CustomerDto"
+        "404":
+          description: Client non trouvé
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CustomerDto"
+  /api/customers/email/{email}:
+    get:
+      tags:
+      - Clients
+      summary: Récupérer un client par email
+      description: Récupère un client à partir de son adresse email
+      operationId: getCustomerByEmail
+      parameters:
+      - name: email
+        in: path
+        description: Email du client
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Client trouvé
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CustomerDto"
+        "404":
+          description: Client non trouvé
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CustomerDto"
+  /api/customers/check-login/{login}:
+    get:
+      tags:
+      - Clients
+      summary: Vérifier l'existence d'un login
+      description: Vérifie si un login est déjà enregistré
+      operationId: loginExists
+      parameters:
+      - name: login
+        in: path
+        description: Login à vérifier
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Résultat de la vérification
+          content:
+            '*/*':
+              schema:
+                type: boolean
+  /api/customers/check-email/{email}:
+    get:
+      tags:
+      - Clients
+      summary: Vérifier l'existence d'un email
+      description: Vérifie si un email est déjà enregistré
+      operationId: emailExists
+      parameters:
+      - name: email
+        in: path
+        description: Email à vérifier
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Résultat de la vérification
+          content:
+            '*/*':
+              schema:
+                type: boolean
+  /api/categories/name/{name}:
+    get:
+      tags:
+      - category-controller
+      operationId: getCategoryByName
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CategoryDto"
+  /api/carts/customer/{customerId}:
+    get:
+      tags:
+      - Paniers
+      summary: Récupérer le panier d'un client
+      description: Récupère le panier d'achat d'un client avec tous ses articles
+      operationId: getCart
+      parameters:
+      - name: customerId
+        in: path
+        description: ID du client
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: Panier trouvé
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CartDto"
+        "404":
+          description: Panier non trouvé
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CartDto"
+  /api/articles/search/price:
+    get:
+      tags:
+      - Articles
+      summary: Rechercher des articles par prix
+      description: Effectue une recherche des articles dans une plage de prix
+      operationId: getByPriceRange
+      parameters:
+      - name: minPrice
+        in: query
+        description: Prix minimum
+        required: true
+        schema:
+          type: integer
+          format: int32
+      - name: maxPrice
+        in: query
+        description: Prix maximum
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: Articles correspondant au critère de prix
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+  /api/articles/search/name:
+    get:
+      tags:
+      - Articles
+      summary: Rechercher des articles par nom
+      description: Effectue une recherche des articles par nom
+      operationId: searchByName
+      parameters:
+      - name: name
+        in: query
+        description: Nom de l'article à rechercher
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Résultats de la recherche
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+  /api/articles/search/name-price:
+    get:
+      tags:
+      - Articles
+      summary: Rechercher par nom et prix
+      description: Effectue une recherche des articles par nom et plage de prix
+      operationId: searchByNameAndPrice
+      parameters:
+      - name: name
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: minPrice
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int32
+      - name: maxPrice
+        in: query
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: Articles correspondant aux critères
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+  /api/articles/search/name-category:
+    get:
+      tags:
+      - Articles
+      summary: Rechercher par nom et catégorie
+      description: Effectue une recherche des articles par nom et catégorie
+      operationId: searchByNameAndCategory
+      parameters:
+      - name: name
+        in: query
+        description: Nom de l'article
+        required: true
+        schema:
+          type: string
+      - name: categoryId
+        in: query
+        description: ID de la catégorie
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: Articles correspondant aux critères
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+  /api/articles/search/advanced:
+    get:
+      tags:
+      - Articles
+      summary: Recherche avancée d'articles
+      description: Effectue une recherche avancée avec filtres optionnels
+      operationId: advancedSearch
+      parameters:
+      - name: name
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: categoryId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: minPrice
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: maxPrice
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: Articles correspondant aux critères
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+  /api/articles/category/{categoryId}:
+    get:
+      tags:
+      - Articles
+      summary: Récupérer les articles d'une catégorie
+      description: Récupère tous les articles d'une catégorie spécifique
+      operationId: getByCategory
+      parameters:
+      - name: categoryId
+        in: path
+        description: ID de la catégorie
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: Articles de la catégorie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArticleDto"
+  /actuator:
+    get:
+      tags:
+      - Actuator
+      summary: Actuator root web endpoint
+      operationId: links
+      responses:
+        "200":
+          description: OK
+          content:
+            application/vnd.spring-boot.actuator.v3+json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  additionalProperties:
+                    $ref: "#/components/schemas/Link"
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  additionalProperties:
+                    $ref: "#/components/schemas/Link"
+            application/vnd.spring-boot.actuator.v2+json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  additionalProperties:
+                    $ref: "#/components/schemas/Link"
+  /actuator/info:
+    get:
+      tags:
+      - Actuator
+      summary: Actuator web endpoint 'info'
+      operationId: info
+      responses:
+        "200":
+          description: OK
+          content:
+            application/vnd.spring-boot.actuator.v3+json:
+              schema:
+                type: object
+            application/json:
+              schema:
+                type: object
+            application/vnd.spring-boot.actuator.v2+json:
+              schema:
+                type: object
+  /actuator/health:
+    get:
+      tags:
+      - Actuator
+      summary: Actuator web endpoint 'health'
+      operationId: health
+      responses:
+        "200":
+          description: OK
+          content:
+            application/vnd.spring-boot.actuator.v3+json:
+              schema:
+                type: object
+            application/json:
+              schema:
+                type: object
+            application/vnd.spring-boot.actuator.v2+json:
+              schema:
+                type: object
+  /actuator/health/**:
+    get:
+      tags:
+      - Actuator
+      summary: Actuator web endpoint 'health-path'
+      operationId: health-path
+      responses:
+        "200":
+          description: OK
+          content:
+            application/vnd.spring-boot.actuator.v3+json:
+              schema:
+                type: object
+            application/json:
+              schema:
+                type: object
+            application/vnd.spring-boot.actuator.v2+json:
+              schema:
+                type: object
+  /api/carts/{cartId}:
+    delete:
+      tags:
+      - Paniers
+      summary: Supprimer un panier
+      description: Supprime complètement un panier et tous ses articles
+      operationId: deleteCart
+      parameters:
+      - name: cartId
+        in: path
+        description: ID du panier
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "204":
+          description: Panier supprimé avec succès
+        "404":
+          description: Panier non trouvé
+  /api/carts/customer/{customerId}/clear:
+    delete:
+      tags:
+      - Paniers
+      summary: Vider le panier
+      description: Supprime tous les articles du panier d'un client
+      operationId: clearCart
+      parameters:
+      - name: customerId
+        in: path
+        description: ID du client
+        required: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "204":
+          description: Panier vidé avec succès
+        "404":
+          description: Client ou panier non trouvé
+components:
+  schemas:
+    CustomerDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+        login:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+    CategoryDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+        name:
+          type: string
+        orderIdx:
+          type: integer
+          format: int32
+    ArticleDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        price:
+          type: number
+          format: double
+        img:
+          type: string
+        sku:
+          type: string
+        ean:
+          type: string
+        vat:
+          type: number
+          format: float
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryDto"
+    CartArticleDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+        article:
+          $ref: "#/components/schemas/ArticleDto"
+        quantity:
+          type: integer
+          format: int32
+    CartDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+        customer:
+          $ref: "#/components/schemas/CustomerDto"
+        articles:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartArticleDto"
+        totalPrice:
+          type: number
+          format: double
+        totalQuantity:
+          type: integer
+          format: int32
+    Link:
+      type: object
+      properties:
+        href:
+          type: string
+        templated:
+          type: boolean
+  securitySchemes:
+    Bearer Token:
+      type: http
+      description: Enter your JWT token
+      in: header
+      scheme: bearer
+      bearerFormat: JWT

@@ -1,0 +1,177 @@
+spring:
+  application:
+    name: lid
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create # à changer en prod
+    defer-datasource-initialization: true
+    properties:
+      javax:
+        persistence:
+          schema-generation:
+            database:
+              action: create
+            scripts:
+              action: create
+              create-target: ddl.sql
+            create-source: metadata
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password: password
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:data-h2-parity.sql
+  profiles:
+    default: local
+  h2:
+    console:
+      enabled: true
+  
+  mail:
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:true}
+          starttls:
+            enable: ${SMTP_STARTTLS_ENABLE:true}
+            required: ${SMTP_STARTTLS_REQUIRED:false}
+server:
+  port: 9000
+
+
+config:
+  logs:
+    admin:
+      file-path: ${LOG_ADMIN_FILE_PATH:${logging.file.name:logs/lid.log}}
+      max-read-bytes: ${LOG_ADMIN_MAX_READ_BYTES:2097152}
+      include-archives-read: ${LOG_ADMIN_INCLUDE_ARCHIVES_READ:false}
+  alerts:
+    internal-error:
+      enabled: ${INTERNAL_ERROR_ALERT_ENABLED:true}
+      dedup-minutes: ${INTERNAL_ERROR_ALERT_DEDUP_MINUTES:10}
+      fallback-recipients: ${INTERNAL_ERROR_ALERT_FALLBACK_RECIPIENTS:}
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
+    allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
+    allowed-headers: ${CORS_ALLOWED_HEADERS:*}
+    allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
+    max-age: ${CORS_MAX_AGE:3600}
+  mail:
+    from: ${SMTP_FROM}
+  backoffice:
+    messages:
+      default-recipients: ${BACKOFFICE_MESSAGES_DEFAULT_RECIPIENTS}
+      retry-delay-ms: ${BACKOFFICE_MESSAGES_RETRY_DELAY_MS:60000}
+  marketing:
+    dispatch:
+      delay-ms: ${MARKETING_DISPATCH_DELAY_MS:30000}
+      max-campaigns-per-run: ${MARKETING_DISPATCH_MAX_CAMPAIGNS_PER_RUN:5}
+      batch-size: ${MARKETING_DISPATCH_BATCH_SIZE:50}
+  security:
+    app:
+      secret: ${APP_JWT_SECRET_KEY:local_dev_secret_key_please_change_32chars}
+      issuer: ${APP_ISSUER:lid-api}
+      access-ttl-minutes: ${APP_ACCESS_TTL_MINUTES:15}
+      refresh-ttl-days: ${APP_REFRESH_TTL_DAYS:30}
+
+    google:
+      issuer-uri: ${GOOGLE_ISSUER_URI:https://accounts.google.com}
+      jwk-set-uri: ${GOOGLE_JWK_SET_URI:https://www.googleapis.com/oauth2/v3/certs}
+      client-id: ${GOOGLE_CLIENT_ID:local-google-client-id}
+
+# Configuration PayDunya
+paydunya:
+  # Mode test ou production
+  mode: ${PAYDUNYA_MODE:test}
+  
+  # Clés API (À remplacer par vos vraies clés de paydunya.com)
+  masterKey: ${PAYDUNYA_MASTER_KEY}
+  privateKey: ${PAYDUNYA_PRIVATE_KEY}
+  publicKey: ${PAYDUNYA_PUBLIC_KEY}
+  token: ${PAYDUNYA_TOKEN}
+  
+  # Configuration du magasin
+  storeName: ${PAYDUNYA_STORE_NAME:LID E-commerce}
+  storeTagline: ${PAYDUNYA_STORE_TAGLINE:Plateforme de vente en ligne}
+  storePhoneNumber: ${PAYDUNYA_STORE_PHONE_NUMBER:+225XXXXXXXXXX}
+  storePostalAddress: ${PAYDUNYA_STORE_POSTAL_ADDRESS:Abidjan, Côte d'Ivoire}
+  storeWebsiteUrl: ${PAYDUNYA_STORE_WEBSITE_URL:https://lid-ecommerce.com}
+  storeLogoUrl: ${PAYDUNYA_STORE_LOGO_URL:https://lid-ecommerce.com/logo.png}
+  
+  # URLs de redirection
+  callbackUrl: ${PAYDUNYA_CALLBACK_URL:https://api.lid-ecommerce.com/api/v1/webhooks/paydunya}
+  returnUrl: ${PAYDUNYA_RETURN_URL:https://lid-ecommerce.com/payment/success}
+  cancelUrl: ${PAYDUNYA_CANCEL_URL:https://lid-ecommerce.com/payment/cancel}
+  
+  # Pays supportés (codes ISO 2)
+  supportedCountries: ${PAYDUNYA_SUPPORTED_COUNTRIES:CI,SN,BJ,BF,CM,CG,GA,GW,ML}
+
+# Endpoints Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  info:
+    env:
+      enabled: true
+  health:
+    readiness-state:
+      enabled: true
+    liveness-state:
+      enabled: true
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  # Micrometer
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+info:
+  app:
+    name: "lid"
+    description : "LID Application"
+    version : "1.0.0"
+
+logging:
+  file:
+    name: ${LOGGING_FILE_NAME:logs/lid.log}
+  level:
+    com.lifeevent.lid: INFO
+
+backblaze:
+  bucket-id: ${BACKBLAZE_BUCKET_ID:}
+  bucket-name: ${BACKBLAZE_BUCKET_NAME:}
+  public-base-url: ${BACKBLAZE_PUBLIC_BASE_URL:}
+
+storage:
+  local:
+    base-path: ${LOCAL_STORAGE_BASE_PATH:target/lid-storage}
+    public-base-url: ${LOCAL_STORAGE_PUBLIC_BASE_URL:target/lid-storage}
+
+# Configuration Swagger/OpenAPI
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    tryItOutEnabled: true
+  api-docs:
+    path: /v3/api-docs
+  show-actuator: false

@@ -1,0 +1,146 @@
+services:
+
+  # ==============================
+  # PostgreSQL
+  # ==============================
+  lid-db:
+    image: postgres:15
+    container_name: lid-db
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    volumes:
+      - lid-db-data:/var/lib/postgresql/data
+      - ./ddl.sql:/docker-entrypoint-initdb.d/10-ddl.sql:ro
+      - ./scripts:/opt/lid/scripts:ro
+
+    networks:
+      - lid
+
+  # ==============================
+  # API
+  # ==============================
+  lid-api:
+    image: ${LID_API_IMAGE}
+    container_name: lid-api
+
+    depends_on:
+      lid-db:
+        condition: service_healthy
+
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+      # ===== DATABASE =====
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_DATASOURCE_URL: jdbc:postgresql://lid-db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: none
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_JPA_PROPERTIES_JAKARTA_PERSISTENCE_SCHEMA_GENERATION_DATABASE_ACTION: none
+      SPRING_JPA_PROPERTIES_JAKARTA_PERSISTENCE_SCHEMA_GENERATION_SCRIPTS_ACTION: none
+      SPRING_JPA_PROPERTIES_JAVAX_PERSISTENCE_SCHEMA_GENERATION_DATABASE_ACTION: none
+      SPRING_JPA_PROPERTIES_JAVAX_PERSISTENCE_SCHEMA_GENERATION_SCRIPTS_ACTION: none
+      SPRING_DEVTOOLS_RESTART_ENABLED: "false"
+      SPRING_SQL_INIT_MODE: never
+      SPRING_SQL_INIT_DATA_LOCATIONS: ""
+      SPRING_BATCH_JDBC_INITIALIZE_DATABASE: never
+
+      # ===== HIKARI POOL =====
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${HIKARI_MAXIMUM_POOL_SIZE}
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${HIKARI_MINIMUM_IDLE}
+      SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: ${HIKARI_IDLE_TIMEOUT}
+      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: ${HIKARI_MAX_LIFETIME}
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: ${HIKARI_CONNECTION_TIMEOUT}
+
+      # ===== TOMCAT THREADS =====
+      SERVER_TOMCAT_THREADS_MAX: 120
+      SERVER_TOMCAT_ACCEPT_COUNT: 100
+
+      # ===== JWT =====
+      APP_JWT_SECRET_KEY: ${APP_JWT_SECRET_KEY}
+      APP_ISSUER: ${APP_ISSUER}
+      APP_ACCESS_TTL_MINUTES: ${APP_ACCESS_TTL_MINUTES}
+      APP_REFRESH_TTL_DAYS: ${APP_REFRESH_TTL_DAYS}
+
+      # ===== Google =====
+      GOOGLE_ISSUER_URI: ${GOOGLE_ISSUER_URI}
+      GOOGLE_JWK_SET_URI: ${GOOGLE_JWK_SET_URI}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+
+      # ===== PayDunya =====
+      PAYDUNYA_MODE: ${PAYDUNYA_MODE}
+      PAYDUNYA_MASTER_KEY: ${PAYDUNYA_MASTER_KEY}
+      PAYDUNYA_PRIVATE_KEY: ${PAYDUNYA_PRIVATE_KEY}
+      PAYDUNYA_PUBLIC_KEY: ${PAYDUNYA_PUBLIC_KEY}
+      PAYDUNYA_TOKEN: ${PAYDUNYA_TOKEN}
+      PAYDUNYA_CALLBACK_URL: ${PAYDUNYA_CALLBACK_URL}
+      PAYDUNYA_RETURN_URL: ${PAYDUNYA_RETURN_URL}
+      PAYDUNYA_CANCEL_URL: ${PAYDUNYA_CANCEL_URL}
+      PAYDUNYA_STORE_NAME: ${PAYDUNYA_STORE_NAME}
+      PAYDUNYA_STORE_TAGLINE: ${PAYDUNYA_STORE_TAGLINE}
+      PAYDUNYA_STORE_PHONE_NUMBER: ${PAYDUNYA_STORE_PHONE_NUMBER}
+      PAYDUNYA_STORE_POSTAL_ADDRESS: ${PAYDUNYA_STORE_POSTAL_ADDRESS}
+      PAYDUNYA_STORE_WEBSITE_URL: ${PAYDUNYA_STORE_WEBSITE_URL}
+      PAYDUNYA_STORE_LOGO_URL: ${PAYDUNYA_STORE_LOGO_URL}
+      PAYDUNYA_SUPPORTED_COUNTRIES: ${PAYDUNYA_SUPPORTED_COUNTRIES}
+
+      # ===== MAIL =====
+      SPRING_MAIL_HOST: ${SMTP_HOST}
+      SPRING_MAIL_PORT: ${SMTP_PORT}
+      SMTP_FROM: ${SMTP_FROM}
+      SPRING_MAIL_USERNAME: ${SMTP_USERNAME}
+      SPRING_MAIL_PASSWORD: ${SMTP_PASSWORD}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: ${SMTP_AUTH}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: ${SMTP_STARTTLS_ENABLE}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED: ${SMTP_STARTTLS_REQUIRED}
+      
+
+      # ===== CORS =====
+      CORS_ALLOWED_ORIGIN_PATTERNS: ${CORS_ALLOWED_ORIGIN_PATTERNS}
+      CORS_ALLOWED_METHODS: ${CORS_ALLOWED_METHODS}
+      CORS_ALLOWED_HEADERS: ${CORS_ALLOWED_HEADERS}
+      CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS}
+      CORS_MAX_AGE: ${CORS_MAX_AGE}
+
+      # ===== BACKOFFICE =====
+      BACKOFFICE_MESSAGES_DEFAULT_RECIPIENTS: ${BACKOFFICE_MESSAGES_DEFAULT_RECIPIENTS}
+      BACKOFFICE_MESSAGES_RETRY_DELAY_MS: ${BACKOFFICE_MESSAGES_RETRY_DELAY_MS}
+
+      # ===== MARKETING =====
+      MARKETING_DISPATCH_DELAY_MS: ${MARKETING_DISPATCH_DELAY_MS}
+      MARKETING_DISPATCH_MAX_CAMPAIGNS_PER_RUN: ${MARKETING_DISPATCH_MAX_CAMPAIGNS_PER_RUN}
+      MARKETING_DISPATCH_BATCH_SIZE: ${MARKETING_DISPATCH_BATCH_SIZE}
+
+      SERVER_SERVLET_CONTEXT_PATH: /lid
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+
+    networks:
+      - lid
+      - web
+
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=web
+      - traefik.http.routers.lid.rule=Host(`jean-emmanuel-diap.com`) && PathPrefix(`/lid`)
+      - traefik.http.routers.lid.entrypoints=websecure
+      - traefik.http.routers.lid.tls.certresolver=letsencrypt
+      - traefik.http.services.lid.loadbalancer.server.port=9000
+
+volumes:
+  lid-db-data:
+
+networks:
+  lid:
+  web:
+    external: true
