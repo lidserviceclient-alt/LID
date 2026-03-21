@@ -66,7 +66,7 @@ public class PaymentServiceImpl implements PaymentService {
                 "API"
         );
         PaymentResponseDto dto = paymentMapper.toDto(savedPayment);
-        dto.setPaymentUrl(safeText(invoice.getResponseText(), null));
+        dto.setPaymentUrl(safeText(invoice.getInvoiceUrl(), null));
         return dto;
     }
 
