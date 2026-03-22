@@ -216,7 +216,7 @@ export default function Hero({ enableMotion = true }) {
           {/* Right: Partner Button (User Request) */}
           <motion.button 
             whileHover={{ scale: 1.05 }}
-            onClick={() => navigate('/sel-off')}
+            onClick={() => navigate('/sellers')}
             whileTap={{ scale: 0.95 }}
             className="group relative px-8 py-4 bg-white/80 backdrop-blur-md border border-white/50 text-neutral-900 rounded-full flex items-center gap-4 shadow-2xl shadow-black/5 hover:bg-white transition-colors"
           >

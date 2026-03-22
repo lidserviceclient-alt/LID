@@ -43,3 +43,8 @@ export const registerPartnerStep3 = async (dto) => {
     const { data } = await api.post('/api/v1/partners/register/step-3', dto);
     return data;
 };
+
+export const registerPartnerStep4 = async (dto) => {
+    const { data } = await api.post('/api/v1/partners/register/step-4', dto);
+    return data;
+};

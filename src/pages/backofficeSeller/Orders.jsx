@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { 
   ShoppingBag, 
   Search, 
@@ -19,55 +19,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from "react-qr-code";
 import { useReactToPrint } from 'react-to-print';
-import { useRef } from 'react';
 import Receipt from '../../components/Receipt';
-
-const MOCK_ORDERS = [
-  { 
-    id: "#ORD-7829", 
-    customer: { name: "Thomas D.", email: "thomas.d@example.com", avatar: "https://i.pravatar.cc/150?u=thomas" },
-    items: [
-      { name: "Nike Air Max 90", quantity: 1, price: 129.99, image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=100&q=80" }
-    ],
-    total: 129.99, 
-    status: "Completed", 
-    date: "2024-03-10",
-    payment: "Carte Bancaire"
-  },
-  { 
-    id: "#ORD-7828", 
-    customer: { name: "Sarah M.", email: "sarah.m@example.com", avatar: "https://i.pravatar.cc/150?u=sarah" },
-    items: [
-      { name: "Premium Cotton T-Shirt", quantity: 2, price: 29.99, image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=100&q=80" }
-    ],
-    total: 59.98, 
-    status: "Processing", 
-    date: "2024-03-10",
-    payment: "PayPal"
-  },
-  { 
-    id: "#ORD-7827", 
-    customer: { name: "Jean P.", email: "jean.p@example.com", avatar: "https://i.pravatar.cc/150?u=jean" },
-    items: [
-      { name: "Wireless Headphones", quantity: 1, price: 199.99, image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=100&q=80" }
-    ],
-    total: 199.99, 
-    status: "Pending", 
-    date: "2024-03-09",
-    payment: "Orange Money"
-  },
-  { 
-    id: "#ORD-7826", 
-    customer: { name: "Marie L.", email: "marie.l@example.com", avatar: "https://i.pravatar.cc/150?u=marie" },
-    items: [
-      { name: "Running Shoes", quantity: 1, price: 89.99, image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=100&q=80" }
-    ],
-    total: 89.99, 
-    status: "Cancelled", 
-    date: "2024-03-08",
-    payment: "Carte Bancaire"
-  },
-];
+import { getMyOrder, listMyOrders, updateMyOrder } from '@/services/partnerBackofficeOrderService';
 
 const STATUS_CONFIG = {
   'Completed': { label: 'Livré', icon: CheckCircle2, color: 'bg-green-100 text-green-700' },
@@ -76,11 +29,37 @@ const STATUS_CONFIG = {
   'Cancelled': { label: 'Annulé', icon: XCircle, color: 'bg-red-100 text-red-700' },
 };
 
+const toUiStatus = (status) => {
+  const raw = `${status || ""}`.trim().toUpperCase();
+  if (!raw) return "Pending";
+  if (raw === "DELIVERED") return "Completed";
+  if (raw === "CANCELED" || raw === "REFUNDED") return "Cancelled";
+  if (raw === "PROCESSING" || raw === "READY_TO_DELIVER" || raw === "DELIVERY_IN_PROGRESS") return "Processing";
+  if (raw === "PAID" || raw === "PENDING") return "Pending";
+  return "Pending";
+};
+
+const toApiStatus = (ui) => {
+  if (ui === "Completed") return "DELIVERED";
+  if (ui === "Cancelled") return "CANCELED";
+  if (ui === "Processing") return "PROCESSING";
+  return "PENDING";
+};
+
+const formatDate = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+};
+
 export default function Orders() {
-  const [orders, setOrders] = useState(MOCK_ORDERS);
+  const [orders, setOrders] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [statusDraft, setStatusDraft] = useState("Pending");
   
   // Create a ref for the component to be printed
   const componentRef = useRef();
@@ -91,15 +70,68 @@ export default function Orders() {
     documentTitle: selectedOrder ? `Recu-${selectedOrder.id}` : 'Recu',
   });
 
-  const handleSimulateScan = () => {
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const page = await listMyOrders({ page: 0, size: 200 });
+      const content = Array.isArray(page?.content) ? page.content : [];
+      const normalized = content.map((o) => ({
+        id: `#ORD-${o.id}`,
+        rawId: o.id,
+        customer: {
+          name: o.customerName || "Client",
+          email: o.customerEmail || "",
+          avatar: `https://i.pravatar.cc/150?u=${encodeURIComponent(o.customerEmail || String(o.id))}`
+        },
+        items: [],
+        total: Number(o.amount || 0),
+        status: toUiStatus(o.status),
+        date: formatDate(o.createdAt),
+        payment: "Paiement"
+      }));
+      setOrders(normalized);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const openOrder = async (order) => {
+    if (!order?.rawId) return;
+    const detail = await getMyOrder(order.rawId);
+    const items = Array.isArray(detail?.items) ? detail.items : [];
+    const normalized = {
+      ...order,
+      total: Number(detail?.amount || order.total || 0),
+      status: toUiStatus(detail?.status) || order.status,
+      date: formatDate(detail?.createdAt) || order.date,
+      customer: {
+        name: detail?.customerName || order.customer?.name || "Client",
+        email: detail?.customerEmail || order.customer?.email || "",
+        avatar: `https://i.pravatar.cc/150?u=${encodeURIComponent(detail?.customerEmail || order.customer?.email || String(order.rawId))}`
+      },
+      trackingNumber: detail?.trackingNumber || "",
+      items: items.map((i) => ({
+        name: i.name || "Produit",
+        quantity: Number(i.quantity || 0),
+        price: Number(i.price || 0),
+        image: i.imageUrl || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=100&q=80"
+      }))
+    };
+    setStatusDraft(normalized.status);
+    setSelectedOrder(normalized);
+  };
+
+  const handleSimulateScan = async () => {
     if (selectedOrder) {
-      // Simulate API call and state update
-      const updatedOrders = orders.map(o => 
-        o.id === selectedOrder.id ? { ...o, status: 'Completed' } : o
-      );
-      setOrders(updatedOrders);
-      setSelectedOrder({ ...selectedOrder, status: 'Completed' });
-      alert("QR Code scanné avec succès ! Commande marquée comme Livrée.");
+      await updateMyOrder(selectedOrder.rawId, { status: "DELIVERED", comment: "Livré via scan" });
+      await refresh();
+      const next = { ...selectedOrder, status: "Completed" };
+      setSelectedOrder(next);
+      setStatusDraft("Completed");
     }
   };
 
@@ -111,6 +143,8 @@ export default function Orders() {
     return matchesSearch && matchesStatus;
   });
 
+  const totalOrders = useMemo(() => orders.length, [orders]);
+
   return (
     <div className="p-6 max-w-7xl mx-auto h-screen flex flex-col">
       {/* Header */}
@@ -121,7 +155,7 @@ export default function Orders() {
         </div>
         <div className="flex items-center gap-3">
           <div className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium text-gray-600 shadow-sm">
-            Total: {orders.length} commandes
+            Total: {totalOrders} commandes
           </div>
         </div>
       </div>
@@ -167,7 +201,12 @@ export default function Orders() {
         </div>
 
         <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
-          {filteredOrders.length > 0 ? (
+          {loading ? (
+            <div className="h-full flex flex-col items-center justify-center text-gray-500 p-8">
+              <ShoppingBag size={48} className="mb-4 opacity-20" />
+              <p>Chargement...</p>
+            </div>
+          ) : filteredOrders.length > 0 ? (
             filteredOrders.map((order) => {
               const StatusIcon = STATUS_CONFIG[order.status].icon;
               return (
@@ -177,7 +216,7 @@ export default function Orders() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className={`group flex flex-col md:grid md:grid-cols-12 gap-4 p-4 hover:bg-gray-50 transition-colors items-center cursor-pointer border-l-4 ${order.status === 'Completed' ? 'border-green-500 bg-green-50/20' : 'border-transparent'}`}
-                  onClick={() => setSelectedOrder(order)}
+                  onClick={() => openOrder(order)}
                 >
                   <div className="col-span-2 font-medium text-gray-900 flex items-center gap-2">
                     {order.status === 'Completed' && <CheckCircle2 size={16} className="text-green-500" />}
@@ -311,7 +350,7 @@ export default function Orders() {
                         <QRCode
                             size={256}
                             style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                            value={`LID-ORDER-${selectedOrder.id}`}
+                            value={`LID-ORDER-${selectedOrder.rawId}`}
                             viewBox={`0 0 256 256`}
                         />
                     </div>
@@ -352,6 +391,18 @@ export default function Orders() {
                   <span>Total</span>
                   <span>{selectedOrder.total.toFixed(2)} FCFA</span>
                 </div>
+                <div className="mb-3">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Statut</label>
+                  <select
+                    value={statusDraft}
+                    onChange={(e) => setStatusDraft(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white text-sm font-medium"
+                  >
+                    {['Pending', 'Processing', 'Completed', 'Cancelled'].map((s) => (
+                      <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
+                    ))}
+                  </select>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <button 
                     onClick={() => handlePrint()}
@@ -359,7 +410,15 @@ export default function Orders() {
                   >
                     Télécharger Facture
                   </button>
-                  <button className="px-4 py-2 bg-black text-white rounded-xl hover:bg-gray-800 font-medium text-sm">
+                  <button
+                    onClick={async () => {
+                      await updateMyOrder(selectedOrder.rawId, { status: toApiStatus(statusDraft), comment: "Statut mis à jour" });
+                      await refresh();
+                      const next = { ...selectedOrder, status: statusDraft };
+                      setSelectedOrder(next);
+                    }}
+                    className="px-4 py-2 bg-black text-white rounded-xl hover:bg-gray-800 font-medium text-sm"
+                  >
                     Mettre à jour Statut
                   </button>
                 </div>

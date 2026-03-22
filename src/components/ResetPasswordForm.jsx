@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Eye, EyeOff, Mail, Lock, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { requestPasswordReset, resetPasswordWithCode, verifyPasswordResetCode } from "../services/authService";
 
-export default function ResetPasswordForm({ onBack }) {
+export default function ResetPasswordForm({ onBack, initialEmail = "" }) {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -15,14 +15,25 @@ export default function ResetPasswordForm({ onBack }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    const next = `${initialEmail || ""}`.trim();
+    if (!next) return;
+    setEmail((prev) => (prev ? prev : next));
+  }, [initialEmail]);
+
   const handleNext = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     try {
       if (step === 1) {
-        await requestPasswordReset(email);
+        const response = await requestPasswordReset(email);
+        const devCode = `${response?.devCode || ""}`.trim();
         setCode("");
         toast.success("Si l'email existe, un code a été envoyé.");
+        if (devCode) {
+          setCode(devCode);
+          toast.success(`Code (dev): ${devCode}`);
+        }
         setStep(2);
         return;
       }

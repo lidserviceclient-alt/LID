@@ -1,18 +1,32 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { LayoutDashboard, Package, ShoppingBag, Settings, LogOut, Menu, X, Layers, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 
 export default function SellerBackoffice() {
+  const [pageTitle, setPageTitle] = useState("Tableau de bord");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const location = useLocation();
 
-  const MENU_ITEMS = [
+  const MENU_ITEMS = useMemo(() => ([
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard, path: 'dashboard' },
     { id: 'products', label: 'Produits', icon: Package, path: 'products' },
     { id: 'categories', label: 'Catégories', icon: Layers, path: 'categories' },
     { id: 'orders', label: 'Commandes', icon: ShoppingBag, path: 'orders' },
     { id: 'settings', label: 'Paramètres', icon: Settings, path: 'settings' },
-  ];
+  ]), []);
+
+  useEffect(() => {
+    const parts = `${location.pathname || ''}`.split('/').filter(Boolean);
+    const selOffIndex = parts.indexOf('sel-off');
+    const active = selOffIndex >= 0 ? parts[selOffIndex + 1] : null;
+    const currentId = active || 'dashboard';
+    const match = MENU_ITEMS.find((m) => m.id === currentId);
+    const nextTitle = match?.label || "Lid partenaire | Tableau de bord";
+    const shortTitle = `${nextTitle}`.split("|").slice(-1)[0].trim() || "Tableau de bord";
+    setPageTitle(shortTitle);
+    document.title = nextTitle;
+  }, [location.pathname, MENU_ITEMS]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex font-sans text-gray-900">
@@ -38,10 +52,10 @@ export default function SellerBackoffice() {
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 overflow-hidden rounded-lg flex items-center justify-center text-white font-bold">
-              <img src="/imgs/logo.png" alt="LID Partner" className="w-full h-full" />
+              <img src="/imgs/logo_partener.png" alt="LID Partner" className="w-full h-full" />
             </div>
             <span className="font-bold text-lg tracking-tight">Lid 
-partner </span>
+partenaire </span>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-gray-500">
             <X size={24} />
@@ -114,6 +128,9 @@ partner </span>
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-8">
+          <div className="hidden lg:block mb-6">
+            <h1 className="text-2xl font-bold tracking-tight">{pageTitle}</h1>
+          </div>
           <Outlet />
         </div>
       </main>

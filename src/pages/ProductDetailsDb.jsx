@@ -1,4 +1,4 @@
-﻿﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Check,
@@ -57,8 +57,11 @@ const pickGalleryImages = (product) => {
 
 const buildSpecs = (product) => {
   const createdAt = product?.dateCreation ? new Date(product.dateCreation) : null;
+  const sku = `${product?.sku || product?.referenceProduitPartenaire || ""}`.trim();
+  const ean = `${product?.ean || ""}`.trim();
+  const refs = [sku ? `SKU: ${sku}` : null, ean ? `EAN: ${ean}` : null].filter(Boolean).join(" • ");
   return [
-    { label: "Référence", value: product?.referenceProduitPartenaire || "-" },
+    { label: "Références", value: refs || "-" },
     { label: "Marque", value: product?.brand || "-" },
     { label: "Catégorie", value: product?.categoryName || "-" },
     { label: "Stock", value: Number.isFinite(Number(product?.stock)) ? `${product.stock}` : "-" },
@@ -458,9 +461,14 @@ export default function ProductDetailsDb() {
                   </span>
                 </span>
               ) : null}
-              {product?.referenceProduitPartenaire ? (
+              {`${product?.sku || product?.referenceProduitPartenaire || ""}`.trim() ? (
                 <span className={product?.brand ? "pl-3 border-l border-neutral-200 dark:border-neutral-800" : ""}>
-                  Réf: <span className="font-mono">{product.referenceProduitPartenaire}</span>
+                  SKU: <span className="font-mono">{`${product?.sku || product?.referenceProduitPartenaire || ""}`.trim()}</span>
+                </span>
+              ) : null}
+              {`${product?.ean || ""}`.trim() ? (
+                <span className={`${product?.brand || `${product?.sku || product?.referenceProduitPartenaire || ""}`.trim() ? "pl-3 border-l border-neutral-200 dark:border-neutral-800" : ""}`}>
+                  EAN: <span className="font-mono">{`${product?.ean || ""}`.trim()}</span>
                 </span>
               ) : null}
             </div>

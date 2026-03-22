@@ -15,7 +15,6 @@ const ProductDetails = lazy(() => import('./pages/ProductDetailsDb.jsx'))
 const Login = lazy(() => import('./pages/Login.jsx'))
 const Callback = lazy(() => import('./pages/Callback.jsx')) // OIDC Callback
 const Seller = lazy(() => import('./pages/Seller.jsx'))
-const SellerDashboard = lazy(() => import('./pages/SellerDashboard/index'))
 const BackofficeSeller = lazy(() => import('./pages/backofficeSeller/index'))
 const BackofficeDashboard = lazy(() => import('./pages/backofficeSeller/Dashboard'))
 const BackofficeProducts = lazy(() => import('./pages/backofficeSeller/ProductManagement'))
@@ -60,15 +59,22 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/callback" element={<Callback />} />
           <Route path="/seller-join" element={<Seller />} />
-          <Route path="/dashboard/seller" element={<SellerDashboard />} />
-
-          <Route path="/sel-off" element={<BackofficeSeller />}>
-             <Route index element={<Navigate to="dashboard" replace />} />
-             <Route path="products" element={<BackofficeProducts />} />
-             <Route path="categories" element={<BackofficeCategories />} />
-             <Route path="dashboard" element={<BackofficeDashboard />} />
-             <Route path="orders" element={<BackofficeOrders />} />
-             <Route path="settings" element={<BackofficeSettings />} />
+          <Route path="/seller-joint" element={<Seller />} />
+          
+          <Route
+            path="/sel-off"
+            element={
+              <ProtectedRoute requiredRoles={["PARTNER"]}>
+                <BackofficeSeller />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="products" element={<BackofficeProducts />} />
+            <Route path="categories" element={<BackofficeCategories />} />
+            <Route path="dashboard" element={<BackofficeDashboard />} />
+            <Route path="orders" element={<BackofficeOrders />} />
+            <Route path="settings" element={<BackofficeSettings />} />
           </Route>
           
           <Route path="/" element={<Layout />}>

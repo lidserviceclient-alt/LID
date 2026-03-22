@@ -1,32 +1,79 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, Tag, Layers, Folder, ChevronRight, ChevronDown, Shirt, Smartphone, Home, Sparkles, Dumbbell, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Papa from 'papaparse';
+import { createMySubCategory, deleteMySubCategory, listMySubCategories, updateMySubCategory } from '@/services/partnerBackofficeCategoryService';
+import { getCatalogCategories } from '@/services/categoryService';
 
-const GLOBAL_CATEGORIES = [
-  { id: 'mode', name: "Mode & Vêtements", icon: Shirt, color: "text-blue-600 bg-blue-50" },
-  { id: 'electronics', name: "Électronique & High-Tech", icon: Smartphone, color: "text-purple-600 bg-purple-50" },
-  { id: 'home', name: "Maison & Déco", icon: Home, color: "text-orange-600 bg-orange-50" },
-  { id: 'beauty', name: "Beauté & Santé", icon: Sparkles, color: "text-pink-600 bg-pink-50" },
-  { id: 'sports', name: "Sports & Loisirs", icon: Dumbbell, color: "text-green-600 bg-green-50" },
+const DEFAULT_GLOBAL_CATEGORIES = [
+  { id: "1", name: "Mode & Accessoires", icon: Shirt, color: "text-blue-600 bg-blue-50" },
+  { id: "2", name: "Beauté & Santé", icon: Sparkles, color: "text-pink-600 bg-pink-50" },
+  { id: "3", name: "Maison & Déco", icon: Home, color: "text-orange-600 bg-orange-50" },
+  { id: "4", name: "High-Tech", icon: Smartphone, color: "text-purple-600 bg-purple-50" },
+  { id: "5", name: "Alimentation", icon: Dumbbell, color: "text-green-600 bg-green-50" },
 ];
-
-const MOCK_PARTNER_SUBCATEGORIES = [
-  { id: 1, parentId: 'mode', name: "Chaussures Homme", count: 12, description: "Baskets et chaussures de ville" },
-  { id: 2, parentId: 'mode', name: "Robes d'été", count: 45, description: "Collection été 2024" },
-  { id: 3, parentId: 'electronics', name: "Accessoires Mobiles", count: 8, description: "Coques et chargeurs" },
-  { id: 4, parentId: 'beauty', name: "Soins Visage", count: 15, description: "Crèmes et sérums" },
-];
+const ICONS = [Shirt, Sparkles, Home, Smartphone, Dumbbell];
+const COLORS = ["text-blue-600 bg-blue-50", "text-pink-600 bg-pink-50", "text-orange-600 bg-orange-50", "text-purple-600 bg-purple-50", "text-green-600 bg-green-50"];
 
 export default function Categories() {
-  const [subCategories, setSubCategories] = useState(MOCK_PARTNER_SUBCATEGORIES);
+  const [subCategories, setSubCategories] = useState([]);
+  const [globalCategories, setGlobalCategories] = useState(DEFAULT_GLOBAL_CATEGORIES);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentCategory, setCurrentCategory] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [expandedCategories, setExpandedCategories] = useState(GLOBAL_CATEGORIES.map(c => c.id));
-  const [selectedParentId, setSelectedParentId] = useState(GLOBAL_CATEGORIES[0].id);
+  const [expandedCategories, setExpandedCategories] = useState(DEFAULT_GLOBAL_CATEGORIES.map(c => c.id));
+  const [selectedParentId, setSelectedParentId] = useState(DEFAULT_GLOBAL_CATEGORIES[0].id);
   const [importPreview, setImportPreview] = useState(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const list = await listMySubCategories();
+      const normalized = (Array.isArray(list) ? list : []).map((c) => ({
+        id: c.id,
+        parentId: `${c.mainCategoryId || ""}`.trim() || (globalCategories[0]?.id || DEFAULT_GLOBAL_CATEGORIES[0].id),
+        name: c.name || "",
+        description: c.description || "",
+        count: Number(c.productCount || 0)
+      }));
+      setSubCategories(normalized);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const loadMainCategories = async () => {
+      try {
+        const list = await getCatalogCategories();
+        const mains = (Array.isArray(list) ? list : [])
+          .filter((c) => !c?.parentId && !c?.parent_id)
+          .map((c, idx) => ({
+            id: `${c?.id ?? ""}`.trim(),
+            name: `${c?.nom || c?.name || ""}`.trim(),
+            icon: ICONS[idx % ICONS.length],
+            color: COLORS[idx % COLORS.length],
+            ordre: Number(c?.ordre || 0),
+          }))
+          .filter((c) => c.id && c.name)
+          .sort((a, b) => {
+            if (a.ordre !== b.ordre) return a.ordre - b.ordre;
+            return a.name.localeCompare(b.name, "fr");
+          });
+        if (mains.length > 0) {
+          setGlobalCategories(mains);
+          setExpandedCategories(mains.map((c) => c.id));
+          setSelectedParentId((prev) => prev || mains[0].id);
+        }
+      } catch {
+        setGlobalCategories(DEFAULT_GLOBAL_CATEGORIES);
+      }
+    };
+    loadMainCategories();
+    refresh();
+  }, []);
 
   const toggleCategory = (id) => {
     setExpandedCategories(prev => 
@@ -40,32 +87,39 @@ export default function Categories() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cette sous-catégorie ?")) {
-      setSubCategories(subCategories.filter(c => c.id !== id));
+      await deleteMySubCategory(id);
+      await refresh();
     }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const newCategory = {
-      id: currentCategory ? currentCategory.id : Date.now(),
       parentId: selectedParentId,
       name: formData.get('name'),
       description: formData.get('description'),
       count: currentCategory ? currentCategory.count : 0
     };
 
-    if (currentCategory) {
-      setSubCategories(subCategories.map(c => c.id === currentCategory.id ? newCategory : c));
+    const payload = {
+      mainCategoryId: Number(selectedParentId),
+      name: `${newCategory.name || ""}`.trim(),
+      description: `${newCategory.description || ""}`.trim()
+    };
+
+    if (currentCategory?.id) {
+      await updateMySubCategory(currentCategory.id, payload);
     } else {
-      setSubCategories([...subCategories, newCategory]);
+      await createMySubCategory(payload);
       // Auto expand the parent category to show the new item
       if (!expandedCategories.includes(selectedParentId)) {
         setExpandedCategories([...expandedCategories, selectedParentId]);
       }
     }
+    await refresh();
     setIsModalOpen(false);
     setCurrentCategory(null);
   };
@@ -81,8 +135,8 @@ export default function Categories() {
             // Find parent ID based on provided parent name or code, or default to first one
             let parentId = item.parentId || item.parent_id || item.parent;
             // Validate parentId exists
-            if (!GLOBAL_CATEGORIES.find(c => c.id === parentId)) {
-              parentId = GLOBAL_CATEGORIES[0].id;
+      if (!globalCategories.find(c => c.id === parentId)) {
+              parentId = globalCategories[0]?.id || DEFAULT_GLOBAL_CATEGORIES[0].id;
             }
             
             return {
@@ -105,13 +159,18 @@ export default function Categories() {
     }
   };
 
-  const confirmImport = () => {
-    if (importPreview) {
-      setSubCategories(prev => [...prev, ...importPreview]);
-      setImportPreview(null);
-      setIsImportModalOpen(false);
-      alert(`${importPreview.length} sous-catégories importées avec succès !`);
+  const confirmImport = async () => {
+    if (!importPreview || importPreview.length === 0) return;
+    setIsImportModalOpen(false);
+    for (const c of importPreview) {
+      const mainCategoryId = Number(`${c.parentId || ""}`.trim() || (globalCategories[0]?.id || DEFAULT_GLOBAL_CATEGORIES[0].id));
+      const payload = { mainCategoryId, name: `${c.name || ""}`.trim(), description: `${c.description || ""}`.trim() };
+      if (!payload.name) continue;
+      await createMySubCategory(payload);
     }
+    setImportPreview(null);
+    await refresh();
+    alert(`Sous-catégories importées avec succès !`);
   };
 
   const filteredSubCategories = subCategories.filter(c => 
@@ -138,7 +197,7 @@ export default function Categories() {
             />
           </label>
           <button 
-            onClick={() => { setCurrentCategory(null); setSelectedParentId(GLOBAL_CATEGORIES[0].id); setIsModalOpen(true); }}
+            onClick={() => { setCurrentCategory(null); setSelectedParentId(globalCategories[0]?.id || DEFAULT_GLOBAL_CATEGORIES[0].id); setIsModalOpen(true); }}
             className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
           >
             <Plus size={18} />
@@ -161,7 +220,12 @@ export default function Categories() {
 
       {/* Global Categories List */}
       <div className="space-y-4">
-        {GLOBAL_CATEGORIES.map((globalCat) => {
+        {loading ? (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center text-gray-500">
+            Chargement...
+          </div>
+        ) : null}
+        {globalCategories.map((globalCat) => {
           const catSubCategories = filteredSubCategories.filter(sc => sc.parentId === globalCat.id);
           const isExpanded = expandedCategories.includes(globalCat.id);
           
@@ -277,7 +341,7 @@ export default function Categories() {
                       onChange={(e) => setSelectedParentId(e.target.value)}
                       className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black/5 appearance-none"
                     >
-                      {GLOBAL_CATEGORIES.map(cat => (
+                      {globalCategories.map(cat => (
                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                       ))}
                     </select>
@@ -368,7 +432,7 @@ export default function Categories() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {importPreview.map((category, index) => {
-                      const parentCat = GLOBAL_CATEGORIES.find(c => c.id === category.parentId);
+                      const parentCat = globalCategories.find(c => c.id === category.parentId);
                       return (
                         <tr key={index} className="hover:bg-gray-50/50 transition-colors">
                           <td className="px-4 py-3 font-medium text-gray-900">{category.name}</td>

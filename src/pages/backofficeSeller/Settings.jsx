@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { 
   Store, 
   MapPin, 
@@ -14,21 +14,186 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getMyPartnerPreferences, updateMyPartnerPreferences } from '@/services/partnerBackofficePreferencesService';
+import { getMyPartnerSettings, updateMyPartnerSettings } from '@/services/partnerBackofficeSettingsService';
+import { uploadFile } from '@/services/fileStorageService';
+import { getCatalogCategories } from '@/services/categoryService';
 
 export default function Settings() {
   const [loading, setLoading] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(true);
   const [success, setSuccess] = useState(false);
-  const [stockThreshold, setStockThreshold] = useState(5);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const logoInputRef = useRef(null);
+  const bannerInputRef = useRef(null);
+  const [mainCategories, setMainCategories] = useState([]);
 
-  const handleSubmit = (e) => {
+  const [settings, setSettings] = useState({
+    partnerId: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phoneNumber: "",
+    headOfficeAddress: "",
+    city: "",
+    country: "",
+    shopName: "",
+    shopDescription: "",
+    description: "",
+    logoUrl: "",
+    backgroundUrl: "",
+    mainCategoryId: 1,
+  });
+
+  const [prefs, setPrefs] = useState({
+    stockThreshold: 5,
+    websiteUrl: "",
+    instagramHandle: "",
+    facebookPage: "",
+    openingHoursJson: "{}",
+  });
+
+  const [hours, setHours] = useState({
+    Lundi: { open: "09:00", close: "18:00" },
+    Mardi: { open: "09:00", close: "18:00" },
+    Mercredi: { open: "09:00", close: "18:00" },
+    Jeudi: { open: "09:00", close: "18:00" },
+    Vendredi: { open: "09:00", close: "18:00" },
+    Samedi: { open: "09:00", close: "18:00" },
+    Dimanche: { closed: true },
+  });
+
+  const weekdays = useMemo(() => ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"], []);
+
+  const hydrate = async () => {
+    setLoadingPage(true);
+    setErrorMsg("");
+    try {
+      const [s, p, cats] = await Promise.all([getMyPartnerSettings(), getMyPartnerPreferences(), getCatalogCategories()]);
+      setSettings((prev) => ({
+        ...prev,
+        partnerId: s?.partnerId || "",
+        firstName: s?.firstName || "",
+        lastName: s?.lastName || "",
+        email: s?.email || "",
+        phoneNumber: s?.phoneNumber || "",
+        headOfficeAddress: s?.headOfficeAddress || "",
+        city: s?.city || "",
+        country: s?.country || "",
+        shopName: s?.shopName || "",
+        shopDescription: s?.shopDescription || "",
+        description: s?.description || "",
+        logoUrl: s?.logoUrl || "",
+        backgroundUrl: s?.backgroundUrl || "",
+        mainCategoryId: s?.mainCategoryId || 1,
+      }));
+
+      const mains = (Array.isArray(cats) ? cats : [])
+        .filter((c) => !c?.parentId && !c?.parent_id)
+        .map((c) => ({ id: Number(c?.id), name: c?.nom || c?.name }))
+        .filter((c) => Number.isFinite(c.id) && c.name);
+      setMainCategories(mains);
+      if ((s?.mainCategoryId || 0) <= 0 && mains.length > 0) {
+        setSettings((prev) => ({ ...prev, mainCategoryId: mains[0].id }));
+      }
+
+      setPrefs({
+        stockThreshold: Number(p?.stockThreshold || 5),
+        websiteUrl: p?.websiteUrl || "",
+        instagramHandle: p?.instagramHandle || "",
+        facebookPage: p?.facebookPage || "",
+        openingHoursJson: p?.openingHoursJson || "{}",
+      });
+
+      try {
+        const parsed = JSON.parse(p?.openingHoursJson || "{}");
+        if (parsed && typeof parsed === "object") {
+          setHours((prev) => ({ ...prev, ...parsed }));
+        }
+      } catch {
+      }
+    } catch (e) {
+      setErrorMsg(e?.response?.data?.message || "Impossible de charger les paramètres.");
+    } finally {
+      setLoadingPage(false);
+    }
+  };
+
+  useEffect(() => {
+    hydrate();
+  }, []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
+    setErrorMsg("");
+    try {
+      await updateMyPartnerSettings({
+        partnerId: settings.partnerId || null,
+        firstName: settings.firstName || null,
+        lastName: settings.lastName || null,
+        phoneNumber: settings.phoneNumber || null,
+        shopName: settings.shopName || null,
+        shopDescription: settings.shopDescription || null,
+        description: settings.description || null,
+        logoUrl: settings.logoUrl || null,
+        backgroundUrl: settings.backgroundUrl || null,
+        headOfficeAddress: settings.headOfficeAddress || null,
+        city: settings.city || null,
+        country: settings.country || null,
+        mainCategoryId: settings.mainCategoryId || 1,
+      });
+      await updateMyPartnerPreferences({
+        stockThreshold: Math.max(1, Number(prefs.stockThreshold || 5)),
+        websiteUrl: prefs.websiteUrl || null,
+        instagramHandle: prefs.instagramHandle || null,
+        facebookPage: prefs.facebookPage || null,
+        openingHoursJson: JSON.stringify(hours || {}),
+      });
+      await hydrate();
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    }, 1500);
+    } catch (e) {
+      setErrorMsg(e?.response?.data?.message || "Échec de l'enregistrement.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogoPick = async (file) => {
+    if (!file) return;
+    setErrorMsg("");
+    setUploadingLogo(true);
+    try {
+      const res = await uploadFile(file, { folder: "partners" });
+      const url = res?.url || "";
+      if (url) {
+        setSettings((p) => ({ ...p, logoUrl: url }));
+      }
+    } catch (e) {
+      setErrorMsg(e?.response?.data?.message || "Upload du logo impossible.");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleBannerPick = async (file) => {
+    if (!file) return;
+    setErrorMsg("");
+    setUploadingBanner(true);
+    try {
+      const res = await uploadFile(file, { folder: "partners" });
+      const url = res?.url || "";
+      if (url) {
+        setSettings((p) => ({ ...p, backgroundUrl: url }));
+      }
+    } catch (e) {
+      setErrorMsg(e?.response?.data?.message || "Upload de la bannière impossible.");
+    } finally {
+      setUploadingBanner(false);
+    }
   };
 
   return (
@@ -49,6 +214,14 @@ export default function Settings() {
           </motion.div>
         )}
       </div>
+      {errorMsg ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm font-medium">
+          {errorMsg}
+        </div>
+      ) : null}
+      {loadingPage ? (
+        <div className="rounded-xl border border-gray-200 bg-white px-4 py-5 text-sm text-gray-500">Chargement des paramètres...</div>
+      ) : null}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Branding Section */}
@@ -62,28 +235,65 @@ export default function Settings() {
             <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">Logo</label>
               <div className="flex items-center gap-4">
-                <div className="w-24 h-24 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 overflow-hidden relative group cursor-pointer hover:border-blue-500 transition-colors">
-                  <img src="/imgs/logo.png" alt="Logo" className="w-full h-full object-cover" />
+                <div
+                  className="w-24 h-24 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 overflow-hidden relative group cursor-pointer hover:border-blue-500 transition-colors"
+                  onClick={() => logoInputRef.current?.click()}
+                >
+                  <img src={settings.logoUrl || "/imgs/logo.png"} alt="Logo" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Upload className="text-white" size={24} />
+                    {uploadingLogo ? (
+                      <span className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Upload className="text-white" size={24} />
+                    )}
                   </div>
                 </div>
                 <div className="text-xs text-gray-500">
                   <p>PNG, JPG ou SVG.</p>
                   <p>Max 2MB.</p>
-                  <button type="button" className="mt-2 text-blue-600 font-medium hover:underline">Changer le logo</button>
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    className="mt-2 text-blue-600 font-medium hover:underline"
+                  >
+                    Changer le logo
+                  </button>
                 </div>
               </div>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleLogoPick(e.target.files?.[0])}
+              />
             </div>
 
             <div className="space-y-4">
               <label className="block text-sm font-medium text-gray-700">Bannière de couverture</label>
-              <div className="w-full h-24 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 cursor-pointer hover:border-blue-500 transition-colors">
-                <div className="flex items-center gap-2">
-                  <Upload size={20} />
-                  <span className="text-sm">Téléverser une image</span>
+              <div
+                className="w-full h-24 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 cursor-pointer hover:border-blue-500 transition-colors overflow-hidden relative"
+                onClick={() => bannerInputRef.current?.click()}
+              >
+                {settings.backgroundUrl ? (
+                  <img src={settings.backgroundUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                ) : null}
+                <div className="relative flex items-center gap-2">
+                  {uploadingBanner ? (
+                    <span className="w-5 h-5 border-2 border-gray-400/30 border-t-gray-500 rounded-full animate-spin" />
+                  ) : (
+                    <Upload size={20} />
+                  )}
+                  <span className="text-sm">{settings.backgroundUrl ? "Changer l'image" : "Téléverser une image"}</span>
                 </div>
               </div>
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleBannerPick(e.target.files?.[0])}
+              />
             </div>
           </div>
 
@@ -92,7 +302,8 @@ export default function Settings() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Nom de la boutique</label>
               <input 
                 type="text" 
-                defaultValue="Lid Partner Store"
+                value={settings.shopName}
+                onChange={(e) => setSettings((p) => ({ ...p, shopName: e.target.value }))}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               />
             </div>
@@ -100,10 +311,32 @@ export default function Settings() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Description courte</label>
               <textarea 
                 rows={3}
-                defaultValue="Une boutique exceptionnelle proposant les meilleurs produits pour nos clients exigeants."
+                value={settings.shopDescription}
+                onChange={(e) => setSettings((p) => ({ ...p, shopDescription: e.target.value }))}
                 className="bg-gray-50 w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
                 maxLength={150}
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description complète</label>
+              <textarea
+                rows={4}
+                value={settings.description}
+                onChange={(e) => setSettings((p) => ({ ...p, description: e.target.value }))}
+                className="bg-gray-50 w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie principale</label>
+              <select
+                value={settings.mainCategoryId}
+                onChange={(e) => setSettings((p) => ({ ...p, mainCategoryId: Number(e.target.value) || p.mainCategoryId }))}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              >
+                {(mainCategories.length > 0 ? mainCategories : [{ id: 1, name: "Mode & Accessoires" }]).map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -126,8 +359,8 @@ export default function Settings() {
                   type="number" 
                   min="1"
                   max="100"
-                  value={stockThreshold}
-                  onChange={(e) => setStockThreshold(parseInt(e.target.value))}
+                  value={prefs.stockThreshold}
+                  onChange={(e) => setPrefs((p) => ({ ...p, stockThreshold: parseInt(e.target.value || "0") }))}
                   className="w-24 px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-center"
                 />
                 <span className="text-sm text-gray-600">unités</span>
@@ -150,7 +383,8 @@ export default function Settings() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input 
                   type="email" 
-                  defaultValue="contact@lidpartner.com"
+                  value={settings.email}
+                  disabled
                   className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 />
               </div>
@@ -161,7 +395,8 @@ export default function Settings() {
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input 
                   type="tel" 
-                  defaultValue="+225 07 00 00 00 00"
+                  value={settings.phoneNumber}
+                  onChange={(e) => setSettings((p) => ({ ...p, phoneNumber: e.target.value }))}
                   className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 />
               </div>
@@ -172,10 +407,29 @@ export default function Settings() {
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input 
                   type="text" 
-                  defaultValue="Cocody Riviera 2, Abidjan, Côte d'Ivoire"
+                  value={settings.headOfficeAddress}
+                  onChange={(e) => setSettings((p) => ({ ...p, headOfficeAddress: e.target.value }))}
                   className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 />
               </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
+              <input
+                type="text"
+                value={settings.city}
+                onChange={(e) => setSettings((p) => ({ ...p, city: e.target.value }))}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pays</label>
+              <input
+                type="text"
+                value={settings.country}
+                onChange={(e) => setSettings((p) => ({ ...p, country: e.target.value }))}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
             </div>
           </div>
         </div>
@@ -195,6 +449,8 @@ export default function Settings() {
                   <input 
                     type="url" 
                     placeholder="https://votre-site.com"
+                    value={prefs.websiteUrl}
+                    onChange={(e) => setPrefs((p) => ({ ...p, websiteUrl: e.target.value }))}
                     className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   />
                 </div>
@@ -206,6 +462,8 @@ export default function Settings() {
                   <input 
                     type="text" 
                     placeholder="@votre_boutique"
+                    value={prefs.instagramHandle}
+                    onChange={(e) => setPrefs((p) => ({ ...p, instagramHandle: e.target.value }))}
                     className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   />
                 </div>
@@ -217,6 +475,8 @@ export default function Settings() {
                   <input 
                     type="text" 
                     placeholder="Page Facebook"
+                    value={prefs.facebookPage}
+                    onChange={(e) => setPrefs((p) => ({ ...p, facebookPage: e.target.value }))}
                     className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   />
                 </div>
@@ -230,19 +490,21 @@ export default function Settings() {
               <h2 className="text-lg font-bold text-gray-900">Horaires</h2>
             </div>
             <div className="space-y-3">
-              {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'].map((day) => (
+              {weekdays.map((day) => (
                 <div key={day} className="flex items-center justify-between text-sm">
                   <span className="font-medium text-gray-700">{day}</span>
                   <div className="flex items-center gap-2">
                     <input 
                       type="time" 
-                      defaultValue="09:00"
+                      value={hours?.[day]?.open || "09:00"}
+                      onChange={(e) => setHours((p) => ({ ...p, [day]: { ...(p?.[day] || {}), open: e.target.value } }))}
                       className="px-2 py-1 border border-gray-200 rounded-md bg-gray-50 text-xs"
                     />
                     <span className="text-gray-400">-</span>
                     <input 
                       type="time" 
-                      defaultValue="18:00"
+                      value={hours?.[day]?.close || "18:00"}
+                      onChange={(e) => setHours((p) => ({ ...p, [day]: { ...(p?.[day] || {}), close: e.target.value } }))}
                       className="px-2 py-1 border border-gray-200 rounded-md bg-gray-50 text-xs"
                     />
                   </div>
@@ -250,8 +512,35 @@ export default function Settings() {
               ))}
               <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
                 <span className="font-medium text-red-500">Dimanche</span>
-                <span className="text-gray-500 italic text-xs">Fermé</span>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500">Fermé</label>
+                  <input
+                    type="checkbox"
+                    checked={!!hours?.Dimanche?.closed}
+                    onChange={(e) => setHours((p) => ({ ...p, Dimanche: { ...(p?.Dimanche || {}), closed: e.target.checked, open: p?.Dimanche?.open || "09:00", close: p?.Dimanche?.close || "13:00" } }))}
+                  />
+                </div>
               </div>
+              {!hours?.Dimanche?.closed ? (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium text-gray-700">Dimanche</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={hours?.Dimanche?.open || "09:00"}
+                      onChange={(e) => setHours((p) => ({ ...p, Dimanche: { ...(p?.Dimanche || {}), open: e.target.value } }))}
+                      className="px-2 py-1 border border-gray-200 rounded-md bg-gray-50 text-xs"
+                    />
+                    <span className="text-gray-400">-</span>
+                    <input
+                      type="time"
+                      value={hours?.Dimanche?.close || "13:00"}
+                      onChange={(e) => setHours((p) => ({ ...p, Dimanche: { ...(p?.Dimanche || {}), close: e.target.value } }))}
+                      className="px-2 py-1 border border-gray-200 rounded-md bg-gray-50 text-xs"
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

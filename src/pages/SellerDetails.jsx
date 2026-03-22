@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { sellers } from "@/assets/data/sellers";
 import { toast } from "sonner";
+import { getPublicPartner, listPublicPartnerProducts } from "@/services/publicPartnerCatalogService";
 
 // Mock events data for the seller
 const mockEvents = [
@@ -29,15 +30,54 @@ const mockProducts = [
 export default function SellerDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
-    
-    const seller = sellers.find(s => String(s.id) === id);
+    const [seller, setSeller] = useState(() => sellers.find(s => String(s.id) === id) || null);
+    const [remoteProducts, setRemoteProducts] = useState([]);
     
     const [isFollowing, setIsFollowing] = useState(false);
     const [activeTab, setActiveTab] = useState("items");
     const [viewMode, setViewMode] = useState("grid");
+    const [query, setQuery] = useState("");
+    const [showActions, setShowActions] = useState(false);
+    const [favorites, setFavorites] = useState(new Set());
     
     useEffect(() => {
         window.scrollTo(0, 0);
+        const load = async () => {
+            try {
+                const details = await getPublicPartner(id);
+                const partner = details?.partner || details;
+                if (partner) {
+                    setSeller({
+                        id: partner.partnerId || id,
+                        name: partner.shopName || `${partner.firstName || ""} ${partner.lastName || ""}`.trim() || "Boutique",
+                        type: "product_seller",
+                        category: partner.mainCategoryName || "Boutique",
+                        image: partner.logoUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000",
+                        coverImage: partner.backgroundUrl || partner.logoUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=2070",
+                        followers: "-",
+                        stats: { label: "Produits", value: Number(details?.products || 0) },
+                        description: partner.shopDescription || "Découvrez cette boutique partenaire.",
+                        location: [partner.city, partner.country].filter(Boolean).join(", "),
+                        rating: 5,
+                        verified: true
+                    });
+                }
+                const page = await listPublicPartnerProducts(id, { page: 0, size: 20 });
+                const products = Array.isArray(page?.content) ? page.content : [];
+                setRemoteProducts(products.map((p) => ({
+                    id: p.id,
+                    title: p.name,
+                    date: "En Stock",
+                    price: `${Number(p.price || 0).toFixed(2)} FCFA`,
+                    image: p.imageUrl || p.img || "https://images.unsplash.com/photo-1560343090-f0409e92791a?q=80&w=1000",
+                    category: p.mainCategoryName || "Produit"
+                })));
+            } catch {
+            }
+        };
+        if (id) {
+            load();
+        }
     }, [id]);
 
     const toggleFollow = () => {
@@ -49,6 +89,74 @@ export default function SellerDetails() {
         }
     };
 
+    const shareShop = async () => {
+        const url = window.location.href;
+        const title = seller?.name || "Boutique partenaire";
+        try {
+            if (navigator.share) {
+                await navigator.share({ title, url });
+                return;
+            }
+            await navigator.clipboard.writeText(url);
+            toast.success("Lien copié.");
+        } catch {
+            toast.error("Impossible de partager pour le moment.");
+        }
+    };
+
+    const contactShop = () => {
+        if (seller?.email) {
+            window.location.href = `mailto:${seller.email}?subject=${encodeURIComponent(`Contact boutique ${seller.name || ""}`)}`;
+            return;
+        }
+        if (seller?.phoneNumber) {
+            const phone = `${seller.phoneNumber}`.replace(/\s+/g, "");
+            window.location.href = `https://wa.me/${phone.replace(/[^\d+]/g, "").replace("+", "")}`;
+            return;
+        }
+        toast.info("Contact indisponible pour cette boutique.");
+    };
+
+    const openExternal = (value, type) => {
+        if (!value) {
+            toast.info("Information non disponible.");
+            return;
+        }
+        if (type === "mail") {
+            window.location.href = `mailto:${value}`;
+            return;
+        }
+        if (type === "phone") {
+            window.location.href = `tel:${value}`;
+            return;
+        }
+        const href = value.startsWith("http://") || value.startsWith("https://") ? value : `https://${value}`;
+        window.open(href, "_blank", "noopener,noreferrer");
+    };
+
+    const openItemDetails = (item) => {
+        if (!item?.id) return;
+        if (seller?.type === "product_seller") {
+            navigate(`/product/${item.id}`);
+            return;
+        }
+        navigate(`/tickets/${item.id}`);
+    };
+
+    const toggleFavorite = (itemId) => {
+        setFavorites((prev) => {
+            const next = new Set(prev);
+            if (next.has(itemId)) {
+                next.delete(itemId);
+                toast.info("Retiré des favoris.");
+            } else {
+                next.add(itemId);
+                toast.success("Ajouté aux favoris.");
+            }
+            return next;
+        });
+    };
+
     if (!seller) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-neutral-50">
@@ -57,7 +165,14 @@ export default function SellerDetails() {
         );
     }
 
-    const items = seller.type === 'product_seller' ? mockProducts : mockEvents;
+    const items = seller.type === 'product_seller'
+        ? (remoteProducts.length > 0 ? remoteProducts : mockProducts)
+        : mockEvents;
+    const filteredItems = items.filter((item) => {
+        if (!query.trim()) return true;
+        const q = query.toLowerCase();
+        return `${item.title || ""}`.toLowerCase().includes(q) || `${item.category || item.type || ""}`.toLowerCase().includes(q);
+    });
 
     return (
         <div className="min-h-screen bg-neutral-50 font-sans text-neutral-900 pb-20">
@@ -82,12 +197,31 @@ export default function SellerDetails() {
                             <ArrowLeft size={20} />
                         </button>
                         <div className="flex gap-3">
-                            <button className="w-10 h-10 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center text-white hover:bg-white hover:text-black transition-all">
+                            <button
+                                onClick={() => {
+                                    setActiveTab("items");
+                                    setTimeout(() => {
+                                        const el = document.getElementById("seller-items-search");
+                                        if (el) el.focus();
+                                    }, 100);
+                                }}
+                                className="w-10 h-10 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center text-white hover:bg-white hover:text-black transition-all"
+                            >
                                 <Search size={18} />
                             </button>
-                            <button className="w-10 h-10 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center text-white hover:bg-white hover:text-black transition-all">
+                            <button
+                                onClick={() => setShowActions((v) => !v)}
+                                className="w-10 h-10 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center text-white hover:bg-white hover:text-black transition-all"
+                            >
                                 <MoreHorizontal size={18} />
                             </button>
+                            {showActions ? (
+                                <div className="absolute right-6 top-16 bg-white text-neutral-900 rounded-xl border border-neutral-200 shadow-xl p-2 z-20 min-w-[180px]">
+                                    <button onClick={shareShop} className="w-full text-left px-3 py-2 rounded-lg hover:bg-neutral-100 text-sm font-medium">Partager la boutique</button>
+                                    <button onClick={contactShop} className="w-full text-left px-3 py-2 rounded-lg hover:bg-neutral-100 text-sm font-medium">Contacter</button>
+                                    <button onClick={() => { setShowActions(false); toast.info("Signalement envoyé."); }} className="w-full text-left px-3 py-2 rounded-lg hover:bg-neutral-100 text-sm font-medium">Signaler</button>
+                                </div>
+                            ) : null}
                         </div>
                     </div>
                 </div>
@@ -143,10 +277,10 @@ export default function SellerDetails() {
                                     >
                                         {isFollowing ? "Suivi" : "Suivre"}
                                     </button>
-                                    <button className="flex-1 lg:flex-none px-6 py-2.5 rounded-lg font-bold text-sm bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50 transition-all">
+                                    <button onClick={contactShop} className="flex-1 lg:flex-none px-6 py-2.5 rounded-lg font-bold text-sm bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-50 transition-all">
                                         Contacter
                                     </button>
-                                    <button className="p-2.5 rounded-lg border border-neutral-200 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 transition-all">
+                                    <button onClick={shareShop} className="p-2.5 rounded-lg border border-neutral-200 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 transition-all">
                                         <Share2 size={18} />
                                     </button>
                                 </div>
@@ -205,9 +339,9 @@ export default function SellerDetails() {
                             
                             <h3 className="text-xs font-black uppercase tracking-widest text-neutral-400 mb-4">Réseaux</h3>
                             <div className="flex gap-2">
-                                <button className="p-2 bg-neutral-50 rounded-lg hover:bg-[#6aa200] hover:text-white transition-colors text-neutral-600"><Globe size={16} /></button>
-                                <button className="p-2 bg-neutral-50 rounded-lg hover:bg-[#6aa200] hover:text-white transition-colors text-neutral-600"><Mail size={16} /></button>
-                                <button className="p-2 bg-neutral-50 rounded-lg hover:bg-[#6aa200] hover:text-white transition-colors text-neutral-600"><Phone size={16} /></button>
+                                <button onClick={() => openExternal(seller?.websiteUrl, "web")} className="p-2 bg-neutral-50 rounded-lg hover:bg-[#6aa200] hover:text-white transition-colors text-neutral-600"><Globe size={16} /></button>
+                                <button onClick={() => openExternal(seller?.email, "mail")} className="p-2 bg-neutral-50 rounded-lg hover:bg-[#6aa200] hover:text-white transition-colors text-neutral-600"><Mail size={16} /></button>
+                                <button onClick={() => openExternal(seller?.phoneNumber, "phone")} className="p-2 bg-neutral-50 rounded-lg hover:bg-[#6aa200] hover:text-white transition-colors text-neutral-600"><Phone size={16} /></button>
                             </div>
                         </div>
                     </aside>
@@ -225,9 +359,19 @@ export default function SellerDetails() {
                                     <div className="flex justify-between items-center mb-6">
                                         <h2 className="text-xl font-bold">
                                             {seller.type === 'product_seller' ? 'Tous les produits' : 'Prochains Événements'} 
-                                            <span className="ml-2 text-neutral-400 text-sm font-medium">({items.length})</span>
+                                            <span className="ml-2 text-neutral-400 text-sm font-medium">({filteredItems.length})</span>
                                         </h2>
                                         <div className="flex items-center gap-2">
+                                            <div className="hidden md:flex items-center gap-2 bg-white border border-neutral-200 rounded-lg px-3 py-2">
+                                                <Search size={14} className="text-neutral-400" />
+                                                <input
+                                                    id="seller-items-search"
+                                                    value={query}
+                                                    onChange={(e) => setQuery(e.target.value)}
+                                                    placeholder="Rechercher..."
+                                                    className="text-sm outline-none bg-transparent w-40"
+                                                />
+                                            </div>
                                             <div className="flex bg-white border border-neutral-200 rounded-lg p-1">
                                                 <button 
                                                     onClick={() => setViewMode('grid')}
@@ -247,9 +391,10 @@ export default function SellerDetails() {
 
                                     {/* Items Grid/List */}
                                     <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3' : 'grid-cols-1'}`}>
-                                        {items.map((item) => (
+                                        {filteredItems.map((item) => (
                                             <div 
                                                 key={item.id}
+                                                onClick={() => openItemDetails(item)}
                                                 className={`group bg-white rounded-xl border border-neutral-200 overflow-hidden hover:shadow-lg hover:border-[#6aa200]/30 transition-all duration-300 cursor-pointer ${viewMode === 'list' ? 'flex flex-row h-40' : 'flex-col'}`}
                                             >
                                                 {/* Image */}
@@ -299,7 +444,7 @@ export default function SellerDetails() {
                                                     {viewMode === 'grid' && (
                                                         <div className="flex items-center justify-between pt-3 border-t border-neutral-100 mt-2">
                                                             <span className="text-lg font-bold text-neutral-900">{item.price}</span>
-                                                            <button className="text-neutral-400 hover:text-[#6aa200] transition-colors">
+                                                            <button onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }} className={`transition-colors ${favorites.has(item.id) ? "text-[#6aa200]" : "text-neutral-400 hover:text-[#6aa200]"}`}>
                                                                 <Heart size={18} />
                                                             </button>
                                                         </div>
@@ -307,7 +452,10 @@ export default function SellerDetails() {
                                                     
                                                     {viewMode === 'list' && (
                                                         <div className="flex items-center gap-3 mt-auto">
-                                                            <button className="px-4 py-2 bg-neutral-900 text-white text-xs font-bold rounded-lg hover:bg-black transition-colors">
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); openItemDetails(item); }}
+                                                                className="px-4 py-2 bg-neutral-900 text-white text-xs font-bold rounded-lg hover:bg-black transition-colors"
+                                                            >
                                                                 Voir les détails
                                                             </button>
                                                         </div>
@@ -315,6 +463,11 @@ export default function SellerDetails() {
                                                 </div>
                                             </div>
                                         ))}
+                                        {filteredItems.length === 0 ? (
+                                            <div className="col-span-full bg-white rounded-xl border border-neutral-200 p-8 text-center text-neutral-500">
+                                                Aucun résultat.
+                                            </div>
+                                        ) : null}
                                     </div>
                                 </motion.div>
                             )}

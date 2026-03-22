@@ -26,11 +26,21 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { isAuthenticated, getCurrentUserPayload, logout, getUserProfile, refreshSession } from "@/services/authService";
-import { upgradeToPartner, registerPartnerStep1, registerPartnerStep2, registerPartnerStep3 } from "@/services/partnerService";
+import { isAuthenticated, getCurrentUserPayload, logout, getUserProfile, refreshSession, loginPartnerLocal, storeAccessToken } from "@/services/authService";
+import { upgradeToPartner, registerPartnerStep1, registerPartnerStep2, registerPartnerStep3, registerPartnerStep4 } from "@/services/partnerService";
+import ResetPasswordForm from "@/components/ResetPasswordForm";
 
 const BRAND = "#6aa200";
 const cx = (...c) => c.filter(Boolean).join(" ");
+
+// Animation variants
+const STATIC_CATEGORIES = [
+  { id: 1, label: "Mode & Accessoires" },
+  { id: 2, label: "Beauté & Santé" },
+  { id: 3, label: "Maison & Déco" },
+  { id: 4, label: "High-Tech" },
+  { id: 5, label: "Alimentation" }
+];
 
 // Animation variants
 const stepAnim = {
@@ -46,16 +56,14 @@ function TopHero({ step }) {
     1: "https://images.pexels.com/photos/3184299/pexels-photo-3184299.jpeg", // Compte
     2: "https://images.pexels.com/photos/4571888/pexels-photo-4571888.jpeg", // Entreprise
     3: "https://images.pexels.com/photos/1765033/pexels-photo-1765033.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1", // Branding
-    4: "https://images.pexels.com/photos/4386339/pexels-photo-4386339.jpeg", // Finance
-    5: "https://images.pexels.com/photos/48148/document-agreement-documents-sign-48148.jpeg", // Contrat
+    4: "https://images.pexels.com/photos/48148/document-agreement-documents-sign-48148.jpeg", // Contrat
   };
 
   const texts = {
-    1: { k: "Étape 1/5", t: "Création du Compte", d: "Commençons par vos informations personnelles." },
-    2: { k: "Étape 2/5", t: "Votre Entreprise", d: "Dites-nous en plus sur votre structure." },
-    3: { k: "Étape 3/5", t: "Image de Marque", d: "Logo, bannière et identité visuelle." },
-    4: { k: "Étape 4/5", t: "Informations Financières", d: "Pour recevoir vos paiements en toute sécurité." },
-    5: { k: "Étape 5/5", t: "Contrat & Validation", d: "Signature électronique et documents justificatifs." },
+    1: { k: "Étape 1/4", t: "Création du Compte", d: "Commençons par vos informations personnelles." },
+    2: { k: "Étape 2/4", t: "Votre Entreprise", d: "Dites-nous en plus sur votre structure." },
+    3: { k: "Étape 3/4", t: "Image de Marque", d: "Logo, bannière et identité visuelle." },
+    4: { k: "Étape 4/4", t: "Contrat & Validation", d: "Signature électronique et validation." },
   };
 
   const s = texts[step];
@@ -100,8 +108,7 @@ function ProgressSteps({ step, setStep }) {
     { n: 1, label: "Compte" },
     { n: 2, label: "Entreprise" },
     { n: 3, label: "Branding" },
-    { n: 4, label: "Finance" },
-    { n: 5, label: "Contrat" },
+    { n: 4, label: "Contrat" },
   ];
 
   return (
@@ -267,138 +274,259 @@ function PDFContractViewer({ onAccept, accepted }) {
 export default function Seller() {
   const [step, setStep] = useState(1);
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [emailError, setEmailError] = useState(false);
+  const [stepLoading, setStepLoading] = useState(false);
+  const [authMode, setAuthMode] = useState("signup"); // signup | login
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [partnerLoginOnly, setPartnerLoginOnly] = useState(false);
   
   const isAuth = isAuthenticated();
   const currentUser = getCurrentUserPayload();
+  const currentUserId = `${currentUser?.sub || ""}`.trim();
+  const currentUserFirstName = `${currentUser?.firstName || ""}`.trim();
+  const currentUserLastName = `${currentUser?.lastName || ""}`.trim();
+  const currentUserEmail = `${currentUser?.email || ""}`.trim();
+  const lastProfileFetchRef = useRef(null);
   
   const [formData, setFormData] = useState({
     // 1. Compte
     firstName: "", lastName: "", email: "", phone: "", password: "",
     // 2. Entreprise
-    storeName: "", category: "fashion", description: "",
-    address: "", city: "", region: "", ninea: "", rccm: "",
+    storeName: "", mainCategoryId: `${STATIC_CATEGORIES[0].id}`, description: "",
+    address: "", city: "", region: "Côte d'Ivoire",
     // 3. Branding
     logo: null, banner: null,
-    // 4. Finance
-    bankName: "", accountHolder: "", rib: "", iban: "", swift: "",
-    // 5. Contrat & Docs
-    contractAccepted: false, idDoc: null, nineaDoc: null
+    // 4. Contrat
+    contractAccepted: false
   });
 
   const isPartner = Array.isArray(currentUser?.roles) && 
     currentUser.roles.some(r => r === "PARTNER" || r === "ROLE_PARTNER");
 
   useEffect(() => {
-    if (isAuth && currentUser) {
-        // Pre-fill basic info
-        setFormData(prev => ({
-            ...prev,
-            firstName: currentUser.firstName || prev.firstName,
-            lastName: currentUser.lastName || prev.lastName,
-            email: currentUser.email || prev.email,
-        }));
-
-        // Fetch full profile to get phone number if missing
-        getUserProfile(currentUser.sub).then(profile => {
-            if (profile && profile.phoneNumber) {
-                setFormData(prev => ({ ...prev, phone: profile.phoneNumber }));
-            }
-        }).catch(err => console.error("Failed to fetch profile", err));
+    if (isAuth && isPartner) {
+      setPartnerLoginOnly(true);
+      setAuthMode("login");
+      setShowResetPassword(false);
+      setStep(1);
+      return;
     }
-  }, [isAuth, currentUser]);
+    setPartnerLoginOnly(false);
+  }, [isAuth, isPartner]);
+
+  useEffect(() => {
+    if (!isAuth || !currentUserId) {
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      firstName: currentUserFirstName || prev.firstName,
+      lastName: currentUserLastName || prev.lastName,
+      email: currentUserEmail || prev.email
+    }));
+
+    if (lastProfileFetchRef.current === currentUserId) {
+      return;
+    }
+    lastProfileFetchRef.current = currentUserId;
+
+    let cancelled = false;
+    getUserProfile(currentUserId)
+      .then((profile) => {
+        if (cancelled) return;
+        const phone = `${profile?.phoneNumber || ""}`.trim();
+        if (!phone) return;
+        setFormData((prev) => ({ ...prev, phone: prev.phone || phone }));
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuth, currentUserId, currentUserFirstName, currentUserLastName, currentUserEmail]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // Simulation de vérification d'email existant
-    if (field === "email") {
-        if (["test@lid.com", "admin@lid.com", "vendeur@lid.com"].includes(value)) {
-            setEmailError(true);
-        } else {
-            setEmailError(false);
-        }
-    }
   };
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 5));
-  const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
+  const selectedCategoryLabel = (() => {
+    const raw = `${formData.mainCategoryId || ""}`.trim();
+    if (!raw) return "";
+    const match = STATIC_CATEGORIES.find((c) => `${c.id}` === raw);
+    return `${match?.label || ""}`.trim();
+  })();
 
-  const handleSubmit = async () => {
-    if (!formData.contractAccepted) {
-      toast.error("Veuillez accepter le contrat pour continuer.");
+  const validateStep = (stepToValidate) => {
+    if (stepToValidate === 1) {
+      if (isAuth) return null;
+      const email = `${formData.email || ""}`.trim();
+      const password = `${formData.password || ""}`.trim();
+      if (!email) return "Veuillez renseigner votre email.";
+      if (!email.includes("@")) return "Veuillez renseigner un email valide.";
+      if (!password) return "Veuillez renseigner votre mot de passe.";
+      if (authMode === "login") return null;
+      const firstName = `${formData.firstName || ""}`.trim();
+      const lastName = `${formData.lastName || ""}`.trim();
+      const phone = `${formData.phone || ""}`.trim();
+      if (!firstName) return "Veuillez renseigner votre prénom.";
+      if (!lastName) return "Veuillez renseigner votre nom.";
+      if (!phone) return "Veuillez renseigner votre numéro de téléphone.";
+      if (password.length < 8) return "Le mot de passe doit contenir au moins 8 caractères.";
+      return null;
+    }
+
+    if (stepToValidate === 2) {
+      const storeName = `${formData.storeName || ""}`.trim();
+      const categoryId = `${formData.mainCategoryId || ""}`.trim();
+      const description = `${formData.description || ""}`.trim();
+      const address = `${formData.address || ""}`.trim();
+      const city = `${formData.city || ""}`.trim();
+      const country = `${formData.region || ""}`.trim();
+      if (!storeName) return "Veuillez renseigner le nom de la boutique.";
+      if (!categoryId) return "Veuillez choisir une catégorie.";
+      if (!description || description.length < 10) return "Veuillez renseigner une description (au moins 10 caractères).";
+      if (!address) return "Veuillez renseigner l'adresse du siège social.";
+      if (!city) return "Veuillez renseigner la ville.";
+      if (!country) return "Veuillez renseigner le pays.";
+      return null;
+    }
+
+    if (stepToValidate === 3) {
+      return null;
+    }
+
+    if (stepToValidate === 4) {
+      if (!formData.contractAccepted) return "Veuillez accepter le contrat pour finaliser.";
+      return null;
+    }
+
+    return null;
+  };
+
+  const goPrev = () => setStep((prev) => Math.max(prev - 1, 1));
+
+  const goNext = async () => {
+    if (!isAuth && step === 1 && authMode === "login" && showResetPassword) {
       return;
     }
-    setLoading(true);
+    const error = validateStep(step);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    if (stepLoading) return;
 
+    setStepLoading(true);
     try {
-        let partnerId = null;
-
-        // --- STEP 1: ACCOUNT ---
-        const step1Data = {
+      if (step === 1) {
+        if (isAuth) {
+          if (isPartner) {
+            toast.success("Compte partenaire détecté. Connectez-vous à votre espace vendeur.");
+            navigate("/sel-off/dashboard");
+            return;
+          }
+          const upgraded = await upgradeToPartner({
             firstName: formData.firstName,
             lastName: formData.lastName,
             email: formData.email,
             phoneNumber: formData.phone,
-            passwordHash: formData.password || "oauth2_placeholder" // TODO: Handle password correctly
-        };
-
-        if (isAuth && !isPartner) {
-            // Upgrade existing customer
-            const res = await upgradeToPartner(step1Data);
-            partnerId = res.userId;
-            toast.success("Compte mis à niveau avec succès !");
-            await refreshSession();
-        } else if (!isAuth) {
-            // Create new partner
-            const res = await registerPartnerStep1(step1Data);
-            partnerId = res.userId;
-            toast.success("Compte créé avec succès !");
-        } else {
-            // Already partner?
-            partnerId = currentUser.sub;
+            password: formData.password || null
+          });
+          if (upgraded?.accessToken) {
+            storeAccessToken(upgraded.accessToken);
+          } else {
+            const refreshed = await refreshSession();
+            if (!refreshed) {
+              throw new Error("Session invalide. Veuillez vous reconnecter.");
+            }
+          }
+          setStep(2);
+          return;
         }
 
-        if (!partnerId) throw new Error("Impossible de récupérer l'ID partenaire");
-
-        // If we are not authenticated (fresh signup), we can't proceed to protected steps
-        if (!isAuth) {
-            setLoading(false);
-            toast.success("Compte créé ! Veuillez vous connecter pour finaliser votre dossier.");
-            navigate("/login");
+        if (authMode === "login") {
+          await loginPartnerLocal({ email: formData.email, password: formData.password });
+          const loggedPayload = getCurrentUserPayload();
+          const loggedIsPartner = Array.isArray(loggedPayload?.roles) &&
+            loggedPayload.roles.some((r) => r === "PARTNER" || r === "ROLE_PARTNER");
+          if (loggedIsPartner) {
+            toast.success("Connexion réussie.");
+            navigate("/sel-off/dashboard");
             return;
+          }
+          setStep(2);
+          return;
         }
 
-        // --- STEP 2: SHOP ---
-        const step2Data = {
-            partnerId: partnerId,
-            shopName: formData.storeName,
-            shopDescription: formData.description,
-            mainCategoryId: 1 // TODO: Fetch real categories. Defaulting to 1.
-        };
-        await registerPartnerStep2(step2Data);
+        const created = await registerPartnerStep1({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phoneNumber: formData.phone,
+          password: formData.password
+        });
+        if (created?.accessToken) {
+          storeAccessToken(created.accessToken);
+          setStep(2);
+          return;
+        }
+        throw new Error("Création du compte impossible.");
+      }
 
-        // --- STEP 3: LEGAL ---
-        const step3Data = {
-            partnerId: partnerId,
-            headOfficeAddress: formData.address,
-            city: formData.city,
-            country: formData.region || "Senegal",
-            businessRegistrationDocumentUrl: "https://example.com/doc.pdf" // TODO: Handle file upload
-        };
-        await registerPartnerStep3(step3Data);
+      if (step === 2) {
+        const mainCategoryId = Number(formData.mainCategoryId);
+        await registerPartnerStep2({
+          shopName: formData.storeName,
+          mainCategoryId: Number.isFinite(mainCategoryId) ? mainCategoryId : null,
+          shopDescription: formData.description,
+          description: formData.description,
+          headOfficeAddress: formData.address,
+          city: formData.city,
+          country: formData.region
+        });
+        setStep(3);
+        return;
+      }
 
-        setLoading(false);
-        toast.success("Félicitations ! Votre demande est en cours de validation.");
-        
-        // Refresh token/session if possible or redirect
-        window.location.href = "/dashboard/seller";
-
+      if (step === 3) {
+        await registerPartnerStep3({
+          logoUrl: null,
+          bannerUrl: null,
+          businessRegistrationDocumentUrl: null
+        });
+        setStep(4);
+        return;
+      }
     } catch (error) {
-        console.error("Erreur inscription", error);
-        setLoading(false);
-        toast.error(error.response?.data?.message || "Une erreur est survenue lors de l'inscription.");
+      const status = error?.response?.status;
+      if (status === 409) {
+        setShowResetPassword(false);
+        setAuthMode("login");
+        toast.error("Cet email existe déjà. Connectez-vous pour continuer.");
+        return;
+      }
+      toast.error(error?.response?.data?.message || error?.message || "Une erreur est survenue.");
+    } finally {
+      setStepLoading(false);
+    }
+  };
+
+  const finalizeRegistration = async () => {
+    const error = validateStep(4);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    if (stepLoading) return;
+    setStepLoading(true);
+    try {
+      await registerPartnerStep4({ contractAccepted: true });
+      toast.success("Félicitations ! Votre compte partenaire est validé.");
+      window.location.href = "/sel-off";
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error?.message || "Une erreur est survenue.");
+    } finally {
+      setStepLoading(false);
     }
   };
 
@@ -429,7 +557,18 @@ export default function Seller() {
                {!isAuth && (
                  <div className="hidden sm:block text-right">
                     <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Déjà inscrit ?</div>
-                    <Link to="/login" className="text-sm font-bold text-[#6aa200] hover:underline">Se connecter</Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowResetPassword(false);
+                        setAuthMode("login");
+                        setStep(1);
+                        navigate('/login')
+                      }}
+                      className="text-sm font-bold text-[#6aa200] hover:underline"
+                    >
+                      Se connecter
+                    </button>
                  </div>
                )}
                <span className="text-xl font-black tracking-tighter">
@@ -438,13 +577,15 @@ export default function Seller() {
             </div>
           </div>
 
-          <TopHero step={step} />
+          {!partnerLoginOnly ? <TopHero step={step} /> : null}
 
           <div className="bg-white/80 backdrop-blur-xl border border-white/60 rounded-[32px] p-6 sm:p-10 shadow-2xl shadow-neutral-200/40 relative">
              
-             <div className="mb-10 mt-2">
-               <ProgressSteps step={step} setStep={setStep} />
-             </div>
+             {!partnerLoginOnly ? (
+               <div className="mb-10 mt-2">
+                 <ProgressSteps step={step} setStep={setStep} />
+               </div>
+             ) : null}
 
              <div className="min-h-[400px]">
                <AnimatePresence mode="wait">
@@ -504,134 +645,217 @@ export default function Seller() {
                                     </div>
                                 </div>
                               )}
-
-                              <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-sm mx-auto">
-                                 <button 
-                                    onClick={async () => {
-                                        if (isPartner) {
-                                            navigate("/dashboard/seller");
-                                        } else {
-                                            if (!formData.phone) {
-                                                toast.error("Veuillez entrer votre numéro de téléphone");
-                                                return;
-                                            }
-                                            try {
-                                                setLoading(true);
-                                                // Appel API pour upgrade
-                                                await upgradeToPartner({
-                                                    userId: currentUser.sub,
-                                                    firstName: formData.firstName,
-                                                    lastName: formData.lastName,
-                                                    email: formData.email,
-                                                    phoneNumber: formData.phone
-                                                });
-                                                
-                                                await refreshSession();
-                                                
-                                                toast.success("Compte mis à niveau avec succès !");
-                                                // On passe à l'étape suivante (Boutique)
-                                                nextStep();
-                                            } catch (error) {
-                                                console.error(error);
-                                                toast.error("Erreur lors de la mise à niveau du compte.");
-                                            } finally {
-                                                setLoading(false);
-                                            }
-                                        }
-                                    }}
-                                    disabled={loading}
-                                    className="flex-1 w-full bg-[#6aa200] text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-[#6aa200]/30 hover:shadow-xl hover:shadow-[#6aa200]/40 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                                 >
-                                    {loading ? (
-                                        <Loader2 className="animate-spin" size={18} />
-                                    ) : isPartner ? (
-                                        <>Accéder à mon tableau de bord <Briefcase size={18} /></>
-                                    ) : (
-                                        <>Continuer <ArrowRight size={18} /></>
-                                    )}
-                                 </button>
-                                 <button 
-                                    onClick={async () => {
-                                       await logout();
-                                       window.location.reload();
-                                    }}
-                                    className="px-6 py-3.5 rounded-xl font-bold text-neutral-500 hover:text-red-500 hover:bg-red-50 transition flex items-center gap-2"
-                                 >
-                                    <LogOut size={18} /> Changer de compte
-                                 </button>
+                              <div className="flex flex-col sm:flex-row items-center gap-4 w-full mx-auto">
+                                {isPartner ? (
+                                  <button
+                                    onClick={() => navigate("/sel-off/dashboard")}
+                                    className="flex-1 w-full bg-[#6aa200] text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-[#6aa200]/30 hover:shadow-xl hover:shadow-[#6aa200]/40 hover:-translate-y-0.5 transition-all flex items-center justify-center whitespace-nowrap gap-2"
+                                  >
+                                    Accéder à mon tableau de bord <Briefcase size={18} />
+                                  </button>
+                                ) : null}
+                                <button 
+                                  onClick={async () => {
+                                    await logout();
+                                    window.location.reload();
+                                  }}
+                                  className="px-6 py-3.5 rounded-xl font-bold text-neutral-500 hover:text-red-500 hover:bg-red-50 whitespace-nowrap transition flex items-center gap-2"
+                                >
+                                  <LogOut size={18} /> Changer de compte
+                                </button>
                               </div>
                            </div>
                         </div>
                      ) : (
                         /* Guest View */
                         <>
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowResetPassword(false);
+                                setAuthMode("signup");
+                              }}
+                              className={cx(
+                                "px-4 py-2 rounded-full text-xs font-bold transition border",
+                                authMode === "signup"
+                                  ? "bg-[#6aa200] text-white border-[#6aa200]"
+                                  : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-300"
+                              )}
+                            >
+                              Créer un compte
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowResetPassword(false);
+                                setAuthMode("login");
+                              }}
+                              className={cx(
+                                "px-4 py-2 rounded-full text-xs font-bold transition border",
+                                authMode === "login"
+                                  ? "bg-[#6aa200] text-white border-[#6aa200]"
+                                  : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-300"
+                              )}
+                            >
+                              Se connecter
+                            </button>
+                          </div>
 
-                             <Field 
-                                label="Prénom" 
-                                icon={User} 
-                                placeholder="Jean" 
-                                value={formData.firstName} 
-                                onChange={e => handleChange("firstName", e.target.value)} 
-                             />
-                             <Field 
-                                label="Nom" 
-                                placeholder="koffi" 
-                                value={formData.lastName} 
-                                onChange={e => handleChange("lastName", e.target.value)} 
-                              />
-                           </div>
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                             <Field 
-                                label="Email Professionnel" 
-                                icon={Mail} 
-                                type="email" 
-                                placeholder="jeankoffi@mail.com" 
-                                value={formData.email} 
-                                onChange={e => handleChange("email", e.target.value)}
-                                error={emailError ? " " : null} // Just to trigger red border
-                             />
-                             <Field label="Téléphone Mobile" icon={Phone} placeholder="+225 77 000 00 00" value={formData.phone} onChange={e => handleChange("phone", e.target.value)} />
-                           </div>
-                           
-                           {/* Email Collision Alert */}
-                           <AnimatePresence>
-                              {emailError && (
-                                <motion.div 
-                                  initial={{ opacity: 0, height: 0, y: -10 }} 
-                                  animate={{ opacity: 1, height: "auto", y: 0 }}
-                                  exit={{ opacity: 0, height: 0, y: -10 }}
-                                  className="overflow-hidden"
-                                >
-                                  <div className="bg-orange-50 border border-orange-200 p-4 rounded-2xl flex items-start gap-4 shadow-sm">
-                                    <div className="p-2 bg-white rounded-lg text-orange-500 shadow-sm shrink-0 border border-orange-100">
-                                      <AlertTriangle size={20} />
-                                    </div>
-                                    <div className="flex-1">
-                                      <h4 className="font-bold text-orange-900 text-sm mb-1">Compte déjà existant</h4>
-                                      <p className="text-xs text-orange-800/80 leading-relaxed mb-3">
-                                        L'adresse email <strong className="font-medium text-orange-900">{formData.email}</strong> est déjà associée à un compte Life Distribution.
-                                      </p>
-                                      <div className="flex items-center gap-3">
-                                        <Link to="/login" className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-lg transition shadow-md shadow-orange-500/20 flex items-center gap-2">
-                                          Se connecter maintenant <ArrowRight size={12} />
-                                        </Link>
-                                        <button onClick={() => setEmailError(false)} className="px-3 py-2 text-orange-700 hover:bg-orange-100 rounded-lg text-xs font-bold transition">
-                                          Utiliser une autre adresse
-                                        </button>
+                          {authMode === "signup" ? (
+                            <>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <Field 
+                                  label="Prénom" 
+                                  icon={User} 
+                                  placeholder="Jean" 
+                                  value={formData.firstName} 
+                                  onChange={e => handleChange("firstName", e.target.value)} 
+                                />
+                                <Field 
+                                  label="Nom" 
+                                  placeholder="Koffi" 
+                                  value={formData.lastName} 
+                                  onChange={e => handleChange("lastName", e.target.value)} 
+                                />
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <Field 
+                                  label="Email Professionnel" 
+                                  icon={Mail} 
+                                  type="email" 
+                                  placeholder="jean@mail.com" 
+                                  value={formData.email} 
+                                  onChange={e => handleChange("email", e.target.value)}
+                                />
+                                <Field 
+                                  label="Téléphone Mobile" 
+                                  icon={Phone} 
+                                  placeholder="+225 77 000 00 00" 
+                                  value={formData.phone} 
+                                  onChange={e => handleChange("phone", e.target.value)} 
+                                />
+                              </div>
+                              <Field label="Mot de passe" icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={e => handleChange("password", e.target.value)} />
+                            </>
+                          ) : (
+                            <div className="relative overflow-hidden rounded-3xl border border-neutral-200 bg-gradient-to-br from-neutral-950 via-neutral-900 to-[#152600] p-6 md:p-8">
+                              <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-[#6aa200]/25 blur-3xl" />
+                              <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+
+                              <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-start">
+                                <div className="text-white">
+                                  <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/10 px-3 py-1.5 text-[11px] font-bold tracking-wide uppercase">
+                                    <span className="h-2 w-2 rounded-full bg-[#6aa200]" />
+                                    Connexion partenaire
+                                  </div>
+                                  <h3 className="text-2xl md:text-3xl font-black tracking-tight mt-4">
+                                    Reprenez votre inscription, sans friction
+                                  </h3>
+                                  <p className="text-sm md:text-base text-white/70 mt-3 leading-relaxed">
+                                    Connectez-vous pour continuer l’étape suivante et accéder à votre espace vendeur une fois validé.
+                                  </p>
+
+                                  <div className="mt-6 space-y-3 text-sm">
+                                    <div className="flex items-start gap-3">
+                                      <div className="mt-1 h-5 w-5 rounded-full bg-white/10 border border-white/10 flex items-center justify-center">
+                                        <Check size={14} className="text-[#6aa200]" />
                                       </div>
+                                      <div className="text-white/80">Accès sécurisé à votre dossier partenaire</div>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                      <div className="mt-1 h-5 w-5 rounded-full bg-white/10 border border-white/10 flex items-center justify-center">
+                                        <Check size={14} className="text-[#6aa200]" />
+                                      </div>
+                                      <div className="text-white/80">Récupération de mot de passe en 3 étapes</div>
+                                    </div>
+                                    <div className="flex items-start gap-3">
+                                      <div className="mt-1 h-5 w-5 rounded-full bg-white/10 border border-white/10 flex items-center justify-center">
+                                        <Check size={14} className="text-[#6aa200]" />
+                                      </div>
+                                      <div className="text-white/80">Validation avant passage à l’étape suivante</div>
                                     </div>
                                   </div>
-                                </motion.div>
-                              )}
-                           </AnimatePresence>
+                                </div>
 
-                           <Field label="Mot de passe" icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={e => handleChange("password", e.target.value)} />
-                           
-                           <div className="bg-blue-50 text-blue-800 p-4 rounded-2xl text-xs flex gap-3 leading-relaxed">
-                             <AlertCircle size={18} className="shrink-0 mt-0.5" />
-                             Ces informations serviront à vous connecter à votre espace vendeur et à sécuriser votre compte.
-                           </div>
+                                <div className="rounded-2xl bg-white/10 border border-white/10 p-5 md:p-6">
+                                  <AnimatePresence mode="wait">
+                                    {showResetPassword ? (
+                                      <ResetPasswordForm
+                                        key="reset"
+                                        initialEmail={formData.email}
+                                        onBack={() => setShowResetPassword(false)}
+                                      />
+                                    ) : (
+                                      <motion.div
+                                        key="login"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        className="space-y-4"
+                                      >
+                                        <div className="space-y-2">
+                                          <label className="text-xs font-bold uppercase tracking-wider text-white/70 ml-1">Email</label>
+                                          <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-white/50">
+                                              <Mail size={16} />
+                                            </div>
+                                            <input
+                                              type="email"
+                                              placeholder="vous@mail.com"
+                                              className="w-full pl-11 pr-4 py-3.5 bg-white/10 border border-white/10 rounded-2xl outline-none focus:ring-4 focus:ring-[#6aa200]/20 focus:border-[#6aa200]/60 transition-all text-sm text-white placeholder:text-white/40"
+                                              value={formData.email}
+                                              onChange={(e) => handleChange("email", e.target.value)}
+                                            />
+                                          </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          <label className="text-xs font-bold uppercase tracking-wider text-white/70 ml-1">Mot de passe</label>
+                                          <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-white/50">
+                                              <Lock size={16} />
+                                            </div>
+                                            <input
+                                              type="password"
+                                              placeholder="••••••••"
+                                              className="w-full pl-11 pr-4 py-3.5 bg-white/10 border border-white/10 rounded-2xl outline-none focus:ring-4 focus:ring-[#6aa200]/20 focus:border-[#6aa200]/60 transition-all text-sm text-white placeholder:text-white/40"
+                                              value={formData.password}
+                                              onChange={(e) => handleChange("password", e.target.value)}
+                                            />
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between">
+                                          <button
+                                            type="button"
+                                            onClick={() => setShowResetPassword(true)}
+                                            className="text-xs font-bold text-white/80 hover:text-white underline underline-offset-4 decoration-white/20 hover:decoration-white transition"
+                                          >
+                                            Mot de passe oublié ?
+                                          </button>
+                                          <div className="text-[11px] text-white/60 font-medium">
+                                            Connexion locale partenaire
+                                          </div>
+                                        </div>
+
+                                        <div className="bg-white/10 text-white/80 p-4 rounded-2xl text-xs flex gap-3 leading-relaxed border border-white/10">
+                                          <AlertCircle size={18} className="shrink-0 mt-0.5 text-white/70" />
+                                          Connectez-vous ici pour reprendre votre inscription partenaire.
+                                        </div>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                           {authMode === "signup" ? (
+                             <div className="bg-blue-50 text-blue-800 p-4 rounded-2xl text-xs flex gap-3 leading-relaxed">
+                               <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                               Ces informations serviront à vous connecter à votre espace vendeur et à sécuriser votre compte.
+                             </div>
+                           ) : null}
                         </>
                      )}
                    </motion.div>
@@ -646,10 +870,14 @@ export default function Seller() {
                          <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Type de boutique</label>
                          <select 
                             className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3.5 text-sm outline-none focus:border-[#6aa200] focus:ring-4 focus:ring-[#6aa200]/10 transition-all"
-                            value={formData.category}
-                            onChange={e => handleChange("category", e.target.value)}
+                            value={formData.mainCategoryId}
+                            onChange={e => handleChange("mainCategoryId", e.target.value)}
                          >
-                           <option value="fashion"></option>
+                          {STATIC_CATEGORIES.map((c) => (
+                            <option key={c.id} value={`${c.id}`}>
+                              {c.label}
+                            </option>
+                          ))}
                          </select>
                        </div>
                      </div>
@@ -670,11 +898,27 @@ export default function Seller() {
 
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                        <Field label="Adresse Complète" icon={MapPin} placeholder="Ex: 12 Rue de la République" value={formData.address} onChange={e => handleChange("address", e.target.value)} />
-                       <Field label="Ville / Région" placeholder="Dakar" value={formData.city} onChange={e => handleChange("city", e.target.value)} />
+                       <Field label="Ville" placeholder="Dakar" value={formData.city} onChange={e => handleChange("city", e.target.value)} />
                      </div>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                       <Field label="Numéro NINEA" icon={Briefcase} placeholder="000000000" value={formData.ninea} onChange={e => handleChange("ninea", e.target.value)} />
-                       <Field label="Numéro RCCM" icon={Building2} placeholder="SN-DKR-2024-..." value={formData.rccm} onChange={e => handleChange("rccm", e.target.value)} />
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Pays</label>
+                        <select
+                          className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3.5 text-sm outline-none focus:border-[#6aa200] focus:ring-4 focus:ring-[#6aa200]/10 transition-all"
+                          value={formData.region}
+                          onChange={e => handleChange("region", e.target.value)}
+                        >
+                          <option value="Côte d'Ivoire">Côte d'Ivoire</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">Code</label>
+                        <input
+                          className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3.5 text-sm outline-none"
+                          value="CI"
+                          disabled
+                        />
+                      </div>
                      </div>
                    </motion.div>
                  )}
@@ -744,11 +988,7 @@ export default function Seller() {
                                      {formData.storeName || "Nom de votre boutique"}
                                    </h3>
                                    <p className="text-xs font-bold text-[#6aa200] uppercase tracking-wide mt-1">
-                                     {formData.category === 'fashion' ? 'Mode & Accessoires' : 
-                                      formData.category === 'tech' ? 'High-Tech' :
-                                      formData.category === 'home' ? 'Maison & Déco' :
-                                      formData.category === 'beauty' ? 'Beauté & Santé' :
-                                      formData.category === 'food' ? 'Alimentation' : 'Catégorie'}
+                                     {selectedCategoryLabel || "Catégorie"}
                                    </p>
                                  </div>
                                  {/* Rating Mockup */}
@@ -775,39 +1015,9 @@ export default function Seller() {
                    </motion.div>
                  )}
 
-                 {/* STEP 4: FINANCE */}
+                 {/* STEP 4: CONTRAT */}
                  {step === 4 && (
-                   <motion.div key="step4" {...stepAnim} className="space-y-6">
-                     <div className="bg-[#6aa200]/5 border border-[#6aa200]/20 p-5 rounded-2xl flex gap-4 items-start">
-                        <div className="p-2 bg-[#6aa200] rounded-lg text-white shrink-0">
-                          <CreditCard size={20} />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-[#6aa200] text-sm mb-1">Informations Bancaires</h4>
-                          <p className="text-xs text-neutral-600 leading-relaxed">
-                            Les paiements sont effectués automatiquement tous les lundis pour les commandes livrées. Assurez-vous que le titulaire du compte correspond au nom de l'entreprise ou du gérant.
-                          </p>
-                        </div>
-                     </div>
-
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                       <Field label="Nom de la Banque" icon={Building2} placeholder="Ex: CBAO, Ecobank..." value={formData.bankName} onChange={e => handleChange("bankName", e.target.value)} />
-                       <Field label="Titulaire du Compte" icon={User} placeholder="Nom complet" value={formData.accountHolder} onChange={e => handleChange("accountHolder", e.target.value)} />
-                     </div>
-                     
-                     <Field label="Numéro de Compte / IBAN" icon={CreditCard} placeholder="SN..." value={formData.iban} onChange={e => handleChange("iban", e.target.value)} />
-                     
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                       <Field label="Code Banque" placeholder="XXXXX" value={formData.bankCode} onChange={e => handleChange("bankCode", e.target.value)} />
-                       <Field label="Clé RIB" placeholder="XX" value={formData.ribKey} onChange={e => handleChange("ribKey", e.target.value)} />
-                     </div>
-                   </motion.div>
-                 )}
-
-                 {/* STEP 5: CONTRAT & DOCS */}
-                 {step === 5 && (
-                   <motion.div key="step5" {...stepAnim} className="space-y-8">
-                     
+                   <motion.div key="step4" {...stepAnim} className="space-y-8">
                      <div className="space-y-4">
                        <div className="flex items-center gap-2 mb-2">
                          <div className="h-8 w-8 rounded-full bg-[#6aa200] text-white flex items-center justify-center font-bold text-sm">1</div>
@@ -815,31 +1025,6 @@ export default function Seller() {
                        </div>
                        <PDFContractViewer accepted={formData.contractAccepted} onAccept={v => handleChange("contractAccepted", v)} />
                      </div>
-
-                     <div className="border-t border-neutral-100" />
-
-                     <div className="space-y-4">
-                       <div className="flex items-center gap-2 mb-4">
-                         <div className="h-8 w-8 rounded-full bg-[#6aa200] text-white flex items-center justify-center font-bold text-sm">2</div>
-                         <h3 className="font-bold text-lg">Documents Justificatifs</h3>
-                       </div>
-                       
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <FileUploadZone 
-                            label="Pièce d'identité (CNI / Passeport)" 
-                            accept=".pdf,.jpg,.png"
-                            value={formData.idDoc}
-                            onChange={f => handleChange("idDoc", f)}
-                         />
-                         <FileUploadZone 
-                            label="Registre de Commerce / NINEA" 
-                            accept=".pdf,.jpg,.png"
-                            value={formData.nineaDoc}
-                            onChange={f => handleChange("nineaDoc", f)}
-                         />
-                       </div>
-                     </div>
-
                    </motion.div>
                  )}
 
@@ -849,30 +1034,32 @@ export default function Seller() {
              {/* Footer Navigation */}
              <div className="flex items-center justify-between mt-10 pt-6 border-t border-neutral-100">
                <button 
-                 onClick={prevStep}
-                 disabled={step === 1}
+                 onClick={goPrev}
+                 disabled={step === 1 || stepLoading}
                  className="px-6 py-3 rounded-xl font-bold text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition disabled:opacity-0"
                >
                  Précédent
                </button>
 
-               {step < 5 ? (
+               {step < 4 ? (
                  <button 
-                   onClick={nextStep}
-                   className="group px-8 py-3 rounded-xl font-bold text-white shadow-lg shadow-[#6aa200]/30 hover:shadow-xl hover:shadow-[#6aa200]/40 hover:-translate-y-0.5 transition flex items-center gap-2"
+                   onClick={goNext}
+                  disabled={stepLoading || (!isAuth && step === 1 && authMode === "login" && showResetPassword)}
+                   className="group px-8 py-3 rounded-xl font-bold text-white shadow-lg shadow-[#6aa200]/30 hover:shadow-xl hover:shadow-[#6aa200]/40 hover:-translate-y-0.5 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                    style={{ background: BRAND }}
                  >
+                   {stepLoading && <Loader2 size={18} className="animate-spin" />}
                    Suivant <ArrowRight size={18} className="group-hover:translate-x-1 transition" />
                  </button>
                ) : (
                  <button 
-                   onClick={handleSubmit}
-                   disabled={loading || !formData.contractAccepted}
+                   onClick={finalizeRegistration}
+                   disabled={stepLoading || !formData.contractAccepted}
                    className="group px-8 py-3 rounded-xl font-bold text-white shadow-lg shadow-[#6aa200]/30 hover:shadow-xl hover:shadow-[#6aa200]/40 hover:-translate-y-0.5 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                    style={{ background: BRAND }}
                  >
-                   {loading && <Loader2 size={18} className="animate-spin" />}
-                   {loading ? "Traitement..." : "Finaliser l'inscription"}
+                   {stepLoading && <Loader2 size={18} className="animate-spin" />}
+                   {stepLoading ? "Traitement..." : "Finaliser l'inscription"}
                  </button>
                )}
              </div>

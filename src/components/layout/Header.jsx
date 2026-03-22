@@ -22,6 +22,14 @@ import { useFlashSaleProduct } from '@/features/flashSale/useFlashSaleProduct.js
 
 const DEFAULT_AVATAR = 'https://www.transparentpng.com/download/user/gray-user-profile-icon-png-fP8Q1P.png';
 
+const normalizeFirstName = (value) => {
+  const raw = `${value || ''}`.trim();
+  if (!raw) return '';
+  const firstToken = raw.split(/\s+/)[0];
+  if (!firstToken) return '';
+  return firstToken.charAt(0).toUpperCase() + firstToken.slice(1);
+};
+
 export default function Header() {
   const { theme, setTheme } = useTheme();
   const { cartCount, setIsCartOpen, cartTotal } = useCart();
@@ -58,9 +66,8 @@ export default function Header() {
   }, [tokenPayload]);
 
   const displayName = useMemo(() => {
-    const firstName = userProfile?.firstName || tokenPayload?.firstName || '';
-    return firstName || tokenPayload?.email || 'Utilisateur';
-  }, [tokenPayload?.email, tokenPayload?.firstName, userProfile?.firstName]);
+    return normalizeFirstName(userProfile?.firstName || tokenPayload?.firstName) || 'Utilisateur';
+  }, [tokenPayload?.firstName, userProfile?.firstName]);
 
   const getLastSeenProductsTs = () => {
     const raw = Number(localStorage.getItem("lid_last_seen_products") || "0");

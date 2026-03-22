@@ -320,4 +320,7 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/java,maven,macos,linux,windows,intellij,visualstudiocode,eclipse
 node_modules
+.vite/
+.env.local
+.env.*.local
 lid-api-feature-backend-initialisation

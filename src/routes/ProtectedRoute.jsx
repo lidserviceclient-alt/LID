@@ -1,26 +1,43 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import Loader from '@/components/Loader';
-import { isAuthenticated, refreshSession } from '@/services/authService';
+import { getCurrentUserPayload, isAuthenticated, refreshSession } from '@/services/authService';
 
 /**
  * Composant de protection de route.
  * Vérifie si l'utilisateur est connecté avant d'afficher le contenu.
  * Sinon, redirige vers la page de connexion.
  */
-const ProtectedRoute = ({ children }) => {
+const normalizeRole = (r) => `${r || ''}`.replace(/^ROLE_/, '').trim().toUpperCase();
+
+const hasAnyRole = (payload, requiredRoles) => {
+  if (!requiredRoles || requiredRoles.length === 0) return true;
+  const userRoles = (payload?.roles || []).map(normalizeRole);
+  const required = requiredRoles.map(normalizeRole);
+  return required.some((rr) => userRoles.includes(rr));
+};
+
+const ProtectedRoute = ({ children, requiredRoles, forbiddenTo = '/seller-joint' }) => {
   const location = useLocation();
-  const [state, setState] = useState({ checking: true, allowed: false });
+  const [state, setState] = useState({ checking: true, allowed: false, roleOk: true });
 
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
-      if (isAuthenticated()) {
-        if (!cancelled) setState({ checking: false, allowed: true });
+      const ensureAuth = async () => {
+        if (isAuthenticated()) return true;
+        return await refreshSession();
+      };
+
+      const ok = await ensureAuth();
+      if (!ok) {
+        if (!cancelled) setState({ checking: false, allowed: false, roleOk: true });
         return;
       }
-      const ok = await refreshSession();
-      if (!cancelled) setState({ checking: false, allowed: ok });
+
+      const payload = getCurrentUserPayload();
+      const roleOk = hasAnyRole(payload, requiredRoles);
+      if (!cancelled) setState({ checking: false, allowed: true, roleOk });
     };
     run();
     return () => {
@@ -34,6 +51,10 @@ const ProtectedRoute = ({ children }) => {
 
   if (!state.allowed) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!state.roleOk) {
+    return <Navigate to={forbiddenTo} replace />;
   }
 
   return children;

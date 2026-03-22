@@ -24,6 +24,18 @@ export const loginWithGoogle = async (idToken) => {
   return data;
 };
 
+export const loginPartnerLocal = async ({ email, password }) => {
+  const { data } = await api.post("/api/v1/auth/login/local/partner", { email, password });
+  if (data?.accessToken) {
+    setAccessToken(data.accessToken);
+  }
+  return data;
+};
+
+export const storeAccessToken = (token) => {
+  setAccessToken(token);
+};
+
 /**
  * Déconnecte l'utilisateur : appel API pour invalider la session serveur
  * puis nettoyage du token local.
@@ -47,8 +59,17 @@ export const logout = async () => {
 export const getUserProfile = async (userId) => {
   const encodedUserId = encodeURIComponent(userId);
 
-  const { data } = await api.get(`/api/v1/customers/${encodedUserId}`);
-  return data;
+  try {
+    const { data } = await api.get(`/api/v1/partners/${encodedUserId}`);
+    return data;
+  } catch (error) {
+    const status = error?.response?.status;
+    if (status === 404 || status === 403) {
+      const { data } = await api.get(`/api/v1/customers/${encodedUserId}`);
+      return data;
+    }
+    throw error;
+  }
 };
 
 export const updateUserProfile = async (userId, payload) => {

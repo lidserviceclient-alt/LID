@@ -12,7 +12,7 @@ if (isDebug) {
 const api = axios.create({
   baseURL: resolvedBaseUrl, // Fallback to localhost if env var is missing
   headers: {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
   },
   withCredentials: true,
   timeout: 10000, // 10 seconds timeout
@@ -21,7 +21,7 @@ const api = axios.create({
 const refreshClient = axios.create({
   baseURL: resolvedBaseUrl,
   headers: {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
   },
   withCredentials: true,
   timeout: 10000,
