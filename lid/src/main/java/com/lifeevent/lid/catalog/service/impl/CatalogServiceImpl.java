@@ -27,6 +27,7 @@ import com.lifeevent.lid.ticket.entity.TicketEvent;
 import com.lifeevent.lid.ticket.repository.TicketEventRepository;
 import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
+import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import jakarta.annotation.Resource;
@@ -69,6 +70,7 @@ public class CatalogServiceImpl implements CatalogService {
     private final ProductReviewLikeRepository productReviewLikeRepository;
     private final ProductReviewReportRepository productReviewReportRepository;
     private final UserEntityRepository userEntityRepository;
+    private final UserService userService;
     private final CustomerRepository customerRepository;
     private final BlogPostRepository blogPostRepository;
     private final TicketEventRepository ticketEventRepository;
@@ -734,14 +736,13 @@ public class CatalogServiceImpl implements CatalogService {
 
     private Customer ensureCustomer(UserEntity user) {
         return customerRepository.findByUserId(user.getUserId())
-                .orElseGet(() -> customerRepository.save(Customer.builder()
-                        .userId(user.getUserId())
-                        .email(user.getEmail())
-                        .emailVerified(user.isEmailVerified())
-                        .firstName(user.getFirstName())
-                        .lastName(user.getLastName())
-                        .blocked(Boolean.TRUE.equals(user.getBlocked()))
-                        .build()));
+                .orElseGet(() -> {
+                    Customer toCreate = new Customer();
+                    toCreate.setUser(user);
+                    Customer saved = customerRepository.save(toCreate);
+                    userService.upsertCustomerProfile(saved);
+                    return saved;
+                });
     }
 
     private long safeLong(Long value) {

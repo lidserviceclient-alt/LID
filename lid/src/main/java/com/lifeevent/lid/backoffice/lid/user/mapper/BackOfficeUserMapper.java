@@ -6,6 +6,7 @@ import com.lifeevent.lid.backoffice.lid.user.dto.BackOfficeUserAuthDto;
 import com.lifeevent.lid.backoffice.lid.user.dto.BackOfficeUserDto;
 import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.customer.entity.Customer;
+import com.lifeevent.lid.user.deliverydriver.entity.DelivryDriverProfileEntity;
 import com.lifeevent.lid.user.partner.entity.Partner;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,18 @@ import java.util.List;
 public class BackOfficeUserMapper {
 
     public BackOfficeUserDto toDto(UserEntity entity, Authentication auth) {
+        return toDto(entity, auth, null, null, null);
+    }
+
+    public BackOfficeUserDto toDto(UserEntity entity, Authentication auth, DelivryDriverProfileEntity livreurProfile) {
+        return toDto(entity, auth, null, null, livreurProfile);
+    }
+
+    public BackOfficeUserDto toDto(UserEntity entity,
+                                   Authentication auth,
+                                   Customer customerProfile,
+                                   Partner partnerProfile,
+                                   DelivryDriverProfileEntity livreurProfile) {
         if (entity == null) return null;
         BackOfficeUserDto dto = new BackOfficeUserDto();
         dto.setId(entity.getUserId());
@@ -28,15 +41,19 @@ public class BackOfficeUserMapper {
         dto.setDateCreation(entity.getCreatedAt());
         dto.setDateMiseAJour(entity.getUpdatedAt());
 
-        if (entity instanceof Customer customer) {
-            dto.setTelephone(customer.getPhoneNumber());
-            dto.setVille(customer.getCity());
-            dto.setPays(customer.getCountry());
-            dto.setAvatarUrl(customer.getAvatarUrl());
-        } else if (entity instanceof Partner partner) {
-            dto.setTelephone(partner.getPhoneNumber());
-            dto.setVille(partner.getCity());
-            dto.setPays(partner.getCountry());
+        if (customerProfile != null) {
+            dto.setTelephone(customerProfile.getPhoneNumber());
+            dto.setVille(customerProfile.getCity());
+            dto.setPays(customerProfile.getCountry());
+            dto.setAvatarUrl(customerProfile.getAvatarUrl());
+        } else if (partnerProfile != null) {
+            dto.setTelephone(partnerProfile.getPhoneNumber());
+            dto.setVille(partnerProfile.getCity());
+            dto.setPays(partnerProfile.getCountry());
+        } else if (livreurProfile != null) {
+            dto.setTelephone(livreurProfile.getPhoneNumber());
+            dto.setVille(livreurProfile.getCity());
+            dto.setPays(livreurProfile.getCountry());
         }
 
         dto.setAuthentifications(toAuthDtos(auth));
@@ -62,16 +79,6 @@ public class BackOfficeUserMapper {
             entity.setBlocked(dto.getBlocked());
         }
 
-        if (entity instanceof Customer customer) {
-            if (dto.getTelephone() != null) customer.setPhoneNumber(dto.getTelephone());
-            if (dto.getVille() != null) customer.setCity(dto.getVille());
-            if (dto.getPays() != null) customer.setCountry(dto.getPays());
-            if (dto.getAvatarUrl() != null) customer.setAvatarUrl(dto.getAvatarUrl());
-        } else if (entity instanceof Partner partner) {
-            if (dto.getTelephone() != null) partner.setPhoneNumber(dto.getTelephone());
-            if (dto.getVille() != null) partner.setCity(dto.getVille());
-            if (dto.getPays() != null) partner.setCountry(dto.getPays());
-        }
     }
 
     public String resolveRole(UserEntity entity, Authentication auth) {
@@ -82,8 +89,6 @@ public class BackOfficeUserMapper {
             if (auth.getRoles().contains(UserRole.PARTNER)) return "PARTENAIRE";
             if (auth.getRoles().contains(UserRole.CUSTOMER)) return "CLIENT";
         }
-        if (entity instanceof Partner) return "PARTENAIRE";
-        if (entity instanceof Customer) return "CLIENT";
         return "CLIENT";
     }
 

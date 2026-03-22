@@ -102,12 +102,6 @@ public class AuthService {
         assertUserNotBlocked(userJwt.getUserId());
 
         Authentication authentication = upsertAuthentication(userJwt.getUserId(), UserRole.CUSTOMER);
-        PartnerResponseDto partner = partnerRepository.findByUserIdWithShop(userJwt.getUserId())
-                .map(partnerMapper::toResponseDto)
-                .orElse(null);
-        authentication = (partner != null)
-                ? syncPartnerRole(authentication, partner.getRegistrationStatus())
-                : removeRole(authentication, UserRole.PARTNER);
 
         String accessToken = jwtService.generateAccessToken(userJwt, toRoleNames(authentication.getRoles()));
         issueRefreshTokenCookie(response, userJwt.getUserId());
@@ -124,11 +118,11 @@ public class AuthService {
         UserJwt userJwt = extractUserJwtFromGoogle(request, List.of(UserRole.PARTNER));
         assertUserNotBlocked(userJwt.getUserId());
 
-        Authentication authentication = getOrCreateAuthentication(userJwt.getUserId());
+        Authentication authentication = upsertAuthentication(userJwt.getUserId(), UserRole.PARTNER);
+        authentication = upsertAuthentication(userJwt.getUserId(), UserRole.CUSTOMER);
         PartnerResponseDto loggedPartner = partnerRepository.findByUserIdWithShop(userJwt.getUserId())
                 .map(partnerMapper::toResponseDto)
                 .orElseGet(() -> createPartnerFromGoogle(userJwt));
-        authentication = syncPartnerRole(authentication, loggedPartner.getRegistrationStatus());
 
         String accessToken = jwtService.generateAccessToken(userJwt, toRoleNames(authentication.getRoles()));
         issueRefreshTokenCookie(response, userJwt.getUserId());
@@ -305,13 +299,6 @@ public class AuthService {
         return authentication;
     }
 
-    private Authentication syncPartnerRole(Authentication authentication, PartnerRegistrationStatus status) {
-        if (status == PartnerRegistrationStatus.VERIFIED) {
-            return addRole(authentication, UserRole.PARTNER);
-        }
-        return removeRole(authentication, UserRole.PARTNER);
-    }
-
     private List<String> toRoleNames(List<UserRole> roles) {
         if (roles == null || roles.isEmpty()) {
             return List.of();
@@ -330,15 +317,23 @@ public class AuthService {
     }
 
     private PartnerResponseDto createPartnerFromGoogle(UserJwt userJwt) {
-        Partner partner = Partner.builder()
-                .userId(userJwt.getUserId())
-                .email(userJwt.getEmail())
-                .emailVerified(Boolean.TRUE.equals(userJwt.getEmailVerified()))
-                .firstName(userJwt.getFirstName())
-                .lastName(userJwt.getLastName())
-                .build();
+        UserEntity user = userEntityRepository.findById(userJwt.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Utilisateur introuvable"));
+        userService.getPartnerProfile(user.getUserId()).ifPresent(existing -> {
+            throw new IllegalArgumentException("Partenaire deja existant");
+        });
+        Partner partner = new Partner();
+        partner.setUser(user);
 
-        Partner saved = partnerRepository.save(partner);
+        Partner saved = userService.upsertPartnerProfile(partner);
+        userService.getOrCreateCustomerAccount(
+                saved.getUserId(),
+                saved.getEmail(),
+                saved.isEmailVerified(),
+                saved.getFirstName(),
+                saved.getLastName(),
+                saved.getBlocked()
+        );
         return partnerMapper.toResponseDto(saved);
     }
 
@@ -569,7 +564,12 @@ public class AuthService {
 
     @Transactional
     public void upsertPartnerLocalAuthentication(String userId, String passwordHash) {
-        upsertLocalAuthentication(userId, passwordHash, AuthenticationType.LOCAL, List.of(UserRole.PARTNER));
+        upsertLocalAuthentication(
+                userId,
+                passwordHash,
+                AuthenticationType.LOCAL,
+                List.of(UserRole.PARTNER, UserRole.CUSTOMER)
+        );
     }
 
     @Transactional(readOnly = true)
@@ -579,7 +579,11 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public String generatePartnerAccessToken(String userId, String email) {
-        return generateAccessToken(userId, email, List.of(UserRole.PARTNER.name()));
+        return generateAccessToken(
+                userId,
+                email,
+                List.of(UserRole.PARTNER.name(), UserRole.CUSTOMER.name())
+        );
     }
 
     private void issueRefreshTokenCookie(HttpServletResponse response, String userId) {

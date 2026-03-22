@@ -3,8 +3,8 @@ package com.lifeevent.lid.wishlist.service.impl;
 import com.lifeevent.lid.article.entity.Article;
 import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.customer.entity.Customer;
-import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import com.lifeevent.lid.wishlist.dto.WishlistDto;
 import com.lifeevent.lid.wishlist.entity.Wishlist;
 import com.lifeevent.lid.wishlist.mapper.WishlistMapper;
@@ -24,7 +24,7 @@ import java.util.List;
 public class WishlistServiceImpl implements WishlistService {
     
     private final WishlistRepository wishlistRepository;
-    private final CustomerRepository customerRepository;
+    private final UserService userService;
     private final ArticleRepository articleRepository;
     private final WishlistMapper wishlistMapper;
     
@@ -33,7 +33,7 @@ public class WishlistServiceImpl implements WishlistService {
     public List<WishlistDto> getWishlist(String customerId) {
         log.info("Récupération de la wishlist du client: {}", customerId);
         // Vérifier que le client existe
-        customerRepository.findById(customerId)
+        userService.getCustomerProfile(customerId)
             .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId.toString()));
         
         return wishlistMapper.toDtoList(wishlistRepository.findByCustomer_UserId(customerId));
@@ -43,7 +43,7 @@ public class WishlistServiceImpl implements WishlistService {
     public WishlistDto addToWishlist(String customerId, Long articleId) {
         log.info("Ajout de l'article {} à la wishlist du client {}", articleId, customerId);
         
-        Customer customer = customerRepository.findById(customerId)
+        Customer customer = userService.getCustomerProfile(customerId)
             .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId.toString()));
         
         Article article = articleRepository.findById(articleId)
@@ -67,7 +67,7 @@ public class WishlistServiceImpl implements WishlistService {
         log.info("Retrait de l'article {} de la wishlist du client {}", articleId, customerId);
         
         // Vérifier que le client existe
-        customerRepository.findById(customerId)
+        userService.getCustomerProfile(customerId)
             .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId.toString()));
         
         wishlistRepository.deleteByCustomer_UserIdAndArticleId(customerId, articleId);

@@ -43,7 +43,7 @@ public class Shop extends BaseEntity {
     @JoinColumn(name = "main_category_id", nullable = false)
     private Category mainCategory;
     
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     private String shopDescription;
     
     /**

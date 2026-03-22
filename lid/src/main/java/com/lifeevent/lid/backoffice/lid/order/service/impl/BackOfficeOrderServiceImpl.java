@@ -19,8 +19,8 @@ import com.lifeevent.lid.order.enumeration.Status;
 import com.lifeevent.lid.order.repository.OrderArticleRepository;
 import com.lifeevent.lid.order.repository.OrderRepository;
 import com.lifeevent.lid.stock.repository.StockRepository;
+import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.customer.entity.Customer;
-import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -45,7 +45,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
 
     private final OrderRepository orderRepository;
     private final OrderArticleRepository orderArticleRepository;
-    private final CustomerRepository customerRepository;
+    private final UserService userService;
     private final ArticleRepository articleRepository;
     private final DiscountRepository discountRepository;
     private final StockRepository stockRepository;
@@ -94,7 +94,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
         if (customerId == null || customerId.isBlank()) {
             throw new IllegalArgumentException("customerId requis");
         }
-        customerRepository.findById(customerId)
+        userService.getCustomerProfile(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId));
         Status mappedStatus = mapToOrderStatus(status);
         Page<Order> ordersPage = orderRepository.searchByCustomerBackOffice(customerId, mappedStatus, pageable);
@@ -111,7 +111,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
             throw new IllegalArgumentException("Aucune ligne de commande");
         }
 
-        Customer customer = customerRepository.findById(request.getCustomerId())
+        Customer customer = userService.getCustomerProfile(request.getCustomerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", request.getCustomerId()));
 
         double subTotal = 0d;

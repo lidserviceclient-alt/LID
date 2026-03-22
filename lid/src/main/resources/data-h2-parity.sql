@@ -23,8 +23,9 @@ TRUNCATE TABLE blog_post;
 TRUNCATE TABLE ticket_event;
 TRUNCATE TABLE orders;
 TRUNCATE TABLE article;
-TRUNCATE TABLE partner;
-TRUNCATE TABLE customer;
+TRUNCATE TABLE partner_profile;
+TRUNCATE TABLE customer_profile;
+TRUNCATE TABLE delivery_driver_profile;
 TRUNCATE TABLE authentication;
 TRUNCATE TABLE shop;
 TRUNCATE TABLE category;
@@ -40,8 +41,8 @@ TRUNCATE TABLE backoffice_app_config;
 SET REFERENTIAL_INTEGRITY TRUE;
 
 -- Super admin user
-INSERT INTO user_entity (user_id, user_type, first_name, last_name, email, email_verified, blocked, created_at, updated_at, created_by, updated_by) VALUES
-  ('u-admin', 'UserEntity', 'Super', 'Admin', 'admin@lid.fr', TRUE, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL, NULL);
+INSERT INTO user_entity (user_id, first_name, last_name, email, email_verified, blocked, created_at, updated_at, created_by, updated_by) VALUES
+  ('u-admin', 'Super', 'Admin', 'admin@lid.fr', TRUE, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL, NULL);
 
 -- Authentication (LOCAL) - password=admin
 INSERT INTO authentication (user_id, type, password_hash, created_at, updated_at, created_by, updated_by) VALUES

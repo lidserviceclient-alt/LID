@@ -1,6 +1,7 @@
 package com.lifeevent.lid.user.customer.service.impl;
 
 import com.lifeevent.lid.cart.service.CartService;
+import com.lifeevent.lid.auth.repository.AuthenticationRepository;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.user.customer.dto.CustomerAddressDto;
 import com.lifeevent.lid.user.customer.dto.CustomerDto;
@@ -10,6 +11,8 @@ import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import com.lifeevent.lid.user.customer.repository.CustomerAddressRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.mapper.CustomerMapper;
+import com.lifeevent.lid.user.common.entity.UserEntity;
+import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.customer.service.CustomerService;
 import com.lifeevent.lid.user.common.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +40,8 @@ public class CustomerServiceImpl implements CustomerService {
     private final CustomerAddressRepository customerAddressRepository;
     private final CustomerMapper customerMapper;
     private final CustomerAddressMapper customerAddressMapper;
+    private final UserEntityRepository userEntityRepository;
+    private final AuthenticationRepository authenticationRepository;
     private final UserService userService;
     private final CartService cartService;
     
@@ -50,7 +55,20 @@ public class CustomerServiceImpl implements CustomerService {
         }
         
         Customer customer = customerMapper.toEntity(dto);
+        String userId = customer.getUserId() == null || customer.getUserId().isBlank()
+                ? UUID.randomUUID().toString()
+                : customer.getUserId();
+        UserEntity user = userEntityRepository.save(UserEntity.builder()
+                .userId(userId)
+                .email(dto.getEmail())
+                .emailVerified(Boolean.FALSE)
+                .firstName(dto.getFirstName())
+                .lastName(dto.getLastName())
+                .blocked(Boolean.FALSE)
+                .build());
+        customer.setUser(user);
         Customer saved = customerRepository.save(customer);
+        userService.upsertCustomerProfile(saved);
         cartService.createCart(saved.getUserId());
         return customerMapper.toDto(saved);
     }
@@ -86,6 +104,7 @@ public class CustomerServiceImpl implements CustomerService {
         
         customerMapper.updateEntityFromDto(dto, customer);
         Customer updated = customerRepository.save(customer);
+        userService.upsertCustomerProfile(updated);
         return customerMapper.toDto(updated);
     }
     
@@ -96,6 +115,8 @@ public class CustomerServiceImpl implements CustomerService {
             throw new ResourceNotFoundException("Customer", "id", id);
         }
         customerRepository.deleteById(id);
+        authenticationRepository.findById(id).ifPresent(authenticationRepository::delete);
+        userEntityRepository.findById(id).ifPresent(userEntityRepository::delete);
     }
     
     @Override

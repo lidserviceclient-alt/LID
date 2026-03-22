@@ -41,6 +41,8 @@ import com.lifeevent.lid.stock.entity.Stock;
 import com.lifeevent.lid.stock.repository.StockRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
+import com.lifeevent.lid.user.common.repository.UserEntityRepository;
+import com.lifeevent.lid.user.common.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -73,6 +75,8 @@ public class OrderServiceImpl implements OrderService {
     private final CartRepository cartRepository;
     private final CartArticleRepository cartArticleRepository;
     private final CustomerRepository customerRepository;
+    private final UserEntityRepository userEntityRepository;
+    private final UserService userService;
     private final StockRepository stockRepository;
     private final ArticleRepository articleRepository;
     private final DiscountRepository discountRepository;
@@ -84,7 +88,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public CheckoutResponseDto checkoutCart(String customerId, CheckoutCartRequestDto request) {
         log.info("Checkout panier pour le client: {}", customerId);
-        Customer customer = getRequiredCustomer(customerId);
+        Customer customer = getOrCreateCustomerForCheckout(customerId);
         CheckoutData checkoutData = resolveCheckoutData(customerId, request);
         QuoteComputation quote = computeQuote(checkoutData.lines(), request, true);
         double shippingCost = normalizeShippingCost(request);
@@ -115,7 +119,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public CheckoutResponseDto checkoutSelectedArticles(String customerId, CheckoutCartSelectedRequestDto request) {
         log.info("Checkout articles sélectionnés pour le client: {}", customerId);
-        Customer customer = getRequiredCustomer(customerId);
+        Customer customer = getOrCreateCustomerForCheckout(customerId);
         List<CheckoutLine> lines = buildSelectedCheckoutLines(request);
         QuoteComputation quote = computeQuote(lines, request, true);
         double shippingCost = normalizeShippingCost(request);
@@ -136,7 +140,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     public List<OrderDetailDto> getOrdersByCustomer(String customerId, int page, int size) {
         log.info("Récupération des commandes du client: {}", customerId);
-        getRequiredCustomer(customerId);
+        requireExistingCustomer(customerId);
 
         Pageable pageable = PageRequest.of(page, size);
         List<Long> orderIds = orderRepository.findIdsByCustomerUserId(customerId, pageable).getContent();
@@ -812,8 +816,22 @@ public class OrderServiceImpl implements OrderService {
                 .build();
     }
 
-    private Customer getRequiredCustomer(String customerId) {
-        return customerRepository.findById(customerId)
+    private Customer getOrCreateCustomerForCheckout(String customerId) {
+        return userService.getCustomerProfile(customerId)
+                .orElseGet(() -> userEntityRepository.findById(customerId)
+                        .map(user -> userService.getOrCreateCustomerAccount(
+                                user.getUserId(),
+                                user.getEmail(),
+                                user.isEmailVerified(),
+                                user.getFirstName(),
+                                user.getLastName(),
+                                user.getBlocked()
+                        ))
+                        .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId)));
+    }
+
+    private Customer requireExistingCustomer(String customerId) {
+        return userService.getCustomerProfile(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer", "id", customerId));
     }
 

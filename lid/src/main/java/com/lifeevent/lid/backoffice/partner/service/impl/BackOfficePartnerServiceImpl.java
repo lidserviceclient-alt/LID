@@ -36,6 +36,7 @@ import com.lifeevent.lid.order.repository.OrderRepository;
 import com.lifeevent.lid.stock.entity.Stock;
 import com.lifeevent.lid.stock.repository.StockRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
+import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.partner.entity.Partner;
 import com.lifeevent.lid.user.partner.entity.Shop;
 import com.lifeevent.lid.user.partner.entity.ShopStatusEnum;
@@ -83,6 +84,7 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     private final BackOfficePartnerMapper mapper;
     private final BackOfficeProductMapper backOfficeProductMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final UserService userService;
 
     @Override
     @Cacheable(
@@ -190,7 +192,9 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
             }
         }
 
-        return mapper.toSettingsDto(partnerRepository.save(partner));
+        Partner saved = partnerRepository.save(partner);
+        userService.upsertPartnerProfile(saved);
+        return mapper.toSettingsDto(saved);
     }
 
     @Override

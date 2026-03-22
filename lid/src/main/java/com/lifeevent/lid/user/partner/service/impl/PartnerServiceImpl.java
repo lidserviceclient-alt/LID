@@ -5,6 +5,7 @@ import com.lifeevent.lid.article.repository.CategoryRepository;
 import com.lifeevent.lid.auth.service.AuthService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
+import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.partner.dto.*;
@@ -51,8 +52,19 @@ public class PartnerServiceImpl implements PartnerService {
     public PartnerRegisterStep1ResponseDto registerStep1(PartnerRegisterStep1RequestDto dto) {
         log.info("PARTNER STEP-1 - email={}", dto.getEmail());
         validateEmailAvailability(dto.getEmail());
-        Partner saved = partnerRepository.save(buildPartnerFromStep1(dto));
-        authService.upsertPartnerLocalAuthentication(saved.getUserId(), saved.getPasswordHash());
+        String rawPassword = firstNonBlank(dto.getPassword());
+        UserEntity user = createBaseUserForPartnerStep1(dto);
+        Partner partnerProfile = new Partner();
+        partnerProfile.setUser(user);
+        partnerProfile.setPhoneNumber(normalize(dto.getPhoneNumber()));
+        partnerProfile.setRegistrationStatus(PartnerRegistrationStatus.STEP_1_PENDING);
+        partnerProfile.setContractAccepted(Boolean.FALSE);
+        Partner saved = partnerRepository.saveAndFlush(partnerProfile);
+        ensureCustomerAccount(saved);
+        authService.upsertPartnerLocalAuthentication(
+                saved.getUserId(),
+                rawPassword == null ? null : authService.hashLocalPassword(rawPassword)
+        );
         PartnerResponseDto partner = partnerMapper.toResponseDto(saved);
         String accessToken = authService.generatePartnerAccessToken(saved.getUserId(), saved.getEmail());
         return PartnerRegisterStep1ResponseDto.builder()
@@ -75,7 +87,9 @@ public class PartnerServiceImpl implements PartnerService {
         partner.setNinea(normalize(dto.getNinea()));
         partner.setRccm(normalize(dto.getRccm()));
         partner.setRegistrationStatus(PartnerRegistrationStatus.STEP_2_PENDING);
-        return partnerMapper.toResponseDto(partnerRepository.save(partner));
+        Partner saved = partnerRepository.save(partner);
+        userService.upsertPartnerProfile(saved);
+        return partnerMapper.toResponseDto(saved);
     }
 
     @Override
@@ -83,28 +97,46 @@ public class PartnerServiceImpl implements PartnerService {
         String currentUserId = requireCurrentUserId(userId);
         log.info("PARTNER UPGRADE - userId={}", currentUserId);
 
-        if (!userEntityRepository.existsById(currentUserId)) {
-            Partner partner = Partner.builder()
+        var existingUser = userEntityRepository.findById(currentUserId);
+        if (existingUser.isEmpty()) {
+            UserEntity user = userEntityRepository.save(UserEntity.builder()
                     .userId(currentUserId)
                     .email(normalize(dto.getEmail()))
                     .emailVerified(false)
                     .firstName(normalize(dto.getFirstName()))
                     .lastName(normalize(dto.getLastName()))
-                    .phoneNumber(normalize(dto.getPhoneNumber()))
-                    .registrationStatus(PartnerRegistrationStatus.STEP_1_PENDING)
-                    .contractAccepted(Boolean.FALSE)
-                    .build();
-            return partnerMapper.toResponseDto(partnerRepository.save(partner));
+                    .blocked(Boolean.FALSE)
+                    .build());
+            Partner partner = new Partner();
+            partner.setUser(user);
+            partner.setPhoneNumber(normalize(dto.getPhoneNumber()));
+            partner.setRegistrationStatus(PartnerRegistrationStatus.STEP_1_PENDING);
+            partner.setContractAccepted(Boolean.FALSE);
+            Partner saved = partnerRepository.save(partner);
+            userService.upsertPartnerProfile(saved);
+            ensureCustomerAccount(saved);
+            return partnerMapper.toResponseDto(saved);
         }
 
-        if (!partnerRepository.partnerRowExists(currentUserId)) {
-            partnerRepository.insertInitialPartnerData(currentUserId, dto.getPhoneNumber());
-        }
-        partnerRepository.updateUserTypeToPartner(currentUserId);
-
-        Partner partner = requirePartner(currentUserId);
+        Partner partner = partnerRepository.findById(currentUserId)
+                .orElseGet(() -> {
+                    var user = existingUser.get();
+                    user.setEmail(firstNonBlank(normalize(dto.getEmail()), user.getEmail()));
+                    user.setFirstName(firstNonBlank(normalize(dto.getFirstName()), user.getFirstName()));
+                    user.setLastName(firstNonBlank(normalize(dto.getLastName()), user.getLastName()));
+                    UserEntity savedUser = userEntityRepository.save(user);
+                    Partner created = new Partner();
+                    created.setUser(savedUser);
+                    created.setPhoneNumber(normalize(dto.getPhoneNumber()));
+                    created.setRegistrationStatus(PartnerRegistrationStatus.STEP_1_PENDING);
+                    created.setContractAccepted(Boolean.FALSE);
+                    return created;
+                });
         applyIdentityUpdates(partner, dto.getFirstName(), dto.getLastName(), dto.getPhoneNumber());
-        return partnerMapper.toResponseDto(partnerRepository.save(partner));
+        Partner saved = partnerRepository.save(partner);
+        userService.upsertPartnerProfile(saved);
+        ensureCustomerAccount(saved);
+        return partnerMapper.toResponseDto(saved);
     }
 
     @Override
@@ -114,7 +146,9 @@ public class PartnerServiceImpl implements PartnerService {
         Partner partner = requirePartnerWithShop(partnerId);
         applyMediaUpdates(partner, dto);
         partner.setRegistrationStatus(PartnerRegistrationStatus.STEP_3_PENDING);
-        return partnerMapper.toResponseDto(partnerRepository.save(partner));
+        Partner saved = partnerRepository.save(partner);
+        userService.upsertPartnerProfile(saved);
+        return partnerMapper.toResponseDto(saved);
     }
 
     @Override
@@ -131,7 +165,9 @@ public class PartnerServiceImpl implements PartnerService {
         partner.setSupportingDocumentsZipUrl(normalize(dto.getSupportingDocumentsZipUrl()));
         // TODO : En attente de vérification (KYC)
         partner.setRegistrationStatus(PartnerRegistrationStatus.VERIFIED);
-        return partnerMapper.toResponseDto(partnerRepository.save(partner));
+        Partner saved = partnerRepository.save(partner);
+        userService.upsertPartnerProfile(saved);
+        return partnerMapper.toResponseDto(saved);
     }
 
     @Override
@@ -164,7 +200,9 @@ public class PartnerServiceImpl implements PartnerService {
         ensureCanManagePartner(partnerId);
         Partner partner = requirePartner(partnerId);
         applyIdentityUpdates(partner, dto.getFirstName(), dto.getLastName(), dto.getPhoneNumber());
-        return partnerMapper.toResponseDto(partnerRepository.save(partner));
+        Partner saved = partnerRepository.save(partner);
+        userService.upsertPartnerProfile(saved);
+        return partnerMapper.toResponseDto(saved);
     }
 
     @Override
@@ -180,15 +218,27 @@ public class PartnerServiceImpl implements PartnerService {
         }
     }
 
-    private Partner buildPartnerFromStep1(PartnerRegisterStep1RequestDto dto) {
-        Partner partner = partnerMapper.toEntityFromStep1(dto);
-        partner.setUserId(UUID.randomUUID().toString());
-        String rawPassword = firstNonBlank(dto.getPassword());
-        if (rawPassword != null) {
-            partner.setPasswordHash(authService.hashLocalPassword(rawPassword));
-        }
-        partner.setRegistrationStatus(PartnerRegistrationStatus.STEP_1_PENDING);
-        return partner;
+    private void ensureCustomerAccount(Partner partner) {
+        userService.getOrCreateCustomerAccount(
+                partner.getUserId(),
+                partner.getEmail(),
+                partner.isEmailVerified(),
+                partner.getFirstName(),
+                partner.getLastName(),
+                partner.getBlocked()
+        );
+    }
+
+    private UserEntity createBaseUserForPartnerStep1(PartnerRegisterStep1RequestDto dto) {
+        String userId = UUID.randomUUID().toString();
+        return userEntityRepository.save(UserEntity.builder()
+                .userId(userId)
+                .email(normalize(dto.getEmail()))
+                .emailVerified(false)
+                .firstName(normalize(dto.getFirstName()))
+                .lastName(normalize(dto.getLastName()))
+                .blocked(Boolean.FALSE)
+                .build());
     }
 
     private Shop upsertShop(Partner partner, Category mainCategory, PartnerRegisterStep2RequestDto dto) {

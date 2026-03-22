@@ -12,8 +12,11 @@ import com.lifeevent.lid.backoffice.lid.user.service.BackOfficeUserService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
+import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
+import com.lifeevent.lid.user.deliverydriver.entity.DelivryDriverProfileEntity;
+import com.lifeevent.lid.user.deliverydriver.repository.DelivryDriverProfileRepository;
 import com.lifeevent.lid.user.partner.entity.Partner;
 import com.lifeevent.lid.user.partner.repository.PartnerRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +27,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,35 +46,48 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
     private final AuthenticationRepository authenticationRepository;
     private final BackOfficeUserMapper backOfficeUserMapper;
     private final AuthService authService;
+    private final UserService userService;
+    private final DelivryDriverProfileRepository livreurProfileRepository;
 
     @Override
     @Transactional(readOnly = true)
     public Page<BackOfficeUserDto> getAll(Pageable pageable, String role, String q) {
         String roleFilter = role == null ? "" : role.trim().toUpperCase();
         String query = q == null ? "" : q.trim().toLowerCase();
-        Class<? extends UserEntity> roleClass = resolveRoleClass(roleFilter);
-
-        if (isAuthRole(roleFilter)) {
+        if (!roleFilter.isBlank()) {
             return getAllByAuthRole(pageable, roleFilter, query);
         }
 
-        Page<UserEntity> usersPage = userEntityRepository.search(roleClass, query, pageable);
+        Page<UserEntity> usersPage = userEntityRepository.search(query, pageable);
         if (usersPage.isEmpty()) {
             return Page.empty(pageable);
         }
 
         Map<String, Authentication> authMap = loadAuthMap(usersPage.getContent());
+        Map<String, Customer> customerProfiles = loadCustomerProfilesForIds(usersPage.getContent().stream()
+                .map(UserEntity::getUserId)
+                .filter(Objects::nonNull)
+                .toList(), authMap);
+        Map<String, Partner> partnerProfiles = loadPartnerProfilesForIds(usersPage.getContent().stream()
+                .map(UserEntity::getUserId)
+                .filter(Objects::nonNull)
+                .toList(), authMap);
+        Map<String, DelivryDriverProfileEntity> livreurProfiles = loadDelivryDriverProfilesForUsers(usersPage.getContent(), authMap);
         List<BackOfficeUserDto> content = new ArrayList<>();
         for (UserEntity user : usersPage.getContent()) {
-            Authentication auth = authMap.get(user.getUserId());
-            BackOfficeUserDto dto = backOfficeUserMapper.toDto(user, auth);
-            content.add(dto);
+            String userId = user.getUserId();
+            Authentication auth = authMap.get(userId);
+            DelivryDriverProfileEntity livreurProfile = livreurProfiles.get(userId);
+            content.add(backOfficeUserMapper.toDto(user, auth, customerProfiles.get(userId), partnerProfiles.get(userId), livreurProfile));
         }
         return new PageImpl<>(content, pageable, usersPage.getTotalElements());
     }
 
     private Page<BackOfficeUserDto> getAllByAuthRole(Pageable pageable, String roleFilter, String query) {
         List<String> roles = mapAuthRoles(roleFilter);
+        if (roles.isEmpty()) {
+            return Page.empty(pageable);
+        }
         Page<String> idsPage = authenticationRepository.searchUserIdsByRolesIn(roles, query, pageable);
         if (idsPage.isEmpty()) {
             return Page.empty(pageable);
@@ -78,6 +98,9 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
                 .collect(Collectors.toMap(UserEntity::getUserId, u -> u));
         Map<String, Authentication> authById = authenticationRepository.findAllById(ids).stream()
                 .collect(Collectors.toMap(Authentication::getUserId, a -> a));
+        Map<String, Customer> customerProfiles = loadCustomerProfilesForIds(ids, authById);
+        Map<String, Partner> partnerProfiles = loadPartnerProfilesForIds(ids, authById);
+        Map<String, DelivryDriverProfileEntity> livreurProfiles = loadDelivryDriverProfilesForIds(ids, authById);
 
         List<BackOfficeUserDto> content = ids.stream()
                 .map(id -> {
@@ -85,7 +108,13 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
                     if (user == null) {
                         return null;
                     }
-                    return backOfficeUserMapper.toDto(user, authById.get(id));
+                    return backOfficeUserMapper.toDto(
+                            user,
+                            authById.get(id),
+                            customerProfiles.get(id),
+                            partnerProfiles.get(id),
+                            livreurProfiles.get(id)
+                    );
                 })
                 .filter(Objects::nonNull)
                 .toList();
@@ -99,7 +128,12 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
         UserEntity user = userEntityRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
         Authentication auth = authenticationRepository.findById(id).orElse(null);
-        return backOfficeUserMapper.toDto(user, auth);
+        DelivryDriverProfileEntity livreurProfile = hasRole(auth, UserRole.LIVREUR)
+                ? userService.getDeliveryProfile(id).orElse(null)
+                : null;
+        Customer customer = hasRole(auth, UserRole.CUSTOMER) ? userService.getCustomerProfile(id).orElse(null) : null;
+        Partner partner = hasRole(auth, UserRole.PARTNER) ? userService.getPartnerProfile(id).orElse(null) : null;
+        return backOfficeUserMapper.toDto(user, auth, customer, partner, livreurProfile);
     }
 
     @Override
@@ -107,17 +141,17 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
         if (dto == null) {
             dto = new BackOfficeUserDto();
         }
-        String userId = (dto != null && dto.getId() != null && !dto.getId().isBlank())
+        String userId = (dto.getId() != null && !dto.getId().isBlank())
                 ? dto.getId()
                 : UUID.randomUUID().toString();
         UserEntity entity = buildEntityFromDto(dto, userId);
         UserEntity saved = saveEntity(entity);
-        Authentication auth = upsertAuth(
-                userId,
-                dto != null ? dto.getRole() : null,
-                dto != null ? dto.getPassword() : null
-        );
-        return backOfficeUserMapper.toDto(saved, auth);
+        Authentication auth = upsertAuth(userId, dto.getRole(), dto.getPassword());
+        synchronizeRoleProfiles(userId, dto, auth);
+        DelivryDriverProfileEntity livreurProfile = hasRole(auth, UserRole.LIVREUR) ? userService.getDeliveryProfile(userId).orElse(null) : null;
+        Customer customer = hasRole(auth, UserRole.CUSTOMER) ? userService.getCustomerProfile(userId).orElse(null) : null;
+        Partner partner = hasRole(auth, UserRole.PARTNER) ? userService.getPartnerProfile(userId).orElse(null) : null;
+        return backOfficeUserMapper.toDto(saved, auth, customer, partner, livreurProfile);
     }
 
     @Override
@@ -133,12 +167,12 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
 
         backOfficeUserMapper.updateEntityFromDto(dto, entity);
         UserEntity saved = saveEntity(entity);
-        Authentication auth = upsertAuth(
-                id,
-                dto != null ? dto.getRole() : null,
-                dto != null ? dto.getPassword() : null
-        );
-        return backOfficeUserMapper.toDto(saved, auth);
+        Authentication auth = upsertAuth(id, dto != null ? dto.getRole() : null, dto != null ? dto.getPassword() : null);
+        synchronizeRoleProfiles(id, dto, auth);
+        DelivryDriverProfileEntity livreurProfile = hasRole(auth, UserRole.LIVREUR) ? userService.getDeliveryProfile(id).orElse(null) : null;
+        Customer customer = hasRole(auth, UserRole.CUSTOMER) ? userService.getCustomerProfile(id).orElse(null) : null;
+        Partner partner = hasRole(auth, UserRole.PARTNER) ? userService.getPartnerProfile(id).orElse(null) : null;
+        return backOfficeUserMapper.toDto(saved, auth, customer, partner, livreurProfile);
     }
 
     @Override
@@ -156,8 +190,49 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
         if (!userEntityRepository.existsById(id)) {
             throw new ResourceNotFoundException("User", "id", id);
         }
+        // Shared-PK profiles must be deleted before the base user row.
+        livreurProfileRepository.findById(id).ifPresent(livreurProfileRepository::delete);
+        partnerRepository.findById(id).ifPresent(partnerRepository::delete);
+        customerRepository.findById(id).ifPresent(customerRepository::delete);
         authenticationRepository.findById(id).ifPresent(authenticationRepository::delete);
         userEntityRepository.deleteById(id);
+    }
+
+    private void synchronizeRoleProfiles(String userId, BackOfficeUserDto dto, Authentication auth) {
+        if (hasRole(auth, UserRole.CUSTOMER)) {
+            userService.getOrCreateCustomerAccount(
+                    userId,
+                    dto != null ? dto.getEmail() : null,
+                    dto != null && Boolean.TRUE.equals(dto.getEmailVerifie()),
+                    dto != null ? dto.getPrenom() : null,
+                    dto != null ? dto.getNom() : null,
+                    dto != null ? dto.getBlocked() : null
+            );
+        }
+        if (hasRole(auth, UserRole.PARTNER)) {
+            Partner partner = userService.getPartnerProfile(userId).orElseGet(() -> {
+                UserEntity user = userEntityRepository.findById(userId)
+                        .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+                Partner created = new Partner();
+                created.setUser(user);
+                return created;
+            });
+            if (dto != null) {
+                if (dto.getTelephone() != null) partner.setPhoneNumber(dto.getTelephone());
+                if (dto.getVille() != null) partner.setCity(dto.getVille());
+                if (dto.getPays() != null) partner.setCountry(dto.getPays());
+            }
+            Partner savedPartner = partnerRepository.save(partner);
+            userService.upsertPartnerProfile(savedPartner);
+        }
+        if (hasRole(auth, UserRole.LIVREUR)) {
+            userService.upsertDelivryDriverProfile(
+                    userId,
+                    dto != null ? dto.getTelephone() : null,
+                    dto != null ? dto.getVille() : null,
+                    dto != null ? dto.getPays() : null
+            );
+        }
     }
 
     private Map<String, Authentication> loadAuthMap(List<UserEntity> users) {
@@ -165,24 +240,66 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
                 .map(UserEntity::getUserId)
                 .filter(Objects::nonNull)
                 .toList();
-        if (ids.isEmpty()) return Map.of();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
         return authenticationRepository.findAllById(ids).stream()
                 .collect(Collectors.toMap(Authentication::getUserId, a -> a));
     }
 
-    private Class<? extends UserEntity> resolveRoleClass(String role) {
-        if (role == null || role.isBlank()) {
-            return null;
-        }
-        return switch (role) {
-            case "CLIENT" -> Customer.class;
-            case "PARTENAIRE" -> Partner.class;
-            default -> null;
-        };
+    private Map<String, DelivryDriverProfileEntity> loadDelivryDriverProfilesForUsers(List<UserEntity> users,
+                                                                          Map<String, Authentication> authByUserId) {
+        List<String> ids = users.stream()
+                .map(UserEntity::getUserId)
+                .filter(Objects::nonNull)
+                .toList();
+        return loadDelivryDriverProfilesForIds(ids, authByUserId);
     }
 
-    private boolean isAuthRole(String role) {
-        return "ADMIN".equals(role) || "SUPER_ADMIN".equals(role) || "LIVREUR".equals(role);
+    private Map<String, DelivryDriverProfileEntity> loadDelivryDriverProfilesForIds(List<String> ids,
+                                                                        Map<String, Authentication> authByUserId) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        List<String> livreurIds = ids.stream()
+                .filter(id -> hasRole(authByUserId.get(id), UserRole.LIVREUR))
+                .toList();
+        if (livreurIds.isEmpty()) {
+            return Map.of();
+        }
+        return userService.getDeliveryProfilesByIds(livreurIds);
+    }
+
+    private Map<String, Customer> loadCustomerProfilesForIds(List<String> ids, Map<String, Authentication> authByUserId) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        List<String> customerIds = ids.stream()
+                .filter(id -> hasRole(authByUserId.get(id), UserRole.CUSTOMER))
+                .toList();
+        if (customerIds.isEmpty()) {
+            return Map.of();
+        }
+        return userService.getCustomerProfilesByIds(customerIds);
+    }
+
+    private Map<String, Partner> loadPartnerProfilesForIds(List<String> ids, Map<String, Authentication> authByUserId) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        List<String> partnerIds = ids.stream()
+                .filter(id -> hasRole(authByUserId.get(id), UserRole.PARTNER))
+                .toList();
+        if (partnerIds.isEmpty()) {
+            return Map.of();
+        }
+        return userService.getPartnerProfilesByIds(partnerIds);
+    }
+
+    private boolean hasRole(Authentication auth, UserRole role) {
+        return auth != null
+                && auth.getRoles() != null
+                && auth.getRoles().contains(role);
     }
 
     private List<String> mapAuthRoles(String role) {
@@ -190,39 +307,13 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
             case "ADMIN" -> List.of("ADMIN");
             case "SUPER_ADMIN" -> List.of("SUPER_ADMIN");
             case "LIVREUR" -> List.of("LIVREUR");
+            case "CLIENT" -> List.of("CUSTOMER");
+            case "PARTENAIRE" -> List.of("PARTNER");
             default -> List.of();
         };
     }
 
     private UserEntity buildEntityFromDto(BackOfficeUserDto dto, String userId) {
-        String role = dto.getRole() == null ? "" : dto.getRole().trim().toUpperCase();
-        if ("PARTENAIRE".equals(role)) {
-            return Partner.builder()
-                    .userId(userId)
-                    .firstName(dto.getPrenom())
-                    .lastName(dto.getNom())
-                    .email(dto.getEmail())
-                    .emailVerified(Boolean.TRUE.equals(dto.getEmailVerifie()))
-                    .phoneNumber(dto.getTelephone())
-                    .city(dto.getVille())
-                    .country(dto.getPays())
-                    .blocked(Boolean.TRUE.equals(dto.getBlocked()))
-                    .build();
-        }
-        if ("CLIENT".equals(role)) {
-            return Customer.builder()
-                    .userId(userId)
-                    .firstName(dto.getPrenom())
-                    .lastName(dto.getNom())
-                    .email(dto.getEmail())
-                    .emailVerified(Boolean.TRUE.equals(dto.getEmailVerifie()))
-                    .phoneNumber(dto.getTelephone())
-                    .city(dto.getVille())
-                    .country(dto.getPays())
-                    .avatarUrl(dto.getAvatarUrl())
-                    .blocked(Boolean.TRUE.equals(dto.getBlocked()))
-                    .build();
-        }
         return UserEntity.builder()
                 .userId(userId)
                 .firstName(dto.getPrenom())
@@ -234,12 +325,6 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
     }
 
     private UserEntity saveEntity(UserEntity entity) {
-        if (entity instanceof Customer customer) {
-            return customerRepository.save(customer);
-        }
-        if (entity instanceof Partner partner) {
-            return partnerRepository.save(partner);
-        }
         return userEntityRepository.save(entity);
     }
 
@@ -253,7 +338,6 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
 
         Authentication auth = authenticationRepository.findById(userId)
                 .orElseGet(() -> Authentication.builder().userId(userId).build());
-        // Hibernate may clear/replace this collection during merge, so it must stay mutable.
         auth.setRoles(new ArrayList<>(mapRole(normalizedRole)));
 
         if (requiresLocalPassword) {
@@ -276,7 +360,7 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
     private List<UserRole> mapRole(String role) {
         String normalized = role == null ? "" : role.trim().toUpperCase();
         if ("SUPER_ADMIN".equals(normalized)) return new ArrayList<>(List.of(UserRole.SUPER_ADMIN));
-        if ("PARTENAIRE".equals(normalized)) return new ArrayList<>(List.of(UserRole.PARTNER));
+        if ("PARTENAIRE".equals(normalized)) return new ArrayList<>(List.of(UserRole.PARTNER, UserRole.CUSTOMER));
         if ("LIVREUR".equals(normalized)) return new ArrayList<>(List.of(UserRole.LIVREUR));
         if ("CLIENT".equals(normalized)) return new ArrayList<>(List.of(UserRole.CUSTOMER));
         if (normalized.isBlank()) return new ArrayList<>();
@@ -302,6 +386,9 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
         entity.setBlocked(blocked);
         UserEntity saved = saveEntity(entity);
         Authentication auth = authenticationRepository.findById(id).orElse(null);
-        return backOfficeUserMapper.toDto(saved, auth);
+        DelivryDriverProfileEntity livreurProfile = hasRole(auth, UserRole.LIVREUR) ? userService.getDeliveryProfile(id).orElse(null) : null;
+        Customer customer = hasRole(auth, UserRole.CUSTOMER) ? userService.getCustomerProfile(id).orElse(null) : null;
+        Partner partner = hasRole(auth, UserRole.PARTNER) ? userService.getPartnerProfile(id).orElse(null) : null;
+        return backOfficeUserMapper.toDto(saved, auth, customer, partner, livreurProfile);
     }
 }

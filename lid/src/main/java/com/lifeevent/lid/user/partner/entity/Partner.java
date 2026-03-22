@@ -1,5 +1,6 @@
 package com.lifeevent.lid.user.partner.entity;
 
+import com.lifeevent.lid.common.entity.BaseEntity;
 import com.lifeevent.lid.user.common.entity.UserEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -11,15 +12,23 @@ import lombok.experimental.SuperBuilder;
  * Ajoute uniquement les champs spécifiques au Partner
  */
 @Entity
-@Data
-@EqualsAndHashCode(callSuper = true)
-@ToString(callSuper = true)
+@Table(name = "partner_profile")
+@Getter
+@Setter
+@ToString(callSuper = true, exclude = {"user", "shop"})
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@DiscriminatorValue("PARTNER")
-@PrimaryKeyJoinColumn(name = "user_id")
-public class Partner extends UserEntity {
+public class Partner extends BaseEntity {
+
+    @Id
+    @Column(name = "user_id", length = 128)
+    private String userId;
+
+    @MapsId
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id")
+    private UserEntity user;
     
     /**
      * ÉTAPE 1 - Compte
@@ -27,13 +36,6 @@ public class Partner extends UserEntity {
      */
     @Column(length = 20)
     private String phoneNumber;
-    
-    /**
-     * Password hashé (spécifique au Partner qui peut se connecter localement)
-     * Note: Google OAuth2 crée un Partner sans password
-     */
-    @Column(length = 255)
-    private String passwordHash;
     
     /**
      * ÉTAPE 2 - Boutique
@@ -103,4 +105,60 @@ public class Partner extends UserEntity {
     @Column(nullable = false)
     @Builder.Default
     private PartnerRegistrationStatus registrationStatus = PartnerRegistrationStatus.STEP_1_PENDING;
+
+    @PrePersist
+    @PreUpdate
+    private void syncSharedPrimaryKey() {
+        if (user == null || user.getUserId() == null || user.getUserId().isBlank()) {
+            throw new IllegalStateException("Partner.user must reference a managed UserEntity with non-null userId");
+        }
+        this.userId = user.getUserId();
+    }
+
+    public String getEmail() {
+        return user == null ? null : user.getEmail();
+    }
+
+    public void setEmail(String email) {
+        requireUser().setEmail(email);
+    }
+
+    public String getFirstName() {
+        return user == null ? null : user.getFirstName();
+    }
+
+    public void setFirstName(String firstName) {
+        requireUser().setFirstName(firstName);
+    }
+
+    public String getLastName() {
+        return user == null ? null : user.getLastName();
+    }
+
+    public void setLastName(String lastName) {
+        requireUser().setLastName(lastName);
+    }
+
+    public boolean isEmailVerified() {
+        return user != null && user.isEmailVerified();
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        requireUser().setEmailVerified(emailVerified);
+    }
+
+    public Boolean getBlocked() {
+        return user == null ? Boolean.FALSE : user.getBlocked();
+    }
+
+    public void setBlocked(Boolean blocked) {
+        requireUser().setBlocked(blocked);
+    }
+
+    private UserEntity requireUser() {
+        if (user == null) {
+            throw new IllegalStateException("Partner.user must be set before updating shared user fields");
+        }
+        return user;
+    }
 }

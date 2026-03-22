@@ -6,7 +6,9 @@ import com.lifeevent.lid.backoffice.lid.customer.service.BackOfficeCustomerServi
 import com.lifeevent.lid.order.repository.OrderRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
+import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
+import com.lifeevent.lid.user.common.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -32,6 +34,7 @@ public class BackOfficeCustomerServiceImpl implements BackOfficeCustomerService 
 
     private final CustomerRepository customerRepository;
     private final UserEntityRepository userEntityRepository;
+    private final UserService userService;
     private final OrderRepository orderRepository;
     private final BackOfficeCustomerMapper backOfficeCustomerMapper;
 
@@ -78,6 +81,7 @@ public class BackOfficeCustomerServiceImpl implements BackOfficeCustomerService 
         String userId = resolveUserId(dto);
         Customer customer = toCustomerEntity(dto, userId, email);
         Customer saved = customerRepository.save(customer);
+        userService.upsertCustomerProfile(saved);
 
         BackOfficeCustomerDto out = backOfficeCustomerMapper.toDto(saved);
         out.setOrders(0);
@@ -108,6 +112,7 @@ public class BackOfficeCustomerServiceImpl implements BackOfficeCustomerService 
 
     private Customer toCustomerEntity(BackOfficeCustomerDto dto, String userId, String email) {
         Customer customer = backOfficeCustomerMapper.toEntity(dto, userId);
+        UserEntity user = userEntityRepository.save(customer.getUser());
         if (customer.getEmail() == null || customer.getEmail().isBlank()) {
             customer.setEmail(email);
         } else {
@@ -117,6 +122,7 @@ public class BackOfficeCustomerServiceImpl implements BackOfficeCustomerService 
         if (customer.getBlocked() == null) {
             customer.setBlocked(Boolean.FALSE);
         }
+        customer.setUser(user);
         return customer;
     }
 }

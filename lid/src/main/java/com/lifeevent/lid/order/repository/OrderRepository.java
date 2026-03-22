@@ -96,9 +96,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         WHERE (:status IS NULL OR o.currentStatus = :status)
           AND (
             :q IS NULL OR :q = '' OR
-            LOWER(CAST(c.firstName AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
-            LOWER(CAST(c.lastName AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
-            LOWER(CAST(c.email AS string)) LIKE LOWER(CONCAT('%', :q, '%'))
+            LOWER(CAST(c.user.firstName AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+            LOWER(CAST(c.user.lastName AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+            LOWER(CAST(c.user.email AS string)) LIKE LOWER(CONCAT('%', :q, '%'))
           )
         ORDER BY o.createdAt DESC
     """)

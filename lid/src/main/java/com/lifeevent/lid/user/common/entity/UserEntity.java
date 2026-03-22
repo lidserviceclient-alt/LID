@@ -12,15 +12,11 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-
-@Inheritance(strategy = InheritanceType.JOINED)
 @Table(
         indexes = {
-                @Index(name = "idx_user_email", columnList = "email"),
-                @Index(name = "idx_user_user_type_created_at", columnList = "user_type, created_at")
+                @Index(name = "idx_user_email", columnList = "email")
         }
 )
-@DiscriminatorColumn(name = "user_type")
 public class UserEntity extends BaseEntity {
     @Id
     @Column(length = 128)

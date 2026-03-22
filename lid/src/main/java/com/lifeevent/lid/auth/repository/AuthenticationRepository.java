@@ -24,34 +24,19 @@ public interface AuthenticationRepository extends JpaRepository<Authentication, 
             """)
     List<String> findUserIdsByRolesIn(@Param("roles") List<UserRole> roles);
 
-    @Query(
-            value = """
-                    SELECT DISTINCT ar.authentication_user_id
-                    FROM authentication_roles ar
-                    JOIN user_entity u ON u.user_id = ar.authentication_user_id
-                    WHERE ar.roles IN (:roles)
-                      AND (
-                        :q IS NULL OR :q = '' OR
-                        LOWER(CAST(u.user_id AS text)) LIKE LOWER(CONCAT('%', :q, '%')) OR
-                        LOWER(CAST(u.email AS text)) LIKE LOWER(CONCAT('%', :q, '%')) OR
-                        LOWER(CAST(u.first_name AS text)) LIKE LOWER(CONCAT('%', :q, '%')) OR
-                        LOWER(CAST(u.last_name AS text)) LIKE LOWER(CONCAT('%', :q, '%'))
-                      )
-                    """,
-            countQuery = """
-                    SELECT COUNT(DISTINCT ar.authentication_user_id)
-                    FROM authentication_roles ar
-                    JOIN user_entity u ON u.user_id = ar.authentication_user_id
-                    WHERE ar.roles IN (:roles)
-                      AND (
-                        :q IS NULL OR :q = '' OR
-                        LOWER(CAST(u.user_id AS text)) LIKE LOWER(CONCAT('%', :q, '%')) OR
-                        LOWER(CAST(u.email AS text)) LIKE LOWER(CONCAT('%', :q, '%')) OR
-                        LOWER(CAST(u.first_name AS text)) LIKE LOWER(CONCAT('%', :q, '%')) OR
-                        LOWER(CAST(u.last_name AS text)) LIKE LOWER(CONCAT('%', :q, '%'))
-                      )
-                    """,
-            nativeQuery = true
-    )
+    @Query("""
+            SELECT DISTINCT a.userId
+            FROM Authentication a
+            JOIN a.roles role
+            JOIN UserEntity u ON u.userId = a.userId
+            WHERE CAST(role AS string) IN :roles
+              AND (
+                :q IS NULL OR :q = '' OR
+                LOWER(CAST(u.userId AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+                LOWER(CAST(u.email AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+                LOWER(CAST(u.firstName AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+                LOWER(CAST(u.lastName AS string)) LIKE LOWER(CONCAT('%', :q, '%'))
+              )
+            """)
     Page<String> searchUserIdsByRolesIn(@Param("roles") List<String> roles, @Param("q") String q, Pageable pageable);
 }

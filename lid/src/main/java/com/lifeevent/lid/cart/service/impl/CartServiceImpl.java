@@ -15,7 +15,7 @@ import com.lifeevent.lid.cart.service.CartService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.mapper.CustomerMapper;
-import com.lifeevent.lid.user.customer.repository.CustomerRepository;
+import com.lifeevent.lid.user.common.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.antlr.v4.runtime.misc.Pair;
@@ -34,12 +34,12 @@ public class CartServiceImpl implements CartService {
     
     private final CartRepository cartRepository;
     private final CartArticleRepository cartArticleRepository;
-    private final CustomerRepository customerRepository;
     private final ArticleRepository articleRepository;
     private final CartMapper cartMapper;
     private final CartArticleMapper cartArticleMapper;
     private final CustomerMapper customerMapper;
     private final ArticleMapper articleMapper;
+    private final UserService userService;
     
     @Override
     public CartDto createCart(String customerId) {
@@ -50,7 +50,7 @@ public class CartServiceImpl implements CartService {
             return mapToDtoWithDetails(existing.get());
         }
 
-        Customer customer = customerRepository.findById(customerId)
+        Customer customer = userService.getCustomerProfile(customerId)
             .orElseThrow(() -> new ResourceNotFoundException("Customer", "customerId", customerId.toString()));
         
         Cart cart = Cart.builder()

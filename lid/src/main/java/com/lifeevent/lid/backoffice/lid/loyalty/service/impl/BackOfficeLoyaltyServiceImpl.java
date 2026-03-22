@@ -19,6 +19,7 @@ import com.lifeevent.lid.loyalty.repository.LoyaltyTierRepository;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.enumeration.Status;
 import com.lifeevent.lid.order.repository.OrderRepository;
+import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +52,7 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
     private final LoyaltyConfigRepository loyaltyConfigRepository;
     private final LoyaltyPointAdjustmentRepository loyaltyPointAdjustmentRepository;
     private final CustomerRepository customerRepository;
+    private final UserService userService;
     private final OrderRepository orderRepository;
     private final BackOfficeLoyaltyTierMapper backOfficeLoyaltyTierMapper;
     private final BackOfficeLoyaltyConfigMapper backOfficeLoyaltyConfigMapper;
@@ -235,7 +237,7 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
             throw new IllegalArgumentException("Client introuvable");
         }
 
-        return customerRepository.findById(userId)
+        return userService.getCustomerProfile(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Client introuvable"));
     }
 

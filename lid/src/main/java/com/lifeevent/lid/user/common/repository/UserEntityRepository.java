@@ -29,8 +29,7 @@ public interface UserEntityRepository extends JpaRepository<UserEntity, String> 
     @Query("""
         SELECT u
         FROM UserEntity u
-        WHERE (:roleClass IS NULL OR TYPE(u) = :roleClass)
-          AND (
+        WHERE (
             :q IS NULL OR :q = '' OR
             LOWER(CAST(u.userId AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
             LOWER(CAST(u.email AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
@@ -39,5 +38,5 @@ public interface UserEntityRepository extends JpaRepository<UserEntity, String> 
           )
         ORDER BY u.createdAt DESC
     """)
-    Page<UserEntity> search(@Param("roleClass") Class<? extends UserEntity> roleClass, @Param("q") String q, Pageable pageable);
+    Page<UserEntity> search(@Param("q") String q, Pageable pageable);
 }

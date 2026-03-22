@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.lid.customer.mapper;
 
 import com.lifeevent.lid.backoffice.lid.customer.dto.BackOfficeCustomerDto;
+import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import org.springframework.stereotype.Component;
 
@@ -23,16 +24,20 @@ public class BackOfficeCustomerMapper {
 
     public Customer toEntity(BackOfficeCustomerDto dto, String userId) {
         if (dto == null) return null;
-        return Customer.builder()
+        UserEntity user = UserEntity.builder()
                 .userId(userId)
                 .firstName(dto.getPrenom())
                 .lastName(dto.getNom())
                 .email(dto.getEmail())
                 .emailVerified(false)
-                .phoneNumber(dto.getTelephone())
-                .city(dto.getVille())
-                .country(dto.getPays())
+                .blocked(Boolean.FALSE)
                 .build();
+        Customer customer = new Customer();
+        customer.setUser(user);
+        customer.setPhoneNumber(dto.getTelephone());
+        customer.setCity(dto.getVille());
+        customer.setCountry(dto.getPays());
+        return customer;
     }
 
     private String buildName(String first, String last) {
