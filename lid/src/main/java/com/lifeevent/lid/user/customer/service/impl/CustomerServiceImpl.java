@@ -54,10 +54,9 @@ public class CustomerServiceImpl implements CustomerService {
             throw new IllegalArgumentException("L'email existe déjà");
         }
         
-        Customer customer = customerMapper.toEntity(dto);
-        String userId = customer.getUserId() == null || customer.getUserId().isBlank()
+        String userId = dto.getUserId() == null || dto.getUserId().isBlank()
                 ? UUID.randomUUID().toString()
-                : customer.getUserId();
+                : dto.getUserId();
         UserEntity user = userEntityRepository.save(UserEntity.builder()
                 .userId(userId)
                 .email(dto.getEmail())
@@ -66,6 +65,11 @@ public class CustomerServiceImpl implements CustomerService {
                 .lastName(dto.getLastName())
                 .blocked(Boolean.FALSE)
                 .build());
+        Customer customer = new Customer();
+        customer.setAvatarUrl(dto.getAvatarUrl());
+        customer.setPhoneNumber(dto.getPhoneNumber());
+        customer.setCity(dto.getCity());
+        customer.setCountry(dto.getCountry());
         customer.setUser(user);
         Customer saved = customerRepository.save(customer);
         userService.upsertCustomerProfile(saved);

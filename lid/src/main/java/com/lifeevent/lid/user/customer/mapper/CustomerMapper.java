@@ -20,6 +20,8 @@ public interface CustomerMapper {
      * Convertir un CustomerDto en entité Customer
      */
     @Mapping(target = "createdBy", source = "userId")
+    @Mapping(target = "userId", ignore = true)
+    @Mapping(target = "user", ignore = true)
     Customer toEntity(CustomerDto dto);
 
     /**
@@ -35,5 +37,7 @@ public interface CustomerMapper {
     /**
      * Mettre à jour une entité Customer à partir d'un CustomerDto
      */
+    @Mapping(target = "userId", ignore = true)
+    @Mapping(target = "user", ignore = true)
     void updateEntityFromDto(CustomerDto dto, @MappingTarget Customer customer);
 }

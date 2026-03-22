@@ -7,6 +7,7 @@ import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCustomerDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerOrderDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerProductDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
+import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerStatsDto;
 import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderDetailDto;
 import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderUpdateRequest;
 import com.lifeevent.lid.backoffice.partner.preference.dto.PartnerPreferencesDto;
@@ -28,6 +29,9 @@ public interface IBackOfficePartnerController {
             @RequestParam(defaultValue = "8") int orderLimit,
             @RequestParam(defaultValue = "8") int customerLimit
     );
+
+    @GetMapping("/stats")
+    ResponseEntity<BackOfficePartnerStatsDto> getStats();
 
     @GetMapping("/products")
     ResponseEntity<Page<BackOfficePartnerProductDto>> getProducts(

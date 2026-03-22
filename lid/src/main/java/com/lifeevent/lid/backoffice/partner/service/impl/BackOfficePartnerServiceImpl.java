@@ -103,6 +103,16 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
 
     @Override
     @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_COLLECTION,
+            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':stats'"
+    )
+    public BackOfficePartnerStatsDto getMyStats() {
+        String partnerId = requireCurrentPartnerId();
+        return buildStats(partnerId);
+    }
+
+    @Override
+    @Cacheable(
             cacheNames = CatalogCacheNames.PARTNER_PRODUCTS_PAGE,
             key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':summary:p=' + #page + ':s=' + #size"
     )
