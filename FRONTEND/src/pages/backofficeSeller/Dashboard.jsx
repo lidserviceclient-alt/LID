@@ -1,86 +1,137 @@
-import { 
-  TrendingUp, 
-  ShoppingBag, 
-  Users, 
-  DollarSign, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  Package, 
+import {
+  TrendingUp,
+  ShoppingBag,
+  Users,
+  DollarSign,
+  Package,
   Clock,
   AlertCircle
 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
+import { getMyPartnerStats } from '@/services/partnerBackofficeDashboardService';
+import { listMyProducts } from '@/services/partnerBackofficeProductService';
+import { listMyOrders } from '@/services/partnerBackofficeOrderService';
+import { getMyPartnerPreferences } from '@/services/partnerBackofficePreferencesService';
 
-const STATS = [
-  { 
-    label: "Ventes Totales", 
-    value: "12,450.00 Fcfa", 
-    change: "+12.5%", 
-    trend: "up", 
-    icon: DollarSign,
-    color: "bg-green-100 text-green-600"
-  },
-  { 
-    label: "Commandes", 
-    value: "156", 
-    change: "+8.2%", 
-    trend: "up", 
-    icon: ShoppingBag,
-    color: "bg-blue-100 text-blue-600"
-  },
-  { 
-    label: "Produits Vendus", 
-    value: "432", 
-    change: "-2.4%", 
-    trend: "down", 
-    icon: Package,
-    color: "bg-purple-100 text-purple-600"
-  },
-  { 
-    label: "Panier Moyen", 
-    value: "79.80 Fcfa", 
-    change: "+4.1%", 
-    trend: "up", 
-    icon: TrendingUp,
-    color: "bg-orange-100 text-orange-600"
-  }
-];
+const STATUS_LABEL = {
+  PENDING: "En attente",
+  PAID: "Payée",
+  PROCESSING: "En cours",
+  READY_TO_DELIVER: "Prête",
+  DELIVERY_IN_PROGRESS: "En livraison",
+  DELIVERED: "Livrée",
+  CANCELED: "Annulée",
+  REFUNDED: "Remboursée",
+};
 
-const STOCK_ALERTS = [
-  { name: "Wireless Headphones", stock: 2, status: "critical" },
-  { name: "Sport Bag", stock: 5, status: "low" },
-];
-
-const RECENT_ORDERS = [
-  { id: "#ORD-7829", customer: "Thomas D.", product: "Nike Air Max 90", amount: "129.99 €", status: "Completed", date: "Il y a 2 min" },
-  { id: "#ORD-7828", customer: "Sarah M.", product: "Premium Cotton T-Shirt", amount: "29.99 €", status: "Processing", date: "Il y a 15 min" },
-  { id: "#ORD-7827", customer: "Jean P.", product: "Wireless Headphones", amount: "199.99 €", status: "Completed", date: "Il y a 1h" },
-  { id: "#ORD-7826", customer: "Marie L.", product: "Running Shoes", amount: "89.99 €", status: "Cancelled", date: "Il y a 3h" },
-  { id: "#ORD-7825", customer: "Pierre K.", product: "Sport Bag", amount: "45.00 €", status: "Completed", date: "Il y a 5h" },
-];
-
-const TOP_PRODUCTS = [
-  { name: "Nike Air Max 90", sales: 45, revenue: "5,849.55 €", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=100&q=80" },
-  { name: "Wireless Headphones", sales: 28, revenue: "5,599.72 €", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=100&q=80" },
-  { name: "Premium Cotton T-Shirt", sales: 124, revenue: "3,718.76 €", image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=100&q=80" },
-];
-
-const WEEKLY_SALES = [
-  { day: "Lun", value: 45 },
-  { day: "Mar", value: 32 },
-  { day: "Mer", value: 78 },
-  { day: "Jeu", value: 56 },
-  { day: "Ven", value: 89 },
-  { day: "Sam", value: 102 },
-  { day: "Dim", value: 65 },
-];
+const WEEK_DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export default function Dashboard() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ products: 0, orders: 0, customers: 0, revenue: 0 });
+  const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [stockThreshold, setStockThreshold] = useState(5);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [statsRes, ordersRes, productsRes, prefsRes] = await Promise.all([
+          getMyPartnerStats(),
+          listMyOrders({ page: 0, size: 50 }),
+          listMyProducts({ page: 0, size: 200 }),
+          getMyPartnerPreferences(),
+        ]);
+        setStats({
+          products: Number(statsRes?.products || 0),
+          orders: Number(statsRes?.orders || 0),
+          customers: Number(statsRes?.customers || 0),
+          revenue: Number(statsRes?.revenue || 0),
+        });
+        setOrders(Array.isArray(ordersRes?.content) ? ordersRes.content : []);
+        setProducts(Array.isArray(productsRes?.content) ? productsRes.content : []);
+        setStockThreshold(Number(prefsRes?.stockThreshold || 5));
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const avgBasket = useMemo(() => (stats.orders > 0 ? stats.revenue / stats.orders : 0), [stats.orders, stats.revenue]);
+
+  const cards = useMemo(() => ([
+    { label: "Ventes Totales", value: `${stats.revenue.toFixed(2)} FCFA`, icon: DollarSign, color: "bg-green-100 text-green-600" },
+    { label: "Commandes", value: `${stats.orders}`, icon: ShoppingBag, color: "bg-blue-100 text-blue-600" },
+    { label: "Produits", value: `${stats.products}`, icon: Package, color: "bg-purple-100 text-purple-600" },
+    { label: "Panier Moyen", value: `${avgBasket.toFixed(2)} FCFA`, icon: TrendingUp, color: "bg-orange-100 text-orange-600" },
+  ]), [avgBasket, stats.orders, stats.products, stats.revenue]);
+
+  const recentOrders = useMemo(() => {
+    return orders.slice(0, 5).map((o) => ({
+      id: `#ORD-${o.id}`,
+      customer: o.customerName || "Client",
+      product: "-",
+      amount: `${Number(o.amount || 0).toFixed(2)} FCFA`,
+      status: STATUS_LABEL[o.status] || o.status || "En attente",
+      statusRaw: o.status || "PENDING",
+      date: o.createdAt ? new Date(o.createdAt).toLocaleString("fr-FR") : "",
+    }));
+  }, [orders]);
+
+  const weeklySales = useMemo(() => {
+    const counts = [0, 0, 0, 0, 0, 0, 0];
+    const now = new Date();
+    const monday = new Date(now);
+    const day = monday.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    monday.setDate(monday.getDate() + diff);
+    monday.setHours(0, 0, 0, 0);
+    orders.forEach((o) => {
+      if (!o?.createdAt) return;
+      const d = new Date(o.createdAt);
+      const delta = Math.floor((d - monday) / (1000 * 60 * 60 * 24));
+      if (delta >= 0 && delta < 7) counts[delta] += Number(o.amount || 0);
+    });
+    const max = Math.max(...counts, 1);
+    return WEEK_DAYS.map((label, idx) => ({
+      day: label,
+      value: Math.round((counts[idx] / max) * 100),
+      raw: counts[idx],
+    }));
+  }, [orders]);
+
+  const topProducts = useMemo(() => {
+    const data = products.map((p) => {
+      const stock = Number(p.stock || 0);
+      const price = Number(p.price || 0);
+      return {
+        name: p.name || "Produit",
+        sales: stock,
+        revenue: `${(stock * price).toFixed(2)} FCFA`,
+        image: p.imageUrl || p.img || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=100&q=80",
+      };
+    });
+    return data.sort((a, b) => b.sales - a.sales).slice(0, 3);
+  }, [products]);
+
+  const stockAlerts = useMemo(() => {
+    return products
+      .filter((p) => Number(p.stock || 0) <= stockThreshold)
+      .slice(0, 6)
+      .map((p) => ({
+        name: p.name || "Produit",
+        stock: Number(p.stock || 0),
+        status: Number(p.stock || 0) === 0 ? "critical" : "low",
+      }));
+  }, [products, stockThreshold]);
+
   return (
     <div className="space-y-8 p-2 max-w-7xl mx-auto">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
@@ -92,9 +143,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {STATS.map((stat, index) => (
+        {cards.map((stat, index) => (
           <motion.div
             key={index}
             initial={{ opacity: 0, y: 20 }}
@@ -106,11 +156,8 @@ export default function Dashboard() {
               <div className={`p-3 rounded-xl ${stat.color}`}>
                 <stat.icon size={20} />
               </div>
-              <div className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${
-                stat.trend === 'up' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-              }`}>
-                {stat.trend === 'up' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                {stat.change}
+              <div className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                {loading ? "..." : "Live"}
               </div>
             </div>
             <div>
@@ -121,8 +168,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Inventory Alerts Section */}
-      {STOCK_ALERTS.length > 0 && (
+      {stockAlerts.length > 0 && (
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -134,7 +180,7 @@ export default function Dashboard() {
             <h3 className="text-lg font-bold text-red-900">Alertes Stock</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {STOCK_ALERTS.map((alert, index) => (
+            {stockAlerts.map((alert, index) => (
               <div key={index} className="bg-white p-4 rounded-xl border border-red-100 flex items-center justify-between shadow-sm">
                 <div>
                   <h4 className="font-medium text-gray-900">{alert.name}</h4>
@@ -158,7 +204,6 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Chart Section (Simulated) */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -175,7 +220,7 @@ export default function Dashboard() {
           </div>
           
           <div className="h-64 flex items-stretch justify-between gap-2 sm:gap-4">
-            {WEEKLY_SALES.map((item, index) => (
+            {weeklySales.map((item, index) => (
               <div key={index} className="flex-1 flex flex-col items-center gap-2 group h-full">
                 <div className="w-full flex-1 relative flex items-end bg-gray-50 rounded-lg overflow-hidden">
                   <motion.div 
@@ -185,9 +230,8 @@ export default function Dashboard() {
                     className="w-full bg-green-700/70 group-hover:bg-black/80 rounded-t-sm transition-colors relative mx-auto"
                     style={{ width: '60%' }}
                   >
-                    {/* Tooltip */}
                     <div className="opacity-0 group-hover:opacity-100 absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded pointer-events-none transition-opacity whitespace-nowrap z-10">
-                      {item.value * 10} FCFA
+                      {item.raw.toFixed(2)} FCFA
                     </div>
                   </motion.div>
                 </div>
@@ -197,7 +241,6 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        {/* Top Products */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -206,14 +249,14 @@ export default function Dashboard() {
         >
           <h3 className="text-lg font-bold text-gray-900 mb-6">Top Produits</h3>
           <div className="space-y-6">
-            {TOP_PRODUCTS.map((product, index) => (
+            {topProducts.map((product, index) => (
               <div key={index} className="flex items-center gap-4">
                 <div className="h-12 w-12 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
                   <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="text-sm font-semibold text-gray-900 truncate">{product.name}</h4>
-                  <p className="text-xs text-gray-500">{product.sales} ventes</p>
+                  <p className="text-xs text-gray-500">{product.sales} en stock</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-gray-900">{product.revenue}</p>
@@ -229,7 +272,6 @@ export default function Dashboard() {
         </motion.div>
       </div>
 
-      {/* Recent Orders Table */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -238,7 +280,7 @@ export default function Dashboard() {
       >
         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
           <h3 className="text-lg font-bold text-gray-900">Commandes Récentes</h3>
-          <button className="text-sm font-medium text-blue-600 hover:text-blue-700">Voir tout</button>
+          <button onClick={() => navigate('/sel-off/orders')} className="text-sm font-medium text-blue-600 hover:text-blue-700">Voir tout</button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -253,7 +295,7 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {RECENT_ORDERS.map((order, index) => (
+              {recentOrders.map((order, index) => (
                 <tr key={index} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900">{order.id}</td>
                   <td className="px-6 py-4 text-gray-600">{order.customer}</td>
@@ -261,17 +303,22 @@ export default function Dashboard() {
                   <td className="px-6 py-4 font-medium text-gray-900">{order.amount}</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      order.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                      order.status === 'Processing' ? 'bg-blue-100 text-blue-800' :
-                      'bg-red-100 text-red-800'
+                      order.statusRaw === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+                      ['PROCESSING', 'READY_TO_DELIVER', 'DELIVERY_IN_PROGRESS'].includes(order.statusRaw) ? 'bg-blue-100 text-blue-800' :
+                      order.statusRaw === 'CANCELED' ? 'bg-red-100 text-red-800' :
+                      'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {order.status === 'Completed' ? 'Complété' : 
-                       order.status === 'Processing' ? 'En cours' : 'Annulé'}
+                      {order.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right text-gray-500">{order.date}</td>
                 </tr>
               ))}
+              {!loading && recentOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">Aucune commande pour le moment</td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

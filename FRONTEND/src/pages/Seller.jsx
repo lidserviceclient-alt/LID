@@ -277,6 +277,7 @@ export default function Seller() {
   const [stepLoading, setStepLoading] = useState(false);
   const [authMode, setAuthMode] = useState("signup"); // signup | login
   const [showResetPassword, setShowResetPassword] = useState(false);
+  const [partnerLoginOnly, setPartnerLoginOnly] = useState(false);
   
   const isAuth = isAuthenticated();
   const currentUser = getCurrentUserPayload();
@@ -300,6 +301,17 @@ export default function Seller() {
 
   const isPartner = Array.isArray(currentUser?.roles) && 
     currentUser.roles.some(r => r === "PARTNER" || r === "ROLE_PARTNER");
+
+  useEffect(() => {
+    if (isAuth && isPartner) {
+      setPartnerLoginOnly(true);
+      setAuthMode("login");
+      setShowResetPassword(false);
+      setStep(1);
+      return;
+    }
+    setPartnerLoginOnly(false);
+  }, [isAuth, isPartner]);
 
   useEffect(() => {
     if (!isAuth || !currentUserId) {
@@ -409,7 +421,8 @@ export default function Seller() {
       if (step === 1) {
         if (isAuth) {
           if (isPartner) {
-            setStep(2);
+            toast.success("Compte partenaire détecté. Connectez-vous à votre espace vendeur.");
+            navigate("/sel-off/dashboard");
             return;
           }
           const upgraded = await upgradeToPartner({
@@ -433,6 +446,14 @@ export default function Seller() {
 
         if (authMode === "login") {
           await loginPartnerLocal({ email: formData.email, password: formData.password });
+          const loggedPayload = getCurrentUserPayload();
+          const loggedIsPartner = Array.isArray(loggedPayload?.roles) &&
+            loggedPayload.roles.some((r) => r === "PARTNER" || r === "ROLE_PARTNER");
+          if (loggedIsPartner) {
+            toast.success("Connexion réussie.");
+            navigate("/sel-off/dashboard");
+            return;
+          }
           setStep(2);
           return;
         }
@@ -556,13 +577,15 @@ export default function Seller() {
             </div>
           </div>
 
-          <TopHero step={step} />
+          {!partnerLoginOnly ? <TopHero step={step} /> : null}
 
           <div className="bg-white/80 backdrop-blur-xl border border-white/60 rounded-[32px] p-6 sm:p-10 shadow-2xl shadow-neutral-200/40 relative">
              
-             <div className="mb-10 mt-2">
-               <ProgressSteps step={step} setStep={setStep} />
-             </div>
+             {!partnerLoginOnly ? (
+               <div className="mb-10 mt-2">
+                 <ProgressSteps step={step} setStep={setStep} />
+               </div>
+             ) : null}
 
              <div className="min-h-[400px]">
                <AnimatePresence mode="wait">
@@ -622,11 +645,11 @@ export default function Seller() {
                                     </div>
                                 </div>
                               )}
-                              <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-sm mx-auto">
+                              <div className="flex flex-col sm:flex-row items-center gap-4 w-full mx-auto">
                                 {isPartner ? (
                                   <button
-                                    onClick={() => navigate("/dashboard/seller")}
-                                    className="flex-1 w-full bg-[#6aa200] text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-[#6aa200]/30 hover:shadow-xl hover:shadow-[#6aa200]/40 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+                                    onClick={() => navigate("/sel-off/dashboard")}
+                                    className="flex-1 w-full bg-[#6aa200] text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-[#6aa200]/30 hover:shadow-xl hover:shadow-[#6aa200]/40 hover:-translate-y-0.5 transition-all flex items-center justify-center whitespace-nowrap gap-2"
                                   >
                                     Accéder à mon tableau de bord <Briefcase size={18} />
                                   </button>
@@ -636,7 +659,7 @@ export default function Seller() {
                                     await logout();
                                     window.location.reload();
                                   }}
-                                  className="px-6 py-3.5 rounded-xl font-bold text-neutral-500 hover:text-red-500 hover:bg-red-50 transition flex items-center gap-2"
+                                  className="px-6 py-3.5 rounded-xl font-bold text-neutral-500 hover:text-red-500 hover:bg-red-50 whitespace-nowrap transition flex items-center gap-2"
                                 >
                                   <LogOut size={18} /> Changer de compte
                                 </button>

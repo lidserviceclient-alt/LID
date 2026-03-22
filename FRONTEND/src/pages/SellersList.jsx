@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
     Search, MapPin, Star, Users, ArrowRight, Zap, SlidersHorizontal, Sparkles
 } from "lucide-react";
-import { sellers, sellerCategories } from "@/assets/data/sellers";
 import { useNavigate } from "react-router-dom";
+import { listPublicPartners } from "@/services/publicPartnerCatalogService";
 
 // --- Components ---
 
@@ -142,6 +142,43 @@ export default function SellersList() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Tous");
+  const [sellers, setSellers] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const size = 100;
+      const first = await listPublicPartners({ page: 0, size });
+      const firstContent = Array.isArray(first?.content) ? first.content : [];
+      const totalPages = Number(first?.totalPages || 1);
+      let all = [...firstContent];
+      for (let page = 1; page < totalPages; page += 1) {
+        const next = await listPublicPartners({ page, size });
+        const content = Array.isArray(next?.content) ? next.content : [];
+        all = all.concat(content);
+      }
+      const mapped = all.map((p) => ({
+        id: p.partnerId,
+        name: p.shopName || `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Boutique",
+        type: "product_seller",
+        category: p.mainCategoryName || "Boutique",
+        image: p.logoUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=400",
+        coverImage: p.backgroundUrl || p.logoUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1200",
+        followers: "-",
+        stats: { label: "Produits", value: 0 },
+        description: p.shopDescription || "Découvrez notre boutique partenaire.",
+        location: [p.city, p.country].filter(Boolean).join(", ") || "Côte d'Ivoire",
+        rating: 5.0,
+        verified: true,
+      }));
+      setSellers(mapped);
+    };
+    load();
+  }, []);
+
+  const sellerCategories = useMemo(() => {
+    const uniq = Array.from(new Set(sellers.map((s) => s.category).filter(Boolean)));
+    return ["Tous", ...uniq];
+  }, [sellers]);
 
   const filteredSellers = sellers.filter((seller) => {
     const matchesSearch = seller.name.toLowerCase().includes(searchQuery.toLowerCase());

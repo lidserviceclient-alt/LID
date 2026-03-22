@@ -17,14 +17,18 @@ import { motion } from 'framer-motion';
 import { getMyPartnerPreferences, updateMyPartnerPreferences } from '@/services/partnerBackofficePreferencesService';
 import { getMyPartnerSettings, updateMyPartnerSettings } from '@/services/partnerBackofficeSettingsService';
 import { uploadFile } from '@/services/fileStorageService';
+import { getCatalogCategories } from '@/services/categoryService';
 
 export default function Settings() {
   const [loading, setLoading] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(true);
   const [success, setSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const logoInputRef = useRef(null);
   const bannerInputRef = useRef(null);
+  const [mainCategories, setMainCategories] = useState([]);
 
   const [settings, setSettings] = useState({
     partnerId: "",
@@ -63,9 +67,11 @@ export default function Settings() {
 
   const weekdays = useMemo(() => ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"], []);
 
-  useEffect(() => {
-    const run = async () => {
-      const [s, p] = await Promise.all([getMyPartnerSettings(), getMyPartnerPreferences()]);
+  const hydrate = async () => {
+    setLoadingPage(true);
+    setErrorMsg("");
+    try {
+      const [s, p, cats] = await Promise.all([getMyPartnerSettings(), getMyPartnerPreferences(), getCatalogCategories()]);
       setSettings((prev) => ({
         ...prev,
         partnerId: s?.partnerId || "",
@@ -84,6 +90,15 @@ export default function Settings() {
         mainCategoryId: s?.mainCategoryId || 1,
       }));
 
+      const mains = (Array.isArray(cats) ? cats : [])
+        .filter((c) => !c?.parentId && !c?.parent_id)
+        .map((c) => ({ id: Number(c?.id), name: c?.nom || c?.name }))
+        .filter((c) => Number.isFinite(c.id) && c.name);
+      setMainCategories(mains);
+      if ((s?.mainCategoryId || 0) <= 0 && mains.length > 0) {
+        setSettings((prev) => ({ ...prev, mainCategoryId: mains[0].id }));
+      }
+
       setPrefs({
         stockThreshold: Number(p?.stockThreshold || 5),
         websiteUrl: p?.websiteUrl || "",
@@ -99,13 +114,21 @@ export default function Settings() {
         }
       } catch {
       }
-    };
-    run();
+    } catch (e) {
+      setErrorMsg(e?.response?.data?.message || "Impossible de charger les paramètres.");
+    } finally {
+      setLoadingPage(false);
+    }
+  };
+
+  useEffect(() => {
+    hydrate();
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg("");
     try {
       await updateMyPartnerSettings({
         partnerId: settings.partnerId || null,
@@ -123,14 +146,17 @@ export default function Settings() {
         mainCategoryId: settings.mainCategoryId || 1,
       });
       await updateMyPartnerPreferences({
-        stockThreshold: Number(prefs.stockThreshold || 5),
+        stockThreshold: Math.max(1, Number(prefs.stockThreshold || 5)),
         websiteUrl: prefs.websiteUrl || null,
         instagramHandle: prefs.instagramHandle || null,
         facebookPage: prefs.facebookPage || null,
         openingHoursJson: JSON.stringify(hours || {}),
       });
+      await hydrate();
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
+    } catch (e) {
+      setErrorMsg(e?.response?.data?.message || "Échec de l'enregistrement.");
     } finally {
       setLoading(false);
     }
@@ -138,6 +164,7 @@ export default function Settings() {
 
   const handleLogoPick = async (file) => {
     if (!file) return;
+    setErrorMsg("");
     setUploadingLogo(true);
     try {
       const res = await uploadFile(file, { folder: "partners" });
@@ -145,6 +172,8 @@ export default function Settings() {
       if (url) {
         setSettings((p) => ({ ...p, logoUrl: url }));
       }
+    } catch (e) {
+      setErrorMsg(e?.response?.data?.message || "Upload du logo impossible.");
     } finally {
       setUploadingLogo(false);
     }
@@ -152,6 +181,7 @@ export default function Settings() {
 
   const handleBannerPick = async (file) => {
     if (!file) return;
+    setErrorMsg("");
     setUploadingBanner(true);
     try {
       const res = await uploadFile(file, { folder: "partners" });
@@ -159,6 +189,8 @@ export default function Settings() {
       if (url) {
         setSettings((p) => ({ ...p, backgroundUrl: url }));
       }
+    } catch (e) {
+      setErrorMsg(e?.response?.data?.message || "Upload de la bannière impossible.");
     } finally {
       setUploadingBanner(false);
     }
@@ -182,6 +214,14 @@ export default function Settings() {
           </motion.div>
         )}
       </div>
+      {errorMsg ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm font-medium">
+          {errorMsg}
+        </div>
+      ) : null}
+      {loadingPage ? (
+        <div className="rounded-xl border border-gray-200 bg-white px-4 py-5 text-sm text-gray-500">Chargement des paramètres...</div>
+      ) : null}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Branding Section */}
@@ -277,6 +317,27 @@ export default function Settings() {
                 maxLength={150}
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description complète</label>
+              <textarea
+                rows={4}
+                value={settings.description}
+                onChange={(e) => setSettings((p) => ({ ...p, description: e.target.value }))}
+                className="bg-gray-50 w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie principale</label>
+              <select
+                value={settings.mainCategoryId}
+                onChange={(e) => setSettings((p) => ({ ...p, mainCategoryId: Number(e.target.value) || p.mainCategoryId }))}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              >
+                {(mainCategories.length > 0 ? mainCategories : [{ id: 1, name: "Mode & Accessoires" }]).map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -351,6 +412,24 @@ export default function Settings() {
                   className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 />
               </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
+              <input
+                type="text"
+                value={settings.city}
+                onChange={(e) => setSettings((p) => ({ ...p, city: e.target.value }))}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pays</label>
+              <input
+                type="text"
+                value={settings.country}
+                onChange={(e) => setSettings((p) => ({ ...p, country: e.target.value }))}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
             </div>
           </div>
         </div>
@@ -433,8 +512,35 @@ export default function Settings() {
               ))}
               <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-100">
                 <span className="font-medium text-red-500">Dimanche</span>
-                <span className="text-gray-500 italic text-xs">Fermé</span>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500">Fermé</label>
+                  <input
+                    type="checkbox"
+                    checked={!!hours?.Dimanche?.closed}
+                    onChange={(e) => setHours((p) => ({ ...p, Dimanche: { ...(p?.Dimanche || {}), closed: e.target.checked, open: p?.Dimanche?.open || "09:00", close: p?.Dimanche?.close || "13:00" } }))}
+                  />
+                </div>
               </div>
+              {!hours?.Dimanche?.closed ? (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium text-gray-700">Dimanche</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={hours?.Dimanche?.open || "09:00"}
+                      onChange={(e) => setHours((p) => ({ ...p, Dimanche: { ...(p?.Dimanche || {}), open: e.target.value } }))}
+                      className="px-2 py-1 border border-gray-200 rounded-md bg-gray-50 text-xs"
+                    />
+                    <span className="text-gray-400">-</span>
+                    <input
+                      type="time"
+                      value={hours?.Dimanche?.close || "13:00"}
+                      onChange={(e) => setHours((p) => ({ ...p, Dimanche: { ...(p?.Dimanche || {}), close: e.target.value } }))}
+                      className="px-2 py-1 border border-gray-200 rounded-md bg-gray-50 text-xs"
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, MoreVertical, Package, Image as ImageIcon, DollarSign, Tag, Archive, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Papa from 'papaparse';
@@ -12,14 +12,25 @@ const STATIC_CATEGORIES = [
   { id: "5", label: "Alimentation" }
 ];
 
+const toIntPrice = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.round(n));
+};
+
+const formatFcfa = (value) => `${toIntPrice(value).toLocaleString("fr-FR")} FCFA`;
+
 export default function ProductManagement() {
   const [products, setProducts] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState(null);
+  const [autoSku, setAutoSku] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [importPreview, setImportPreview] = useState(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImportGuideOpen, setIsImportGuideOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const categoryById = useMemo(() => {
     const map = new Map();
@@ -36,7 +47,7 @@ export default function ProductManagement() {
         id: p.id,
         sku: p.sku || "",
         name: p.name || "",
-        price: Number(p.price || 0),
+        price: toIntPrice(p.price || 0),
         stock: Number(p.stock || 0),
         categoryId: `${p.categoryId || ""}`.trim(),
         category: `${p.category || categoryById.get(`${p.categoryId || ""}`) || ""}`.trim(),
@@ -52,8 +63,15 @@ export default function ProductManagement() {
     refresh();
   }, []);
 
+  const generateAutoSku = () => {
+    const ts = Date.now().toString().slice(-8);
+    const rnd = Math.floor(Math.random() * 9000 + 1000).toString();
+    return `SKU-${ts}-${rnd}`;
+  };
+
   const handleEdit = (product) => {
     setCurrentProduct(product);
+    setAutoSku(`${product?.sku || ""}`.trim());
     setIsModalOpen(true);
   };
 
@@ -68,11 +86,12 @@ export default function ProductManagement() {
     e.preventDefault();
     const formData = new FormData(e.target);
     const categoryId = `${formData.get('categoryId') || ""}`.trim();
+    const sku = currentProduct?.id ? `${currentProduct?.sku || ""}`.trim() : `${autoSku || generateAutoSku()}`.trim();
     const newProduct = {
       id: currentProduct ? currentProduct.id : Date.now(),
-      sku: `${formData.get('sku') || ""}`.trim(),
+      sku,
       name: formData.get('name'),
-      price: parseFloat(formData.get('price')),
+      price: toIntPrice(formData.get('price')),
       stock: parseInt(formData.get('stock')),
       categoryId,
       category: categoryById.get(categoryId) || "",
@@ -82,7 +101,7 @@ export default function ProductManagement() {
     const payload = {
       sku: newProduct.sku,
       name: newProduct.name,
-      price: Number.isFinite(newProduct.price) ? newProduct.price : 0,
+      price: toIntPrice(newProduct.price),
       stock: Number.isFinite(newProduct.stock) ? newProduct.stock : 0,
       categoryId: newProduct.categoryId,
       img: currentProduct?.image || null,
@@ -98,6 +117,7 @@ export default function ProductManagement() {
     await refresh();
     setIsModalOpen(false);
     setCurrentProduct(null);
+    setAutoSku("");
   };
 
   const handleFileUpload = (e) => {
@@ -108,11 +128,12 @@ export default function ProductManagement() {
         skipEmptyLines: true,
         complete: (results) => {
           const newProducts = results.data.map(item => ({
+            categoryId: `${item.categoryId || ""}`.trim() || `${STATIC_CATEGORIES.find((c) => c.label.toLowerCase() === `${item.category || item.categorie || ""}`.trim().toLowerCase())?.id || "1"}`,
             id: Date.now() + Math.random(),
             name: item.name || item.nom,
-            price: parseFloat(item.price || item.prix || 0),
+            price: toIntPrice(item.price || item.prix || 0),
             stock: parseInt(item.stock || 0),
-            category: item.category || item.categorie || 'Uncategorized',
+            category: item.category || item.categorie || (categoryById.get(`${item.categoryId || ""}`.trim()) || 'Uncategorized'),
             image: item.image || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80"
           })).filter(p => p.name); // Filter out empty entries
           
@@ -127,6 +148,25 @@ export default function ProductManagement() {
     }
   };
 
+  const downloadImportTemplate = () => {
+    const rows = [
+      ["name", "price", "stock", "categoryId", "image"],
+      ["Casque Bluetooth", "25000", "15", "4", "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80"],
+      ["Chaussures Running", "32000", "8", "1", "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80"],
+      ["Crème Hydratante", "8500", "30", "2", "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=400&q=80"]
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${`${v}`.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "modele-import-produits.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const confirmImport = async () => {
     if (!importPreview || importPreview.length === 0) return;
     setIsImportModalOpen(false);
@@ -135,7 +175,7 @@ export default function ProductManagement() {
       const payload = {
         sku: `${p.sku || p.reference || p.id}`.toString().trim(),
         name: `${p.name || ""}`.trim(),
-        price: Number(p.price || 0),
+        price: toIntPrice(p.price || 0),
         stock: Number(p.stock || 0),
         categoryId,
         img: p.image || null,
@@ -171,18 +211,33 @@ export default function ProductManagement() {
           <p className="text-gray-500 text-sm mt-1">Gérez votre catalogue</p>
         </div>
         <div className="flex gap-2">
-          <label className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm cursor-pointer">
+          <button
+            onClick={() => setIsImportGuideOpen(true)}
+            className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            <Archive size={18} />
+            <span className="hidden sm:inline">Exemple Import</span>
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
+          >
             <Upload size={18} />
             <span className="hidden sm:inline">Import CSV</span>
-            <input 
-              type="file" 
-              accept=".csv"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
-          </label>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
           <button 
-            onClick={() => { setCurrentProduct(null); setIsModalOpen(true); }}
+            onClick={() => {
+              setCurrentProduct(null);
+              setAutoSku(generateAutoSku());
+              setIsModalOpen(true);
+            }}
             className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
           >
             <Plus size={18} />
@@ -236,7 +291,7 @@ export default function ProductManagement() {
 
                 {/* Desktop Columns */}
                 <div className="col-span-2 hidden md:block text-sm font-medium text-gray-900">
-                  {product.price.toFixed(2)} FCFA
+                  {formatFcfa(product.price)}
                 </div>
                 <div className="col-span-2 hidden md:block">
                   <div className="flex items-center gap-2">
@@ -252,7 +307,7 @@ export default function ProductManagement() {
 
                 {/* Mobile: Footer with Price & Actions */}
                 <div className="col-span-1 flex items-center justify-between md:justify-end w-full gap-2">
-                  <span className="md:hidden font-medium text-gray-900">{product.price.toFixed(2)} FCFA</span>
+                  <span className="md:hidden font-medium text-gray-900">{formatFcfa(product.price)}</span>
                   <div className="flex items-center gap-1">
                     <button 
                       onClick={() => handleEdit(product)}
@@ -288,6 +343,88 @@ export default function ProductManagement() {
 
       {/* Add/Edit Modal */}
       <AnimatePresence>
+        {isImportGuideOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Exemple pour import en masse</h2>
+                  <p className="text-sm text-gray-500">Remplissez votre CSV avec ces colonnes obligatoires.</p>
+                </div>
+                <button onClick={() => setIsImportGuideOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">&times;</button>
+              </div>
+              <div className="p-6 overflow-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <h3 className="font-bold text-gray-900 mb-2">Colonnes attendues</h3>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li><span className="font-medium">name</span> : nom du produit</li>
+                      <li><span className="font-medium">price</span> : prix en FCFA entier</li>
+                      <li><span className="font-medium">stock</span> : quantité en stock</li>
+                      <li><span className="font-medium">categoryId</span> : 1 à 5</li>
+                      <li><span className="font-medium">image</span> : URL image (optionnel)</li>
+                    </ul>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <h3 className="font-bold text-gray-900 mb-2">Référence catégories</h3>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      {STATIC_CATEGORIES.map((c) => (
+                        <li key={c.id}><span className="font-medium">{c.id}</span> : {c.label}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                <table className="w-full text-left text-sm border border-gray-200 rounded-xl overflow-hidden">
+                  <thead className="bg-gray-50 text-gray-500">
+                    <tr>
+                      <th className="px-3 py-2">name</th>
+                      <th className="px-3 py-2">price</th>
+                      <th className="px-3 py-2">stock</th>
+                      <th className="px-3 py-2">categoryId</th>
+                      <th className="px-3 py-2">image</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    <tr>
+                      <td className="px-3 py-2">Casque Bluetooth</td>
+                      <td className="px-3 py-2">25000</td>
+                      <td className="px-3 py-2">15</td>
+                      <td className="px-3 py-2">4</td>
+                      <td className="px-3 py-2 text-xs text-gray-500 truncate">https://images.unsplash.com/...</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2">Chaussures Running</td>
+                      <td className="px-3 py-2">32000</td>
+                      <td className="px-3 py-2">8</td>
+                      <td className="px-3 py-2">1</td>
+                      <td className="px-3 py-2 text-xs text-gray-500 truncate">https://images.unsplash.com/...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+                <button onClick={() => setIsImportGuideOpen(false)} className="px-5 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-white transition-colors font-medium">Fermer</button>
+                <button onClick={downloadImportTemplate} className="px-5 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium">Télécharger le modèle CSV</button>
+                <button
+                  onClick={() => {
+                    setIsImportGuideOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="px-5 py-2 bg-[#6aa200] text-white rounded-lg hover:bg-[#5a8b00] transition-colors font-medium"
+                >
+                  Importer maintenant
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div 
@@ -314,11 +451,10 @@ export default function ProductManagement() {
                   <div className="relative">
                     <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                     <input 
-                      name="sku"
-                      defaultValue={currentProduct?.sku}
-                      required
+                      value={currentProduct?.id ? `${currentProduct?.sku || ""}` : autoSku}
+                      readOnly
                       className="w-full pl-10 pr-4 py-2 border border-gray-200 bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/5"
-                      placeholder="Ex: SKU-0001"
+                      placeholder="SKU automatique"
                     />
                   </div>
                 </div>
@@ -345,7 +481,8 @@ export default function ProductManagement() {
                       <input 
                         name="price" 
                         type="number" 
-                        step="0.01" 
+                        step="1" 
+                        min="0"
                         defaultValue={currentProduct?.price} 
                         required 
                         className="w-full bg-gray-50 pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/5"
@@ -452,7 +589,7 @@ export default function ProductManagement() {
                     {importPreview.map((product, index) => (
                       <tr key={index} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-gray-900">{product.name}</td>
-                        <td className="px-4 py-3 text-gray-600">{product.price.toFixed(2)} FCFA</td>
+                        <td className="px-4 py-3 text-gray-600">{formatFcfa(product.price)}</td>
                         <td className="px-4 py-3">
                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStockStatus(product.stock).color}`}>
                              {product.stock}
