@@ -70,6 +70,15 @@ config:
       blog-post-details-ttl-minutes: ${CATALOG_CACHE_BLOG_POST_DETAILS_TTL_MINUTES:240}
       tickets-ttl-minutes: ${CATALOG_CACHE_TICKETS_TTL_MINUTES:120}
       ticket-details-ttl-minutes: ${CATALOG_CACHE_TICKET_DETAILS_TTL_MINUTES:240}
+      partner-collection-ttl-minutes: ${CATALOG_CACHE_PARTNER_COLLECTION_TTL_MINUTES:30}
+      partner-settings-ttl-minutes: ${CATALOG_CACHE_PARTNER_SETTINGS_TTL_MINUTES:240}
+      partner-products-page-ttl-minutes: ${CATALOG_CACHE_PARTNER_PRODUCTS_PAGE_TTL_MINUTES:30}
+      partner-product-details-ttl-minutes: ${CATALOG_CACHE_PARTNER_PRODUCT_DETAILS_TTL_MINUTES:60}
+      partner-orders-page-ttl-minutes: ${CATALOG_CACHE_PARTNER_ORDERS_PAGE_TTL_MINUTES:10}
+      partner-order-details-ttl-minutes: ${CATALOG_CACHE_PARTNER_ORDER_DETAILS_TTL_MINUTES:10}
+      partner-customers-page-ttl-minutes: ${CATALOG_CACHE_PARTNER_CUSTOMERS_PAGE_TTL_MINUTES:30}
+      partner-categories-ttl-minutes: ${CATALOG_CACHE_PARTNER_CATEGORIES_TTL_MINUTES:240}
+      partner-preferences-ttl-minutes: ${CATALOG_CACHE_PARTNER_PREFERENCES_TTL_MINUTES:240}
       collection-max-size: ${CATALOG_CACHE_COLLECTION_MAX_SIZE:1000}
       categories-max-size: ${CATALOG_CACHE_CATEGORIES_MAX_SIZE:500}
       featured-categories-max-size: ${CATALOG_CACHE_FEATURED_CATEGORIES_MAX_SIZE:500}
@@ -82,6 +91,15 @@ config:
       blog-post-details-max-size: ${CATALOG_CACHE_BLOG_POST_DETAILS_MAX_SIZE:2000}
       tickets-max-size: ${CATALOG_CACHE_TICKETS_MAX_SIZE:1000}
       ticket-details-max-size: ${CATALOG_CACHE_TICKET_DETAILS_MAX_SIZE:2000}
+      partner-collection-max-size: ${CATALOG_CACHE_PARTNER_COLLECTION_MAX_SIZE:1000}
+      partner-settings-max-size: ${CATALOG_CACHE_PARTNER_SETTINGS_MAX_SIZE:1000}
+      partner-products-page-max-size: ${CATALOG_CACHE_PARTNER_PRODUCTS_PAGE_MAX_SIZE:2000}
+      partner-product-details-max-size: ${CATALOG_CACHE_PARTNER_PRODUCT_DETAILS_MAX_SIZE:5000}
+      partner-orders-page-max-size: ${CATALOG_CACHE_PARTNER_ORDERS_PAGE_MAX_SIZE:2000}
+      partner-order-details-max-size: ${CATALOG_CACHE_PARTNER_ORDER_DETAILS_MAX_SIZE:5000}
+      partner-customers-page-max-size: ${CATALOG_CACHE_PARTNER_CUSTOMERS_PAGE_MAX_SIZE:2000}
+      partner-categories-max-size: ${CATALOG_CACHE_PARTNER_CATEGORIES_MAX_SIZE:2000}
+      partner-preferences-max-size: ${CATALOG_CACHE_PARTNER_PREFERENCES_MAX_SIZE:1000}
   logs:
     admin:
       file-path: ${LOG_ADMIN_FILE_PATH:${logging.file.name:logs/lid.log}}

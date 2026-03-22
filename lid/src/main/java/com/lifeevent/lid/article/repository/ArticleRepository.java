@@ -171,6 +171,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 
     Page<Article> findByReferencePartnerAndStatus(String partnerId, ArticleStatus status, Pageable pageable);
 
+    Optional<Article> findByIdAndReferencePartner(Long id, String partnerId);
+
     long countByReferencePartner(String partnerId);
 
 }

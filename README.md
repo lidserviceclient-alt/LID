@@ -35,13 +35,7 @@ Puis :
 2. Stopper le process (`Ctrl+C`)
 3. Vérifier le fichier généré : `deployment/ddl.sql`
 
-Option robuste (désactive explicitement les anciennes clés `javax` au runtime) :
 
-```bash
-SPRING_PROFILES_ACTIVE=ddl-postgres \
-./mvnw -DskipTests spring-boot:run \
--Dspring-boot.run.jvmArguments="-Dspring.jpa.properties.javax.persistence.schema-generation.database.action=none -Dspring.jpa.properties.javax.persistence.schema-generation.scripts.action=none"
-```
 
 ## 3) Run local en mode DB prod-like (PostgreSQL)
 Un profil dédié existe : `application-db-prod.yml` (profil Spring `db-prod`).

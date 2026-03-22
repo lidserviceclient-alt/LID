@@ -1,7 +1,15 @@
 package com.lifeevent.lid.backoffice.partner.service.impl;
 
 import com.lifeevent.lid.article.entity.Article;
+import com.lifeevent.lid.article.entity.Category;
+import com.lifeevent.lid.article.enumeration.ArticleStatus;
 import com.lifeevent.lid.article.repository.ArticleRepository;
+import com.lifeevent.lid.article.repository.CategoryRepository;
+import com.lifeevent.lid.backoffice.lid.product.dto.BackOfficeProductDto;
+import com.lifeevent.lid.backoffice.lid.product.mapper.BackOfficeProductMapper;
+import com.lifeevent.lid.backoffice.partner.category.dto.PartnerSubCategoryDto;
+import com.lifeevent.lid.backoffice.partner.category.entity.PartnerSubCategory;
+import com.lifeevent.lid.backoffice.partner.category.repository.PartnerSubCategoryRepository;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCollectionDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCustomerDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerOrderDto;
@@ -9,16 +17,35 @@ import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerProductDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerStatsDto;
 import com.lifeevent.lid.backoffice.partner.mapper.BackOfficePartnerMapper;
+import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderDetailDto;
+import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderItemDto;
+import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderUpdateRequest;
+import com.lifeevent.lid.backoffice.partner.preference.dto.PartnerPreferencesDto;
+import com.lifeevent.lid.backoffice.partner.preference.entity.PartnerPreferences;
+import com.lifeevent.lid.backoffice.partner.preference.repository.PartnerPreferencesRepository;
 import com.lifeevent.lid.backoffice.partner.service.BackOfficePartnerService;
+import com.lifeevent.lid.cache.event.ProductCatalogChangedEvent;
+import com.lifeevent.lid.cache.CatalogCacheNames;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
 import com.lifeevent.lid.order.entity.Order;
+import com.lifeevent.lid.order.entity.OrderArticle;
+import com.lifeevent.lid.order.entity.StatusHistory;
+import com.lifeevent.lid.order.enumeration.Status;
 import com.lifeevent.lid.order.repository.OrderRepository;
+import com.lifeevent.lid.stock.entity.Stock;
 import com.lifeevent.lid.stock.repository.StockRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.partner.entity.Partner;
+import com.lifeevent.lid.user.partner.entity.Shop;
+import com.lifeevent.lid.user.partner.entity.ShopStatusEnum;
 import com.lifeevent.lid.user.partner.repository.PartnerRepository;
+import com.lifeevent.lid.user.partner.repository.ShopRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -28,9 +55,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
@@ -41,12 +73,22 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
 
     private final PartnerRepository partnerRepository;
+    private final ShopRepository shopRepository;
+    private final CategoryRepository categoryRepository;
     private final ArticleRepository articleRepository;
     private final OrderRepository orderRepository;
     private final StockRepository stockRepository;
+    private final PartnerSubCategoryRepository partnerSubCategoryRepository;
+    private final PartnerPreferencesRepository partnerPreferencesRepository;
     private final BackOfficePartnerMapper mapper;
+    private final BackOfficeProductMapper backOfficeProductMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_COLLECTION,
+            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':p=' + #productLimit + ':o=' + #orderLimit + ':c=' + #customerLimit"
+    )
     public BackOfficePartnerCollectionDto getMyCollection(int productLimit, int orderLimit, int customerLimit) {
         String partnerId = requireCurrentPartnerId();
         BackOfficePartnerStatsDto stats = buildStats(partnerId);
@@ -58,6 +100,10 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     }
 
     @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_PRODUCTS_PAGE,
+            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':summary:p=' + #page + ':s=' + #size"
+    )
     public Page<BackOfficePartnerProductDto> getMyProducts(int page, int size) {
         String partnerId = requireCurrentPartnerId();
         Pageable pageable = PageRequest.of(safePage(page), safePageSize(size), Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -70,6 +116,10 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     }
 
     @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_ORDERS_PAGE,
+            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':summary:p=' + #page + ':s=' + #size"
+    )
     public Page<BackOfficePartnerOrderDto> getMyOrders(int page, int size) {
         String partnerId = requireCurrentPartnerId();
         Pageable pageable = PageRequest.of(safePage(page), safePageSize(size), Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -77,6 +127,10 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     }
 
     @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_CUSTOMERS_PAGE,
+            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':p=' + #page + ':s=' + #size"
+    )
     public Page<BackOfficePartnerCustomerDto> getMyCustomers(int page, int size) {
         String partnerId = requireCurrentPartnerId();
         Pageable pageable = PageRequest.of(safePage(page), safePageSize(size), Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -89,6 +143,10 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     }
 
     @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_SETTINGS,
+            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()"
+    )
     public BackOfficePartnerSettingsDto getMySettings() {
         Partner partner = requirePartner(requireCurrentPartnerId());
         return mapper.toSettingsDto(partner);
@@ -96,6 +154,10 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_SETTINGS, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()"),
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_COLLECTION, allEntries = true)
+    })
     public BackOfficePartnerSettingsDto updateMySettings(BackOfficePartnerSettingsDto dto) {
         String partnerId = requireCurrentPartnerId();
         Partner partner = requirePartner(partnerId);
@@ -112,15 +174,247 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
         partner.setCity(normalizeOrCurrent(dto.city(), partner.getCity()));
         partner.setCountry(normalizeOrCurrent(dto.country(), partner.getCountry()));
 
-        if (partner.getShop() != null) {
-            partner.getShop().setShopName(normalizeOrCurrent(dto.shopName(), partner.getShop().getShopName()));
-            partner.getShop().setShopDescription(normalizeOrCurrent(dto.shopDescription(), partner.getShop().getShopDescription()));
-            partner.getShop().setDescription(normalizeOrCurrent(dto.description(), partner.getShop().getDescription()));
-            partner.getShop().setLogoUrl(normalizeOrCurrent(dto.logoUrl(), partner.getShop().getLogoUrl()));
-            partner.getShop().setBackgroundUrl(normalizeOrCurrent(dto.backgroundUrl(), partner.getShop().getBackgroundUrl()));
+        if (partner.getShop() == null) {
+            partner.setShop(createShopFromSettings(dto));
+        }
+
+        Shop shop = partner.getShop();
+        if (shop != null) {
+            shop.setShopName(normalizeOrCurrent(dto.shopName(), shop.getShopName()));
+            shop.setShopDescription(normalizeOrCurrent(dto.shopDescription(), shop.getShopDescription()));
+            shop.setDescription(normalizeOrCurrent(dto.description(), shop.getDescription()));
+            shop.setLogoUrl(normalizeOrCurrent(dto.logoUrl(), shop.getLogoUrl()));
+            shop.setBackgroundUrl(normalizeOrCurrent(dto.backgroundUrl(), shop.getBackgroundUrl()));
+            if (dto.mainCategoryId() != null) {
+                shop.setMainCategory(requireCategory(dto.mainCategoryId()));
+            }
         }
 
         return mapper.toSettingsDto(partnerRepository.save(partner));
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_PRODUCTS_PAGE,
+            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':crud:p=' + #page + ':s=' + #size"
+    )
+    public Page<BackOfficeProductDto> getMyProductsCrud(int page, int size) {
+        String partnerId = requireCurrentPartnerId();
+        Pageable pageable = PageRequest.of(safePage(page), safePageSize(size), Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Article> articles = articleRepository.findByReferencePartner(partnerId, pageable);
+        Map<Long, Integer> stockById = loadStockByArticleIds(articles.getContent().stream().map(Article::getId).toList());
+        return articles.map(article -> toCrudDto(article, stockById.getOrDefault(article.getId(), 0)));
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PRODUCTS_PAGE, allEntries = true),
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PRODUCT_DETAILS, allEntries = true),
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_COLLECTION, allEntries = true)
+    })
+    public BackOfficeProductDto createMyProduct(BackOfficeProductDto dto) {
+        String partnerId = requireCurrentPartnerId();
+        normalizeImageFields(dto);
+        Article entity = backOfficeProductMapper.toEntity(dto);
+        enrichArticle(entity, dto);
+        entity.setReferencePartner(partnerId);
+        Article saved = articleRepository.save(entity);
+        upsertStock(saved, dto != null ? dto.getStock() : null);
+        publishCatalogChanged(saved.getId());
+        return toCrudDto(saved, loadSingleStock(saved.getId()));
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_PRODUCT_DETAILS,
+            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id"
+    )
+    public BackOfficeProductDto getMyProduct(Long id) {
+        Article article = findOwnedArticleOrThrow(id);
+        return toCrudDto(article, loadSingleStock(article.getId()));
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PRODUCTS_PAGE, allEntries = true),
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PRODUCT_DETAILS, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id"),
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_COLLECTION, allEntries = true)
+    })
+    public BackOfficeProductDto updateMyProduct(Long id, BackOfficeProductDto dto) {
+        normalizeImageFields(dto);
+        Article entity = findOwnedArticleOrThrow(id);
+        backOfficeProductMapper.updateEntityFromDto(dto, entity);
+        enrichArticle(entity, dto);
+        Article saved = articleRepository.save(entity);
+        upsertStock(saved, dto != null ? dto.getStock() : null);
+        publishCatalogChanged(saved.getId());
+        return toCrudDto(saved, loadSingleStock(saved.getId()));
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PRODUCTS_PAGE, allEntries = true),
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PRODUCT_DETAILS, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id"),
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_COLLECTION, allEntries = true)
+    })
+    public void deleteMyProduct(Long id) {
+        Article entity = findOwnedArticleOrThrow(id);
+        entity.setStatus(ArticleStatus.ARCHIVED);
+        Article saved = articleRepository.save(entity);
+        publishCatalogChanged(saved.getId());
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_ORDERS_PAGE,
+            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':crud:p=' + #page + ':s=' + #size"
+    )
+    public Page<BackOfficePartnerOrderDto> listMyOrdersCrud(int page, int size) {
+        return getMyOrders(page, size);
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_ORDER_DETAILS,
+            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id"
+    )
+    public PartnerOrderDetailDto getMyOrder(Long id) {
+        String partnerId = requireCurrentPartnerId();
+        Order order = orderRepository.findPartnerOwnedWithCustomerAndArticlesById(id, partnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id == null ? "" : String.valueOf(id)));
+        return toOrderDetailDto(order, partnerId);
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_ORDERS_PAGE, allEntries = true),
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_ORDER_DETAILS, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id"),
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_COLLECTION, allEntries = true)
+    })
+    public PartnerOrderDetailDto updateMyOrder(Long id, PartnerOrderUpdateRequest request) {
+        String partnerId = requireCurrentPartnerId();
+        Order order = orderRepository.findPartnerOwnedWithCustomerAndStatusHistoryById(id, partnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id == null ? "" : String.valueOf(id)));
+
+        if (request != null) {
+            Status next = parseStatus(request.getStatus());
+            if (next != null) {
+                order.setCurrentStatus(next);
+                appendStatusHistory(order, next, request.getComment());
+            }
+            if (request.getTrackingNumber() != null && !request.getTrackingNumber().trim().isEmpty()) {
+                order.setTrackingNumber(request.getTrackingNumber().trim());
+            }
+        }
+
+        Order saved = orderRepository.save(order);
+        Order withArticles = orderRepository.findPartnerOwnedWithCustomerAndArticlesById(saved.getId(), partnerId)
+                .orElse(saved);
+        return toOrderDetailDto(withArticles, partnerId);
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_ORDERS_PAGE, allEntries = true),
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_ORDER_DETAILS, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id"),
+            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_COLLECTION, allEntries = true)
+    })
+    public void cancelMyOrder(Long id, String comment) {
+        updateMyOrder(id, PartnerOrderUpdateRequest.builder().status(Status.CANCELED.name()).comment(comment).build());
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_CATEGORIES,
+            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()"
+    )
+    public List<PartnerSubCategoryDto> listMyCategories() {
+        String partnerId = requireCurrentPartnerId();
+        return partnerSubCategoryRepository.findByPartnerIdOrderByCreatedAtDesc(partnerId).stream()
+                .map(this::toPartnerSubCategoryDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_CATEGORIES, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()")
+    public PartnerSubCategoryDto createMyCategory(PartnerSubCategoryDto dto) {
+        String partnerId = requireCurrentPartnerId();
+        PartnerSubCategory entity = PartnerSubCategory.builder()
+                .partnerId(partnerId)
+                .mainCategoryId(dto != null ? dto.getMainCategoryId() : null)
+                .name(dto != null ? dto.getName() : null)
+                .description(dto != null ? dto.getDescription() : null)
+                .build();
+        return toPartnerSubCategoryDto(partnerSubCategoryRepository.save(entity));
+    }
+
+    @Override
+    public PartnerSubCategoryDto getMyCategory(Long id) {
+        return toPartnerSubCategoryDto(findOwnedSubCategoryOrThrow(id));
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_CATEGORIES, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()")
+    public PartnerSubCategoryDto updateMyCategory(Long id, PartnerSubCategoryDto dto) {
+        PartnerSubCategory entity = findOwnedSubCategoryOrThrow(id);
+        if (dto != null) {
+            if (dto.getMainCategoryId() != null) {
+                entity.setMainCategoryId(dto.getMainCategoryId());
+            }
+            if (dto.getName() != null) {
+                entity.setName(dto.getName());
+            }
+            entity.setDescription(dto.getDescription());
+        }
+        return toPartnerSubCategoryDto(partnerSubCategoryRepository.save(entity));
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_CATEGORIES, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()")
+    public void deleteMyCategory(Long id) {
+        partnerSubCategoryRepository.delete(findOwnedSubCategoryOrThrow(id));
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_PREFERENCES,
+            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()"
+    )
+    public PartnerPreferencesDto getMyPreferences() {
+        String partnerId = requireCurrentPartnerId();
+        return partnerPreferencesRepository.findById(partnerId)
+                .map(this::toPartnerPreferencesDto)
+                .orElseGet(() -> {
+                    PartnerPreferences created = partnerPreferencesRepository.save(PartnerPreferences.builder().partnerId(partnerId).build());
+                    return toPartnerPreferencesDto(created);
+                });
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PREFERENCES, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()")
+    public PartnerPreferencesDto updateMyPreferences(PartnerPreferencesDto dto) {
+        String partnerId = requireCurrentPartnerId();
+        PartnerPreferences entity = partnerPreferencesRepository.findById(partnerId)
+                .orElseGet(() -> PartnerPreferences.builder().partnerId(partnerId).build());
+
+        if (dto != null) {
+            entity.setStockThreshold(dto.stockThreshold());
+            entity.setWebsiteUrl(normalizeOrNull(dto.websiteUrl()));
+            entity.setInstagramHandle(normalizeOrNull(dto.instagramHandle()));
+            entity.setFacebookPage(normalizeOrNull(dto.facebookPage()));
+            entity.setOpeningHoursJson(normalizeOrNull(dto.openingHoursJson()));
+        }
+
+        return toPartnerPreferencesDto(partnerPreferencesRepository.save(entity));
     }
 
     private BackOfficePartnerStatsDto buildStats(String partnerId) {
@@ -168,13 +462,21 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
                 ));
     }
 
+    private int loadSingleStock(Long articleId) {
+        if (articleId == null) {
+            return 0;
+        }
+        Integer stock = stockRepository.sumAvailableByArticleId(articleId);
+        return stock == null ? 0 : stock;
+    }
+
     private Map<String, OrderRepository.CustomerOrderMetricsView> loadMetricsByCustomerIds(Collection<Customer> customers) {
         if (customers == null || customers.isEmpty()) {
             return Map.of();
         }
         List<String> ids = customers.stream().map(Customer::getUserId).distinct().toList();
         return orderRepository.aggregateMetricsByCustomerIds(ids).stream()
-                .collect(Collectors.toMap(OrderRepository.CustomerOrderMetricsView::getCustomerId, row -> row));
+                .collect(Collectors.toMap(OrderRepository.CustomerOrderMetricsView::getCustomerId, Function.identity()));
     }
 
     private Partner requirePartner(String partnerId) {
@@ -211,5 +513,294 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? current : trimmed;
+    }
+
+    private String normalizeOrNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private Shop createShopFromSettings(BackOfficePartnerSettingsDto dto) {
+        if (dto == null || dto.mainCategoryId() == null) {
+            throw new IllegalArgumentException("mainCategoryId est requis pour créer la boutique.");
+        }
+        Category category = requireCategory(dto.mainCategoryId());
+        Shop shop = Shop.builder()
+                .shopName(requireNonBlank(dto.shopName(), "shopName est requis pour créer la boutique."))
+                .shopDescription(normalizeOrNull(dto.shopDescription()))
+                .description(requireNonBlank(dto.description(), "description est requise pour créer la boutique."))
+                .logoUrl(requireNonBlank(dto.logoUrl(), "logoUrl est requis pour créer la boutique."))
+                .backgroundUrl(requireNonBlank(dto.backgroundUrl(), "backgroundUrl est requis pour créer la boutique."))
+                .status(ShopStatusEnum.PRINCIPALE)
+                .mainCategory(category)
+                .build();
+        return shopRepository.save(shop);
+    }
+
+    private Category requireCategory(Integer categoryId) {
+        return categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "categoryId", String.valueOf(categoryId)));
+    }
+
+    private String requireNonBlank(String value, String message) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(message);
+        }
+        return value.trim();
+    }
+
+    private BackOfficeProductDto toCrudDto(Article article, Integer stock) {
+        BackOfficeProductDto dto = backOfficeProductMapper.toDto(article);
+        dto.setImg(article.getImg());
+        dto.setImageUrl(article.getImg());
+        dto.setStatus(toBackOfficeStatus(article.getStatus()));
+        if (article.getCategories() != null && !article.getCategories().isEmpty()) {
+            Category category = article.getCategories().get(0);
+            if (category != null) {
+                dto.setCategoryId(category.getId() == null ? null : String.valueOf(category.getId()));
+                dto.setCategory(category.getName());
+            }
+        }
+        dto.setStock(stock == null ? 0 : stock);
+        return dto;
+    }
+
+    private void normalizeImageFields(BackOfficeProductDto dto) {
+        if (dto == null) {
+            return;
+        }
+        if ((dto.getImg() == null || dto.getImg().isBlank()) && dto.getImageUrl() != null && !dto.getImageUrl().isBlank()) {
+            dto.setImg(dto.getImageUrl());
+        }
+        if ((dto.getImageUrl() == null || dto.getImageUrl().isBlank()) && dto.getImg() != null && !dto.getImg().isBlank()) {
+            dto.setImageUrl(dto.getImg());
+        }
+    }
+
+    private void enrichArticle(Article entity, BackOfficeProductDto dto) {
+        applyStatus(entity, dto != null ? dto.getStatus() : null);
+        applyDefaults(entity, dto);
+        applyCategory(entity, dto);
+    }
+
+    private void applyDefaults(Article entity, BackOfficeProductDto dto) {
+        if (entity == null) {
+            return;
+        }
+        if (entity.getStatus() == null) {
+            entity.setStatus(ArticleStatus.ACTIVE);
+        }
+        if (entity.getPrice() == null && dto != null && dto.getPrice() != null) {
+            entity.setPrice(dto.getPrice());
+        }
+        if (entity.getSku() == null && dto != null) {
+            entity.setSku(dto.getSku());
+        }
+    }
+
+    private void applyStatus(Article entity, String rawStatus) {
+        ArticleStatus parsed = parseArticleStatus(rawStatus);
+        if (parsed != null) {
+            entity.setStatus(parsed);
+        }
+    }
+
+    private ArticleStatus parseArticleStatus(String rawStatus) {
+        if (rawStatus == null || rawStatus.trim().isEmpty()) {
+            return null;
+        }
+        return switch (rawStatus.trim().toUpperCase()) {
+            case "ACTIVE", "ACTIF" -> ArticleStatus.ACTIVE;
+            case "DRAFT", "BROUILLON" -> ArticleStatus.DRAFT;
+            case "ARCHIVED", "ARCHIVE" -> ArticleStatus.ARCHIVED;
+            default -> null;
+        };
+    }
+
+    private String toBackOfficeStatus(ArticleStatus status) {
+        if (status == null) {
+            return "ACTIF";
+        }
+        return switch (status) {
+            case ACTIVE -> "ACTIF";
+            case DRAFT -> "BROUILLON";
+            case ARCHIVED -> "ARCHIVE";
+        };
+    }
+
+    private void applyCategory(Article entity, BackOfficeProductDto dto) {
+        Integer categoryId = parseCategoryId(dto);
+        if (categoryId == null) {
+            return;
+        }
+        entity.setCategories(List.of(requireCategory(categoryId)));
+    }
+
+    private Integer parseCategoryId(BackOfficeProductDto dto) {
+        if (dto == null) {
+            return null;
+        }
+        String raw = dto.getCategoryId();
+        if (raw == null || raw.trim().isEmpty()) {
+            raw = dto.getCategory();
+        }
+        if (raw == null || raw.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(raw.trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private Article findOwnedArticleOrThrow(Long id) {
+        String partnerId = requireCurrentPartnerId();
+        return articleRepository.findByIdAndReferencePartner(id, partnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Article", "id", id == null ? "" : String.valueOf(id)));
+    }
+
+    private void upsertStock(Article article, Integer stockValue) {
+        if (article == null || article.getId() == null || stockValue == null) {
+            return;
+        }
+        List<Stock> stocks = stockRepository.findByArticleId(article.getId());
+        if (stocks == null || stocks.isEmpty()) {
+            stockRepository.save(Stock.builder()
+                    .article(article)
+                    .quantityAvailable(Math.max(0, stockValue))
+                    .quantityReserved(0)
+                    .lot(article.getSku())
+                    .build());
+            return;
+        }
+        Stock stock = stocks.get(0);
+        stock.setQuantityAvailable(Math.max(0, stockValue));
+        if (stock.getQuantityReserved() == null) {
+            stock.setQuantityReserved(0);
+        }
+        if (stock.getLot() == null || stock.getLot().isBlank()) {
+            stock.setLot(article.getSku());
+        }
+        stockRepository.save(stock);
+    }
+
+    private void publishCatalogChanged(Long articleId) {
+        eventPublisher.publishEvent(new ProductCatalogChangedEvent(articleId == null ? Set.of() : Set.of(articleId)));
+    }
+
+    private PartnerOrderDetailDto toOrderDetailDto(Order order, String partnerId) {
+        Customer customer = order.getCustomer();
+        String fullName = customer == null ? null : formatFullName(customer.getFirstName(), customer.getLastName());
+        List<PartnerOrderItemDto> items = buildPartnerOrderItems(order, partnerId);
+        double amount = items.stream()
+                .filter(Objects::nonNull)
+                .mapToDouble(item -> (item.getPrice() == null ? 0D : item.getPrice()) * (item.getQuantity() == null ? 0 : item.getQuantity()))
+                .sum();
+
+        return PartnerOrderDetailDto.builder()
+                .id(order.getId())
+                .trackingNumber(order.getTrackingNumber())
+                .status(order.getCurrentStatus())
+                .amount(amount)
+                .currency(order.getCurrency())
+                .customerId(customer == null ? null : customer.getUserId())
+                .customerName(fullName)
+                .customerEmail(customer == null ? null : customer.getEmail())
+                .createdAt(order.getCreatedAt())
+                .items(items)
+                .build();
+    }
+
+    private List<PartnerOrderItemDto> buildPartnerOrderItems(Order order, String partnerId) {
+        if (order == null || order.getArticles() == null) {
+            return List.of();
+        }
+        return order.getArticles().stream()
+                .filter(Objects::nonNull)
+                .filter(oa -> isOwnedByPartner(oa, partnerId))
+                .map(this::toPartnerOrderItemDto)
+                .toList();
+    }
+
+    private boolean isOwnedByPartner(OrderArticle orderArticle, String partnerId) {
+        if (orderArticle == null || partnerId == null) {
+            return false;
+        }
+        Article article = orderArticle.getArticle();
+        return article != null && partnerId.equals(article.getReferencePartner());
+    }
+
+    private PartnerOrderItemDto toPartnerOrderItemDto(OrderArticle orderArticle) {
+        Article article = orderArticle.getArticle();
+        return PartnerOrderItemDto.builder()
+                .articleId(article == null ? null : article.getId())
+                .name(article == null ? null : article.getName())
+                .quantity(orderArticle.getQuantity())
+                .price(orderArticle.getPriceAtOrder())
+                .imageUrl(article == null ? null : article.getImg())
+                .build();
+    }
+
+    private void appendStatusHistory(Order order, Status status, String comment) {
+        if (order.getStatusHistory() == null) {
+            order.setStatusHistory(new ArrayList<>());
+        }
+        order.getStatusHistory().add(StatusHistory.builder()
+                .order(order)
+                .status(status)
+                .comment(normalizeOrNull(comment))
+                .changedAt(LocalDateTime.now())
+                .build());
+    }
+
+    private Status parseStatus(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Status.valueOf(raw.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    private String formatFullName(String firstName, String lastName) {
+        String first = firstName == null ? "" : firstName.trim();
+        String last = lastName == null ? "" : lastName.trim();
+        String full = (first + " " + last).trim();
+        return full.isEmpty() ? null : full;
+    }
+
+    private PartnerSubCategory findOwnedSubCategoryOrThrow(Long id) {
+        String partnerId = requireCurrentPartnerId();
+        return partnerSubCategoryRepository.findByIdAndPartnerId(id, partnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("PartnerSubCategory", "id", id == null ? "" : String.valueOf(id)));
+    }
+
+    private PartnerSubCategoryDto toPartnerSubCategoryDto(PartnerSubCategory entity) {
+        if (entity == null) {
+            return null;
+        }
+        return PartnerSubCategoryDto.builder()
+                .id(entity.getId())
+                .mainCategoryId(entity.getMainCategoryId())
+                .name(entity.getName())
+                .description(entity.getDescription())
+                .productCount(0)
+                .build();
+    }
+
+    private PartnerPreferencesDto toPartnerPreferencesDto(PartnerPreferences entity) {
+        return new PartnerPreferencesDto(
+                entity.getStockThreshold(),
+                entity.getWebsiteUrl(),
+                entity.getInstagramHandle(),
+                entity.getFacebookPage(),
+                entity.getOpeningHoursJson()
+        );
     }
 }

@@ -734,6 +734,18 @@
     create index idx_article_categories_category 
        on article_categories (categories_id);
 
+    create index idx_auth_type 
+       on authentication (type);
+
+    create index idx_auth_roles_role_user 
+       on authentication_roles (roles, authentication_user_id);
+
+    create index idx_auth_roles_user 
+       on authentication_roles (authentication_user_id);
+
+    create index idx_cart_customer_user_id 
+       on cart (customer_user_id);
+
     create index idx_cart_article_cart 
        on cart_article (cart_id);
 
@@ -746,11 +758,29 @@
     create index idx_category_parent_slug 
        on category (parent_slug);
 
+    create index idx_discount_active_period 
+       on discount (is_active, start_at, end_at);
+
+    create index idx_discount_created_at 
+       on discount (created_at);
+
+    create index idx_email_message_created_at 
+       on email_message (created_at);
+
+    create index idx_email_message_status_next_retry_at 
+       on email_message (status, next_retry_at);
+
+    create index idx_email_message_recipient_message 
+       on email_message_recipient (message_id);
+
     create index idx_marketing_delivery_campaign_status 
        on marketing_campaign_delivery (campaign_id, status);
 
     create index idx_marketing_delivery_status_retry 
        on marketing_campaign_delivery (status, next_retry_at);
+
+    create index idx_newsletter_status_created_at 
+       on newsletter_subscriber (status, created_at);
 
     create index idx_order_article_order 
        on order_article (order_id);
@@ -767,11 +797,59 @@
     create index idx_orders_tracking_number 
        on orders (tracking_number);
 
+    create index idx_prt_code_purpose 
+       on password_reset_token (code, purpose);
+
+    create index idx_prt_user_purpose_used 
+       on password_reset_token (user_id, purpose, used);
+
+    create index idx_prt_expiry_date 
+       on password_reset_token (expiry_date);
+
+    create index idx_payment_status_payment_date_created_at 
+       on payment (status, payment_date, created_at);
+
+    create index idx_payment_order_id 
+       on payment (order_id);
+
+    create index idx_payment_transaction_id 
+       on payment (transaction_id);
+
+    create index idx_payment_customer_email 
+       on payment (customer_email);
+
     create index idx_product_review_article_public_created 
        on product_review (article_id, validated, deleted_at, created_at);
 
     create index idx_product_review_customer_article 
        on product_review (customer_id, article_id);
+
+    create index idx_refresh_token_user_revoked_expires_at 
+       on refresh_token (user_id, revoked, expires_at);
+
+    create index idx_refresh_token_expires_at 
+       on refresh_token (expires_at);
+
+    create index idx_refunds_status_processed_date_created_at 
+       on refunds (status, processed_date, created_at);
+
+    create index idx_refunds_payment_id 
+       on refunds (payment_id);
+
+    create index idx_refunds_refund_id 
+       on refunds (refund_id);
+
+    create index idx_shipment_order_id 
+       on shipment (order_id);
+
+    create index idx_shipment_tracking_id 
+       on shipment (tracking_id);
+
+    create index idx_shipment_status_created_at 
+       on shipment (status, created_at);
+
+    create index idx_shipment_carrier_created_at 
+       on shipment (carrier, created_at);
 
     create index idx_status_history_order_changed_at 
        on status_history (order_id, changed_at);
@@ -779,8 +857,23 @@
     create index idx_stock_article_id_id 
        on stock (article_id, id);
 
+    create index idx_stock_quantity_available 
+       on stock (quantity_available);
+
+    create index idx_stock_best_before 
+       on stock (best_before);
+
+    create index idx_stock_movement_article_created_at 
+       on stock_movement (article_id, created_at);
+
+    create index idx_stock_movement_type_created_at 
+       on stock_movement (type, created_at);
+
     create index idx_user_email 
        on user_entity (email);
+
+    create index idx_user_user_type_created_at 
+       on user_entity (user_type, created_at);
 
     alter table if exists article_categories 
        add constraint FKojn3kggha3c6fptgfv60b68vu 

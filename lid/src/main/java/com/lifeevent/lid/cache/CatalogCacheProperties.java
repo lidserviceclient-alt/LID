@@ -21,6 +21,15 @@ public class CatalogCacheProperties {
     private long blogPostDetailsTtlMinutes = 240;
     private long ticketsTtlMinutes = 120;
     private long ticketDetailsTtlMinutes = 240;
+    private long partnerCollectionTtlMinutes = 30;
+    private long partnerSettingsTtlMinutes = 240;
+    private long partnerProductsPageTtlMinutes = 30;
+    private long partnerProductDetailsTtlMinutes = 60;
+    private long partnerOrdersPageTtlMinutes = 10;
+    private long partnerOrderDetailsTtlMinutes = 10;
+    private long partnerCustomersPageTtlMinutes = 30;
+    private long partnerCategoriesTtlMinutes = 240;
+    private long partnerPreferencesTtlMinutes = 240;
 
     private long collectionMaxSize = 1_000;
     private long categoriesMaxSize = 500;
@@ -34,5 +43,13 @@ public class CatalogCacheProperties {
     private long blogPostDetailsMaxSize = 2_000;
     private long ticketsMaxSize = 1_000;
     private long ticketDetailsMaxSize = 2_000;
+    private long partnerCollectionMaxSize = 1_000;
+    private long partnerSettingsMaxSize = 1_000;
+    private long partnerProductsPageMaxSize = 2_000;
+    private long partnerProductDetailsMaxSize = 5_000;
+    private long partnerOrdersPageMaxSize = 2_000;
+    private long partnerOrderDetailsMaxSize = 5_000;
+    private long partnerCustomersPageMaxSize = 2_000;
+    private long partnerCategoriesMaxSize = 2_000;
+    private long partnerPreferencesMaxSize = 1_000;
 }
-

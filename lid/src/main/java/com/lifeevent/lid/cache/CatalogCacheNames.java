@@ -17,4 +17,14 @@ public final class CatalogCacheNames {
     public static final String BLOG_POST_DETAILS = "blog_post_details";
     public static final String TICKETS = "tickets";
     public static final String TICKET_DETAILS = "ticket_details";
+
+    public static final String PARTNER_COLLECTION = "partner_collection";
+    public static final String PARTNER_SETTINGS = "partner_settings";
+    public static final String PARTNER_PRODUCTS_PAGE = "partner_products_page";
+    public static final String PARTNER_PRODUCT_DETAILS = "partner_product_details";
+    public static final String PARTNER_ORDERS_PAGE = "partner_orders_page";
+    public static final String PARTNER_ORDER_DETAILS = "partner_order_details";
+    public static final String PARTNER_CUSTOMERS_PAGE = "partner_customers_page";
+    public static final String PARTNER_CATEGORIES = "partner_categories";
+    public static final String PARTNER_PREFERENCES = "partner_preferences";
 }

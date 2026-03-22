@@ -1,10 +1,15 @@
 package com.lifeevent.lid.backoffice.partner.controller;
 
+import com.lifeevent.lid.backoffice.lid.product.dto.BackOfficeProductDto;
+import com.lifeevent.lid.backoffice.partner.category.dto.PartnerSubCategoryDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCollectionDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCustomerDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerOrderDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerProductDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
+import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderDetailDto;
+import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderUpdateRequest;
+import com.lifeevent.lid.backoffice.partner.preference.dto.PartnerPreferencesDto;
 import com.lifeevent.lid.backoffice.partner.service.BackOfficePartnerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -12,6 +17,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -54,5 +61,104 @@ public class BackOfficePartnerController implements IBackOfficePartnerController
     @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
     public ResponseEntity<BackOfficePartnerSettingsDto> updateSettings(BackOfficePartnerSettingsDto dto) {
         return ResponseEntity.ok(backOfficePartnerService.updateMySettings(dto));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<Page<BackOfficeProductDto>> getProductsCrud(int page, int size) {
+        return ResponseEntity.ok(backOfficePartnerService.getMyProductsCrud(page, size));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<BackOfficeProductDto> createProduct(BackOfficeProductDto dto) {
+        return ResponseEntity.ok(backOfficePartnerService.createMyProduct(dto));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<BackOfficeProductDto> getProduct(Long id) {
+        return ResponseEntity.ok(backOfficePartnerService.getMyProduct(id));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<BackOfficeProductDto> updateProduct(Long id, BackOfficeProductDto dto) {
+        return ResponseEntity.ok(backOfficePartnerService.updateMyProduct(id, dto));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<Void> deleteProduct(Long id) {
+        backOfficePartnerService.deleteMyProduct(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<Page<BackOfficePartnerOrderDto>> listOrdersCrud(int page, int size) {
+        return ResponseEntity.ok(backOfficePartnerService.listMyOrdersCrud(page, size));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<PartnerOrderDetailDto> getOrder(Long id) {
+        return ResponseEntity.ok(backOfficePartnerService.getMyOrder(id));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<PartnerOrderDetailDto> updateOrder(Long id, PartnerOrderUpdateRequest request) {
+        return ResponseEntity.ok(backOfficePartnerService.updateMyOrder(id, request));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<Void> cancelOrder(Long id, String comment) {
+        backOfficePartnerService.cancelMyOrder(id, comment);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<List<PartnerSubCategoryDto>> listCategories() {
+        return ResponseEntity.ok(backOfficePartnerService.listMyCategories());
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<PartnerSubCategoryDto> createCategory(PartnerSubCategoryDto dto) {
+        return ResponseEntity.ok(backOfficePartnerService.createMyCategory(dto));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<PartnerSubCategoryDto> getCategory(Long id) {
+        return ResponseEntity.ok(backOfficePartnerService.getMyCategory(id));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<PartnerSubCategoryDto> updateCategory(Long id, PartnerSubCategoryDto dto) {
+        return ResponseEntity.ok(backOfficePartnerService.updateMyCategory(id, dto));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<Void> deleteCategory(Long id) {
+        backOfficePartnerService.deleteMyCategory(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<PartnerPreferencesDto> getPreferences() {
+        return ResponseEntity.ok(backOfficePartnerService.getMyPreferences());
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<PartnerPreferencesDto> updatePreferences(PartnerPreferencesDto dto) {
+        return ResponseEntity.ok(backOfficePartnerService.updateMyPreferences(dto));
     }
 }

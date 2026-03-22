@@ -1,11 +1,18 @@
 package com.lifeevent.lid.backoffice.partner.service;
 
+import com.lifeevent.lid.backoffice.lid.product.dto.BackOfficeProductDto;
+import com.lifeevent.lid.backoffice.partner.category.dto.PartnerSubCategoryDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCollectionDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCustomerDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerOrderDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerProductDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
+import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderDetailDto;
+import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderUpdateRequest;
+import com.lifeevent.lid.backoffice.partner.preference.dto.PartnerPreferencesDto;
 import org.springframework.data.domain.Page;
+
+import java.util.List;
 
 public interface BackOfficePartnerService {
 
@@ -20,4 +27,36 @@ public interface BackOfficePartnerService {
     BackOfficePartnerSettingsDto getMySettings();
 
     BackOfficePartnerSettingsDto updateMySettings(BackOfficePartnerSettingsDto dto);
+
+    Page<BackOfficeProductDto> getMyProductsCrud(int page, int size);
+
+    BackOfficeProductDto createMyProduct(BackOfficeProductDto dto);
+
+    BackOfficeProductDto getMyProduct(Long id);
+
+    BackOfficeProductDto updateMyProduct(Long id, BackOfficeProductDto dto);
+
+    void deleteMyProduct(Long id);
+
+    Page<BackOfficePartnerOrderDto> listMyOrdersCrud(int page, int size);
+
+    PartnerOrderDetailDto getMyOrder(Long id);
+
+    PartnerOrderDetailDto updateMyOrder(Long id, PartnerOrderUpdateRequest request);
+
+    void cancelMyOrder(Long id, String comment);
+
+    List<PartnerSubCategoryDto> listMyCategories();
+
+    PartnerSubCategoryDto createMyCategory(PartnerSubCategoryDto dto);
+
+    PartnerSubCategoryDto getMyCategory(Long id);
+
+    PartnerSubCategoryDto updateMyCategory(Long id, PartnerSubCategoryDto dto);
+
+    void deleteMyCategory(Long id);
+
+    PartnerPreferencesDto getMyPreferences();
+
+    PartnerPreferencesDto updateMyPreferences(PartnerPreferencesDto dto);
 }

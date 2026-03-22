@@ -2,6 +2,7 @@ package com.lifeevent.lid.user.partner.controller;
 
 import com.lifeevent.lid.common.util.ResponseUtils;
 import com.lifeevent.lid.common.security.SecurityUtils;
+import com.lifeevent.lid.auth.service.AuthService;
 import com.lifeevent.lid.user.partner.dto.*;
 import com.lifeevent.lid.user.partner.service.PartnerService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.Optional;
 public class PartnerController implements IPartnerController {
     
     private final PartnerService partnerService;
+    private final AuthService authService;
     
     @Override
     public ResponseEntity<PartnerRegisterStep1ResponseDto> registerStep1(@RequestBody PartnerRegisterStep1RequestDto dto) {
@@ -28,10 +30,16 @@ public class PartnerController implements IPartnerController {
     }
 
     @Override
-    public ResponseEntity<PartnerResponseDto> upgradeToPartner(@RequestBody PartnerRegisterStep1RequestDto dto) {
+    public ResponseEntity<PartnerRegisterStep1ResponseDto> upgradeToPartner(@RequestBody PartnerRegisterStep1RequestDto dto) {
         String userId = SecurityUtils.getCurrentUserId();
         PartnerResponseDto upgraded = partnerService.upgradeCustomerToPartner(userId, dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(upgraded);
+        String accessToken = authService.generatePartnerAccessToken(userId, upgraded.getEmail());
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                PartnerRegisterStep1ResponseDto.builder()
+                        .partner(upgraded)
+                        .accessToken(accessToken)
+                        .build()
+        );
     }
     
     @Override

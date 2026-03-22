@@ -29,8 +29,11 @@ public interface PartnerRepository extends JpaRepository<Partner, String> {
     @Query(value = "DELETE FROM customer WHERE user_id = :userId", nativeQuery = true)
     void deleteCustomerData(@Param("userId") String userId);
 
+    @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN TRUE ELSE FALSE END FROM partner WHERE user_id = :userId", nativeQuery = true)
+    boolean partnerRowExists(@Param("userId") String userId);
+
     @Modifying
-    @Query(value = "INSERT INTO partner (user_id, registration_status, phone_number) VALUES (:userId, 'STEP_1_PENDING', :phone)", nativeQuery = true)
+    @Query(value = "INSERT INTO partner (user_id, registration_status, phone_number, contract_accepted) VALUES (:userId, 'STEP_1_PENDING', :phone, FALSE)", nativeQuery = true)
     void insertInitialPartnerData(@Param("userId") String userId, @Param("phone") String phone);
     
     /**

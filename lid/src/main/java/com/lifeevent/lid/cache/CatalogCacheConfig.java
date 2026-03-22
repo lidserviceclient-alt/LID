@@ -38,7 +38,16 @@ public class CatalogCacheConfig {
                 buildCache(CatalogCacheNames.BLOG_POSTS, properties.getBlogPostsTtlMinutes(), properties.getBlogPostsMaxSize()),
                 buildCache(CatalogCacheNames.BLOG_POST_DETAILS, properties.getBlogPostDetailsTtlMinutes(), properties.getBlogPostDetailsMaxSize()),
                 buildCache(CatalogCacheNames.TICKETS, properties.getTicketsTtlMinutes(), properties.getTicketsMaxSize()),
-                buildCache(CatalogCacheNames.TICKET_DETAILS, properties.getTicketDetailsTtlMinutes(), properties.getTicketDetailsMaxSize())
+                buildCache(CatalogCacheNames.TICKET_DETAILS, properties.getTicketDetailsTtlMinutes(), properties.getTicketDetailsMaxSize()),
+                buildCache(CatalogCacheNames.PARTNER_COLLECTION, properties.getPartnerCollectionTtlMinutes(), properties.getPartnerCollectionMaxSize()),
+                buildCache(CatalogCacheNames.PARTNER_SETTINGS, properties.getPartnerSettingsTtlMinutes(), properties.getPartnerSettingsMaxSize()),
+                buildCache(CatalogCacheNames.PARTNER_PRODUCTS_PAGE, properties.getPartnerProductsPageTtlMinutes(), properties.getPartnerProductsPageMaxSize()),
+                buildCache(CatalogCacheNames.PARTNER_PRODUCT_DETAILS, properties.getPartnerProductDetailsTtlMinutes(), properties.getPartnerProductDetailsMaxSize()),
+                buildCache(CatalogCacheNames.PARTNER_ORDERS_PAGE, properties.getPartnerOrdersPageTtlMinutes(), properties.getPartnerOrdersPageMaxSize()),
+                buildCache(CatalogCacheNames.PARTNER_ORDER_DETAILS, properties.getPartnerOrderDetailsTtlMinutes(), properties.getPartnerOrderDetailsMaxSize()),
+                buildCache(CatalogCacheNames.PARTNER_CUSTOMERS_PAGE, properties.getPartnerCustomersPageTtlMinutes(), properties.getPartnerCustomersPageMaxSize()),
+                buildCache(CatalogCacheNames.PARTNER_CATEGORIES, properties.getPartnerCategoriesTtlMinutes(), properties.getPartnerCategoriesMaxSize()),
+                buildCache(CatalogCacheNames.PARTNER_PREFERENCES, properties.getPartnerPreferencesTtlMinutes(), properties.getPartnerPreferencesMaxSize())
         ));
         return manager;
     }

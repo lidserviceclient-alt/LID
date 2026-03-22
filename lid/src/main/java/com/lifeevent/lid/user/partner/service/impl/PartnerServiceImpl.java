@@ -5,6 +5,7 @@ import com.lifeevent.lid.article.repository.CategoryRepository;
 import com.lifeevent.lid.auth.service.AuthService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
+import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.partner.dto.*;
 import com.lifeevent.lid.user.partner.entity.Partner;
@@ -44,6 +45,7 @@ public class PartnerServiceImpl implements PartnerService {
     private final UserService userService;
     private final AuthService authService;
     private final CategoryRepository categoryRepository;
+    private final UserEntityRepository userEntityRepository;
     
     @Override
     public PartnerRegisterStep1ResponseDto registerStep1(PartnerRegisterStep1RequestDto dto) {
@@ -80,8 +82,24 @@ public class PartnerServiceImpl implements PartnerService {
     public PartnerResponseDto upgradeCustomerToPartner(String userId, PartnerRegisterStep1RequestDto dto) {
         String currentUserId = requireCurrentUserId(userId);
         log.info("PARTNER UPGRADE - userId={}", currentUserId);
-        partnerRepository.deleteCustomerData(currentUserId);
-        partnerRepository.insertInitialPartnerData(currentUserId, dto.getPhoneNumber());
+
+        if (!userEntityRepository.existsById(currentUserId)) {
+            Partner partner = Partner.builder()
+                    .userId(currentUserId)
+                    .email(normalize(dto.getEmail()))
+                    .emailVerified(false)
+                    .firstName(normalize(dto.getFirstName()))
+                    .lastName(normalize(dto.getLastName()))
+                    .phoneNumber(normalize(dto.getPhoneNumber()))
+                    .registrationStatus(PartnerRegistrationStatus.STEP_1_PENDING)
+                    .contractAccepted(Boolean.FALSE)
+                    .build();
+            return partnerMapper.toResponseDto(partnerRepository.save(partner));
+        }
+
+        if (!partnerRepository.partnerRowExists(currentUserId)) {
+            partnerRepository.insertInitialPartnerData(currentUserId, dto.getPhoneNumber());
+        }
         partnerRepository.updateUserTypeToPartner(currentUserId);
 
         Partner partner = requirePartner(currentUserId);

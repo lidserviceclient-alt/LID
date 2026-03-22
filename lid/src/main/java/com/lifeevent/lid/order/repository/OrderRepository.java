@@ -221,6 +221,29 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findByPartnerId(@Param("partnerId") String partnerId, Pageable pageable);
 
     @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.customer
+        LEFT JOIN FETCH o.articles oa
+        LEFT JOIN FETCH oa.article a
+        WHERE o.id = :id
+          AND a.referencePartner = :partnerId
+    """)
+    Optional<Order> findPartnerOwnedWithCustomerAndArticlesById(@Param("id") Long id, @Param("partnerId") String partnerId);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.customer
+        LEFT JOIN FETCH o.statusHistory
+        JOIN o.articles oa
+        JOIN oa.article a
+        WHERE o.id = :id
+          AND a.referencePartner = :partnerId
+    """)
+    Optional<Order> findPartnerOwnedWithCustomerAndStatusHistoryById(@Param("id") Long id, @Param("partnerId") String partnerId);
+
+    @Query("""
         SELECT DISTINCT o.customer
         FROM Order o
         JOIN o.articles oa
