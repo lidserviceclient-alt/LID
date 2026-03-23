@@ -3,7 +3,7 @@ package com.lifeevent.lid.backoffice.lid.ticket.service.impl;
 import com.lifeevent.lid.backoffice.lid.ticket.dto.BackOfficeTicketEventDto;
 import com.lifeevent.lid.backoffice.lid.ticket.mapper.BackOfficeTicketEventMapper;
 import com.lifeevent.lid.backoffice.lid.ticket.service.BackOfficeTicketEventService;
-import com.lifeevent.lid.cache.event.TicketCatalogChangedEvent;
+import com.lifeevent.lid.common.cache.event.TicketCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.ticket.entity.TicketEvent;
 import com.lifeevent.lid.ticket.repository.TicketEventRepository;

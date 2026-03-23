@@ -100,6 +100,22 @@ config:
       partner-customers-page-max-size: ${CATALOG_CACHE_PARTNER_CUSTOMERS_PAGE_MAX_SIZE:2000}
       partner-categories-max-size: ${CATALOG_CACHE_PARTNER_CATEGORIES_MAX_SIZE:2000}
       partner-preferences-max-size: ${CATALOG_CACHE_PARTNER_PREFERENCES_MAX_SIZE:1000}
+      backoffice-overview-dashboard-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_OVERVIEW_DASHBOARD_TTL_MINUTES:1}
+      backoffice-overview-collection-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_OVERVIEW_COLLECTION_TTL_MINUTES:1}
+      backoffice-finance-overview-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_FINANCE_OVERVIEW_TTL_MINUTES:1}
+      backoffice-finance-transactions-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_FINANCE_TRANSACTIONS_TTL_MINUTES:1}
+      backoffice-marketing-overview-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_MARKETING_OVERVIEW_TTL_MINUTES:2}
+      backoffice-loyalty-overview-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_LOYALTY_OVERVIEW_TTL_MINUTES:2}
+      backoffice-loyalty-tiers-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_LOYALTY_TIERS_TTL_MINUTES:5}
+      backoffice-loyalty-top-customers-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_LOYALTY_TOP_CUSTOMERS_TTL_MINUTES:2}
+      backoffice-overview-dashboard-max-size: ${CATALOG_CACHE_BACKOFFICE_OVERVIEW_DASHBOARD_MAX_SIZE:200}
+      backoffice-overview-collection-max-size: ${CATALOG_CACHE_BACKOFFICE_OVERVIEW_COLLECTION_MAX_SIZE:200}
+      backoffice-finance-overview-max-size: ${CATALOG_CACHE_BACKOFFICE_FINANCE_OVERVIEW_MAX_SIZE:200}
+      backoffice-finance-transactions-max-size: ${CATALOG_CACHE_BACKOFFICE_FINANCE_TRANSACTIONS_MAX_SIZE:500}
+      backoffice-marketing-overview-max-size: ${CATALOG_CACHE_BACKOFFICE_MARKETING_OVERVIEW_MAX_SIZE:200}
+      backoffice-loyalty-overview-max-size: ${CATALOG_CACHE_BACKOFFICE_LOYALTY_OVERVIEW_MAX_SIZE:200}
+      backoffice-loyalty-tiers-max-size: ${CATALOG_CACHE_BACKOFFICE_LOYALTY_TIERS_MAX_SIZE:200}
+      backoffice-loyalty-top-customers-max-size: ${CATALOG_CACHE_BACKOFFICE_LOYALTY_TOP_CUSTOMERS_MAX_SIZE:500}
   logs:
     admin:
       file-path: ${LOG_ADMIN_FILE_PATH:${logging.file.name:logs/lid.log}}
@@ -171,7 +187,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
   info:
     env:
       enabled: true

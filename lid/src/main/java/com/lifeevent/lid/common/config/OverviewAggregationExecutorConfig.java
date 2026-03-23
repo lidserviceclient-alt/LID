@@ -13,16 +13,21 @@ public class OverviewAggregationExecutorConfig {
     @Bean(name = "aggregatorExecutor")
     Executor aggregatorExecutor() {
         int cpu = Math.max(1, Runtime.getRuntime().availableProcessors());
-        int corePoolSize = cpu;
-        int maxPoolSize = cpu * 3;
-        int queueCapacity = cpu * 80;
 
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(corePoolSize);
-        executor.setMaxPoolSize(maxPoolSize);
-        executor.setQueueCapacity(queueCapacity);
+        executor.setCorePoolSize(cpu * 2);
+        executor.setMaxPoolSize(cpu * 8);
+        executor.setQueueCapacity(cpu * 200);
         executor.setThreadNamePrefix("aggregator-");
+
+        executor.setKeepAliveSeconds(60);
+        executor.setAllowCoreThreadTimeOut(true);
+
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+
         executor.initialize();
         return executor;
     }

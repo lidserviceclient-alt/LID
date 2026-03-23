@@ -11,7 +11,7 @@ import com.lifeevent.lid.backoffice.lid.product.dto.BulkProductResult;
 import com.lifeevent.lid.backoffice.lid.product.dto.BulkProductResultItem;
 import com.lifeevent.lid.backoffice.lid.product.mapper.BackOfficeProductMapper;
 import com.lifeevent.lid.backoffice.lid.product.service.BackOfficeProductService;
-import com.lifeevent.lid.cache.event.ProductCatalogChangedEvent;
+import com.lifeevent.lid.common.cache.event.ProductCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.stock.entity.Stock;
 import com.lifeevent.lid.stock.repository.StockRepository;

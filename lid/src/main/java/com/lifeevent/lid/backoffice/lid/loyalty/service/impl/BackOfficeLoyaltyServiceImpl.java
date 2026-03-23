@@ -9,6 +9,8 @@ import com.lifeevent.lid.backoffice.lid.loyalty.dto.BackOfficeLoyaltyTransaction
 import com.lifeevent.lid.backoffice.lid.loyalty.mapper.BackOfficeLoyaltyConfigMapper;
 import com.lifeevent.lid.backoffice.lid.loyalty.mapper.BackOfficeLoyaltyTierMapper;
 import com.lifeevent.lid.backoffice.lid.loyalty.service.BackOfficeLoyaltyService;
+import com.lifeevent.lid.common.cache.CacheScopeVersionService;
+import com.lifeevent.lid.common.cache.CatalogCacheNames;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.loyalty.entity.LoyaltyConfig;
 import com.lifeevent.lid.loyalty.entity.LoyaltyPointAdjustment;
@@ -24,9 +26,12 @@ import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,9 +61,11 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
     private final OrderRepository orderRepository;
     private final BackOfficeLoyaltyTierMapper backOfficeLoyaltyTierMapper;
     private final BackOfficeLoyaltyConfigMapper backOfficeLoyaltyConfigMapper;
+    private final CacheScopeVersionService cacheScopeVersionService;
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CatalogCacheNames.BACKOFFICE_LOYALTY_OVERVIEW, key = "@cacheScopeVersionService.loyaltyVersion()", sync = true)
     public BackOfficeLoyaltyOverviewDto getOverview() {
         LoyaltyConfig config = getConfigEntityOrDefault();
         List<LoyaltyTier> tiers = getSortedTiers();
@@ -79,6 +86,7 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CatalogCacheNames.BACKOFFICE_LOYALTY_TIERS, key = "@cacheScopeVersionService.loyaltyVersion()", sync = true)
     public List<BackOfficeLoyaltyTierDto> getTiers() {
         List<LoyaltyTier> tiers = getSortedTiers();
         Map<String, Integer> pointsByCustomerId = computePointsByCustomer();
@@ -98,6 +106,7 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
                 .build();
 
         LoyaltyTier saved = loyaltyTierRepository.save(entity);
+        cacheScopeVersionService.bumpLoyalty();
         return backOfficeLoyaltyTierMapper.toDto(saved);
     }
 
@@ -121,6 +130,7 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
         entity.setRetentionDays(normalizeRetentionDays(entity.getRetentionDays()));
 
         LoyaltyConfig saved = loyaltyConfigRepository.save(entity);
+        cacheScopeVersionService.bumpLoyalty();
         return backOfficeLoyaltyConfigMapper.toDto(saved);
     }
 
@@ -139,6 +149,7 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
         tier.setBenefits(trimToNull(dto.getBenefits()));
 
         LoyaltyTier saved = loyaltyTierRepository.save(tier);
+        cacheScopeVersionService.bumpLoyalty();
         return backOfficeLoyaltyTierMapper.toDto(saved);
     }
 
@@ -150,21 +161,55 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
             throw new IllegalArgumentException("Impossible de supprimer le dernier niveau");
         }
         loyaltyTierRepository.delete(tier);
+        cacheScopeVersionService.bumpLoyalty();
     }
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.BACKOFFICE_LOYALTY_TOP_CUSTOMERS,
+            key = "@cacheScopeVersionService.loyaltyVersion() + ':' + (#limit == null ? 10 : #limit)",
+            sync = true
+    )
     public List<BackOfficeLoyaltyCustomerDto> topCustomers(int limit) {
         int safeLimit = Math.max(1, Math.min(limit, 50));
-        List<BackOfficeLoyaltyCustomerDto> sorted = getSortedCustomers(null);
-        return sorted.stream().limit(safeLimit).toList();
+        LoyaltyConfig config = getConfigEntityOrDefault();
+        double pointsPerFcfa = safeDouble(config.getPointsPerFcfa(), DEFAULT_POINTS_PER_FCFA);
+        List<LoyaltyTier> tiers = getSortedTiers();
+
+        List<CustomerRepository.TopCustomerPointsView> rows = customerRepository.findTopCustomersByPoints(
+                Status.DELIVERED,
+                pointsPerFcfa,
+                PageRequest.of(0, safeLimit)
+        );
+
+        List<BackOfficeLoyaltyCustomerDto> top = new ArrayList<>(rows.size());
+        for (CustomerRepository.TopCustomerPointsView row : rows) {
+            int points = Math.max(0, row.getScore() == null ? 0 : row.getScore().intValue());
+            LoyaltyTier tier = resolveTier(points, tiers);
+            top.add(BackOfficeLoyaltyCustomerDto.builder()
+                    .userId(row.getUserId())
+                    .email(row.getEmail())
+                    .phone(row.getPhoneNumber())
+                    .points(points)
+                    .tier(tier == null ? null : tier.getName())
+                    .build());
+        }
+        return top;
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<BackOfficeLoyaltyCustomerDto> searchCustomers(String query, Pageable pageable) {
-        List<BackOfficeLoyaltyCustomerDto> sorted = getSortedCustomers(query);
-        return paginateList(sorted, pageable);
+        String normalizedQuery = trimToNull(query);
+        Page<CustomerRepository.CustomerBasicView> customerPage = normalizedQuery == null
+                ? customerRepository.findAllBasic(pageable)
+                : customerRepository.searchBasic(normalizedQuery, pageable);
+        List<BackOfficeLoyaltyCustomerDto> content = mapCustomersToDtos(customerPage.getContent());
+        content.sort(Comparator
+                .comparing(BackOfficeLoyaltyCustomerDto::getPoints, Comparator.nullsLast(Integer::compareTo)).reversed()
+                .thenComparing(BackOfficeLoyaltyCustomerDto::getEmail, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
+        return new PageImpl<>(content, pageable, customerPage.getTotalElements());
     }
 
     @Override
@@ -190,14 +235,20 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
     public Page<BackOfficeLoyaltyTransactionDto> getTransactions(String userId, Pageable pageable) {
         findCustomerOrThrow(userId);
 
-        List<BackOfficeLoyaltyTransactionDto> transactions = new ArrayList<>();
-        transactions.addAll(buildOrderTransactions(userId));
-        transactions.addAll(buildAdjustmentTransactions(userId));
+        int safePage = Math.max(0, pageable.getPageNumber());
+        int safeSize = Math.max(1, pageable.getPageSize());
+        int windowSize = Math.max(safeSize, (safePage + 1) * safeSize);
 
+        List<BackOfficeLoyaltyTransactionDto> transactions = new ArrayList<>();
+        transactions.addAll(buildOrderTransactions(userId, windowSize));
+        transactions.addAll(buildAdjustmentTransactions(userId, windowSize));
         transactions.sort(Comparator.comparing(BackOfficeLoyaltyTransactionDto::getCreatedAt,
                 Comparator.nullsLast(LocalDateTime::compareTo)).reversed());
 
-        return paginateList(transactions, pageable);
+        long totalElements = orderRepository.countByCustomer_UserIdAndCurrentStatus(userId, Status.DELIVERED)
+                + loyaltyPointAdjustmentRepository.countByCustomer_UserId(userId);
+
+        return paginateList(transactions, pageable, totalElements);
     }
 
     @Override
@@ -223,6 +274,7 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
                 .reason(trimToNull(request.getReason()))
                 .build();
         loyaltyPointAdjustmentRepository.save(adjustment);
+        cacheScopeVersionService.bumpLoyalty();
 
         return getCustomer(userId);
     }
@@ -411,11 +463,19 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
     }
 
     private List<BackOfficeLoyaltyCustomerDto> getSortedCustomers(String query) {
-        List<LoyaltyTier> tiers = getSortedTiers();
         String normalizedQuery = trimToNull(query);
         List<CustomerRepository.CustomerBasicView> customerViews = normalizedQuery == null
                 ? customerRepository.findAllBasic()
                 : customerRepository.searchBasic(normalizedQuery);
+        List<BackOfficeLoyaltyCustomerDto> customers = mapCustomersToDtos(customerViews);
+        customers.sort(Comparator
+                .comparing(BackOfficeLoyaltyCustomerDto::getPoints, Comparator.nullsLast(Integer::compareTo)).reversed()
+                .thenComparing(BackOfficeLoyaltyCustomerDto::getEmail, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
+        return customers;
+    }
+
+    private List<BackOfficeLoyaltyCustomerDto> mapCustomersToDtos(List<CustomerRepository.CustomerBasicView> customerViews) {
+        List<LoyaltyTier> tiers = getSortedTiers();
         List<String> customerIds = customerViews.stream()
                 .map(CustomerRepository.CustomerBasicView::getUserId)
                 .filter(Objects::nonNull)
@@ -438,11 +498,6 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
                     .tier(tier == null ? null : tier.getName())
                     .build());
         }
-
-        customers.sort(Comparator
-                .comparing(BackOfficeLoyaltyCustomerDto::getPoints, Comparator.nullsLast(Integer::compareTo)).reversed()
-                .thenComparing(BackOfficeLoyaltyCustomerDto::getEmail, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
-
         return customers;
     }
 
@@ -459,16 +514,14 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
         return best;
     }
 
-    private List<BackOfficeLoyaltyTransactionDto> buildOrderTransactions(String userId) {
+    private List<BackOfficeLoyaltyTransactionDto> buildOrderTransactions(String userId, int limit) {
         LoyaltyConfig config = getConfigEntityOrDefault();
         double pointsPerFcfa = safeDouble(config.getPointsPerFcfa(), DEFAULT_POINTS_PER_FCFA);
+        int safeLimit = Math.max(1, Math.min(limit, 1000));
+        PageRequest pageRequest = PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         List<BackOfficeLoyaltyTransactionDto> items = new ArrayList<>();
-        for (Order order : orderRepository.findByCustomer_UserId(userId)) {
-            if (!isDelivered(order)) {
-                continue;
-            }
-
+        for (Order order : orderRepository.searchByCustomerBackOffice(userId, Status.DELIVERED, pageRequest).getContent()) {
             items.add(BackOfficeLoyaltyTransactionDto.builder()
                     .id("order-" + order.getId())
                     .type("ORDER")
@@ -481,9 +534,13 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
         return items;
     }
 
-    private List<BackOfficeLoyaltyTransactionDto> buildAdjustmentTransactions(String userId) {
+    private List<BackOfficeLoyaltyTransactionDto> buildAdjustmentTransactions(String userId, int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 1000));
+        PageRequest pageRequest = PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "createdAt"));
         List<BackOfficeLoyaltyTransactionDto> items = new ArrayList<>();
-        for (LoyaltyPointAdjustment adjustment : loyaltyPointAdjustmentRepository.findByCustomer_UserIdOrderByCreatedAtDesc(userId)) {
+        for (LoyaltyPointAdjustment adjustment : loyaltyPointAdjustmentRepository
+                .findByCustomer_UserIdOrderByCreatedAtDesc(userId, pageRequest)
+                .getContent()) {
             items.add(BackOfficeLoyaltyTransactionDto.builder()
                     .id("adjust-" + adjustment.getId())
                     .type("ADJUSTMENT")
@@ -496,17 +553,17 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
         return items;
     }
 
-    private <T> Page<T> paginateList(List<T> items, Pageable pageable) {
+    private <T> Page<T> paginateList(List<T> items, Pageable pageable, long totalElements) {
         int page = Math.max(0, pageable.getPageNumber());
         int size = Math.max(1, pageable.getPageSize());
 
         int fromIndex = page * size;
         if (fromIndex >= items.size()) {
-            return new PageImpl<>(List.of(), pageable, items.size());
+            return new PageImpl<>(List.of(), pageable, totalElements);
         }
 
         int toIndex = Math.min(items.size(), fromIndex + size);
-        return new PageImpl<>(items.subList(fromIndex, toIndex), pageable, items.size());
+        return new PageImpl<>(items.subList(fromIndex, toIndex), pageable, totalElements);
     }
 
     private boolean isDelivered(Order order) {

@@ -1,5 +1,6 @@
 package com.lifeevent.lid.user.customer.repository;
 
+import com.lifeevent.lid.order.enumeration.Status;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,6 +22,13 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
         String getFirstName();
         String getLastName();
         String getPhoneNumber();
+    }
+
+    interface TopCustomerPointsView {
+        String getUserId();
+        String getEmail();
+        String getPhoneNumber();
+        Double getScore();
     }
     
     @Override
@@ -79,6 +87,16 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
                c.user.lastName AS lastName,
                c.phoneNumber AS phoneNumber
         FROM Customer c
+    """)
+    Page<CustomerBasicView> findAllBasic(Pageable pageable);
+
+    @Query("""
+        SELECT c.userId AS userId,
+               c.user.email AS email,
+               c.user.firstName AS firstName,
+               c.user.lastName AS lastName,
+               c.phoneNumber AS phoneNumber
+        FROM Customer c
         WHERE (
             :q IS NULL OR :q = '' OR
             LOWER(CAST(c.user.email AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
@@ -88,4 +106,45 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
         )
     """)
     List<CustomerBasicView> searchBasic(@Param("q") String q);
+
+    @Query("""
+        SELECT c.userId AS userId,
+               c.user.email AS email,
+               c.user.firstName AS firstName,
+               c.user.lastName AS lastName,
+               c.phoneNumber AS phoneNumber
+        FROM Customer c
+        WHERE (
+            :q IS NULL OR :q = '' OR
+            LOWER(CAST(c.user.email AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+            LOWER(CAST(c.user.firstName AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+            LOWER(CAST(c.user.lastName AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+            LOWER(CAST(c.phoneNumber AS string)) LIKE LOWER(CONCAT('%', :q, '%'))
+        )
+    """)
+    Page<CustomerBasicView> searchBasic(@Param("q") String q, Pageable pageable);
+
+    @Query("""
+        SELECT c.userId AS userId,
+               c.user.email AS email,
+               c.phoneNumber AS phoneNumber,
+               (
+                   FLOOR(
+                       (SELECT COALESCE(SUM(o.amount), 0)
+                        FROM Order o
+                        WHERE o.customer.userId = c.userId
+                          AND o.currentStatus = :status) * :pointsPerFcfa
+                   )
+                   + (SELECT COALESCE(SUM(a.deltaPoints), 0)
+                      FROM LoyaltyPointAdjustment a
+                      WHERE a.customer.userId = c.userId)
+               ) AS score
+        FROM Customer c
+        ORDER BY score DESC, LOWER(COALESCE(c.user.email, '')) ASC
+    """)
+    List<TopCustomerPointsView> findTopCustomersByPoints(
+            @Param("status") Status status,
+            @Param("pointsPerFcfa") double pointsPerFcfa,
+            Pageable pageable
+    );
 }

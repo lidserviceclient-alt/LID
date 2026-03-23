@@ -1,7 +1,7 @@
 package com.lifeevent.lid.ticket.controller;
 
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
-import com.lifeevent.lid.cache.CatalogCacheNames;
+import com.lifeevent.lid.common.cache.CatalogCacheNames;
 import com.lifeevent.lid.ticket.dto.TicketEventDto;
 import com.lifeevent.lid.ticket.entity.TicketEvent;
 import com.lifeevent.lid.ticket.repository.TicketEventRepository;
@@ -25,7 +25,11 @@ public class TicketEventController {
     private final TicketEventRepository ticketEventRepository;
 
     @GetMapping
-    @Cacheable(cacheNames = CatalogCacheNames.TICKETS)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.TICKETS,
+            key = "@cacheScopeVersionService.ticketVersion() + ':' + #page + ':' + #size",
+            sync = true
+    )
     public List<TicketEventDto> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
@@ -39,7 +43,11 @@ public class TicketEventController {
     }
 
     @GetMapping("/{id}")
-    @Cacheable(cacheNames = CatalogCacheNames.TICKET_DETAILS, key = "#id")
+    @Cacheable(
+            cacheNames = CatalogCacheNames.TICKET_DETAILS,
+            key = "@cacheScopeVersionService.ticketVersion() + ':' + #id",
+            sync = true
+    )
     public TicketEventDto get(@PathVariable Long id) {
         TicketEvent entity = ticketEventRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TicketEvent", "id", id.toString()));

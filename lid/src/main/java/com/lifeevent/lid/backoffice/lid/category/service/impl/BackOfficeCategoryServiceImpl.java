@@ -8,7 +8,7 @@ import com.lifeevent.lid.backoffice.lid.category.dto.BulkCategoryResult;
 import com.lifeevent.lid.backoffice.lid.category.dto.BulkCategoryResultItem;
 import com.lifeevent.lid.backoffice.lid.category.mapper.BackOfficeCategoryMapper;
 import com.lifeevent.lid.backoffice.lid.category.service.BackOfficeCategoryService;
-import com.lifeevent.lid.cache.event.CategoryCatalogChangedEvent;
+import com.lifeevent.lid.common.cache.event.CategoryCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

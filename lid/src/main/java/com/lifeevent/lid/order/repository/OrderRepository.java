@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
@@ -74,6 +75,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
      */
     @EntityGraph(attributePaths = {"customer"})
     List<Order> findByCustomer_UserId(String customerId);
+
+    long countByCustomer_UserIdAndCurrentStatus(String customerId, Status status);
     
     /**
      * Commandes par statut
@@ -254,11 +257,15 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Customer> findCustomersByPartnerId(@Param("partnerId") String partnerId, Pageable pageable);
 
     @Query("""
-        SELECT COUNT(DISTINCT o) AS orders, COALESCE(SUM(o.amount), 0) AS revenue
+        SELECT COUNT(o) AS orders, COALESCE(SUM(o.amount), 0) AS revenue
         FROM Order o
-        JOIN o.articles oa
-        JOIN oa.article a
-        WHERE a.referencePartner = :partnerId
+        WHERE EXISTS (
+            SELECT 1
+            FROM OrderArticle oa
+            JOIN oa.article a
+            WHERE oa.order = o
+              AND a.referencePartner = :partnerId
+        )
     """)
     PartnerOrderMetricsView aggregateMetricsByPartnerId(@Param("partnerId") String partnerId);
 
@@ -306,4 +313,15 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         WHERE o.createdAt >= :from
     """)
     List<Order> findWithArticlesFrom(@Param("from") LocalDateTime from);
+
+    @Query("""
+        SELECT DISTINCT a.referencePartner
+        FROM Order o
+        JOIN o.articles oa
+        JOIN oa.article a
+        WHERE o.id = :orderId
+          AND a.referencePartner IS NOT NULL
+          AND a.referencePartner <> ''
+    """)
+    Set<String> findDistinctPartnerIdsByOrderId(@Param("orderId") Long orderId);
 }

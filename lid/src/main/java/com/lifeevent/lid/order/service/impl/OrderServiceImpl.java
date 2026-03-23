@@ -12,6 +12,7 @@ import com.lifeevent.lid.discount.entity.Discount;
 import com.lifeevent.lid.discount.enumeration.DiscountTarget;
 import com.lifeevent.lid.discount.enumeration.DiscountType;
 import com.lifeevent.lid.discount.repository.DiscountRepository;
+import com.lifeevent.lid.common.cache.event.PartnerOrderChangedEvent;
 import com.lifeevent.lid.loyalty.entity.LoyaltyTier;
 import com.lifeevent.lid.loyalty.repository.LoyaltyPointAdjustmentRepository;
 import com.lifeevent.lid.loyalty.repository.LoyaltyTierRepository;
@@ -45,6 +46,7 @@ import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.common.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -58,6 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -84,6 +87,7 @@ public class OrderServiceImpl implements OrderService {
     private final LoyaltyPointAdjustmentRepository loyaltyPointAdjustmentRepository;
     private final PaymentService paymentService;
     private final PaydunyaProperties paydunyaProperties;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public CheckoutResponseDto checkoutCart(String customerId, CheckoutCartRequestDto request) {
@@ -189,6 +193,7 @@ public class OrderServiceImpl implements OrderService {
         appendStatusHistory(order, newStatus, comment);
         order.setCurrentStatus(newStatus);
         orderRepository.save(order);
+        publishPartnerOrderChanged(orderRepository.findDistinctPartnerIdsByOrderId(orderId));
     }
 
     @Override
@@ -354,14 +359,29 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void validateStockAvailability(List<CheckoutLine> lines) {
+        if (lines == null || lines.isEmpty()) {
+            return;
+        }
+
+        List<Long> articleIds = lines.stream()
+                .map(CheckoutLine::article)
+                .filter(java.util.Objects::nonNull)
+                .map(Article::getId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<Long, Integer> availableByArticleId = stockRepository.sumAvailableByArticleIds(articleIds).stream()
+                .collect(Collectors.toMap(
+                        StockRepository.ArticleStockTotalView::getArticleId,
+                        row -> row.getStock() == null ? 0 : row.getStock(),
+                        (left, right) -> left
+                ));
+
         for (CheckoutLine line : lines) {
             Long articleId = line.article().getId();
             int requested = line.quantity();
-            int available = stockRepository.findByArticleId(articleId).stream()
-                    .map(Stock::getQuantityAvailable)
-                    .filter(q -> q != null && q > 0)
-                    .mapToInt(Integer::intValue)
-                    .sum();
+            int available = availableByArticleId.getOrDefault(articleId, 0);
             if (available < requested) {
                 throw new IllegalArgumentException("Stock insuffisant pour l'article " + articleId);
             }
@@ -538,6 +558,10 @@ public class OrderServiceImpl implements OrderService {
         savedOrder.setArticles(savedOrderArticles);
         appendStatusHistory(savedOrder, Status.PENDING, "Commande créée - En attente de paiement");
         orderRepository.save(savedOrder);
+        publishPartnerOrderChanged(lines.stream()
+                .map(line -> line.article() == null ? null : safeTrim(line.article().getReferencePartner()))
+                .filter(id -> !id.isEmpty())
+                .collect(Collectors.toSet()));
 
         clearCartIfNeeded(cartToClear);
 
@@ -549,6 +573,13 @@ public class OrderServiceImpl implements OrderService {
                 .paymentUrl(payment.getPaymentUrl())
                 .invoiceToken(payment.getInvoiceToken())
                 .build();
+    }
+
+    private void publishPartnerOrderChanged(Set<String> partnerIds) {
+        if (partnerIds == null || partnerIds.isEmpty()) {
+            return;
+        }
+        eventPublisher.publishEvent(new PartnerOrderChangedEvent(partnerIds));
     }
 
     private PaymentResponseDto createPaymentForOrder(Order order, Customer customer, CheckoutCartRequestDto request) {

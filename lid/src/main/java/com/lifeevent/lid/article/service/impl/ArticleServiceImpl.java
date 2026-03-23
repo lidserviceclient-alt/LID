@@ -8,7 +8,7 @@ import com.lifeevent.lid.article.mapper.ArticleMapper;
 import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.article.repository.CategoryRepository;
 import com.lifeevent.lid.article.service.ArticleService;
-import com.lifeevent.lid.cache.event.ProductCatalogChangedEvent;
+import com.lifeevent.lid.common.cache.event.ProductCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;

@@ -3,7 +3,7 @@ package com.lifeevent.lid.backoffice.lid.productreview.service.impl;
 import com.lifeevent.lid.backoffice.lid.productreview.dto.BackOfficeProductReviewDto;
 import com.lifeevent.lid.backoffice.lid.productreview.dto.BackOfficeUpdateProductReviewRequest;
 import com.lifeevent.lid.backoffice.lid.productreview.service.BackOfficeProductReviewService;
-import com.lifeevent.lid.cache.event.ReviewCatalogChangedEvent;
+import com.lifeevent.lid.common.cache.event.ReviewCatalogChangedEvent;
 import com.lifeevent.lid.review.entity.ProductReview;
 import com.lifeevent.lid.review.repository.ProductReviewRepository;
 import lombok.RequiredArgsConstructor;

@@ -22,6 +22,7 @@ import com.lifeevent.lid.backoffice.lid.promo.dto.PromoCodeStatsDto;
 import com.lifeevent.lid.backoffice.lid.promo.service.BackOfficePromoCodeService;
 import com.lifeevent.lid.backoffice.lid.setting.entity.SecurityActivityEntity;
 import com.lifeevent.lid.backoffice.lid.setting.repository.SecurityActivityRepository;
+import com.lifeevent.lid.common.cache.CatalogCacheNames;
 import com.lifeevent.lid.logistics.entity.Shipment;
 import com.lifeevent.lid.logistics.repository.ShipmentRepository;
 import com.lifeevent.lid.order.enumeration.Status;
@@ -32,6 +33,7 @@ import com.lifeevent.lid.stock.repository.StockRepository;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -78,6 +80,7 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CatalogCacheNames.BACKOFFICE_OVERVIEW_DASHBOARD, sync = true)
     public BackOfficeDashboardResponseDto getDashboard() {
         CompletableFuture<Long> totalOrdersFuture = supplyOverviewAsync(orderRepository::count);
         CompletableFuture<Double> totalRevenueFuture = supplyOverviewAsync(orderRepository::sumAmount);
@@ -111,6 +114,11 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.BACKOFFICE_OVERVIEW_COLLECTION,
+            key = "#days == null ? 12 : #days",
+            sync = true
+    )
     public BackOfficeOverviewDto getOverview(Integer days) {
         int seriesDays = normalizeDays(days);
         CompletableFuture<BackOfficeDashboardResponseDto> dashboardFuture = supplyOverviewAsync(this::getDashboard);

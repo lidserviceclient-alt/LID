@@ -3,7 +3,7 @@ package com.lifeevent.lid.blog.controller;
 import com.lifeevent.lid.blog.dto.BlogPostDto;
 import com.lifeevent.lid.blog.entity.BlogPost;
 import com.lifeevent.lid.blog.repository.BlogPostRepository;
-import com.lifeevent.lid.cache.CatalogCacheNames;
+import com.lifeevent.lid.common.cache.CatalogCacheNames;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
@@ -25,7 +25,11 @@ public class BlogPostController {
     private final BlogPostRepository blogPostRepository;
 
     @GetMapping
-    @Cacheable(cacheNames = CatalogCacheNames.BLOG_POSTS)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.BLOG_POSTS,
+            key = "@cacheScopeVersionService.blogVersion() + ':' + #page + ':' + #size",
+            sync = true
+    )
     public List<BlogPostDto> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
@@ -39,7 +43,11 @@ public class BlogPostController {
     }
 
     @GetMapping("/{id}")
-    @Cacheable(cacheNames = CatalogCacheNames.BLOG_POST_DETAILS, key = "#id")
+    @Cacheable(
+            cacheNames = CatalogCacheNames.BLOG_POST_DETAILS,
+            key = "@cacheScopeVersionService.blogVersion() + ':' + #id",
+            sync = true
+    )
     public BlogPostDto get(@PathVariable Long id) {
         BlogPost entity = blogPostRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("BlogPost", "id", id.toString()));

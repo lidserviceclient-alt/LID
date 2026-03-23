@@ -20,6 +20,7 @@ public interface LoyaltyPointAdjustmentRepository extends JpaRepository<LoyaltyP
 
     Page<LoyaltyPointAdjustment> findByCustomer_UserIdOrderByCreatedAtDesc(String userId, Pageable pageable);
     List<LoyaltyPointAdjustment> findByCustomer_UserIdOrderByCreatedAtDesc(String userId);
+    long countByCustomer_UserId(String userId);
 
     @Query("SELECT COALESCE(SUM(a.deltaPoints), 0) FROM LoyaltyPointAdjustment a WHERE a.customer.userId = :userId")
     long sumDeltaByCustomerId(@Param("userId") String userId);

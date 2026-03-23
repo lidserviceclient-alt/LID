@@ -5,7 +5,7 @@ import com.lifeevent.lid.article.entity.Category;
 import com.lifeevent.lid.article.mapper.CategoryMapper;
 import com.lifeevent.lid.article.repository.CategoryRepository;
 import com.lifeevent.lid.article.service.CategoryService;
-import com.lifeevent.lid.cache.event.CategoryCatalogChangedEvent;
+import com.lifeevent.lid.common.cache.event.CategoryCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

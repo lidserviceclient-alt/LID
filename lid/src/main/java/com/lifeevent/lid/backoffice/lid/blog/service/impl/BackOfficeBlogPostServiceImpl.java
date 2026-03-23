@@ -5,7 +5,7 @@ import com.lifeevent.lid.backoffice.lid.blog.mapper.BackOfficeBlogPostMapper;
 import com.lifeevent.lid.backoffice.lid.blog.service.BackOfficeBlogPostService;
 import com.lifeevent.lid.blog.entity.BlogPost;
 import com.lifeevent.lid.blog.repository.BlogPostRepository;
-import com.lifeevent.lid.cache.event.BlogCatalogChangedEvent;
+import com.lifeevent.lid.common.cache.event.BlogCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;

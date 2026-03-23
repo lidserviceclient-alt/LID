@@ -5,6 +5,8 @@ import com.lifeevent.lid.backoffice.lid.marketing.dto.MarketingChannelShareDto;
 import com.lifeevent.lid.backoffice.lid.marketing.dto.MarketingOverviewDto;
 import com.lifeevent.lid.backoffice.lid.marketing.mapper.BackOfficeMarketingCampaignMapper;
 import com.lifeevent.lid.backoffice.lid.marketing.service.BackOfficeMarketingService;
+import com.lifeevent.lid.common.cache.CacheScopeVersionService;
+import com.lifeevent.lid.common.cache.CatalogCacheNames;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.marketing.entity.MarketingCampaign;
 import com.lifeevent.lid.marketing.enumeration.MarketingAudience;
@@ -15,6 +17,7 @@ import com.lifeevent.lid.marketing.repository.MarketingCampaignRepository;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -40,11 +43,17 @@ public class BackOfficeMarketingServiceImpl implements BackOfficeMarketingServic
     private final MarketingCampaignDeliveryRepository marketingCampaignDeliveryRepository;
     private final BackOfficeMarketingCampaignMapper backOfficeMarketingCampaignMapper;
     private final BackOfficeMarketingAutomationService backOfficeMarketingAutomationService;
+    private final CacheScopeVersionService cacheScopeVersionService;
     @Resource(name = "aggregatorExecutor")
     private Executor aggregatorExecutor;
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.BACKOFFICE_MARKETING_OVERVIEW,
+            key = "@cacheScopeVersionService.marketingVersion() + ':' + (#days == null ? 30 : #days)",
+            sync = true
+    )
     public MarketingOverviewDto getOverview(Integer days) {
         int safeDays = normalizeDays(days);
         LocalDateTime from = LocalDateTime.now().minusDays(safeDays);
@@ -85,6 +94,7 @@ public class BackOfficeMarketingServiceImpl implements BackOfficeMarketingServic
         MarketingCampaign entity = backOfficeMarketingCampaignMapper.toEntity(dto);
         applyDefaults(entity);
         MarketingCampaign saved = marketingCampaignRepository.save(entity);
+        cacheScopeVersionService.bumpMarketing();
         return backOfficeMarketingCampaignMapper.toDto(saved);
     }
 
@@ -115,12 +125,14 @@ public class BackOfficeMarketingServiceImpl implements BackOfficeMarketingServic
             resetProgress(saved);
             saved = marketingCampaignRepository.save(saved);
         }
+        cacheScopeVersionService.bumpMarketing();
         return backOfficeMarketingCampaignMapper.toDto(saved);
     }
 
     @Override
     public BackOfficeMarketingCampaignDto sendCampaign(Long id) {
         MarketingCampaign saved = backOfficeMarketingAutomationService.queueSendNow(id);
+        cacheScopeVersionService.bumpMarketing();
         return backOfficeMarketingCampaignMapper.toDto(saved);
     }
 
@@ -129,6 +141,7 @@ public class BackOfficeMarketingServiceImpl implements BackOfficeMarketingServic
         ensureCampaignExists(id);
         deleteCampaignDeliveries(id);
         marketingCampaignRepository.deleteById(id);
+        cacheScopeVersionService.bumpMarketing();
     }
 
     private void ensureCampaignExists(Long id) {

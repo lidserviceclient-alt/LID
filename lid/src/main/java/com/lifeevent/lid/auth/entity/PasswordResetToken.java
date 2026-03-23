@@ -37,7 +37,7 @@ public class PasswordResetToken extends BaseEntity {
     @Column(nullable = false)
     private OneTimeCodePurpose purpose;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private UserEntity user;
 

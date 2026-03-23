@@ -5,6 +5,7 @@ import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.backoffice.lid.order.dto.*;
 import com.lifeevent.lid.backoffice.lid.order.enumeration.BackOfficeOrderStatus;
 import com.lifeevent.lid.backoffice.lid.order.service.BackOfficeOrderService;
+import com.lifeevent.lid.common.cache.event.PartnerOrderChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.discount.entity.Discount;
 import com.lifeevent.lid.discount.enumeration.DiscountType;
@@ -23,6 +24,7 @@ import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -36,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @Transactional
@@ -50,6 +53,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
     private final DiscountRepository discountRepository;
     private final StockRepository stockRepository;
     private final ShipmentRepository shipmentRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -165,6 +169,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
                 .build();
         saved.getStatusHistory().add(history);
         orderRepository.save(saved);
+        publishPartnerOrderChanged(saved.getId());
 
         return toSummary(saved);
     }
@@ -189,8 +194,20 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
         order.getStatusHistory().add(history);
         order.setCurrentStatus(mapped);
         Order saved = orderRepository.save(order);
+        publishPartnerOrderChanged(saved.getId());
         syncShipmentForOrderStatus(saved, status);
         return toSummary(saved);
+    }
+
+    private void publishPartnerOrderChanged(Long orderId) {
+        if (orderId == null) {
+            return;
+        }
+        Set<String> partnerIds = orderRepository.findDistinctPartnerIdsByOrderId(orderId);
+        if (partnerIds == null || partnerIds.isEmpty()) {
+            return;
+        }
+        eventPublisher.publishEvent(new PartnerOrderChangedEvent(partnerIds));
     }
 
     private void syncShipmentForOrderStatus(Order order, BackOfficeOrderStatus status) {

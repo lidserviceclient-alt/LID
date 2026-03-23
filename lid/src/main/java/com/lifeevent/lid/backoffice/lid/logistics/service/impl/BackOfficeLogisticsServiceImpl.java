@@ -8,6 +8,7 @@ import com.lifeevent.lid.backoffice.lid.logistics.dto.BackOfficeShipmentScanRequ
 import com.lifeevent.lid.backoffice.lid.logistics.dto.LogisticsKpisDto;
 import com.lifeevent.lid.backoffice.lid.logistics.mapper.BackOfficeShipmentMapper;
 import com.lifeevent.lid.backoffice.lid.logistics.service.BackOfficeLogisticsService;
+import com.lifeevent.lid.common.cache.event.PartnerOrderChangedEvent;
 import com.lifeevent.lid.logistics.entity.Shipment;
 import com.lifeevent.lid.logistics.enumeration.ShipmentStatus;
 import com.lifeevent.lid.logistics.repository.ShipmentRepository;
@@ -19,6 +20,7 @@ import com.lifeevent.lid.order.repository.OrderRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -42,6 +45,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     private final ShipmentRepository shipmentRepository;
     private final OrderRepository orderRepository;
     private final BackOfficeShipmentMapper backOfficeShipmentMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -421,6 +425,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         updateOrderTracking(order, shipment);
         updateOrderStatus(order, shipment.getStatus());
         orderRepository.save(order);
+        publishPartnerOrderChanged(order.getId());
     }
 
     private void updateOrderTracking(Order order, Shipment shipment) {
@@ -536,5 +541,16 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
     private boolean isBlank(String value) {
         return trimToNull(value) == null;
+    }
+
+    private void publishPartnerOrderChanged(Long orderId) {
+        if (orderId == null) {
+            return;
+        }
+        Set<String> partnerIds = orderRepository.findDistinctPartnerIdsByOrderId(orderId);
+        if (partnerIds == null || partnerIds.isEmpty()) {
+            return;
+        }
+        eventPublisher.publishEvent(new PartnerOrderChangedEvent(partnerIds));
     }
 }

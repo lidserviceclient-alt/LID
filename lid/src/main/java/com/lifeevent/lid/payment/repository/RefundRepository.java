@@ -1,6 +1,8 @@
 package com.lifeevent.lid.payment.repository;
 
 import com.lifeevent.lid.payment.entity.Refund;
+import com.lifeevent.lid.payment.enums.PaymentOperator;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +17,16 @@ import java.util.List;
  */
 @Repository
 public interface RefundRepository extends JpaRepository<Refund, Long> {
+
+    interface RefundTransactionView {
+        Long getId();
+        String getRefundId();
+        String getStatus();
+        java.math.BigDecimal getAmount();
+        java.time.LocalDateTime getProcessedDate();
+        java.time.LocalDateTime getCreatedAt();
+        PaymentOperator getOperator();
+    }
     
     List<Refund> findByPaymentId(Long paymentId);
     
@@ -33,4 +45,18 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
             @Param("status") String status,
             @Param("from") LocalDateTime from
     );
+
+    @Query("""
+        SELECT r.id AS id,
+               r.refundId AS refundId,
+               r.status AS status,
+               r.amount AS amount,
+               r.processedDate AS processedDate,
+               r.createdAt AS createdAt,
+               p.operator AS operator
+        FROM Refund r
+        LEFT JOIN r.payment p
+        ORDER BY COALESCE(r.processedDate, r.createdAt) DESC, r.id DESC
+    """)
+    List<RefundTransactionView> findTransactionRows(Pageable pageable);
 }

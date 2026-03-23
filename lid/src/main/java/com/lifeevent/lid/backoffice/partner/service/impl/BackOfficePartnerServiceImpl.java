@@ -24,8 +24,9 @@ import com.lifeevent.lid.backoffice.partner.preference.dto.PartnerPreferencesDto
 import com.lifeevent.lid.backoffice.partner.preference.entity.PartnerPreferences;
 import com.lifeevent.lid.backoffice.partner.preference.repository.PartnerPreferencesRepository;
 import com.lifeevent.lid.backoffice.partner.service.BackOfficePartnerService;
-import com.lifeevent.lid.cache.event.ProductCatalogChangedEvent;
-import com.lifeevent.lid.cache.CatalogCacheNames;
+import com.lifeevent.lid.common.cache.CacheScopeVersionService;
+import com.lifeevent.lid.common.cache.event.ProductCatalogChangedEvent;
+import com.lifeevent.lid.common.cache.CatalogCacheNames;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
 import com.lifeevent.lid.order.entity.Order;
@@ -42,11 +43,10 @@ import com.lifeevent.lid.user.partner.entity.Shop;
 import com.lifeevent.lid.user.partner.entity.ShopStatusEnum;
 import com.lifeevent.lid.user.partner.repository.PartnerRepository;
 import com.lifeevent.lid.user.partner.repository.ShopRepository;
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -63,7 +63,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
@@ -72,6 +75,7 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
+    private static final long AGGREGATION_TIMEOUT_SECONDS = 8L;
 
     private final PartnerRepository partnerRepository;
     private final ShopRepository shopRepository;
@@ -85,26 +89,48 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     private final BackOfficeProductMapper backOfficeProductMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final UserService userService;
+    private final CacheScopeVersionService cacheScopeVersionService;
+    @Resource(name = "aggregatorExecutor")
+    private Executor aggregatorExecutor;
 
     @Override
     @Cacheable(
             cacheNames = CatalogCacheNames.PARTNER_COLLECTION,
-            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':p=' + #productLimit + ':o=' + #orderLimit + ':c=' + #customerLimit"
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':p=' + #productLimit + ':o=' + #orderLimit + ':c=' + #customerLimit",
+            sync = true
     )
     public BackOfficePartnerCollectionDto getMyCollection(int productLimit, int orderLimit, int customerLimit) {
         String partnerId = requireCurrentPartnerId();
-        BackOfficePartnerStatsDto stats = buildStats(partnerId);
-        List<BackOfficePartnerProductDto> products = getProductsSlice(partnerId, safeLimit(productLimit, 8));
-        List<BackOfficePartnerOrderDto> orders = getOrdersSlice(partnerId, safeLimit(orderLimit, 8));
-        List<BackOfficePartnerCustomerDto> customers = getCustomersSlice(partnerId, safeLimit(customerLimit, 8));
-        BackOfficePartnerSettingsDto settings = getMySettings();
+        int safeProductLimit = safeLimit(productLimit, 8);
+        int safeOrderLimit = safeLimit(orderLimit, 8);
+        int safeCustomerLimit = safeLimit(customerLimit, 8);
+
+        CompletableFuture<BackOfficePartnerStatsDto> statsFuture =
+                supplyAggregationAsync(() -> buildStats(partnerId));
+        CompletableFuture<List<BackOfficePartnerProductDto>> productsFuture =
+                supplyAggregationAsync(() -> getProductsSlice(partnerId, safeProductLimit));
+        CompletableFuture<List<BackOfficePartnerOrderDto>> ordersFuture =
+                supplyAggregationAsync(() -> getOrdersSlice(partnerId, safeOrderLimit));
+        CompletableFuture<List<BackOfficePartnerCustomerDto>> customersFuture =
+                supplyAggregationAsync(() -> getCustomersSlice(partnerId, safeCustomerLimit));
+        CompletableFuture<BackOfficePartnerSettingsDto> settingsFuture =
+                supplyAggregationAsync(this::getMySettings);
+
+        CompletableFuture.allOf(statsFuture, productsFuture, ordersFuture, customersFuture, settingsFuture).join();
+
+        BackOfficePartnerStatsDto stats = statsFuture.join();
+        List<BackOfficePartnerProductDto> products = productsFuture.join();
+        List<BackOfficePartnerOrderDto> orders = ordersFuture.join();
+        List<BackOfficePartnerCustomerDto> customers = customersFuture.join();
+        BackOfficePartnerSettingsDto settings = settingsFuture.join();
         return new BackOfficePartnerCollectionDto(stats, products, orders, customers, settings);
     }
 
     @Override
     @Cacheable(
             cacheNames = CatalogCacheNames.PARTNER_COLLECTION,
-            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':stats'"
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':stats'",
+            sync = true
     )
     public BackOfficePartnerStatsDto getMyStats() {
         String partnerId = requireCurrentPartnerId();
@@ -114,7 +140,8 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     @Override
     @Cacheable(
             cacheNames = CatalogCacheNames.PARTNER_PRODUCTS_PAGE,
-            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':summary:p=' + #page + ':s=' + #size"
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':summary:p=' + #page + ':s=' + #size",
+            sync = true
     )
     public Page<BackOfficePartnerProductDto> getMyProducts(int page, int size) {
         String partnerId = requireCurrentPartnerId();
@@ -130,7 +157,8 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     @Override
     @Cacheable(
             cacheNames = CatalogCacheNames.PARTNER_ORDERS_PAGE,
-            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':summary:p=' + #page + ':s=' + #size"
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':summary:p=' + #page + ':s=' + #size",
+            sync = true
     )
     public Page<BackOfficePartnerOrderDto> getMyOrders(int page, int size) {
         String partnerId = requireCurrentPartnerId();
@@ -141,7 +169,8 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     @Override
     @Cacheable(
             cacheNames = CatalogCacheNames.PARTNER_CUSTOMERS_PAGE,
-            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':p=' + #page + ':s=' + #size"
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':p=' + #page + ':s=' + #size",
+            sync = true
     )
     public Page<BackOfficePartnerCustomerDto> getMyCustomers(int page, int size) {
         String partnerId = requireCurrentPartnerId();
@@ -157,7 +186,8 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     @Override
     @Cacheable(
             cacheNames = CatalogCacheNames.PARTNER_SETTINGS,
-            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()"
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()",
+            sync = true
     )
     public BackOfficePartnerSettingsDto getMySettings() {
         Partner partner = requirePartner(requireCurrentPartnerId());
@@ -166,10 +196,6 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_SETTINGS, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()"),
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_COLLECTION, allEntries = true)
-    })
     public BackOfficePartnerSettingsDto updateMySettings(BackOfficePartnerSettingsDto dto) {
         String partnerId = requireCurrentPartnerId();
         Partner partner = requirePartner(partnerId);
@@ -204,13 +230,15 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
 
         Partner saved = partnerRepository.save(partner);
         userService.upsertPartnerProfile(saved);
+        touchPartnerCaches(partnerId);
         return mapper.toSettingsDto(saved);
     }
 
     @Override
     @Cacheable(
             cacheNames = CatalogCacheNames.PARTNER_PRODUCTS_PAGE,
-            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':crud:p=' + #page + ':s=' + #size"
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':crud:p=' + #page + ':s=' + #size",
+            sync = true
     )
     public Page<BackOfficeProductDto> getMyProductsCrud(int page, int size) {
         String partnerId = requireCurrentPartnerId();
@@ -222,11 +250,6 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PRODUCTS_PAGE, allEntries = true),
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PRODUCT_DETAILS, allEntries = true),
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_COLLECTION, allEntries = true)
-    })
     public BackOfficeProductDto createMyProduct(BackOfficeProductDto dto) {
         String partnerId = requireCurrentPartnerId();
         normalizeImageFields(dto);
@@ -236,13 +259,15 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
         Article saved = articleRepository.save(entity);
         upsertStock(saved, dto != null ? dto.getStock() : null);
         publishCatalogChanged(saved.getId());
+        touchPartnerCaches(partnerId);
         return toCrudDto(saved, loadSingleStock(saved.getId()));
     }
 
     @Override
     @Cacheable(
             cacheNames = CatalogCacheNames.PARTNER_PRODUCT_DETAILS,
-            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id"
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id",
+            sync = true
     )
     public BackOfficeProductDto getMyProduct(Long id) {
         Article article = findOwnedArticleOrThrow(id);
@@ -251,11 +276,6 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PRODUCTS_PAGE, allEntries = true),
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PRODUCT_DETAILS, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id"),
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_COLLECTION, allEntries = true)
-    })
     public BackOfficeProductDto updateMyProduct(Long id, BackOfficeProductDto dto) {
         normalizeImageFields(dto);
         Article entity = findOwnedArticleOrThrow(id);
@@ -264,27 +284,25 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
         Article saved = articleRepository.save(entity);
         upsertStock(saved, dto != null ? dto.getStock() : null);
         publishCatalogChanged(saved.getId());
+        touchPartnerCaches(requireCurrentPartnerId());
         return toCrudDto(saved, loadSingleStock(saved.getId()));
     }
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PRODUCTS_PAGE, allEntries = true),
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PRODUCT_DETAILS, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id"),
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_COLLECTION, allEntries = true)
-    })
     public void deleteMyProduct(Long id) {
         Article entity = findOwnedArticleOrThrow(id);
         entity.setStatus(ArticleStatus.ARCHIVED);
         Article saved = articleRepository.save(entity);
         publishCatalogChanged(saved.getId());
+        touchPartnerCaches(requireCurrentPartnerId());
     }
 
     @Override
     @Cacheable(
             cacheNames = CatalogCacheNames.PARTNER_ORDERS_PAGE,
-            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':crud:p=' + #page + ':s=' + #size"
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':crud:p=' + #page + ':s=' + #size",
+            sync = true
     )
     public Page<BackOfficePartnerOrderDto> listMyOrdersCrud(int page, int size) {
         return getMyOrders(page, size);
@@ -293,7 +311,8 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     @Override
     @Cacheable(
             cacheNames = CatalogCacheNames.PARTNER_ORDER_DETAILS,
-            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id"
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id",
+            sync = true
     )
     public PartnerOrderDetailDto getMyOrder(Long id) {
         String partnerId = requireCurrentPartnerId();
@@ -304,11 +323,6 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_ORDERS_PAGE, allEntries = true),
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_ORDER_DETAILS, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id"),
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_COLLECTION, allEntries = true)
-    })
     public PartnerOrderDetailDto updateMyOrder(Long id, PartnerOrderUpdateRequest request) {
         String partnerId = requireCurrentPartnerId();
         Order order = orderRepository.findPartnerOwnedWithCustomerAndStatusHistoryById(id, partnerId)
@@ -328,16 +342,12 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
         Order saved = orderRepository.save(order);
         Order withArticles = orderRepository.findPartnerOwnedWithCustomerAndArticlesById(saved.getId(), partnerId)
                 .orElse(saved);
+        touchPartnerCaches(partnerId);
         return toOrderDetailDto(withArticles, partnerId);
     }
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_ORDERS_PAGE, allEntries = true),
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_ORDER_DETAILS, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':id=' + #id"),
-            @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_COLLECTION, allEntries = true)
-    })
     public void cancelMyOrder(Long id, String comment) {
         updateMyOrder(id, PartnerOrderUpdateRequest.builder().status(Status.CANCELED.name()).comment(comment).build());
     }
@@ -345,7 +355,8 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     @Override
     @Cacheable(
             cacheNames = CatalogCacheNames.PARTNER_CATEGORIES,
-            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()"
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()",
+            sync = true
     )
     public List<PartnerSubCategoryDto> listMyCategories() {
         String partnerId = requireCurrentPartnerId();
@@ -356,7 +367,6 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
 
     @Override
     @Transactional
-    @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_CATEGORIES, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()")
     public PartnerSubCategoryDto createMyCategory(PartnerSubCategoryDto dto) {
         String partnerId = requireCurrentPartnerId();
         PartnerSubCategory entity = PartnerSubCategory.builder()
@@ -365,7 +375,9 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
                 .name(dto != null ? dto.getName() : null)
                 .description(dto != null ? dto.getDescription() : null)
                 .build();
-        return toPartnerSubCategoryDto(partnerSubCategoryRepository.save(entity));
+        PartnerSubCategoryDto created = toPartnerSubCategoryDto(partnerSubCategoryRepository.save(entity));
+        touchPartnerCaches(partnerId);
+        return created;
     }
 
     @Override
@@ -375,8 +387,8 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
 
     @Override
     @Transactional
-    @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_CATEGORIES, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()")
     public PartnerSubCategoryDto updateMyCategory(Long id, PartnerSubCategoryDto dto) {
+        String partnerId = requireCurrentPartnerId();
         PartnerSubCategory entity = findOwnedSubCategoryOrThrow(id);
         if (dto != null) {
             if (dto.getMainCategoryId() != null) {
@@ -387,20 +399,24 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
             }
             entity.setDescription(dto.getDescription());
         }
-        return toPartnerSubCategoryDto(partnerSubCategoryRepository.save(entity));
+        PartnerSubCategoryDto updated = toPartnerSubCategoryDto(partnerSubCategoryRepository.save(entity));
+        touchPartnerCaches(partnerId);
+        return updated;
     }
 
     @Override
     @Transactional
-    @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_CATEGORIES, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()")
     public void deleteMyCategory(Long id) {
+        String partnerId = requireCurrentPartnerId();
         partnerSubCategoryRepository.delete(findOwnedSubCategoryOrThrow(id));
+        touchPartnerCaches(partnerId);
     }
 
     @Override
     @Cacheable(
             cacheNames = CatalogCacheNames.PARTNER_PREFERENCES,
-            key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()"
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()",
+            sync = true
     )
     public PartnerPreferencesDto getMyPreferences() {
         String partnerId = requireCurrentPartnerId();
@@ -414,7 +430,6 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
 
     @Override
     @Transactional
-    @CacheEvict(cacheNames = CatalogCacheNames.PARTNER_PREFERENCES, key = "T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()")
     public PartnerPreferencesDto updateMyPreferences(PartnerPreferencesDto dto) {
         String partnerId = requireCurrentPartnerId();
         PartnerPreferences entity = partnerPreferencesRepository.findById(partnerId)
@@ -427,8 +442,9 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
             entity.setFacebookPage(normalizeOrNull(dto.facebookPage()));
             entity.setOpeningHoursJson(normalizeOrNull(dto.openingHoursJson()));
         }
-
-        return toPartnerPreferencesDto(partnerPreferencesRepository.save(entity));
+        PartnerPreferencesDto updated = toPartnerPreferencesDto(partnerPreferencesRepository.save(entity));
+        touchPartnerCaches(partnerId);
+        return updated;
     }
 
     private BackOfficePartnerStatsDto buildStats(String partnerId) {
@@ -438,6 +454,14 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
         double revenue = orderMetrics == null || orderMetrics.getRevenue() == null ? 0D : orderMetrics.getRevenue();
         long customers = orderRepository.countDistinctCustomersByPartnerId(partnerId);
         return new BackOfficePartnerStatsDto(products, orders, customers, revenue);
+    }
+
+    private <T> CompletableFuture<T> supplyAggregationAsync(Supplier<T> supplier) {
+        return CompletableFuture.supplyAsync(supplier, aggregatorExecutor)
+                .orTimeout(AGGREGATION_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
+                .exceptionally(ex -> {
+                    throw new RuntimeException(ex);
+                });
     }
 
     private List<BackOfficePartnerProductDto> getProductsSlice(String partnerId, int limit) {
@@ -519,6 +543,10 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
             return Math.max(1, fallback);
         }
         return limit;
+    }
+
+    private void touchPartnerCaches(String partnerId) {
+        cacheScopeVersionService.bumpPartner(partnerId);
     }
 
     private String normalizeOrCurrent(String value, String current) {

@@ -3,13 +3,14 @@ package com.lifeevent.lid.backoffice.lid.finance.service.impl;
 import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceOverviewDto;
 import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceTransactionDto;
 import com.lifeevent.lid.backoffice.lid.finance.service.BackOfficeFinanceService;
+import com.lifeevent.lid.common.cache.CatalogCacheNames;
 import com.lifeevent.lid.payment.entity.Payment;
-import com.lifeevent.lid.payment.entity.Refund;
 import com.lifeevent.lid.payment.enums.PaymentStatus;
 import com.lifeevent.lid.payment.repository.PaymentRepository;
 import com.lifeevent.lid.payment.repository.RefundRepository;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -38,6 +39,11 @@ public class BackOfficeFinanceServiceImpl implements BackOfficeFinanceService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.BACKOFFICE_FINANCE_OVERVIEW,
+            key = "#days == null ? 30 : #days",
+            sync = true
+    )
     public BackOfficeFinanceOverviewDto getOverview(Integer days) {
         int safeDays = normalizeDays(days);
         LocalDateTime from = LocalDateTime.now().minusDays(safeDays);
@@ -89,6 +95,11 @@ public class BackOfficeFinanceServiceImpl implements BackOfficeFinanceService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.BACKOFFICE_FINANCE_TRANSACTIONS,
+            key = "#size == null ? 50 : #size",
+            sync = true
+    )
     public List<BackOfficeFinanceTransactionDto> getTransactions(Integer size) {
         int safeSize = normalizeSize(size);
 
@@ -149,16 +160,14 @@ public class BackOfficeFinanceServiceImpl implements BackOfficeFinanceService {
 
     private List<BackOfficeFinanceTransactionDto> mapRefundsToTransactions(int size) {
         PageRequest pageRequest = PageRequest.of(0, size, Sort.by(Sort.Direction.DESC, "processedDate", "createdAt", "id"));
-        List<Refund> refunds = refundRepository.findAll(pageRequest).getContent();
+        List<RefundRepository.RefundTransactionView> refunds = refundRepository.findTransactionRows(pageRequest);
         List<BackOfficeFinanceTransactionDto> rows = new ArrayList<>(refunds.size());
 
-        for (Refund refund : refunds) {
+        for (RefundRepository.RefundTransactionView refund : refunds) {
             rows.add(BackOfficeFinanceTransactionDto.builder()
                     .id(refund.getRefundId() != null ? refund.getRefundId() : String.valueOf(refund.getId()))
                     .type("Remboursement")
-                    .method(refund.getPayment() != null && refund.getPayment().getOperator() != null
-                            ? refund.getPayment().getOperator().name()
-                            : "-")
+                    .method(refund.getOperator() == null ? "-" : refund.getOperator().name())
                     .amount(safeAmount(refund.getAmount()).negate())
                     .status(mapRefundStatus(refund.getStatus()))
                     .date(refund.getProcessedDate() != null ? refund.getProcessedDate() : refund.getCreatedAt())
