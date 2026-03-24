@@ -14,3 +14,7 @@ management:
   health:
     redis:
       enabled: false
+
+storage:
+  local:
+    cdn-base-url: ${LOCAL_STORAGE_CDN_BASE_URL:}

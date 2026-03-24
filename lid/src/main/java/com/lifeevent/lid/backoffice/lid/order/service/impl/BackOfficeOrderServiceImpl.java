@@ -373,7 +373,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
         return switch (status) {
             case CREEE -> Status.PENDING;
             case PAYEE -> Status.PAID;
-            case EXPEDIEE -> Status.DELIVERY_IN_PROGRESS;
+            case EXPEDIEE -> Status.READY_TO_DELIVER;
             case LIVREE -> Status.DELIVERED;
             case ANNULEE -> Status.CANCELED;
             case REMBOURSEE -> Status.REFUNDED;

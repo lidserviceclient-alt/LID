@@ -2,6 +2,9 @@ package com.lifeevent.lid.order.controller;
 
 import com.lifeevent.lid.order.dto.PublicOrderTrackingResponseDto;
 import com.lifeevent.lid.order.dto.PublicOrderTrackingStepDto;
+import com.lifeevent.lid.order.dto.PublicOrderTrackingV2ResponseDto;
+import com.lifeevent.lid.logistics.entity.Shipment;
+import com.lifeevent.lid.logistics.repository.ShipmentRepository;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.entity.StatusHistory;
 import com.lifeevent.lid.order.repository.OrderRepository;
@@ -27,10 +30,41 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 public class PublicOrderTrackingController {
 
     private final OrderRepository orderRepository;
+    private final ShipmentRepository shipmentRepository;
 
     @GetMapping("/tracking/{reference}")
     @Transactional(readOnly = true)
     public PublicOrderTrackingResponseDto track(@PathVariable String reference) {
+        TrackingPayload payload = buildPayload(reference);
+        return new PublicOrderTrackingResponseDto(
+                payload.id(),
+                payload.orderNumber(),
+                payload.trackingNumber(),
+                payload.deliveryType(),
+                payload.status(),
+                payload.updatedAt(),
+                payload.deliveryDate(),
+                payload.history()
+        );
+    }
+
+    @GetMapping("/tracking/v2/{reference}")
+    @Transactional(readOnly = true)
+    public PublicOrderTrackingV2ResponseDto trackV2(@PathVariable String reference) {
+        TrackingPayload payload = buildPayload(reference);
+        return new PublicOrderTrackingV2ResponseDto(
+                payload.id(),
+                payload.orderNumber(),
+                payload.trackingNumber(),
+                payload.deliveryType(),
+                payload.status(),
+                payload.updatedAt(),
+                payload.deliveryDate(),
+                payload.history()
+        );
+    }
+
+    private TrackingPayload buildPayload(String reference) {
         String ref = reference == null ? "" : reference.trim();
         if (ref.isBlank()) {
             throw new ResponseStatusException(BAD_REQUEST, "Référence de commande requise");
@@ -39,15 +73,19 @@ public class PublicOrderTrackingController {
         Order order = resolveOrder(ref);
         List<PublicOrderTrackingStepDto> history = toSteps(order.getStatusHistory());
         LocalDateTime updatedAt = !history.isEmpty() ? history.get(history.size() - 1).changedAt() : order.getCreatedAt();
-
-        return new PublicOrderTrackingResponseDto(
+        Shipment shipment = shipmentRepository.findByOrderId(String.valueOf(order.getId())).orElse(null);
+        String deliveryType = shipment != null ? shipment.getCarrier() : null;
+        LocalDateTime estimatedDeliveryDate = shipment != null && shipment.getEta() != null
+                ? shipment.getEta().atStartOfDay()
+                : order.getDeliveryDate();
+        return new TrackingPayload(
                 order.getId(),
                 "ORD-" + order.getId(),
                 order.getTrackingNumber(),
-                null,
+                deliveryType,
                 order.getCurrentStatus(),
                 updatedAt,
-                order.getDeliveryDate(),
+                estimatedDeliveryDate,
                 history
         );
     }
@@ -85,5 +123,17 @@ public class PublicOrderTrackingController {
                 .sorted(Comparator.comparing(StatusHistory::getChangedAt, Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(s -> new PublicOrderTrackingStepDto(s.getStatus(), s.getChangedAt(), s.getComment()))
                 .toList();
+    }
+
+    private record TrackingPayload(
+            Long id,
+            String orderNumber,
+            String trackingNumber,
+            String deliveryType,
+            com.lifeevent.lid.order.enumeration.Status status,
+            LocalDateTime updatedAt,
+            LocalDateTime deliveryDate,
+            List<PublicOrderTrackingStepDto> history
+    ) {
     }
 }

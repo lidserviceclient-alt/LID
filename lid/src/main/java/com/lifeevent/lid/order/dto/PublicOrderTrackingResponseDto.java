@@ -10,9 +10,9 @@ public record PublicOrderTrackingResponseDto(
         String orderNumber,
         String trackingNumber,
         String deliveryType,
-        Status status,
+        Status currentStatus,
         LocalDateTime updatedAt,
         LocalDateTime deliveryDate,
-        List<PublicOrderTrackingStepDto> history
+        List<PublicOrderTrackingStepDto> statusHistory
 ) {
 }

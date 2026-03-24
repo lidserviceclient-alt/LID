@@ -9,6 +9,7 @@ import com.lifeevent.lid.backoffice.lid.logistics.dto.LogisticsKpisDto;
 import com.lifeevent.lid.backoffice.lid.logistics.mapper.BackOfficeShipmentMapper;
 import com.lifeevent.lid.backoffice.lid.logistics.service.BackOfficeLogisticsService;
 import com.lifeevent.lid.common.cache.event.PartnerOrderChangedEvent;
+import com.lifeevent.lid.common.service.EmailService;
 import com.lifeevent.lid.logistics.entity.Shipment;
 import com.lifeevent.lid.logistics.enumeration.ShipmentStatus;
 import com.lifeevent.lid.logistics.repository.ShipmentRepository;
@@ -46,6 +47,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     private final OrderRepository orderRepository;
     private final BackOfficeShipmentMapper backOfficeShipmentMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final EmailService emailService;
 
     @Override
     @Transactional(readOnly = true)
@@ -115,11 +117,14 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
         Shipment shipment = resolveShipmentFromQr(request.getQr())
                 .orElseThrow(() -> new IllegalArgumentException("Expedition introuvable"));
+        Optional<Order> linkedOrder = findLinkedOrder(shipment);
+        ensureOrderIsReadyForTransit(linkedOrder);
 
         if (shipment.getStatus() == ShipmentStatus.LIVREE) {
             throw new IllegalArgumentException("Commande déjà livrée");
         }
 
+        boolean alreadyInTransit = shipment.getStatus() == ShipmentStatus.EN_COURS;
         fillCourierData(shipment, request, scannedBy);
         if (shipment.getStatus() != ShipmentStatus.EN_COURS) {
             shipment.setStatus(ShipmentStatus.EN_COURS);
@@ -129,10 +134,11 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             shipment.setScannedAt(LocalDateTime.now());
         }
 
-        ensureDeliveryCode(shipment);
+        boolean codeGenerated = ensureDeliveryCode(shipment);
 
         Shipment saved = shipmentRepository.save(shipment);
-        syncLinkedOrder(saved);
+        syncLinkedOrder(saved, linkedOrder.orElse(null));
+        sendDeliveryCodeIfNeeded(saved, codeGenerated, alreadyInTransit, linkedOrder.orElse(null));
         return toDetail(saved);
     }
 
@@ -208,8 +214,14 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         if (normalized.startsWith("shipment:")) {
             return findShipmentByIdToken(token.substring("shipment:".length()));
         }
+        if (normalized.startsWith("ship:")) {
+            return findShipmentByIdToken(token.substring("ship:".length()));
+        }
         if (normalized.startsWith("id:")) {
             return findShipmentByIdToken(token.substring("id:".length()));
+        }
+        if (normalized.startsWith("order:")) {
+            return findShipmentByOrderToken(token.substring("order:".length()));
         }
         if (normalized.startsWith("tracking:")) {
             return shipmentRepository.findByTrackingIdIgnoreCase(token.substring("tracking:".length()).trim());
@@ -231,7 +243,28 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             return byOrder;
         }
 
+        Optional<Shipment> byOrderToken = findShipmentByOrderToken(token);
+        if (byOrderToken.isPresent()) {
+            return byOrderToken;
+        }
+
         return findShipmentByIdToken(token);
+    }
+
+    private Optional<Shipment> findShipmentByOrderToken(String rawValue) {
+        String value = trimToNull(rawValue);
+        if (value == null) {
+            return Optional.empty();
+        }
+        Optional<Shipment> direct = shipmentRepository.findByOrderId(value);
+        if (direct.isPresent()) {
+            return direct;
+        }
+        String digits = value.replaceAll("\\D+", "");
+        if (digits.isEmpty()) {
+            return Optional.empty();
+        }
+        return shipmentRepository.findByOrderId(digits);
     }
 
     private Optional<Shipment> findShipmentByIdToken(String value) {
@@ -268,13 +301,49 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         shipment.setCourierUser(scannedBySafe);
     }
 
-    private void ensureDeliveryCode(Shipment shipment) {
+    private boolean ensureDeliveryCode(Shipment shipment) {
         if (!isBlank(shipment.getDeliveryCode())) {
-            return;
+            return false;
         }
 
         shipment.setDeliveryCode(generate4DigitCode());
         shipment.setDeliveryCodeGeneratedAt(LocalDateTime.now());
+        return true;
+    }
+
+    private void ensureOrderIsReadyForTransit(Optional<Order> linkedOrder) {
+        if (linkedOrder == null || linkedOrder.isEmpty()) {
+            return;
+        }
+        Status currentStatus = linkedOrder.get().getCurrentStatus();
+        if (currentStatus == null) {
+            throw new IllegalArgumentException("Commande non expédiée");
+        }
+        if (currentStatus != Status.READY_TO_DELIVER && currentStatus != Status.DELIVERY_IN_PROGRESS) {
+            throw new IllegalArgumentException("Commande non expédiée");
+        }
+    }
+
+    private void sendDeliveryCodeIfNeeded(Shipment shipment, boolean codeGenerated, boolean alreadyInTransit, Order linkedOrder) {
+        if (!codeGenerated && alreadyInTransit) {
+            return;
+        }
+        if (linkedOrder == null || linkedOrder.getCustomer() == null) {
+            return;
+        }
+        String email = trimToNull(linkedOrder.getCustomer().getEmail());
+        String code = trimToNull(shipment.getDeliveryCode());
+        if (email == null || code == null) {
+            return;
+        }
+        String orderLabel = "ORD-" + linkedOrder.getId();
+        String subject = "Votre code de livraison LID";
+        String body = "Commande " + orderLabel + " - code de remise: " + code;
+        try {
+            emailService.send(email, subject, body);
+        } catch (Exception ex) {
+            log.warn("Impossible d'envoyer le code de livraison pour shipmentId={}", shipment.getId(), ex);
+        }
     }
 
     private String generate4DigitCode() {
@@ -416,12 +485,21 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     }
 
     private void syncLinkedOrder(Shipment shipment) {
-        Optional<Order> orderOpt = findLinkedOrder(shipment);
-        if (orderOpt.isEmpty()) {
+        syncLinkedOrder(shipment, null);
+    }
+
+    private void syncLinkedOrder(Shipment shipment, Order preloadedOrder) {
+        Order order = preloadedOrder;
+        if (order == null) {
+            Optional<Order> orderOpt = findLinkedOrder(shipment);
+            if (orderOpt.isEmpty()) {
+                return;
+            }
+            order = orderOpt.get();
+        }
+        if (order == null) {
             return;
         }
-
-        Order order = orderOpt.get();
         updateOrderTracking(order, shipment);
         updateOrderStatus(order, shipment.getStatus());
         orderRepository.save(order);
@@ -461,6 +539,16 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             return;
         }
 
+        if (currentStatus != null) {
+            if (targetStatus == Status.CANCELED) {
+                if (currentStatus == Status.DELIVERED || currentStatus == Status.CANCELED) {
+                    return;
+                }
+            } else if (rankOrderStatus(targetStatus) <= rankOrderStatus(currentStatus)) {
+                return;
+            }
+        }
+
         order.setCurrentStatus(targetStatus);
         appendOrderHistory(order, targetStatus);
     }
@@ -480,10 +568,26 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
     private Status mapToOrderStatus(ShipmentStatus shipmentStatus) {
         return switch (shipmentStatus) {
-            case EN_PREPARATION -> Status.READY_TO_DELIVER;
+            case EN_PREPARATION -> Status.PROCESSING;
             case EN_COURS -> Status.DELIVERY_IN_PROGRESS;
             case LIVREE -> Status.DELIVERED;
             case ECHEC -> Status.CANCELED;
+        };
+    }
+
+    private int rankOrderStatus(Status status) {
+        if (status == null) {
+            return -1;
+        }
+        return switch (status) {
+            case PENDING -> 0;
+            case PAID -> 1;
+            case PROCESSING -> 2;
+            case READY_TO_DELIVER -> 3;
+            case DELIVERY_IN_PROGRESS -> 4;
+            case DELIVERED -> 5;
+            case CANCELED -> 6;
+            case REFUNDED -> 7;
         };
     }
 

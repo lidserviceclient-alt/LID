@@ -28,9 +28,6 @@ public class BackblazeFileStorageServiceImpl implements FileStorageService {
     @Value("${backblaze.bucket-id:}")
     private String bucketId;
 
-    @Value("${backblaze.public-base-url:}")
-    private String publicBaseUrl;
-
     @Override
     public String upload(MultipartFile file, String folder) {
         if (file == null || file.isEmpty()) {
@@ -94,8 +91,7 @@ public class BackblazeFileStorageServiceImpl implements FileStorageService {
     }
 
     private boolean isBackblazeConfigured() {
-        return bucketId != null && !bucketId.isBlank()
-                && publicBaseUrl != null && !publicBaseUrl.isBlank();
+        return bucketId != null && !bucketId.isBlank();
     }
 
     private String resolveContentType(String contentType) {

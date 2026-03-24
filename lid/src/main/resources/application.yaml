@@ -219,12 +219,16 @@ logging:
 
 backblaze:
   bucket-id: ${BACKBLAZE_BUCKET_ID:}
+  key-id: ${BACKBLAZE_KEY_ID:}
+  application-key: ${BACKBLAZE_APPLICATION_KEY:}
   bucket-name: ${BACKBLAZE_BUCKET_NAME:}
+  cdn-base-url: ${BACKBLAZE_CDN_BASE_URL:}
   public-base-url: ${BACKBLAZE_PUBLIC_BASE_URL:}
 
 storage:
   local:
     base-path: ${LOCAL_STORAGE_BASE_PATH:target/lid-storage}
+    cdn-base-url: ${LOCAL_STORAGE_CDN_BASE_URL:}
     public-base-url: ${LOCAL_STORAGE_PUBLIC_BASE_URL:target/lid-storage}
 
 # Configuration Swagger/OpenAPI
