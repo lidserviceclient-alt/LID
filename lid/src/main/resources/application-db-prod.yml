@@ -2,6 +2,18 @@ spring:
   config:
     activate:
       on-profile: db-prod
+  data:
+    redis:
+      repositories:
+        enabled: false
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL:false}
+      timeout: ${REDIS_TIMEOUT:2s}
+  cache:
+    type: redis
 
   datasource:
     url: jdbc:postgresql://127.0.0.1:5432/lid_db
@@ -53,21 +65,21 @@ spring:
       enabled: false
 
   mail:
-    host: localhost
-    port: 1025
-    username: test
-    password: test
+    host: ${SPRING_MAIL_HOST:${SMTP_HOST}}
+    port: ${SPRING_MAIL_PORT:${SMTP_PORT}}
+    username: ${SPRING_MAIL_USERNAME:${SMTP_USERNAME}}
+    password: ${SPRING_MAIL_PASSWORD:${SMTP_PASSWORD}}
     properties:
       mail:
         smtp:
-          auth: false
+          auth: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:${SMTP_AUTH:true}}
           starttls:
-            enable: false
-            required: false
+            enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:${SMTP_STARTTLS_ENABLE:true}}
+            required: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED:${SMTP_STARTTLS_REQUIRED:false}}
 
 config:
   mail:
-    from: no-reply@lid.local
+    from: ${CONFIG_MAIL_FROM:${SMTP_FROM}}
   backoffice:
     messages:
       default-recipients: admin@lid.local

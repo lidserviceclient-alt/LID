@@ -11,6 +11,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -23,6 +24,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.client.RestTemplate;
 
 import javax.crypto.SecretKey;
@@ -34,6 +36,23 @@ public class SecurityConfig {
 
     @Value("${spring.profiles.active:}")
     private String activeProfile;
+
+    @Bean
+    @Order(0)
+    SecurityFilterChain h2ConsoleChain(HttpSecurity http) throws Exception {
+        return http
+                .securityMatcher(new AntPathRequestMatcher("/h2-console/**"))
+                .cors(Customizer.withDefaults())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                .csrf(AbstractHttpConfigurer::disable)
+                .headers(headers -> headers
+                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::disable)
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives("frame-ancestors *")
+                        )
+                )
+                .build();
+    }
 
     @Bean
     @Order(1)

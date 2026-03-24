@@ -2,6 +2,8 @@ package com.lifeevent.lid.common.controller;
 
 import com.lifeevent.lid.common.service.FileStorageService;
 import com.lifeevent.lid.common.service.PublicAssetUrlResolver;
+import com.lifeevent.lid.common.service.impl.FileStorageSelector;
+import com.lifeevent.lid.common.storage.StoragePathUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,14 +20,15 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class FileStorageController implements IFileStorageController {
 
-    private final FileStorageService fileStorageService;
+    private final FileStorageSelector fileStorageSelector;
     private final PublicAssetUrlResolver publicAssetUrlResolver;
 
     @Override
     public ResponseEntity<Map<String, String>> upload(@RequestPart("file") MultipartFile file,
                                                       @RequestParam(value = "folder", required = false) String folder) {
+        FileStorageService fileStorageService = fileStorageSelector.activeStorage();
         String storagePath = fileStorageService.upload(file, folder);
-        String objectKey = normalizeObjectKey(storagePath);
+        String objectKey = StoragePathUtils.normalizeObjectKey(storagePath);
         String url = publicAssetUrlResolver.toPublicUrl(objectKey);
         Map<String, String> payload = new LinkedHashMap<>();
         payload.put("url", url);
@@ -35,14 +38,8 @@ public class FileStorageController implements IFileStorageController {
 
     @Override
     public ResponseEntity<Void> delete(@RequestParam("objectKey") String objectKey) {
+        FileStorageService fileStorageService = fileStorageSelector.activeStorage();
         fileStorageService.delete(objectKey);
         return ResponseEntity.noContent().build();
-    }
-
-    private String normalizeObjectKey(String storagePath) {
-        if (storagePath == null) {
-            return "";
-        }
-        return storagePath.trim().replace("\\", "/").replaceAll("^/+", "");
     }
 }

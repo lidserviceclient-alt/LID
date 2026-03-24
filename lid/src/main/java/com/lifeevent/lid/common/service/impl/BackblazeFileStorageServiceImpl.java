@@ -5,6 +5,7 @@ import com.backblaze.b2.client.contentSources.B2FileContentSource;
 import com.backblaze.b2.client.exceptions.B2Exception;
 import com.backblaze.b2.client.structures.B2UploadFileRequest;
 import com.lifeevent.lid.common.service.FileStorageService;
+import com.lifeevent.lid.common.storage.StoragePathUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,7 +17,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.UUID;
 
 @Service
 @Profile("!local")
@@ -25,7 +25,7 @@ public class BackblazeFileStorageServiceImpl implements FileStorageService {
 
     private final ObjectProvider<B2StorageClient> b2StorageClientProvider;
 
-    @Value("${backblaze.bucket-id:}")
+    @Value("${storage.backblaze.bucket-id:}")
     private String bucketId;
 
     @Override
@@ -34,7 +34,7 @@ public class BackblazeFileStorageServiceImpl implements FileStorageService {
             throw new IllegalArgumentException("file must not be empty");
         }
 
-        String objectKey = buildObjectKey(folder, file.getOriginalFilename());
+        String objectKey = StoragePathUtils.buildObjectKey(folder, file.getOriginalFilename());
         String contentType = resolveContentType(file.getContentType());
 
         B2StorageClient client = requireClient();
@@ -49,7 +49,8 @@ public class BackblazeFileStorageServiceImpl implements FileStorageService {
         }
 
         try {
-            requireClient().hideFile(bucketId, objectKey);
+            String normalizedKey = StoragePathUtils.normalizeObjectKey(objectKey);
+            requireClient().hideFile(bucketId, normalizedKey);
         } catch (B2Exception ex) {
             throw new IllegalStateException("Failed to delete file from Backblaze", ex);
         }
@@ -100,30 +101,4 @@ public class BackblazeFileStorageServiceImpl implements FileStorageService {
                 : contentType;
     }
 
-    private String buildObjectKey(String folder, String originalFilename) {
-        return normalizeFolder(folder) + "/" + UUID.randomUUID() + extensionOf(originalFilename);
-    }
-
-    private String normalizeFolder(String folder) {
-        if (folder == null || folder.isBlank()) {
-            return "uploads";
-        }
-        String normalized = folder.trim().replace("\\", "/");
-        normalized = normalized.replaceAll("/+", "/").replaceAll("^/|/$", "");
-        normalized = normalized.replaceAll("[^a-zA-Z0-9/_-]", "_");
-        return normalized.isBlank() ? "uploads" : normalized;
-    }
-
-    private String extensionOf(String filename) {
-        if (filename == null || filename.isBlank()) {
-            return "";
-        }
-        int idx = filename.lastIndexOf('.');
-        if (idx <= -1 || idx == filename.length() - 1) {
-            return "";
-        }
-        String ext = filename.substring(idx).toLowerCase();
-        return ext.length() <= 10 ? ext : "";
-    }
-    
 }
