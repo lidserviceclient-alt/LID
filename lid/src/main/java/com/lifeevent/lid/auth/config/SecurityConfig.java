@@ -37,22 +37,22 @@ public class SecurityConfig {
     @Value("${spring.profiles.active:}")
     private String activeProfile;
 
-    @Bean
-    @Order(0)
-    SecurityFilterChain h2ConsoleChain(HttpSecurity http) throws Exception {
-        return http
-                .securityMatcher(new AntPathRequestMatcher("/h2-console/**"))
-                .cors(Customizer.withDefaults())
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .csrf(AbstractHttpConfigurer::disable)
-                .headers(headers -> headers
-                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::disable)
-                        .contentSecurityPolicy(csp -> csp
-                                .policyDirectives("frame-ancestors *")
-                        )
-                )
-                .build();
-    }
+    // @Bean
+    // @Order(0)
+    // SecurityFilterChain h2ConsoleChain(HttpSecurity http) throws Exception {
+    //     return http
+    //             .securityMatcher(new AntPathRequestMatcher("/h2-console/**"))
+    //             .cors(Customizer.withDefaults())
+    //             .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+    //             .csrf(AbstractHttpConfigurer::disable)
+    //             .headers(headers -> headers
+    //                     .frameOptions(HeadersConfigurer.FrameOptionsConfig::disable)
+    //                     .contentSecurityPolicy(csp -> csp
+    //                             .policyDirectives("frame-ancestors *")
+    //                     )
+    //             )
+    //             .build();
+    // }
 
     @Bean
     @Order(1)

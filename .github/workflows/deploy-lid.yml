@@ -148,8 +148,19 @@ jobs:
             echo "Deploying image: ${{ steps.release.outputs.deploy_image }}"
             docker image rm "${{ steps.release.outputs.deploy_image }}" || true
             docker compose pull lid-api
-            docker compose up -d --pull always --force-recreate lid-api
-            docker inspect lid-api --format 'Running image: {{.Config.Image}}'
-            docker inspect lid-api --format 'Running image id: {{.Image}}'
-            docker ps --no-trunc --filter name=lid-api
+            REPLICAS="${LID_API_REPLICAS:-2}"
+            docker compose up -d --pull always --force-recreate --scale "lid-api=${REPLICAS}" lid-api
+
+            API_CONTAINER_IDS="$(docker compose ps -q lid-api)"
+            if [ -z "${API_CONTAINER_IDS}" ]; then
+              echo "No lid-api containers found after deployment"
+              docker compose ps
+              exit 1
+            fi
+
+            for cid in ${API_CONTAINER_IDS}; do
+              docker inspect "${cid}" --format 'Container {{.Name}} -> image: {{.Config.Image}}'
+              docker inspect "${cid}" --format 'Container {{.Name}} -> image id: {{.Image}}'
+            done
+
             docker compose ps
