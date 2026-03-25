@@ -154,16 +154,20 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=web
-      - traefik.http.routers.lid.rule=Host(`jean-emmanuel-diap.com`) && PathPrefix(`/lid`)
-      - traefik.http.routers.lid.entrypoints=websecure
-      - traefik.http.routers.lid.tls.certresolver=letsencrypt
-      - traefik.http.services.lid.loadbalancer.server.port=9000
+      - traefik.http.routers.lid-api.rule=Host(`jean-emmanuel-diap.com`) && PathPrefix(`/lid`)
+      - traefik.http.routers.lid-api.entrypoints=websecure
+      - traefik.http.routers.lid-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.lid-api.service=lid-api-svc
+      - traefik.http.routers.lid-api.priority=100
+      - traefik.http.services.lid-api-svc.loadbalancer.server.port=9000
+      - traefik.http.services.lid-api-svc.loadbalancer.passhostheader=true
 
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/lid/actuator/health"]
+      start_period: 35s
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 8
 
 # ==============================
 # VOLUMES
