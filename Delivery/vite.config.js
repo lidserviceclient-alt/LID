@@ -11,7 +11,7 @@ export default defineConfig({
     https: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:9000',
+        target: 'https://jean-emmanuel-diap.com/lid',
         changeOrigin: true,
         secure: false,
       },
