@@ -49,19 +49,19 @@ public class BackOfficeFinanceServiceImpl implements BackOfficeFinanceService {
         LocalDateTime from = LocalDateTime.now().minusDays(safeDays);
 
         CompletableFuture<BigDecimal> inflowsFuture = supplyAggregationAsync(
-                () -> safeAmount(paymentRepository.sumAmountByStatusFrom(PaymentStatus.COMPLETED, from))
+                () -> safeAmount(sumPaymentAmountByStatusFrom(PaymentStatus.COMPLETED, from))
         );
         CompletableFuture<BigDecimal> outflowsFuture = supplyAggregationAsync(
-                () -> safeAmount(refundRepository.sumAmountByStatusFrom("COMPLETED", from))
+                () -> safeAmount(sumRefundAmountByStatusFrom("COMPLETED", from))
         );
         CompletableFuture<BigDecimal> pendingFuture = supplyAggregationAsync(
-                () -> safeAmount(paymentRepository.sumAmountByStatusFrom(PaymentStatus.PENDING, from))
+                () -> safeAmount(sumPaymentAmountByStatusFrom(PaymentStatus.PENDING, from))
         );
         CompletableFuture<BigDecimal> totalSuccessFuture = supplyAggregationAsync(
-                () -> safeAmount(paymentRepository.sumAmountByStatusFrom(PaymentStatus.COMPLETED, null))
+                () -> safeAmount(sumPaymentAmountByStatusFrom(PaymentStatus.COMPLETED, null))
         );
         CompletableFuture<BigDecimal> totalRefundsFuture = supplyAggregationAsync(
-                () -> safeAmount(refundRepository.sumAmountByStatusFrom("COMPLETED", null))
+                () -> safeAmount(sumRefundAmountByStatusFrom("COMPLETED", null))
         );
 
         CompletableFuture.allOf(
@@ -192,6 +192,20 @@ public class BackOfficeFinanceServiceImpl implements BackOfficeFinanceService {
 
     private BigDecimal safeAmount(BigDecimal amount) {
         return amount == null ? BigDecimal.ZERO : amount;
+    }
+
+    private BigDecimal sumPaymentAmountByStatusFrom(PaymentStatus status, LocalDateTime from) {
+        if (from == null) {
+            return paymentRepository.sumAmountByStatus(status);
+        }
+        return paymentRepository.sumAmountByStatusFrom(status, from);
+    }
+
+    private BigDecimal sumRefundAmountByStatusFrom(String status, LocalDateTime from) {
+        if (from == null) {
+            return refundRepository.sumAmountByStatus(status);
+        }
+        return refundRepository.sumAmountByStatusFrom(status, from);
     }
 
     private String mapPaymentStatus(PaymentStatus status) {

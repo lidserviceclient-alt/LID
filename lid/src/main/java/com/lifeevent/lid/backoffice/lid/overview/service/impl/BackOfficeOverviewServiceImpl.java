@@ -294,8 +294,10 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
                 .filter(Objects::nonNull)
                 .toList();
         Map<Long, Article> articleById = new HashMap<>();
-        for (Article article : articleRepository.findAllById(articleIds)) {
-            articleById.put(article.getId(), article);
+        if (!articleIds.isEmpty()) {
+            for (Article article : articleRepository.findByIdIn(articleIds)) {
+                articleById.put(article.getId(), article);
+            }
         }
 
         return topRows.stream()

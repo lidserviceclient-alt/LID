@@ -36,10 +36,14 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
         SELECT COALESCE(SUM(COALESCE(r.amount, 0)), 0)
         FROM Refund r
         WHERE UPPER(r.status) = UPPER(:status)
-          AND (
-            :from IS NULL OR
-            COALESCE(r.processedDate, r.createdAt) >= :from
-          )
+    """)
+    BigDecimal sumAmountByStatus(@Param("status") String status);
+
+    @Query("""
+        SELECT COALESCE(SUM(COALESCE(r.amount, 0)), 0)
+        FROM Refund r
+        WHERE UPPER(r.status) = UPPER(:status)
+          AND COALESCE(r.processedDate, r.createdAt) >= :from
     """)
     BigDecimal sumAmountByStatusFrom(
             @Param("status") String status,

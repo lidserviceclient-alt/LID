@@ -32,10 +32,14 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
         SELECT COALESCE(SUM(COALESCE(p.amount, 0)), 0)
         FROM Payment p
         WHERE p.status = :status
-          AND (
-            :from IS NULL OR
-            COALESCE(p.paymentDate, p.createdAt) >= :from
-          )
+    """)
+    BigDecimal sumAmountByStatus(@Param("status") PaymentStatus status);
+
+    @Query("""
+        SELECT COALESCE(SUM(COALESCE(p.amount, 0)), 0)
+        FROM Payment p
+        WHERE p.status = :status
+          AND COALESCE(p.paymentDate, p.createdAt) >= :from
     """)
     BigDecimal sumAmountByStatusFrom(
             @Param("status") PaymentStatus status,

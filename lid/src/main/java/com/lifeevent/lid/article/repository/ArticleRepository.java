@@ -175,4 +175,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 
     long countByReferencePartner(String partnerId);
 
+    @EntityGraph(attributePaths = {"categories"})
+    List<Article> findByIdIn(List<Long> ids);
+
 }

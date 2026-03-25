@@ -4,21 +4,30 @@ import com.lifeevent.lid.backoffice.lid.order.dto.BackOfficeReturnRequestDto;
 import com.lifeevent.lid.backoffice.lid.order.dto.BackOfficeReturnRequestItemDto;
 import com.lifeevent.lid.backoffice.lid.order.dto.BackOfficeReturnRequestUpdateDto;
 import com.lifeevent.lid.backoffice.lid.order.service.BackOfficeReturnRequestService;
+import com.lifeevent.lid.common.cache.event.PartnerOrderChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.entity.ReturnRequest;
 import com.lifeevent.lid.order.entity.ReturnRequestItem;
+import com.lifeevent.lid.order.entity.StatusHistory;
 import com.lifeevent.lid.order.enumeration.ReturnRequestStatus;
+import com.lifeevent.lid.order.enumeration.Status;
+import com.lifeevent.lid.order.repository.OrderRepository;
 import com.lifeevent.lid.order.repository.ReturnRequestRepository;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import com.lifeevent.lid.user.partner.repository.PartnerRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 @Service
 @Transactional
@@ -26,8 +35,10 @@ import java.util.Locale;
 public class BackOfficeReturnRequestServiceImpl implements BackOfficeReturnRequestService {
 
     private final ReturnRequestRepository returnRequestRepository;
+    private final OrderRepository orderRepository;
     private final CustomerRepository customerRepository;
     private final PartnerRepository partnerRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -49,9 +60,78 @@ public class BackOfficeReturnRequestServiceImpl implements BackOfficeReturnReque
         if (request == null || request.status() == null) {
             return toDto(entity);
         }
-        entity.setStatus(request.status());
+        ReturnRequestStatus nextStatus = request.status();
+        if (nextStatus == entity.getStatus()) {
+            return toDto(entity);
+        }
+        entity.setStatus(nextStatus);
+        syncOrderTrackingTimeline(entity, nextStatus);
         ReturnRequest saved = returnRequestRepository.save(entity);
         return toDto(saved);
+    }
+
+    private void syncOrderTrackingTimeline(ReturnRequest request, ReturnRequestStatus returnStatus) {
+        if (request == null || request.getOrderId() == null || returnStatus == null) {
+            return;
+        }
+
+        Order order = orderRepository.findById(request.getOrderId()).orElse(null);
+        if (order == null) {
+            return;
+        }
+
+        Status targetOrderStatus = mapReturnStatusToOrderStatus(returnStatus, order.getCurrentStatus());
+        if (targetOrderStatus != null && targetOrderStatus != order.getCurrentStatus()) {
+            order.setCurrentStatus(targetOrderStatus);
+        }
+
+        Status historyStatus = order.getCurrentStatus() == null ? Status.PENDING : order.getCurrentStatus();
+        StatusHistory history = StatusHistory.builder()
+                .order(order)
+                .status(historyStatus)
+                .comment(buildReturnStatusComment(returnStatus))
+                .changedAt(LocalDateTime.now())
+                .build();
+
+        if (order.getStatusHistory() == null) {
+            order.setStatusHistory(new ArrayList<>());
+        }
+        order.getStatusHistory().add(history);
+        orderRepository.save(order);
+
+        publishPartnerOrderChanged(order.getId());
+    }
+
+    private Status mapReturnStatusToOrderStatus(ReturnRequestStatus returnStatus, Status currentOrderStatus) {
+        if (returnStatus == ReturnRequestStatus.REFUNDED
+                || returnStatus == ReturnRequestStatus.COMPLETED
+                || returnStatus == ReturnRequestStatus.CLOSED) {
+            return Status.DELIVERED;
+        }
+        return currentOrderStatus;
+    }
+
+    private String buildReturnStatusComment(ReturnRequestStatus status) {
+        return switch (status) {
+            case SUBMITTED -> "Demande de retour soumise";
+            case UNDER_REVIEW -> "Demande de retour en analyse";
+            case APPROVED -> "Demande de retour approuvee";
+            case REJECTED -> "Demande de retour rejetee";
+            case REFUNDED -> "Retour rembourse";
+            case COMPLETED -> "Retour finalise";
+            case CLOSED -> "Dossier de retour clos";
+        };
+    }
+
+    private void publishPartnerOrderChanged(Long orderId) {
+        if (orderId == null) {
+            return;
+        }
+        Set<String> partnerIds = orderRepository.findDistinctPartnerIdsByOrderId(orderId);
+        if (partnerIds == null || partnerIds.isEmpty()) {
+            return;
+        }
+        eventPublisher.publishEvent(new PartnerOrderChangedEvent(partnerIds));
     }
 
     private Page<ReturnRequest> findReturns(ReturnRequestStatus status, String query, Pageable pageable) {
