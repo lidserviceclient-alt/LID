@@ -20,15 +20,13 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/utils/cn';
 import { toast } from 'sonner';
 import { getUserProfile, logout, getCurrentUserPayload, updateUserProfile } from '@/services/authService.js';
-import { 
-  getCustomerOrders, 
-  getCustomerWishlist,
-  getCustomerAddresses,
+import {
   createCustomerAddress,
   deleteCustomerAddress,
   setDefaultCustomerAddress
 } from '@/services/customerService.js';
 import { useWishlist } from '@/features/wishlist/WishlistContext';
+import { getMyCustomerCollection } from '@/services/customerProfileService';
 
 const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 const PAYMENT_STORAGE_KEY = 'paymentMethods';
@@ -718,17 +716,16 @@ export default function Profile() {
       setLoadingOverview(true);
       setLoadingAddresses(true);
       try {
-        const [profile, ordersDto, wishlist, addressList] = await Promise.all([
-          getUserProfile(tokenPayload.sub),
-          getCustomerOrders(tokenPayload.sub, 0, 100),
-          getCustomerWishlist(tokenPayload.sub),
-          getCustomerAddresses(tokenPayload.sub)
+        const [collection, profile] = await Promise.all([
+          getMyCustomerCollection({ page: 0, size: 100 }),
+          getUserProfile(tokenPayload.sub)
         ]);
 
         if (!mounted) return;
-        setUserProfile(profile);
-        setAddresses(Array.isArray(addressList) ? addressList : []);
+        setUserProfile(collection?.customer || profile || null);
+        setAddresses(Array.isArray(collection?.addresses) ? collection.addresses : []);
 
+        const ordersDto = Array.isArray(collection?.orders) ? collection.orders : [];
         const mappedOrders = ordersDto.map((o) => {
           const orderNumber = o.orderNumber || `ORD-${o.id}`;
           return {
@@ -749,6 +746,7 @@ export default function Profile() {
           return st && st !== 'DELIVERED' && st !== 'CANCELED';
         }).length;
 
+        const wishlist = Array.isArray(collection?.wishlist) ? collection.wishlist : [];
         setStats({
           total: ordersDto.length,
           inProgress,
@@ -794,7 +792,7 @@ export default function Profile() {
 
 
   const displayEmail = fixMojibake(userProfile?.email) || fixMojibake(tokenPayload?.email) || '—';
-  const avatarUrl = userProfile?.avatarUrl || tokenPayload?.avatarUrl || DEFAULT_AVATAR;
+  const avatarUrl = userProfile?.avatarUrl || userProfile?.shop?.logoUrl || tokenPayload?.avatarUrl || DEFAULT_AVATAR;
   const memberSinceYear = userProfile?.createdAt
     ? String(userProfile.createdAt).slice(0, 4)
     : (tokenPayload?.iat ? new Date(tokenPayload.iat * 1000).getFullYear() : '—');

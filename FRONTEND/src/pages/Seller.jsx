@@ -27,11 +27,24 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { isAuthenticated, getCurrentUserPayload, logout, getUserProfile, refreshSession, loginPartnerLocal, storeAccessToken } from "@/services/authService";
-import { upgradeToPartner, registerPartnerStep1, registerPartnerStep2, registerPartnerStep3, registerPartnerStep4 } from "@/services/partnerService";
+import { upgradeToPartner, registerPartnerStep1, registerPartnerStep2, registerPartnerStep3, registerPartnerStep4, getPartnerRegistrationAggregate } from "@/services/partnerService";
 import ResetPasswordForm from "@/components/ResetPasswordForm";
 
 const BRAND = "#6aa200";
 const cx = (...c) => c.filter(Boolean).join(" ");
+const normalizeRole = (role) => `${role || ""}`.trim().replace(/^ROLE_/, "").toUpperCase();
+const hasRole = (roles, wanted) => {
+  const list = Array.isArray(roles) ? roles : [];
+  const w = normalizeRole(wanted);
+  return list.some((r) => normalizeRole(r) === w);
+};
+const stepFromPartnerStatus = (status) => {
+  const s = `${status || ""}`.trim().toUpperCase();
+  if (s === "STEP_1_PENDING") return 2;
+  if (s === "STEP_2_PENDING") return 3;
+  if (s === "STEP_3_PENDING") return 4;
+  return 4;
+};
 
 // Animation variants
 const STATIC_CATEGORIES = [
@@ -281,6 +294,7 @@ export default function Seller() {
   
   const isAuth = isAuthenticated();
   const currentUser = getCurrentUserPayload();
+  const [profile, setProfile] = useState(null);
   const currentUserId = `${currentUser?.sub || ""}`.trim();
   const currentUserFirstName = `${currentUser?.firstName || ""}`.trim();
   const currentUserLastName = `${currentUser?.lastName || ""}`.trim();
@@ -299,11 +313,13 @@ export default function Seller() {
     contractAccepted: false
   });
 
-  const isPartner = Array.isArray(currentUser?.roles) && 
-    currentUser.roles.some(r => r === "PARTNER" || r === "ROLE_PARTNER");
+  const roles = Array.isArray(currentUser?.roles) ? currentUser.roles : [];
+  const isPartnerRole = hasRole(roles, "PARTNER");
+  const partnerStatus = `${profile?.registrationStatus || ""}`.trim();
+  const isPartnerVerified = partnerStatus === "VERIFIED";
 
   useEffect(() => {
-    if (isAuth && isPartner) {
+    if (isAuth && isPartnerVerified) {
       setPartnerLoginOnly(true);
       setAuthMode("login");
       setShowResetPassword(false);
@@ -311,7 +327,47 @@ export default function Seller() {
       return;
     }
     setPartnerLoginOnly(false);
-  }, [isAuth, isPartner]);
+  }, [isAuth, isPartnerVerified]);
+
+  useEffect(() => {
+    if (!isAuth || !currentUserId || !isPartnerRole) return;
+    let cancelled = false;
+    getPartnerRegistrationAggregate()
+      .then((agg) => {
+        if (cancelled) return;
+        const p = agg?.partner || null;
+        if (p) {
+          setProfile(p);
+          setFormData((prev) => ({
+            ...prev,
+            firstName: `${p?.firstName || prev.firstName || ""}`.trim(),
+            lastName: `${p?.lastName || prev.lastName || ""}`.trim(),
+            email: `${p?.email || prev.email || ""}`.trim(),
+            phone: `${p?.phoneNumber || prev.phone || ""}`.trim(),
+            storeName: `${p?.shop?.shopName || prev.storeName || ""}`.trim(),
+            mainCategoryId: `${p?.shop?.mainCategoryId || prev.mainCategoryId || ""}`.trim() || prev.mainCategoryId,
+            description: `${p?.shop?.shopDescription || p?.shop?.description || prev.description || ""}`.trim(),
+            address: `${p?.headOfficeAddress || prev.address || ""}`.trim(),
+            city: `${p?.city || prev.city || ""}`.trim(),
+            region: `${p?.country || prev.region || ""}`.trim() || prev.region,
+            contractAccepted: Boolean(p?.contractAccepted) || prev.contractAccepted
+          }));
+        }
+        const next = Number(agg?.nextStep);
+        if (Number.isFinite(next) && next >= 2 && next <= 4 && step === 1) {
+          setStep(next);
+          return;
+        }
+        const derived = stepFromPartnerStatus(agg?.currentStatus || p?.registrationStatus);
+        if (derived > 1 && step === 1) {
+          setStep(derived);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuth, currentUserId, isPartnerRole, step]);
 
   useEffect(() => {
     if (!isAuth || !currentUserId) {
@@ -334,6 +390,7 @@ export default function Seller() {
     getUserProfile(currentUserId)
       .then((profile) => {
         if (cancelled) return;
+        setProfile(profile || null);
         const phone = `${profile?.phoneNumber || ""}`.trim();
         if (!phone) return;
         setFormData((prev) => ({ ...prev, phone: prev.phone || phone }));
@@ -420,9 +477,13 @@ export default function Seller() {
     try {
       if (step === 1) {
         if (isAuth) {
-          if (isPartner) {
-            toast.success("Compte partenaire détecté. Connectez-vous à votre espace vendeur.");
+          if (isPartnerVerified) {
+            toast.success("Compte partenaire vérifié. Accès à votre espace vendeur.");
             navigate("/sel-off/dashboard");
+            return;
+          }
+          if (isPartnerRole) {
+            setStep(stepFromPartnerStatus(partnerStatus));
             return;
           }
           const upgraded = await upgradeToPartner({
@@ -440,21 +501,29 @@ export default function Seller() {
               throw new Error("Session invalide. Veuillez vous reconnecter.");
             }
           }
+          const p = upgraded?.partner || null;
+          if (p) setProfile(p);
           setStep(2);
           return;
         }
 
         if (authMode === "login") {
           await loginPartnerLocal({ email: formData.email, password: formData.password });
-          const loggedPayload = getCurrentUserPayload();
-          const loggedIsPartner = Array.isArray(loggedPayload?.roles) &&
-            loggedPayload.roles.some((r) => r === "PARTNER" || r === "ROLE_PARTNER");
-          if (loggedIsPartner) {
+          const agg = await getPartnerRegistrationAggregate().catch(() => null);
+          const p = agg?.partner || null;
+          if (p) setProfile(p);
+          const status = `${agg?.currentStatus || p?.registrationStatus || ""}`.trim();
+          if (status === "VERIFIED") {
             toast.success("Connexion réussie.");
             navigate("/sel-off/dashboard");
             return;
           }
-          setStep(2);
+          const next = Number(agg?.nextStep);
+          if (Number.isFinite(next) && next >= 2 && next <= 4) {
+            setStep(next);
+            return;
+          }
+          setStep(stepFromPartnerStatus(status));
           return;
         }
 
@@ -520,9 +589,11 @@ export default function Seller() {
     if (stepLoading) return;
     setStepLoading(true);
     try {
-      await registerPartnerStep4({ contractAccepted: true });
+      const updated = await registerPartnerStep4({ contractAccepted: true });
+      setProfile(updated || profile);
+      await refreshSession().catch(() => false);
       toast.success("Félicitations ! Votre compte partenaire est validé.");
-      window.location.href = "/sel-off";
+      window.location.href = "/sel-off/dashboard";
     } catch (error) {
       toast.error(error?.response?.data?.message || error?.message || "Une erreur est survenue.");
     } finally {
@@ -601,8 +672,8 @@ export default function Seller() {
                            
                            <div className="relative z-10 flex flex-col items-center">
                               <div className="w-24 h-24 rounded-full border-4 border-white shadow-xl mb-4 overflow-hidden bg-neutral-100">
-                                 {currentUser?.avatarUrl ? (
-                                    <img src={currentUser.avatarUrl} alt="Avatar client" className="w-full h-full object-cover" />
+                                 { (currentUser?.avatarUrl || profile?.shop?.logoUrl) ? (
+                                    <img src={currentUser?.avatarUrl || profile?.shop?.logoUrl} alt="Avatar client" className="w-full h-full object-cover" />
                                  ) : (
                                     <div className="w-full h-full flex items-center justify-center text-neutral-400">
                                        <User size={40} />
@@ -623,13 +694,13 @@ export default function Seller() {
                               </div>
 
                               <p className="text-sm text-neutral-600 max-w-md mx-auto leading-relaxed mb-6">
-                                 {isPartner 
+                                 {isPartnerVerified
                                    ? "Vous êtes déjà enregistré comme partenaire. Accédez à votre espace de gestion pour piloter votre activité."
                                    : "Pour finaliser la transformation de votre compte, veuillez confirmer votre numéro de téléphone."
                                  }
                               </p>
 
-                              {!isPartner && (
+                              {!isPartnerVerified && (
                                 <div className="max-w-xs mx-auto mb-8">
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-400">
@@ -646,7 +717,7 @@ export default function Seller() {
                                 </div>
                               )}
                               <div className="flex flex-col sm:flex-row items-center gap-4 w-full mx-auto">
-                                {isPartner ? (
+                                {isPartnerVerified ? (
                                   <button
                                     onClick={() => navigate("/sel-off/dashboard")}
                                     className="flex-1 w-full bg-[#6aa200] text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-[#6aa200]/30 hover:shadow-xl hover:shadow-[#6aa200]/40 hover:-translate-y-0.5 transition-all flex items-center justify-center whitespace-nowrap gap-2"

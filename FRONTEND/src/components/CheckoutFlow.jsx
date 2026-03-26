@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { getCurrentUserPayload, getUserProfile } from '@/services/authService.js';
 import { checkout } from '@/services/orderService.js';
 import { getCustomerAddresses } from '@/services/customerService.js';
+import { getMyCheckoutCollection } from '@/services/customerProfileService';
 import { resolveBackendAssetUrl } from '@/services/categoryService';
 import { useAppConfig } from '@/features/appConfig/useAppConfig';
 
@@ -381,38 +382,33 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     const payload = getCurrentUserPayload();
     if (!payload?.sub) return;
     let active = true;
-    getUserProfile(payload.sub)
-      .then((profile) => {
-        if (!active) return;
-        const firstName = `${profile?.firstName || payload?.firstName || ''}`.trim();
-        const lastName = `${profile?.lastName || payload?.lastName || ''}`.trim();
-        const email = `${profile?.email || payload?.email || ''}`.trim();
-        setFormData((prev) => ({
-          ...prev,
-          firstName: firstName || prev.firstName,
-          lastName: lastName || prev.lastName,
-          email: email || prev.email
-        }));
-      })
-      .catch(() => {
-        if (!active) return;
-        const firstName = `${payload?.firstName || ''}`.trim();
-        const lastName = `${payload?.lastName || ''}`.trim();
-        const email = `${payload?.email || ''}`.trim();
-        setFormData((prev) => ({
-          ...prev,
-          firstName: firstName || prev.firstName,
-          lastName: lastName || prev.lastName,
-          email: email || prev.email
-        }));
-      });
     setLoadingAddresses(true);
-    getCustomerAddresses(payload.sub)
-      .then((list) => {
+    (async () => {
+      try {
+        const [checkoutCollection, profile] = await Promise.all([
+          getMyCheckoutCollection(),
+          getUserProfile(payload.sub).catch(() => null)
+        ]);
         if (!active) return;
-        const addresses = Array.isArray(list) ? list : [];
-        setSavedAddresses(addresses);
-        const defaultAddress = addresses.find((addr) => addr?.isDefault);
+
+        const customer = checkoutCollection?.customer || profile || null;
+        const firstName = `${customer?.firstName || payload?.firstName || ''}`.trim();
+        const lastName = `${customer?.lastName || payload?.lastName || ''}`.trim();
+        const email = `${customer?.email || payload?.email || ''}`.trim();
+        setFormData((prev) => ({
+          ...prev,
+          firstName: firstName || prev.firstName,
+          lastName: lastName || prev.lastName,
+          email: email || prev.email
+        }));
+
+        const addresses = Array.isArray(checkoutCollection?.addresses)
+          ? checkoutCollection.addresses
+          : await getCustomerAddresses(payload.sub).catch(() => []);
+
+        if (!active) return;
+        setSavedAddresses(Array.isArray(addresses) ? addresses : []);
+        const defaultAddress = (Array.isArray(addresses) ? addresses : []).find((addr) => addr?.isDefault);
         if (defaultAddress) {
           setSelectedAddressId(defaultAddress.id);
           setFormData((prev) => ({
@@ -423,13 +419,12 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
             phone: defaultAddress.phone || prev.phone
           }));
         }
-      })
-      .catch(() => {
+      } catch {
         if (active) setSavedAddresses([]);
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoadingAddresses(false);
-      });
+      }
+    })();
     return () => {
       active = false;
     };

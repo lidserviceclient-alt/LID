@@ -1,0 +1,1 @@
+import{b as e}from"./index-BqkplFIP.js";async function s({page:t=0,size:o=10}={}){return(await e.get("/api/v1/customers/me/collection",{params:{page:t,size:o}}))?.data}async function r(){return(await e.get("/api/v1/customers/me/checkout/collection"))?.data}export{s as a,r as g};

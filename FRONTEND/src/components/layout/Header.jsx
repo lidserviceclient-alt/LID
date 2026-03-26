@@ -128,7 +128,7 @@ export default function Header() {
   };
 
 
-  const avatarUrl = userProfile?.avatarUrl || tokenPayload?.avatarUrl || DEFAULT_AVATAR;
+  const avatarUrl = userProfile?.avatarUrl || userProfile?.shop?.logoUrl || tokenPayload?.avatarUrl || DEFAULT_AVATAR;
   const isAuthenticated = Boolean(tokenPayload?.sub);
   const supportEmail = appConfig?.contactEmail || 'support@lid.com'
   const supportPhone = appConfig?.contactPhone || '+225 07 34 342 324'

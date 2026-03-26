@@ -1,1 +1,0 @@
-import{c as r}from"./index-CCmARUo8.js";const a="/api/v1/backoffice/partners/me/preferences";async function s(){return(await r.get(a))?.data}async function c(e){return(await r.put(a,e))?.data}export{s as g,c as u};

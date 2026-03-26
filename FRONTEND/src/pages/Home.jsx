@@ -13,9 +13,10 @@ import Mark from "../components/Mark";
 import Newsletter from "../components/Newsletter";
 import Reassurance from "../components/Reassurance";
 import { cn } from "@/utils/cn";
-import { buildCategoryTree, getCatalogCategories, getFeaturedCatalogCategories, resolveBackendAssetUrl } from "@/services/categoryService";
-import { getBestSellerCatalogProducts, getCatalogProductsPage, getFeaturedCatalogProducts } from "@/services/productService";
+import { buildCategoryTree, getFeaturedCatalogCategories, resolveBackendAssetUrl } from "@/services/categoryService";
+import { getBestSellerCatalogProducts, getFeaturedCatalogProducts } from "@/services/productService";
 import { useFlashSaleProduct } from "@/features/flashSale/useFlashSaleProduct";
+import { getCatalogLayoutCollection } from "@/services/catalogLayoutService";
 
 const CATEGORY_FALLBACK_IMAGE = "/imgs/wall-1.jpg";
 
@@ -111,36 +112,29 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    getCatalogCategories()
-      .then((list) => {
-        if (cancelled) return;
-        setCatalogCategories(Array.isArray(list) ? list : []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setCatalogCategories([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
     Promise.all([
+      getCatalogLayoutCollection({ latestLimit: 24 }).catch(() => null),
       getFeaturedCatalogCategories(6).catch(() => []),
       getFeaturedCatalogProducts(12).catch(() => []),
       getBestSellerCatalogProducts(12).catch(() => []),
-      getCatalogProductsPage(0, 24).catch(() => null)
-    ]).then(([cats, prods, bestsellers, catalog]) => {
+    ]).then(([layout, cats, prods, bestsellers]) => {
       if (cancelled) return;
-      const catalogList = Array.isArray(catalog?.content) ? catalog.content : [];
+      const layoutCategories = Array.isArray(layout?.categories) ? layout.categories : [];
+      const latestProducts = Array.isArray(layout?.latestProducts) ? layout.latestProducts : [];
       const featuredList = Array.isArray(prods) ? prods : [];
       const bestSellerList = Array.isArray(bestsellers) ? bestsellers : [];
+      setCatalogCategories(layoutCategories);
       setFeaturedCategories(Array.isArray(cats) ? cats : []);
-      setCatalogProducts(catalogList);
+      setCatalogProducts(latestProducts);
       setFeaturedProducts(featuredList);
       setBestSellerProducts(bestSellerList);
+    }).catch(() => {
+      if (cancelled) return;
+      setCatalogCategories([]);
+      setCatalogProducts([]);
+      setFeaturedCategories([]);
+      setFeaturedProducts([]);
+      setBestSellerProducts([]);
     });
     return () => {
       cancelled = true;

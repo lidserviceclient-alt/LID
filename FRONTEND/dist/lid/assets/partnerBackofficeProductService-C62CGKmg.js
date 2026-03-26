@@ -1,0 +1,1 @@
+import{b as r}from"./index-BqkplFIP.js";const s="/api/v1/backoffice/partners/me/products-crud";async function n({page:t=0,size:a=100}={}){return(await r.get(s,{params:{page:t,size:a}}))?.data}async function o(t){return(await r.post(s,t))?.data}async function u(t,a){return(await r.put(`${s}/${t}`,a))?.data}async function d(t){await r.delete(`${s}/${t}`)}export{o as c,d,n as l,u};

@@ -120,6 +120,8 @@ export default function ProductDetails() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [expandedSpec, setExpandedSpec] = useState(false);
   const [prevId, setPrevId] = useState(id);
+  const [showStickyBar, setShowStickyBar] = useState(false);
+  const { scrollY } = useScroll();
 
   // 3D Tilt Logic
   const x = useMotionValue(0);
@@ -145,18 +147,26 @@ export default function ProductDetails() {
     y.set(0);
   };
 
-  if (id !== prevId && product) {
-    setPrevId(id);
-    setSelectedSize(product.sizes?.[0] || "");
-    setSelectedColor(product.color || "");
-    setSelectedImage(0);
-  }
+  useEffect(() => {
+    if (id !== prevId && product) {
+      setPrevId(id);
+      setSelectedSize(product.sizes?.[0] || "");
+      setSelectedColor(product.color || "");
+      setSelectedImage(0);
+    }
+  }, [id, prevId, product]);
 
   useEffect(() => {
     if (!product) {
       navigate("/shop");
     }
   }, [product, navigate]);
+
+  useEffect(() => {
+    return scrollY.onChange((latest) => {
+      setShowStickyBar(latest > 600);
+    });
+  }, [scrollY]);
 
   if (!product) {
     return (
@@ -259,16 +269,6 @@ export default function ProductDetails() {
       }
     }
   };
-
-  // Scroll detection for sticky bar
-  const [showStickyBar, setShowStickyBar] = useState(false);
-  const { scrollY } = useScroll();
-
-  useEffect(() => {
-    return scrollY.onChange((latest) => {
-      setShowStickyBar(latest > 600);
-    });
-  }, [scrollY]);
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 relative overflow-hidden">

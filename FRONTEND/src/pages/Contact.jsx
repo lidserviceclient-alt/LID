@@ -4,8 +4,10 @@ import { toast } from "sonner";
 import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
 import { useState } from "react";
 import { sendContactMessage } from "@/services/contactService.js";
+import { useNavigate } from "react-router-dom";
 
 export default function Contact() {
+  const navigate = useNavigate();
   const { data: appConfig } = useAppConfig();
   const contactEmail = appConfig?.contactEmail || "contact@lid.ci";
   const city = appConfig?.city || "Abidjan";

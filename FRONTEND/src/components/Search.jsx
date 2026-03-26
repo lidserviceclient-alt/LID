@@ -95,9 +95,10 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
         if (requestSeqRef.current !== seq) return;
         setSuggestions([]);
       } finally {
-        if (requestSeqRef.current !== seq) return;
-        setSuggestLoading(false);
-        setActiveIndex(-1);
+        if (requestSeqRef.current === seq) {
+          setSuggestLoading(false);
+          setActiveIndex(-1);
+        }
       }
     }, 250);
 

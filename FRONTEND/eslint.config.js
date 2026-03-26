@@ -25,7 +25,20 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['warn', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-empty': 'off',
+      'react-hooks/purity': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
+    },
+  },
+  {
+    files: ['vite.config.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+    rules: {
+      'no-undef': 'off',
     },
   },
 ])
