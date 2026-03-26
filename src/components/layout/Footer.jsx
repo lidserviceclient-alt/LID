@@ -13,13 +13,14 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import Logo from '../Logo';
 import { subscribeNewsletter } from '../../services/newsletterService';
-import { getCatalogCategories } from '../../services/categoryService';
 import { useAppConfig } from '@/features/appConfig/useAppConfig.js';
+import { useCatalogCategories } from '@/features/catalog/useCatalogCategories';
 
 export default function Footer() {
   const [email, setEmail] = useState('');
   const containerRef = useRef(null);
   const { data: appConfig } = useAppConfig();
+  const { data: categoriesData } = useCatalogCategories();
   
   // Parallax Effect for Background
   const { scrollYProgress } = useScroll({
@@ -34,48 +35,36 @@ export default function Footer() {
   const [footerCategories, setFooterCategories] = useState([]);
 
   useEffect(() => {
-    let cancelled = false;
-    getCatalogCategories()
-      .then((list) => {
-        if (cancelled) return;
-        const all = Array.isArray(list) ? list : [];
-        const pick = (arr) =>
-          arr
-            .filter((c) => c && c.estActive !== false)
-            .map((c) => ({
-              name: `${c?.nom || ""}`.trim(),
-              token: `${(c?.slug || c?.id || "")}`.trim(),
-              niveau: `${c?.niveau || ""}`.trim(),
-              ordre: Number(c?.ordre) || 0,
-              dateCreation: c?.dateCreation || null
-            }))
-            .filter((c) => c.name && c.token);
+    const all = Array.isArray(categoriesData) ? categoriesData : [];
+    const pick = (arr) =>
+      arr
+        .filter((c) => c && c.estActive !== false)
+        .map((c) => ({
+          name: `${c?.nom || ""}`.trim(),
+          token: `${(c?.slug || c?.id || "")}`.trim(),
+          niveau: `${c?.niveau || ""}`.trim(),
+          ordre: Number(c?.ordre) || 0,
+          dateCreation: c?.dateCreation || null
+        }))
+        .filter((c) => c.name && c.token);
 
-        const subSub = pick(all).filter((c) => c.niveau === "SOUS_SOUS_CATEGORIE");
-        const fallbackSubs = pick(all).filter((c) => c.niveau === "SOUS_CATEGORIE");
+    const subSub = pick(all).filter((c) => c.niveau === "SOUS_SOUS_CATEGORIE");
+    const fallbackSubs = pick(all).filter((c) => c.niveau === "SOUS_CATEGORIE");
 
-        const chosen = (subSub.length >= 4 ? subSub : subSub.concat(fallbackSubs))
-          .sort((a, b) => {
-            if (a.ordre !== b.ordre) return a.ordre - b.ordre;
-            return a.name.localeCompare(b.name, "fr");
-          })
-          .slice(0, 4)
-          .map((c) => ({
-            name: c.name,
-            path: `/shop?category=${encodeURIComponent(c.token)}&sort=featured`
-          }));
-
-        const items = chosen.filter((it) => it.name && it.path && !it.path.includes("category=&"));
-        setFooterCategories(items);
+    const chosen = (subSub.length >= 4 ? subSub : subSub.concat(fallbackSubs))
+      .sort((a, b) => {
+        if (a.ordre !== b.ordre) return a.ordre - b.ordre;
+        return a.name.localeCompare(b.name, "fr");
       })
-      .catch(() => {
-        if (cancelled) return;
-        setFooterCategories([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+      .slice(0, 4)
+      .map((c) => ({
+        name: c.name,
+        path: `/shop?category=${encodeURIComponent(c.token)}&sort=featured`
+      }));
+
+    const items = chosen.filter((it) => it.name && it.path && !it.path.includes("category=&"));
+    setFooterCategories(items);
+  }, [categoriesData]);
 
   const collectionsLinks = footerCategories.length > 0
     ? footerCategories

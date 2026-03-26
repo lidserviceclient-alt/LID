@@ -3,13 +3,13 @@ import { Link } from "react-router-dom";
 import { createPortal } from "react-dom";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
-import { buildCategoryTree, getCatalogCategories, resolveBackendAssetUrl } from "@/services/categoryService";
+import { buildCategoryTree, resolveBackendAssetUrl } from "@/services/categoryService";
+import { useCatalogCategories } from "@/features/catalog/useCatalogCategories";
 
 export default function MegaMenu({ isOpen, onClose }) {
-  const [remoteCategories, setRemoteCategories] = useState([]);
   const [activeCategoryId, setActiveCategoryId] = useState(null);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
-  const [categoriesError, setCategoriesError] = useState("");
+  const { data: remoteCategories = [], isLoading: isLoadingCategories, error } = useCatalogCategories();
+  const categoriesError = error?.message || "";
 
   // Lock body scroll when menu is open
   useEffect(() => {
@@ -22,30 +22,6 @@ export default function MegaMenu({ isOpen, onClose }) {
       if (typeof document !== 'undefined') {
         document.body.style.overflow = '';
       }
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setIsLoadingCategories(true);
-      setCategoriesError("");
-      try {
-        const list = await getCatalogCategories();
-        if (cancelled) return;
-        setRemoteCategories(list);
-      } catch (e) {
-        if (!cancelled) {
-          setRemoteCategories([]);
-          setCategoriesError(e?.message || "Impossible de charger les catégories.");
-        }
-      } finally {
-        if (!cancelled) setIsLoadingCategories(false);
-      }
-    }
-    if (isOpen) load();
-    return () => {
-      cancelled = true;
     };
   }, [isOpen]);
 

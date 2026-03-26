@@ -17,7 +17,7 @@ import {
 import { toast } from "sonner";
 import { useCart } from "@/features/cart/CartContext";
 import { useWishlist } from "@/features/wishlist/WishlistContext";
-import { getCatalogProduct, getCatalogProductsPage } from "@/services/productService";
+import { getCatalogProductPageCollection } from "@/services/productService";
 import { resolveBackendAssetUrl } from "@/services/categoryService";
 import FavoriteNotification from "@/components/FavoriteNotification";
 import ReviewSection from "@/components/ReviewSection";
@@ -132,10 +132,12 @@ export default function ProductDetailsDb() {
     if (!id) return;
     setIsLoading(true);
     setError("");
-    getCatalogProduct(id)
+    setRelatedProducts([]);
+    getCatalogProductPageCollection(id, { page: 0, size: 24, relatedLimit: 8, sortKey: "newest" })
       .then((data) => {
         if (cancelled) return;
-        setProduct(data || null);
+        setProduct(data?.product || null);
+        setRelatedProducts(Array.isArray(data?.relatedProducts) ? data.relatedProducts : []);
         setSelectedImage(0);
         setQuantity(1);
         setActiveTab("description");
@@ -153,53 +155,6 @@ export default function ProductDetailsDb() {
       cancelled = true;
     };
   }, [id]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!product?.id) return;
-
-    (async () => {
-      try {
-        setRelatedProducts([]);
-
-        const category = `${product.categorySlug || ""}`.trim();
-        const categoryPage = category
-          ? await getCatalogProductsPage(0, 24, { category, sortKey: "newest" })
-          : null;
-
-        if (cancelled) return;
-
-        const inCategory = Array.isArray(categoryPage?.content) ? categoryPage.content : [];
-        let candidates = inCategory.filter((p) => p?.id && p.id !== product.id);
-
-        if (candidates.length < 8) {
-          const fallbackPage = await getCatalogProductsPage(0, 80, { sortKey: "newest" });
-          if (cancelled) return;
-          const all = Array.isArray(fallbackPage?.content) ? fallbackPage.content : [];
-          candidates = candidates.concat(all.filter((p) => p?.id && p.id !== product.id));
-        }
-
-        const unique = [];
-        const seen = new Set();
-        for (const p of candidates) {
-          const pid = p?.id;
-          if (!pid || pid === product.id) continue;
-          if (seen.has(pid)) continue;
-          seen.add(pid);
-          unique.push(p);
-          if (unique.length >= 8) break;
-        }
-
-        setRelatedProducts(unique);
-      } catch {
-        if (!cancelled) setRelatedProducts([]);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [product?.id, product?.categorySlug]);
 
   const galleryImages = useMemo(() => pickGalleryImages(product), [product]);
   const mainImage =

@@ -11,12 +11,26 @@ const formatShortDate = (value) => {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }).toUpperCase();
 };
 
-export default function Blog() {
+export default function Blog({ initialPosts = null, deferFetch = false, disableFetch = false }) {
   const [posts, setPosts] = useState([]);
   const [activePost, setActivePost] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    const seeded = Array.isArray(initialPosts) ? initialPosts.slice(0, 4) : [];
+    if (seeded.length > 0) {
+      setPosts(seeded);
+      setActivePost(seeded[0] || null);
+      setIsLoading(false);
+      return undefined;
+    }
+    if (deferFetch || disableFetch) {
+      setPosts([]);
+      setActivePost(null);
+      setIsLoading(false);
+      return undefined;
+    }
+
     let cancelled = false;
     setIsLoading(true);
 
@@ -40,7 +54,7 @@ export default function Blog() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [deferFetch, disableFetch, initialPosts]);
 
   const items = useMemo(() => (Array.isArray(posts) ? posts : []), [posts]);
 
@@ -164,4 +178,3 @@ export default function Blog() {
     </section>
   );
 }
-

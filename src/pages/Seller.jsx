@@ -27,11 +27,37 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { isAuthenticated, getCurrentUserPayload, logout, getUserProfile, refreshSession, loginPartnerLocal, storeAccessToken } from "@/services/authService";
-import { upgradeToPartner, registerPartnerStep1, registerPartnerStep2, registerPartnerStep3, registerPartnerStep4 } from "@/services/partnerService";
+import { uploadFile } from "@/services/fileStorageService";
+import { getPartnerRegistrationAggregate, upgradeToPartner, registerPartnerStep1, registerPartnerStep2, registerPartnerStep3, registerPartnerStep4 } from "@/services/partnerService";
 import ResetPasswordForm from "@/components/ResetPasswordForm";
 
 const BRAND = "#6aa200";
 const cx = (...c) => c.filter(Boolean).join(" ");
+const normalizePartnerStatus = (status) => `${status || ""}`.trim().toUpperCase();
+const RESUME_STEP_BY_STATUS = {
+  STEP_1_PENDING: 2,
+  STEP_2_PENDING: 3,
+  STEP_3_PENDING: 4,
+  STEP_4_PENDING: 4,
+  UNDER_REVIEW: 4,
+  REJECTED: 4,
+};
+const STATUS_LABELS = {
+  STEP_1_PENDING: "Étape 1 complétée",
+  STEP_2_PENDING: "Étape 2 complétée",
+  STEP_3_PENDING: "Étape 3 complétée",
+  STEP_4_PENDING: "Dossier finalisé",
+  UNDER_REVIEW: "Dossier en cours d'analyse",
+  VERIFIED: "Compte vérifié",
+  REJECTED: "Dossier rejeté",
+};
+const isLockedPartnerStatus = (status) => ["STEP_4_PENDING", "UNDER_REVIEW", "VERIFIED"].includes(normalizePartnerStatus(status));
+const buildCdnPreviewUrl = (cdnBaseUrl, path) => {
+  const base = `${cdnBaseUrl || ""}`.trim().replace(/\/+$/, "");
+  const objectPath = `${path || ""}`.trim().replace(/^\/+/, "");
+  if (!base || !objectPath) return "";
+  return `${base}/${objectPath}`;
+};
 
 // Animation variants
 const STATIC_CATEGORIES = [
@@ -188,6 +214,8 @@ function FileUploadZone({ label, accept, onChange, value }) {
     if (file) onChange(file);
   };
 
+  const displayName = `${value?.name || value?.path || ""}`.split("/").filter(Boolean).pop() || "";
+
   return (
     <div className="space-y-2">
       <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 ml-1">{label}</label>
@@ -211,7 +239,7 @@ function FileUploadZone({ label, accept, onChange, value }) {
              <div className="h-12 w-12 rounded-full bg-[#6aa200] text-white flex items-center justify-center mb-2 shadow-lg shadow-[#6aa200]/30">
                <Check size={24} />
              </div>
-             <div className="text-sm font-bold text-[#6aa200]">{value.name}</div>
+             <div className="text-sm font-bold text-[#6aa200]">{displayName}</div>
              <div className="text-xs text-neutral-400 mt-1">Cliquez pour remplacer</div>
           </>
         ) : (
@@ -278,6 +306,7 @@ export default function Seller() {
   const [authMode, setAuthMode] = useState("signup"); // signup | login
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [partnerLoginOnly, setPartnerLoginOnly] = useState(false);
+  const [partnerStatus, setPartnerStatus] = useState("");
   
   const isAuth = isAuthenticated();
   const currentUser = getCurrentUserPayload();
@@ -302,14 +331,76 @@ export default function Seller() {
   const isPartner = Array.isArray(currentUser?.roles) && 
     currentUser.roles.some(r => r === "PARTNER" || r === "ROLE_PARTNER");
 
-  useEffect(() => {
-    if (isAuth && isPartner) {
-      setPartnerLoginOnly(true);
-      setAuthMode("login");
-      setShowResetPassword(false);
-      setStep(1);
-      return;
+  const handleUploadedAsset = async (field, file) => {
+    if (!file) return;
+    const upload = await uploadFile(file, { folder: "partners" });
+    const path = `${upload?.path || ""}`.trim();
+    const previewUrl = buildCdnPreviewUrl(upload?.cdnBaseUrl, path) || `${upload?.url || ""}`.trim();
+    if (!path || !previewUrl) {
+      throw new Error("Réponse d'upload invalide.");
     }
+
+    setFormData((prev) => ({
+      ...prev,
+      [field]: {
+        name: file.name,
+        path,
+        previewUrl,
+        objectKey: upload?.objectKey || path,
+      },
+    }));
+  };
+
+  const applyPartnerDataToForm = (profile, aggregate) => {
+    const step1 = aggregate?.step1 || {};
+    const step2 = aggregate?.step2 || {};
+    const step3 = aggregate?.step3 || {};
+    const step4 = aggregate?.step4 || {};
+    const shop = profile?.shop || {};
+
+    setFormData((prev) => ({
+      ...prev,
+      firstName: step1.firstName || profile?.firstName || currentUserFirstName || prev.firstName,
+      lastName: step1.lastName || profile?.lastName || currentUserLastName || prev.lastName,
+      email: step1.email || profile?.email || currentUserEmail || prev.email,
+      phone: step1.phoneNumber || profile?.phoneNumber || prev.phone,
+      storeName: step2.shopName || shop.shopName || prev.storeName,
+      mainCategoryId: `${step2.mainCategoryId || shop.mainCategoryId || prev.mainCategoryId || STATIC_CATEGORIES[0].id}`,
+      description: step2.description || step2.shopDescription || shop.shopDescription || prev.description,
+      address: step2.headOfficeAddress || profile?.headOfficeAddress || prev.address,
+      city: step2.city || profile?.city || prev.city,
+      region: step2.country || profile?.country || prev.region,
+      contractAccepted: Boolean(step4.contractAccepted ?? profile?.contractAccepted ?? prev.contractAccepted),
+      logo: prev.logo,
+      banner: prev.banner,
+    }));
+  };
+
+  const resolvePartnerRoute = (status, aggregate) => {
+    const normalizedStatus = normalizePartnerStatus(status || aggregate?.currentStatus);
+    setPartnerStatus(normalizedStatus);
+
+    if (normalizedStatus === "VERIFIED") {
+      navigate("/sel-off/dashboard", { replace: true });
+      return true;
+    }
+
+    const nextStep = Number(aggregate?.nextStep);
+    if (Number.isFinite(nextStep) && nextStep >= 1 && nextStep <= 4) {
+      setStep(nextStep);
+      return false;
+    }
+
+    const resumedStep = RESUME_STEP_BY_STATUS[normalizedStatus];
+    if (resumedStep) {
+      setStep(resumedStep);
+      return false;
+    }
+
+    return false;
+  };
+
+  useEffect(() => {
     setPartnerLoginOnly(false);
   }, [isAuth, isPartner]);
 
@@ -331,14 +422,35 @@ export default function Seller() {
     lastProfileFetchRef.current = currentUserId;
 
     let cancelled = false;
-    getUserProfile(currentUserId)
-      .then((profile) => {
+    const hydratePartnerState = async () => {
+      try {
+        const profile = await getUserProfile(currentUserId);
         if (cancelled) return;
-        const phone = `${profile?.phoneNumber || ""}`.trim();
-        if (!phone) return;
-        setFormData((prev) => ({ ...prev, phone: prev.phone || phone }));
-      })
-      .catch(() => {});
+
+        const normalizedStatus = normalizePartnerStatus(profile?.registrationStatus);
+        if (!normalizedStatus) {
+          const phone = `${profile?.phoneNumber || ""}`.trim();
+          if (!phone) return;
+          setFormData((prev) => ({ ...prev, phone: prev.phone || phone }));
+          return;
+        }
+
+        let aggregate = null;
+        if (normalizedStatus !== "STEP_1_PENDING") {
+          try {
+            aggregate = await getPartnerRegistrationAggregate();
+          } catch (_error) {
+            aggregate = null;
+          }
+          if (cancelled) return;
+        }
+
+        applyPartnerDataToForm(profile, aggregate);
+        resolvePartnerRoute(normalizedStatus, aggregate);
+      } catch (_error) {}
+    };
+
+    hydratePartnerState();
 
     return () => {
       cancelled = true;
@@ -421,8 +533,15 @@ export default function Seller() {
       if (step === 1) {
         if (isAuth) {
           if (isPartner) {
-            toast.success("Compte partenaire détecté. Connectez-vous à votre espace vendeur.");
-            navigate("/sel-off/dashboard");
+            const profile = await getUserProfile(currentUserId);
+            const aggregate = normalizePartnerStatus(profile?.registrationStatus) !== "STEP_1_PENDING"
+              ? await getPartnerRegistrationAggregate().catch(() => null)
+              : null;
+            applyPartnerDataToForm(profile, aggregate);
+            const redirected = resolvePartnerRoute(profile?.registrationStatus, aggregate);
+            if (!redirected) {
+              toast.success("Inscription partenaire retrouvée.");
+            }
             return;
           }
           const upgraded = await upgradeToPartner({
@@ -447,14 +566,16 @@ export default function Seller() {
         if (authMode === "login") {
           await loginPartnerLocal({ email: formData.email, password: formData.password });
           const loggedPayload = getCurrentUserPayload();
-          const loggedIsPartner = Array.isArray(loggedPayload?.roles) &&
-            loggedPayload.roles.some((r) => r === "PARTNER" || r === "ROLE_PARTNER");
-          if (loggedIsPartner) {
+          const profile = await getUserProfile(loggedPayload?.sub);
+          const normalizedStatus = normalizePartnerStatus(profile?.registrationStatus);
+          const aggregate = normalizedStatus && normalizedStatus !== "STEP_1_PENDING"
+            ? await getPartnerRegistrationAggregate().catch(() => null)
+            : null;
+          applyPartnerDataToForm(profile, aggregate);
+          const redirected = resolvePartnerRoute(profile?.registrationStatus, aggregate);
+          if (!redirected) {
             toast.success("Connexion réussie.");
-            navigate("/sel-off/dashboard");
-            return;
           }
-          setStep(2);
           return;
         }
 
@@ -490,8 +611,8 @@ export default function Seller() {
 
       if (step === 3) {
         await registerPartnerStep3({
-          logoUrl: null,
-          bannerUrl: null,
+          logoUrl: formData.logo?.path || null,
+          bannerUrl: formData.banner?.path || null,
           businessRegistrationDocumentUrl: null
         });
         setStep(4);
@@ -518,11 +639,20 @@ export default function Seller() {
       return;
     }
     if (stepLoading) return;
+    if (isLockedPartnerStatus(partnerStatus)) return;
     setStepLoading(true);
     try {
-      await registerPartnerStep4({ contractAccepted: true });
-      toast.success("Félicitations ! Votre compte partenaire est validé.");
-      window.location.href = "/sel-off";
+      const response = await registerPartnerStep4({ contractAccepted: true });
+      const normalizedStatus = normalizePartnerStatus(response?.registrationStatus);
+      setPartnerStatus(normalizedStatus);
+
+      if (normalizedStatus === "VERIFIED") {
+        toast.success("Félicitations ! Votre compte partenaire est validé.");
+        window.location.href = "/sel-off";
+        return;
+      }
+
+      toast.success("Votre dossier partenaire a bien été transmis.");
     } catch (error) {
       toast.error(error?.response?.data?.message || error?.message || "Une erreur est survenue.");
     } finally {
@@ -619,12 +749,16 @@ export default function Seller() {
 
                               <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-[#6aa200]/20 shadow-sm mb-8">
                                  <div className="w-2 h-2 rounded-full bg-[#6aa200] animate-pulse" />
-                                 <span className="text-xs font-bold text-[#6aa200] uppercase tracking-wide">Compte Vérifié</span>
+                                 <span className="text-xs font-bold text-[#6aa200] uppercase tracking-wide">
+                                   {STATUS_LABELS[normalizePartnerStatus(partnerStatus)] || "Compte authentifié"}
+                                 </span>
                               </div>
 
                               <p className="text-sm text-neutral-600 max-w-md mx-auto leading-relaxed mb-6">
                                  {isPartner 
-                                   ? "Vous êtes déjà enregistré comme partenaire. Accédez à votre espace de gestion pour piloter votre activité."
+                                   ? normalizePartnerStatus(partnerStatus) === "VERIFIED"
+                                     ? "Vous êtes déjà enregistré comme partenaire. Accédez à votre espace de gestion pour piloter votre activité."
+                                     : "Votre inscription partenaire est en cours. Reprenez le parcours à l'étape correspondante."
                                    : "Pour finaliser la transformation de votre compte, veuillez confirmer votre numéro de téléphone."
                                  }
                               </p>
@@ -646,7 +780,7 @@ export default function Seller() {
                                 </div>
                               )}
                               <div className="flex flex-col sm:flex-row items-center gap-4 w-full mx-auto">
-                                {isPartner ? (
+                                {isPartner && normalizePartnerStatus(partnerStatus) === "VERIFIED" ? (
                                   <button
                                     onClick={() => navigate("/sel-off/dashboard")}
                                     className="flex-1 w-full bg-[#6aa200] text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-[#6aa200]/30 hover:shadow-xl hover:shadow-[#6aa200]/40 hover:-translate-y-0.5 transition-all flex items-center justify-center whitespace-nowrap gap-2"
@@ -936,13 +1070,27 @@ export default function Seller() {
                           label="Logo de la boutique (Carré)" 
                           accept="image/*" 
                           value={formData.logo}
-                          onChange={f => handleChange("logo", f)}
+                          onChange={async (file) => {
+                            try {
+                              await handleUploadedAsset("logo", file);
+                              toast.success("Logo uploadé.");
+                            } catch (error) {
+                              toast.error(error?.response?.data?.message || error?.message || "Upload du logo impossible.");
+                            }
+                          }}
                         />
                         <FileUploadZone 
                           label="Bannière de couverture (Paysage)" 
                           accept="image/*" 
                           value={formData.banner}
-                          onChange={f => handleChange("banner", f)}
+                          onChange={async (file) => {
+                            try {
+                              await handleUploadedAsset("banner", file);
+                              toast.success("Bannière uploadée.");
+                            } catch (error) {
+                              toast.error(error?.response?.data?.message || error?.message || "Upload de la bannière impossible.");
+                            }
+                          }}
                         />
                      </div>
 
@@ -956,7 +1104,7 @@ export default function Seller() {
                          {/* Banner Area */}
                          <div className="h-32 bg-neutral-100 relative">
                            {formData.banner ? (
-                             <img src={URL.createObjectURL(formData.banner)} alt="Banner" className="w-full h-full object-cover" />
+                             <img src={formData.banner.previewUrl} alt="Banner" className="w-full h-full object-cover" />
                            ) : (
                              <div className="w-full h-full bg-gradient-to-r from-neutral-200 to-neutral-100 flex items-center justify-center">
                                <ImageIcon className="text-neutral-300" size={32} />
@@ -971,8 +1119,8 @@ export default function Seller() {
                            <div className="absolute -top-10 left-6">
                              <div className="h-20 w-20 rounded-2xl bg-white p-1 shadow-lg shadow-black/5">
                                <div className="w-full h-full rounded-xl bg-neutral-50 overflow-hidden border border-neutral-100 flex items-center justify-center">
-                                  {formData.logo ? (
-                                     <img src={URL.createObjectURL(formData.logo)} alt="Logo" className="w-full h-full object-cover" />
+                                 {formData.logo ? (
+                                     <img src={formData.logo.previewUrl} alt="Logo" className="w-full h-full object-cover" />
                                   ) : (
                                      <Store className="text-neutral-300" size={32} />
                                   )}
@@ -1018,6 +1166,24 @@ export default function Seller() {
                  {/* STEP 4: CONTRAT */}
                  {step === 4 && (
                    <motion.div key="step4" {...stepAnim} className="space-y-8">
+                     {normalizePartnerStatus(partnerStatus) === "UNDER_REVIEW" ? (
+                       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex gap-3">
+                         <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                         Votre dossier est en cours d'analyse. Vous ne pouvez plus le modifier pour le moment.
+                       </div>
+                     ) : null}
+                     {normalizePartnerStatus(partnerStatus) === "STEP_4_PENDING" ? (
+                       <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex gap-3">
+                         <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                         Votre dossier a été finalisé. La vérification est encore en attente.
+                       </div>
+                     ) : null}
+                     {normalizePartnerStatus(partnerStatus) === "REJECTED" ? (
+                       <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex gap-3">
+                         <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                         Votre précédent dossier a été rejeté. Vérifiez les informations puis soumettez à nouveau.
+                       </div>
+                     ) : null}
                      <div className="space-y-4">
                        <div className="flex items-center gap-2 mb-2">
                          <div className="h-8 w-8 rounded-full bg-[#6aa200] text-white flex items-center justify-center font-bold text-sm">1</div>
@@ -1051,18 +1217,18 @@ export default function Seller() {
                    {stepLoading && <Loader2 size={18} className="animate-spin" />}
                    Suivant <ArrowRight size={18} className="group-hover:translate-x-1 transition" />
                  </button>
-               ) : (
-                 <button 
-                   onClick={finalizeRegistration}
-                   disabled={stepLoading || !formData.contractAccepted}
-                   className="group px-8 py-3 rounded-xl font-bold text-white shadow-lg shadow-[#6aa200]/30 hover:shadow-xl hover:shadow-[#6aa200]/40 hover:-translate-y-0.5 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                   style={{ background: BRAND }}
-                 >
-                   {stepLoading && <Loader2 size={18} className="animate-spin" />}
-                   {stepLoading ? "Traitement..." : "Finaliser l'inscription"}
-                 </button>
-               )}
-             </div>
+                  ) : (
+                    <button
+                      onClick={finalizeRegistration}
+                      disabled={stepLoading || !formData.contractAccepted || isLockedPartnerStatus(partnerStatus)}
+                      className="group px-8 py-3 rounded-xl font-bold text-white shadow-lg shadow-[#6aa200]/30 hover:shadow-xl hover:shadow-[#6aa200]/40 hover:-translate-y-0.5 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                      style={{ background: BRAND }}
+                    >
+                      {stepLoading && <Loader2 size={18} className="animate-spin" />}
+                      {stepLoading ? "Traitement..." : isLockedPartnerStatus(partnerStatus) ? "Dossier en traitement" : "Finaliser l'inscription"}
+                    </button>
+                  )}
+                </div>
 
           </div>
         </div>

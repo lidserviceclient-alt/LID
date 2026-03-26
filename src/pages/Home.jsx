@@ -13,9 +13,9 @@ import Mark from "../components/Mark";
 import Newsletter from "../components/Newsletter";
 import Reassurance from "../components/Reassurance";
 import { cn } from "@/utils/cn";
-import { buildCategoryTree, getCatalogCategories, getFeaturedCatalogCategories, resolveBackendAssetUrl } from "@/services/categoryService";
-import { getBestSellerCatalogProducts, getCatalogProductsPage, getFeaturedCatalogProducts } from "@/services/productService";
+import { buildCategoryTree, resolveBackendAssetUrl } from "@/services/categoryService";
 import { useFlashSaleProduct } from "@/features/flashSale/useFlashSaleProduct";
+import { useCatalogBootstrap } from "@/features/catalog/CatalogBootstrapContext";
 
 const CATEGORY_FALLBACK_IMAGE = "/imgs/wall-1.jpg";
 
@@ -100,52 +100,18 @@ const BentoCard = ({ title, image_url, count, slug, className, large = false, en
   );
 };
 export default function Home() {
-  const [catalogCategories, setCatalogCategories] = useState([]);
-  const [featuredCategories, setFeaturedCategories] = useState([]);
-  const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [bestSellerProducts, setBestSellerProducts] = useState([]);
-  const [catalogProducts, setCatalogProducts] = useState([]);
   const [mobileCategory, setMobileCategory] = useState("");
   const { data: flashSaleProduct } = useFlashSaleProduct(1);
   const hasFlashSale = Boolean(flashSaleProduct);
-
-  useEffect(() => {
-    let cancelled = false;
-    getCatalogCategories()
-      .then((list) => {
-        if (cancelled) return;
-        setCatalogCategories(Array.isArray(list) ? list : []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setCatalogCategories([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      getFeaturedCatalogCategories(6).catch(() => []),
-      getFeaturedCatalogProducts(12).catch(() => []),
-      getBestSellerCatalogProducts(12).catch(() => []),
-      getCatalogProductsPage(0, 24).catch(() => null)
-    ]).then(([cats, prods, bestsellers, catalog]) => {
-      if (cancelled) return;
-      const catalogList = Array.isArray(catalog?.content) ? catalog.content : [];
-      const featuredList = Array.isArray(prods) ? prods : [];
-      const bestSellerList = Array.isArray(bestsellers) ? bestsellers : [];
-      setFeaturedCategories(Array.isArray(cats) ? cats : []);
-      setCatalogProducts(catalogList);
-      setFeaturedProducts(featuredList);
-      setBestSellerProducts(bestSellerList);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const bootstrap = useCatalogBootstrap();
+  const globalCollection = bootstrap?.globalCollection;
+  const isHomeCollectionLoading = Boolean(bootstrap?.isGlobalCollectionLoading);
+  const catalogCategories = Array.isArray(globalCollection?.categories) ? globalCollection.categories : [];
+  const featuredCategories = Array.isArray(globalCollection?.featuredCategories) ? globalCollection.featuredCategories : [];
+  const featuredProducts = Array.isArray(globalCollection?.featuredProducts) ? globalCollection.featuredProducts : [];
+  const bestSellerProducts = Array.isArray(globalCollection?.bestSellerProducts) ? globalCollection.bestSellerProducts : [];
+  const catalogProducts = Array.isArray(globalCollection?.products?.content) ? globalCollection.products.content : [];
+  const blogPosts = Array.isArray(globalCollection?.posts) ? globalCollection.posts : [];
 
   const rootCategories = useMemo(() => {
     const roots = buildCategoryTree(catalogCategories);
@@ -578,7 +544,7 @@ export default function Home() {
           transition={{ duration: 0.5, delay: 0.3 }}
           viewport={{ once: true }}
         >
-          <Blog />
+          <Blog initialPosts={blogPosts} deferFetch={isHomeCollectionLoading} disableFetch />
         </motion.section>
 
         {/* Opinion */}

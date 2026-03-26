@@ -54,5 +54,5 @@ export const hasValidAccessToken = () => {
   if (!token) return false;
   const payload = getAccessTokenPayload();
   if (!payload?.sub) return false;
-  return true;
+  return !isTokenExpired(token);
 };

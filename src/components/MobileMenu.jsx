@@ -3,41 +3,17 @@ import { Link } from 'react-router-dom';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, ShoppingBag, Heart, Zap } from "lucide-react";
-import { buildCategoryTree, getCatalogCategories } from "@/services/categoryService";
+import { buildCategoryTree } from "@/services/categoryService";
+import { useCatalogCategories } from "@/features/catalog/useCatalogCategories";
 
 export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
   const [expandedCategory, setExpandedCategory] = useState(null);
-  const [remoteCategories, setRemoteCategories] = useState([]);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
-  const [categoriesError, setCategoriesError] = useState("");
+  const { data: remoteCategories = [], isLoading: isLoadingCategories, error } = useCatalogCategories();
+  const categoriesError = error?.message || "";
 
   const toggleCategory = (id) => {
     setExpandedCategory(expandedCategory === id ? null : id);
   };
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setIsLoadingCategories(true);
-      setCategoriesError("");
-      try {
-        const list = await getCatalogCategories();
-        if (cancelled) return;
-        setRemoteCategories(list);
-      } catch (e) {
-        if (!cancelled) {
-          setRemoteCategories([]);
-          setCategoriesError(e?.message || "Impossible de charger les catégories.");
-        }
-      } finally {
-        if (!cancelled) setIsLoadingCategories(false);
-      }
-    }
-    if (isOpen) load();
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen]);
 
   const menuCategories = useMemo(() => {
     const tree = buildCategoryTree(remoteCategories);

@@ -11,6 +11,7 @@ import {
 import { Link } from "react-router-dom";
 import Newsletter from "../components/Newsletter";
 import { getBlogPosts } from "../services/blogService";
+import { useCatalogBootstrap } from "@/features/catalog/CatalogBootstrapContext";
 
 export default function BlogPage() {
   const [activeCategory, setActiveCategory] = useState("Tout");
@@ -18,9 +19,45 @@ export default function BlogPage() {
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const bootstrap = useCatalogBootstrap();
+  const initialPosts = Array.isArray(bootstrap?.globalCollection?.posts)
+    ? bootstrap.globalCollection.posts
+    : null;
+  const isBootstrapLoading = Boolean(bootstrap?.isGlobalCollectionLoading);
+  const isBootstrapResolved = Boolean(bootstrap?.isGlobalCollectionResolved);
 
   useEffect(() => {
     let cancelled = false;
+    if (initialPosts) {
+      setPosts(initialPosts);
+      setIsLoading(false);
+      setLoadError("");
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (isBootstrapLoading) {
+      setIsLoading(true);
+      setLoadError("");
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (!isBootstrapResolved) {
+      setIsLoading(true);
+      setLoadError("");
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (isBootstrapResolved) {
+      setPosts([]);
+      setIsLoading(false);
+      setLoadError("");
+      return () => {
+        cancelled = true;
+      };
+    }
     setIsLoading(true);
     setLoadError("");
     getBlogPosts()
@@ -40,7 +77,7 @@ export default function BlogPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialPosts, isBootstrapLoading, isBootstrapResolved]);
 
   const categories = useMemo(() => {
     const set = new Set(["Tout"]);

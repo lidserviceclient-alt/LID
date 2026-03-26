@@ -3,7 +3,7 @@ import { Plus, Search, Edit2, Trash2, Tag, Layers, Folder, ChevronRight, Chevron
 import { motion, AnimatePresence } from 'framer-motion';
 import Papa from 'papaparse';
 import { createMySubCategory, deleteMySubCategory, listMySubCategories, updateMySubCategory } from '@/services/partnerBackofficeCategoryService';
-import { getCatalogCategories } from '@/services/categoryService';
+import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 
 const DEFAULT_GLOBAL_CATEGORIES = [
   { id: "1", name: "Mode & Accessoires", icon: Shirt, color: "text-blue-600 bg-blue-50" },
@@ -16,6 +16,7 @@ const ICONS = [Shirt, Sparkles, Home, Smartphone, Dumbbell];
 const COLORS = ["text-blue-600 bg-blue-50", "text-pink-600 bg-pink-50", "text-orange-600 bg-orange-50", "text-purple-600 bg-purple-50", "text-green-600 bg-green-50"];
 
 export default function Categories() {
+  const bootstrap = usePartnerBackofficeBootstrap();
   const [subCategories, setSubCategories] = useState([]);
   const [globalCategories, setGlobalCategories] = useState(DEFAULT_GLOBAL_CATEGORIES);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,35 +46,52 @@ export default function Categories() {
   };
 
   useEffect(() => {
-    const loadMainCategories = async () => {
-      try {
-        const list = await getCatalogCategories();
-        const mains = (Array.isArray(list) ? list : [])
-          .filter((c) => !c?.parentId && !c?.parent_id)
-          .map((c, idx) => ({
-            id: `${c?.id ?? ""}`.trim(),
-            name: `${c?.nom || c?.name || ""}`.trim(),
-            icon: ICONS[idx % ICONS.length],
-            color: COLORS[idx % COLORS.length],
-            ordre: Number(c?.ordre || 0),
-          }))
-          .filter((c) => c.id && c.name)
-          .sort((a, b) => {
-            if (a.ordre !== b.ordre) return a.ordre - b.ordre;
-            return a.name.localeCompare(b.name, "fr");
-          });
-        if (mains.length > 0) {
-          setGlobalCategories(mains);
-          setExpandedCategories(mains.map((c) => c.id));
-          setSelectedParentId((prev) => prev || mains[0].id);
-        }
-      } catch {
-        setGlobalCategories(DEFAULT_GLOBAL_CATEGORIES);
+    const applyBootstrap = (catalogList, subCategoryList) => {
+      const mains = (Array.isArray(catalogList) ? catalogList : [])
+        .filter((c) => !c?.parentId && !c?.parent_id)
+        .map((c, idx) => ({
+          id: `${c?.id ?? ""}`.trim(),
+          name: `${c?.nom || c?.name || ""}`.trim(),
+          icon: ICONS[idx % ICONS.length],
+          color: COLORS[idx % COLORS.length],
+          ordre: Number(c?.ordre || 0),
+        }))
+        .filter((c) => c.id && c.name)
+        .sort((a, b) => {
+          if (a.ordre !== b.ordre) return a.ordre - b.ordre;
+          return a.name.localeCompare(b.name, "fr");
+        });
+      if (mains.length > 0) {
+        setGlobalCategories(mains);
+        setExpandedCategories(mains.map((c) => c.id));
+        setSelectedParentId((prev) => prev || mains[0].id);
       }
+      const normalized = (Array.isArray(subCategoryList) ? subCategoryList : []).map((c) => ({
+        id: c.id,
+        parentId: `${c.mainCategoryId || ""}`.trim() || (mains[0]?.id || DEFAULT_GLOBAL_CATEGORIES[0].id),
+        name: c.name || "",
+        description: c.description || "",
+        count: Number(c.productCount || 0)
+      }));
+      setSubCategories(normalized);
+      setLoading(false);
     };
-    loadMainCategories();
-    refresh();
-  }, []);
+
+    if (bootstrap?.routeKey !== 'categories') {
+      return;
+    }
+    if (!bootstrap?.isResolved) {
+      setLoading(true);
+      return;
+    }
+    if (bootstrap?.data) {
+      applyBootstrap(bootstrap.data?.catalogCategories, bootstrap.data?.subCategories);
+      return;
+    }
+    setGlobalCategories(DEFAULT_GLOBAL_CATEGORIES);
+    setSubCategories([]);
+    setLoading(false);
+  }, [bootstrap]);
 
   const toggleCategory = (id) => {
     setExpandedCategories(prev => 

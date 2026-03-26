@@ -68,6 +68,18 @@ export const getCustomerAddresses = async (customerId) => {
   return Array.isArray(data) ? data : [];
 };
 
+export const getMyCustomerProfileCollection = async (page = 0, size = 100) => {
+  const { data } = await api.get('/api/v1/customers/me/collection', {
+    params: { page, size }
+  });
+  return data;
+};
+
+export const getMyCustomerCheckoutCollection = async () => {
+  const { data } = await api.get('/api/v1/customers/me/checkout/collection');
+  return data;
+};
+
 export const createCustomerAddress = async (customerId, payload) => {
   const resolvedCustomerId = resolveCustomerId(customerId);
   if (!resolvedCustomerId) {

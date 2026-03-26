@@ -14,12 +14,13 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { getMyPartnerPreferences, updateMyPartnerPreferences } from '@/services/partnerBackofficePreferencesService';
-import { getMyPartnerSettings, updateMyPartnerSettings } from '@/services/partnerBackofficeSettingsService';
+import { updateMyPartnerPreferences } from '@/services/partnerBackofficePreferencesService';
+import { getMyPartnerSettingsCollection, updateMyPartnerSettings } from '@/services/partnerBackofficeSettingsService';
 import { uploadFile } from '@/services/fileStorageService';
-import { getCatalogCategories } from '@/services/categoryService';
+import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 
 export default function Settings() {
+  const bootstrap = usePartnerBackofficeBootstrap();
   const [loading, setLoading] = useState(false);
   const [loadingPage, setLoadingPage] = useState(true);
   const [success, setSuccess] = useState(false);
@@ -67,11 +68,10 @@ export default function Settings() {
 
   const weekdays = useMemo(() => ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"], []);
 
-  const hydrate = async () => {
-    setLoadingPage(true);
-    setErrorMsg("");
-    try {
-      const [s, p, cats] = await Promise.all([getMyPartnerSettings(), getMyPartnerPreferences(), getCatalogCategories()]);
+  const applyCollection = (collection) => {
+      const s = collection?.settings || {};
+      const p = collection?.preferences || {};
+      const cats = collection?.categories || [];
       setSettings((prev) => ({
         ...prev,
         partnerId: s?.partnerId || "",
@@ -114,6 +114,14 @@ export default function Settings() {
         }
       } catch {
       }
+  };
+
+  const hydrate = async () => {
+    setLoadingPage(true);
+    setErrorMsg("");
+    try {
+      const collection = await getMyPartnerSettingsCollection();
+      applyCollection(collection);
     } catch (e) {
       setErrorMsg(e?.response?.data?.message || "Impossible de charger les paramètres.");
     } finally {
@@ -122,8 +130,22 @@ export default function Settings() {
   };
 
   useEffect(() => {
-    hydrate();
-  }, []);
+    if (bootstrap?.routeKey !== 'settings') {
+      return;
+    }
+    if (!bootstrap?.isResolved) {
+      setLoadingPage(true);
+      return;
+    }
+    if (bootstrap?.data) {
+      applyCollection(bootstrap.data);
+      setLoadingPage(false);
+      setErrorMsg("");
+      return;
+    }
+    setLoadingPage(false);
+    setErrorMsg("Impossible de charger les paramètres.");
+  }, [bootstrap]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -2,11 +2,25 @@ import { useEffect, useMemo, useState } from 'react';
 import { LayoutDashboard, Package, ShoppingBag, Settings, LogOut, Menu, X, Layers, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { getMyPartnerCollection } from '@/services/partnerBackofficeDashboardService';
+import { getMyPartnerPreferences } from '@/services/partnerBackofficePreferencesService';
+import { getMyPartnerSettingsCollection } from '@/services/partnerBackofficeSettingsService';
+import { listMyProducts } from '@/services/partnerBackofficeProductService';
+import { listMyOrders } from '@/services/partnerBackofficeOrderService';
+import { listMySubCategories } from '@/services/partnerBackofficeCategoryService';
+import { getCatalogCategories } from '@/services/categoryService';
+import { PartnerBackofficeBootstrapProvider } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 
 export default function SellerBackoffice() {
   const [pageTitle, setPageTitle] = useState("Tableau de bord");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
+  const routeKey = useMemo(() => {
+    const parts = `${location.pathname || ''}`.split('/').filter(Boolean);
+    const selOffIndex = parts.indexOf('sel-off');
+    return selOffIndex >= 0 ? (parts[selOffIndex + 1] || 'dashboard') : 'dashboard';
+  }, [location.pathname]);
 
   const MENU_ITEMS = useMemo(() => ([
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard, path: 'dashboard' },
@@ -28,7 +42,50 @@ export default function SellerBackoffice() {
     document.title = nextTitle;
   }, [location.pathname, MENU_ITEMS]);
 
+  const bootstrapQuery = useQuery({
+    queryKey: ['partner-backoffice-bootstrap', routeKey],
+    queryFn: async () => {
+      if (routeKey === 'dashboard') {
+        const [collection, preferences] = await Promise.all([
+          getMyPartnerCollection({ productLimit: 200, orderLimit: 50, customerLimit: 20 }),
+          getMyPartnerPreferences(),
+        ]);
+        return { collection, preferences };
+      }
+      if (routeKey === 'settings') {
+        return await getMyPartnerSettingsCollection();
+      }
+      if (routeKey === 'products') {
+        return await listMyProducts({ page: 0, size: 200 });
+      }
+      if (routeKey === 'orders') {
+        return await listMyOrders({ page: 0, size: 200 });
+      }
+      if (routeKey === 'categories') {
+        const [catalogCategories, subCategories] = await Promise.all([
+          getCatalogCategories(),
+          listMySubCategories(),
+        ]);
+        return { catalogCategories, subCategories };
+      }
+      return null;
+    },
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnMount: false,
+    retry: 1,
+  });
+
+  const bootstrapValue = useMemo(() => ({
+    routeKey,
+    data: bootstrapQuery.data || null,
+    isLoading: bootstrapQuery.isLoading,
+    isResolved: Boolean(bootstrapQuery.isFetched || bootstrapQuery.error),
+    error: bootstrapQuery.error || null,
+  }), [bootstrapQuery.data, bootstrapQuery.error, bootstrapQuery.isFetched, bootstrapQuery.isLoading, routeKey]);
+
   return (
+    <PartnerBackofficeBootstrapProvider value={bootstrapValue}>
     <div className="min-h-screen bg-gray-50 flex font-sans text-gray-900">
       {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
@@ -135,5 +192,6 @@ partenaire </span>
         </div>
       </main>
     </div>
+    </PartnerBackofficeBootstrapProvider>
   );
 }
