@@ -10,7 +10,7 @@ const INFERRED_API_BASE_URL =
   window.location.hostname &&
   window.location.hostname !== 'localhost' &&
   window.location.hostname !== '127.0.0.1'
-    ? `${window.location.protocol}//${window.location.hostname}:9000`
+    ? `${window.location.protocol}//${window.location.host}/lid`
     : 'http://localhost:9000'
 
 const API_BASE_URL = ENV_API_BASE_URL || (IS_DEV && WINDOW_ORIGIN ? WINDOW_ORIGIN : INFERRED_API_BASE_URL)
