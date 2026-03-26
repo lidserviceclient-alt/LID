@@ -15,10 +15,11 @@ import MobileMenu from '../MobileMenu.jsx';
 import Offer from '../offer.jsx';
 import { useCart } from '@/features/cart/CartContext.jsx';
 import NavMobile from '../NavMobile.jsx'
-import { getCurrentUserPayload, getUserProfile } from '@/services/authService.js';
-import { getLatestCatalogProducts } from '@/services/productService.js';
+import { getCurrentUserPayload } from '@/services/authService.js';
 import { useAppConfig } from '@/features/appConfig/useAppConfig.js'
 import { useFlashSaleProduct } from '@/features/flashSale/useFlashSaleProduct.js'
+import { useLatestCatalogProducts } from '@/features/catalog/useLatestCatalogProducts.js'
+import { useCustomerSession } from '@/features/customerSession/CustomerSessionContext.jsx';
 
 const DEFAULT_AVATAR = 'https://www.transparentpng.com/download/user/gray-user-profile-icon-png-fP8Q1P.png';
 
@@ -41,29 +42,17 @@ export default function Header() {
   const [showOffer, setShowOffer] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [notifProducts, setNotifProducts] = useState([]);
-  const [notifUnreadCount, setNotifUnreadCount] = useState(0);
+  const [notifSeenAt, setNotifSeenAt] = useState(() => {
+    const raw = Number(localStorage.getItem("lid_last_seen_products") || "0");
+    return Number.isFinite(raw) && raw > 0 ? raw : 0;
+  });
   const { data: flashSaleProduct } = useFlashSaleProduct(1)
+  const { data: latestProducts } = useLatestCatalogProducts(30)
   const hasFlashSale = Boolean(flashSaleProduct)
   const location = useLocation();
   const tokenPayload = useMemo(() => getCurrentUserPayload(), []);
-  const [userProfile, setUserProfile] = useState(null);
-
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (!tokenPayload?.sub) {
-        return;
-      }
-      try {
-        const data = await getUserProfile(tokenPayload.sub);
-        setUserProfile(data);
-      } catch (error) {
-        setUserProfile(null);
-      }
-    };
-
-    loadProfile();
-  }, [tokenPayload]);
+  const customerSession = useCustomerSession();
+  const userProfile = customerSession?.customer || null;
 
   const displayName = useMemo(() => {
     return normalizeFirstName(userProfile?.firstName || tokenPayload?.firstName) || 'Utilisateur';
@@ -85,45 +74,30 @@ export default function Header() {
   };
 
   const computeUnread = (products) => {
-    const lastSeen = getLastSeenProductsTs();
+    const lastSeen = Math.max(getLastSeenProductsTs(), notifSeenAt);
     const list = Array.isArray(products) ? products : [];
     const fresh = list.filter((p) => {
       const t = p?.dateCreation ? new Date(p.dateCreation).getTime() : 0;
       return Number.isFinite(t) && t > lastSeen;
     });
-    setNotifUnreadCount(fresh.length);
-    setNotifProducts(fresh.slice(0, 8));
+    return {
+      unreadCount: fresh.length,
+      products: fresh.slice(0, 8),
+    };
   };
-
-  const refreshNotifications = async () => {
-    try {
-      const data = await getLatestCatalogProducts(30);
-      computeUnread(Array.isArray(data) ? data : []);
-      return Array.isArray(data) ? data : [];
-    } catch {
-      setNotifUnreadCount(0);
-      setNotifProducts([]);
-      return [];
-    }
-  };
-
-  useEffect(() => {
-    refreshNotifications();
-    const timer = setInterval(() => {
-      refreshNotifications();
-    }, 60_000);
-    return () => clearInterval(timer);
-  }, []);
+  const notifState = useMemo(() => computeUnread(Array.isArray(latestProducts) ? latestProducts : []), [latestProducts, notifSeenAt]);
+  const notifProducts = notifState.products;
+  const notifUnreadCount = notifState.unreadCount;
 
   const openNotifications = async () => {
-    const products = await refreshNotifications();
+    const products = Array.isArray(latestProducts) ? latestProducts : [];
     setIsNotifOpen((v) => !v);
     if (!isNotifOpen) {
       const lastSeen = getLastSeenProductsTs();
       const latest = getLatestProductTs(products);
       const nextSeen = Math.max(lastSeen, latest);
       localStorage.setItem("lid_last_seen_products", `${nextSeen}`);
-      setNotifUnreadCount(0);
+      setNotifSeenAt(nextSeen);
     }
   };
 

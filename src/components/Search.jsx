@@ -1,9 +1,9 @@
 import { ChevronDown, Search, TrendingUp } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCatalogCategories } from '@/services/categoryService';
 import { resolveBackendAssetUrl } from '@/services/categoryService';
 import { getCatalogProductsPage } from '@/services/productService';
+import { useCatalogCategories } from '@/features/catalog/useCatalogCategories';
 
 export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) {
   const [searchFocused, setSearchFocused] = useState(false);
@@ -17,26 +17,18 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
   const debounceRef = useRef(null);
   const requestSeqRef = useRef(0);
   const navigate = useNavigate();
+  const { data: categoriesData } = useCatalogCategories();
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const list = await getCatalogCategories();
-        const options = [{ label: 'Toutes catégories', value: '' }].concat(
-          (Array.isArray(list) ? list : [])
-            .filter((c) => c?.estActive !== false)
-            .map((c) => ({ label: c.nom, value: c.slug || c.id }))
-            .filter((o) => o.value)
-        );
-        if (!cancelled) setCategories(options);
-      } catch {
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    const list = Array.isArray(categoriesData) ? categoriesData : [];
+    const options = [{ label: 'Toutes catégories', value: '' }].concat(
+      list
+        .filter((c) => c?.estActive !== false)
+        .map((c) => ({ label: c.nom, value: c.slug || c.id }))
+        .filter((o) => o.value)
+    );
+    setCategories(options);
+  }, [categoriesData]);
   
   const trendingSearches = ['iPhone 15', 'Nike Air Max', 'MacBook Pro', 'PS5'];
 

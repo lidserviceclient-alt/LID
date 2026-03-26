@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { clearAccessToken, getAccessToken, setAccessToken } from './auth';
+import { clearAccessToken, getAccessToken, isTokenExpired, setAccessToken } from './auth';
 
 const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'https://jean-emmanuel-diap.com/lid';
 const isDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true';
@@ -32,9 +32,14 @@ const refreshClient = axios.create({
 api.interceptors.request.use(
   async (config) => {
     // Retrieve the user from OIDC storage
-    const accessToken = getAccessToken();
+    const storedToken = getAccessToken();
+    const accessToken = storedToken && !isTokenExpired(storedToken) ? storedToken : null;
     const isAuthLogin = (config.url || '').includes('/api/v1/auth/login');
     const clientId = import.meta.env.VITE_CLIENT_ID;
+
+    if (storedToken && !accessToken) {
+      clearAccessToken();
+    }
 
     const existingAuth =
       config.headers?.Authorization ||
@@ -77,7 +82,8 @@ api.interceptors.response.use(
       const isAuthLogin = url.includes('/api/v1/auth/login');
       const isRefresh = url.includes('/api/v1/auth/refresh');
       const isAuthEndpoint = isAuthLogin || isRefresh || url.includes('/api/v1/auth/password');
-      const hadAccessToken = Boolean(getAccessToken());
+      const currentToken = getAccessToken();
+      const hadAccessToken = Boolean(currentToken && !isTokenExpired(currentToken));
 
       if (status === 401 && !originalRequest._retry && !isAuthEndpoint) {
         originalRequest._retry = true;

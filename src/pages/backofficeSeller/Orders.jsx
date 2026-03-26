@@ -21,6 +21,7 @@ import QRCode from "react-qr-code";
 import { useReactToPrint } from 'react-to-print';
 import Receipt from '../../components/Receipt';
 import { getMyOrder, listMyOrders, updateMyOrder } from '@/services/partnerBackofficeOrderService';
+import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 
 const STATUS_CONFIG = {
   'Completed': { label: 'Livré', icon: CheckCircle2, color: 'bg-green-100 text-green-700' },
@@ -54,6 +55,7 @@ const formatDate = (iso) => {
 };
 
 export default function Orders() {
+  const bootstrap = usePartnerBackofficeBootstrap();
   const [orders, setOrders] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -96,8 +98,36 @@ export default function Orders() {
   };
 
   useEffect(() => {
-    refresh();
-  }, []);
+    if (bootstrap?.routeKey !== 'orders') {
+      return;
+    }
+    if (!bootstrap?.isResolved) {
+      setLoading(true);
+      return;
+    }
+    if (bootstrap?.data) {
+      const content = Array.isArray(bootstrap.data?.content) ? bootstrap.data.content : [];
+      const normalized = content.map((o) => ({
+        id: `#ORD-${o.id}`,
+        rawId: o.id,
+        customer: {
+          name: o.customerName || "Client",
+          email: o.customerEmail || "",
+          avatar: `https://i.pravatar.cc/150?u=${encodeURIComponent(o.customerEmail || String(o.id))}`
+        },
+        items: [],
+        total: Number(o.amount || 0),
+        status: toUiStatus(o.status),
+        date: formatDate(o.createdAt),
+        payment: "Paiement"
+      }));
+      setOrders(normalized);
+      setLoading(false);
+      return;
+    }
+    setOrders([]);
+    setLoading(false);
+  }, [bootstrap]);
 
   const openOrder = async (order) => {
     if (!order?.rawId) return;

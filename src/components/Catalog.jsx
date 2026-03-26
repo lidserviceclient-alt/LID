@@ -21,6 +21,7 @@ import { useWishlist } from "@/features/wishlist/WishlistContext";
 import { getCatalogProductsPage } from "@/services/productService";
 import { resolveBackendAssetUrl } from "@/services/categoryService";
 import FavoriteNotification from "./FavoriteNotification";
+import { useCatalogBootstrap } from "@/features/catalog/CatalogBootstrapContext";
 
 // --- Components ---
 
@@ -584,6 +585,12 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
   const [totalElements, setTotalElements] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const bootstrap = useCatalogBootstrap();
+  const hasCatalogBootstrap = !searchQuery && !categoryParam && normalizeSortParam(sortParam) === 'featured';
+  const bootstrapProductsPage = hasCatalogBootstrap ? bootstrap?.globalCollection?.products : null;
+  const hasBootstrapProducts = Array.isArray(bootstrapProductsPage?.content);
+  const isBootstrapLoading = hasCatalogBootstrap && Boolean(bootstrap?.isGlobalCollectionLoading);
+  const isBootstrapResolved = hasCatalogBootstrap && Boolean(bootstrap?.isGlobalCollectionResolved);
 
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedBrands, setSelectedBrands] = useState([]);
@@ -592,6 +599,49 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
 
   useEffect(() => {
     let cancelled = false;
+    if (hasBootstrapProducts) {
+      const content = Array.isArray(bootstrapProductsPage?.content) ? bootstrapProductsPage.content : [];
+      const pages = Number.isFinite(Number(bootstrapProductsPage?.totalPages)) ? Number(bootstrapProductsPage.totalPages) : 1;
+      const total = Number.isFinite(Number(bootstrapProductsPage?.totalElements)) ? Number(bootstrapProductsPage.totalElements) : content.length;
+      setIsLoadingMore(false);
+      setIsLoading(false);
+      setLoadError("");
+      setCatalogProducts(content);
+      setLoadedPages(content.length > 0 ? 1 : 0);
+      setTotalPages(Math.max(1, pages));
+      setTotalElements(Math.max(0, Number(total) || 0));
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (isBootstrapLoading) {
+      setIsLoadingMore(false);
+      setIsLoading(true);
+      setLoadError("");
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (hasCatalogBootstrap && !isBootstrapResolved) {
+      setIsLoadingMore(false);
+      setIsLoading(true);
+      setLoadError("");
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (isBootstrapResolved) {
+      setIsLoadingMore(false);
+      setIsLoading(false);
+      setLoadError("");
+      setCatalogProducts([]);
+      setLoadedPages(0);
+      setTotalPages(1);
+      setTotalElements(0);
+      return () => {
+        cancelled = true;
+      };
+    }
     setIsLoadingMore(false);
     setIsLoading(true);
     setLoadError("");
@@ -621,7 +671,7 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
     return () => {
       cancelled = true;
     };
-  }, [categoryParam, searchQuery, sortParam]);
+  }, [bootstrapProductsPage, categoryParam, hasBootstrapProducts, hasCatalogBootstrap, isBootstrapLoading, isBootstrapResolved, searchQuery, sortParam]);
 
   useEffect(() => {
     const prev = prevCategoryParamRef.current;

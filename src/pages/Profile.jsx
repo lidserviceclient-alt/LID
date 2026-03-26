@@ -19,16 +19,14 @@ import {
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/utils/cn';
 import { toast } from 'sonner';
-import { getUserProfile, logout, getCurrentUserPayload, updateUserProfile } from '@/services/authService.js';
+import { logout, getCurrentUserPayload, updateUserProfile } from '@/services/authService.js';
 import { 
-  getCustomerOrders, 
-  getCustomerWishlist,
-  getCustomerAddresses,
   createCustomerAddress,
   deleteCustomerAddress,
   setDefaultCustomerAddress
 } from '@/services/customerService.js';
 import { useWishlist } from '@/features/wishlist/WishlistContext';
+import { useCustomerSession } from '@/features/customerSession/CustomerSessionContext.jsx';
 
 const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 const PAYMENT_STORAGE_KEY = 'paymentMethods';
@@ -683,17 +681,11 @@ export default function Profile() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
-  const [userProfile, setUserProfile] = useState(null);
   const tokenPayload = getCurrentUserPayload();
   const { wishlistItems } = useWishlist();
+  const customerSession = useCustomerSession();
   const localWishlistCount = wishlistItems.length;
-  const [orders, setOrders] = useState([]);
   const [ordersFilter, setOrdersFilter] = useState('all');
-  const [recentOrders, setRecentOrders] = useState([]);
-  const [stats, setStats] = useState({ total: 0, inProgress: 0, favorites: 0 });
-  const [loadingOverview, setLoadingOverview] = useState(true);
-  const [addresses, setAddresses] = useState([]);
-  const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState(() => loadLocalJson(PAYMENT_STORAGE_KEY, []));
 
   useEffect(() => {
@@ -707,73 +699,46 @@ export default function Profile() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    let mounted = true;
+  const profileCollection = customerSession?.customerCollection || null;
+  const loadingOverview = Boolean(customerSession?.isLoading);
+  const loadingAddresses = Boolean(customerSession?.isLoading);
+  const userProfile = useMemo(() => profileCollection?.customer || null, [profileCollection]);
 
-    const loadAll = async () => {
-      if (!tokenPayload?.sub) {
-        setLoadingOverview(false);
-        return;
-      }
-      setLoadingOverview(true);
-      setLoadingAddresses(true);
-      try {
-        const [profile, ordersDto, wishlist, addressList] = await Promise.all([
-          getUserProfile(tokenPayload.sub),
-          getCustomerOrders(tokenPayload.sub, 0, 100),
-          getCustomerWishlist(tokenPayload.sub),
-          getCustomerAddresses(tokenPayload.sub)
-        ]);
+  const addresses = useMemo(() => {
+    return Array.isArray(profileCollection?.addresses) ? profileCollection.addresses : [];
+  }, [profileCollection]);
 
-        if (!mounted) return;
-        setUserProfile(profile);
-        setAddresses(Array.isArray(addressList) ? addressList : []);
+  const orders = useMemo(() => {
+    const ordersDto = Array.isArray(profileCollection?.orders) ? profileCollection.orders : [];
+    return ordersDto.map((o) => {
+      const orderNumber = o.orderNumber || `ORD-${o.id}`;
+      return {
+        displayId: `#${orderNumber}`,
+        orderNumber,
+        date: formatOrderDate(o.createdAt),
+        total: formatMoney(o.amount, o.currency || 'FCFA'),
+        status: mapOrderStatus(o.currentStatus),
+        items: countOrderItems(o.items)
+      };
+    });
+  }, [profileCollection]);
 
-        const mappedOrders = ordersDto.map((o) => {
-          const orderNumber = o.orderNumber || `ORD-${o.id}`;
-          return {
-            displayId: `#${orderNumber}`,
-            orderNumber,
-          date: formatOrderDate(o.createdAt),
-          total: formatMoney(o.amount, o.currency || 'FCFA'),
-          status: mapOrderStatus(o.currentStatus),
-          items: countOrderItems(o.items)
-          };
-        });
+  const recentOrders = useMemo(() => orders.slice(0, 3), [orders]);
 
-        setOrders(mappedOrders);
-        setRecentOrders(mappedOrders.slice(0, 3));
+  const stats = useMemo(() => {
+    const ordersDto = Array.isArray(profileCollection?.orders) ? profileCollection.orders : [];
+    const wishlist = Array.isArray(profileCollection?.wishlist) ? profileCollection.wishlist : [];
+    const inProgress = ordersDto.filter((o) => {
+      const st = `${o.currentStatus || ''}`.toUpperCase();
+      return st && st !== 'DELIVERED' && st !== 'CANCELED';
+    }).length;
 
-        const inProgress = ordersDto.filter((o) => {
-          const st = `${o.currentStatus || ''}`.toUpperCase();
-          return st && st !== 'DELIVERED' && st !== 'CANCELED';
-        }).length;
-
-        setStats({
-          total: ordersDto.length,
-          inProgress,
-          favorites: Math.max(Array.isArray(wishlist) ? wishlist.length : 0, localWishlistCount)
-        });
-      } catch {
-        if (!mounted) return;
-        setUserProfile(null);
-        setOrders([]);
-        setRecentOrders([]);
-        setAddresses([]);
-        setStats({ total: 0, inProgress: 0, favorites: localWishlistCount });
-      } finally {
-        if (mounted) {
-          setLoadingOverview(false);
-          setLoadingAddresses(false);
-        }
-      }
+    return {
+      total: ordersDto.length,
+      inProgress,
+      favorites: Math.max(wishlist.length, localWishlistCount)
     };
-
-    loadAll();
-    return () => {
-      mounted = false;
-    };
-  }, [tokenPayload?.sub, localWishlistCount]);
+  }, [localWishlistCount, profileCollection]);
 
   const handleLogout = async () => {
     await logout();
@@ -808,7 +773,10 @@ export default function Profile() {
   }, [orders, ordersFilter]);
 
   const handleProfileUpdated = (updated) => {
-    setUserProfile(updated);
+    customerSession?.updateCustomerCollection?.((prev) => ({
+      ...(prev || {}),
+      customer: updated || null
+    }));
   };
 
   const handleCreateAddress = async (payload) => {
@@ -819,12 +787,16 @@ export default function Profile() {
     try {
       const created = await createCustomerAddress(tokenPayload.sub, payload);
       if (!created) return null;
-      setAddresses((prev) => {
-        const next = [...prev, created];
-        if (created.isDefault) {
-          return next.map((addr) => (addr.id === created.id ? addr : { ...addr, isDefault: false }));
-        }
-        return next;
+      customerSession?.updateCustomerCollection?.((prev) => {
+        const currentAddresses = Array.isArray(prev?.addresses) ? prev.addresses : [];
+        const nextAddresses = [...currentAddresses, created];
+        const normalizedAddresses = created.isDefault
+          ? nextAddresses.map((addr) => (addr.id === created.id ? addr : { ...addr, isDefault: false }))
+          : nextAddresses;
+        return {
+          ...(prev || {}),
+          addresses: normalizedAddresses
+        };
       });
       toast.success("Adresse enregistrée.");
       return created;
@@ -841,7 +813,10 @@ export default function Profile() {
     }
     try {
       await deleteCustomerAddress(tokenPayload.sub, addressId);
-      setAddresses((prev) => prev.filter((addr) => addr.id !== addressId));
+      customerSession?.updateCustomerCollection?.((prev) => ({
+        ...(prev || {}),
+        addresses: (Array.isArray(prev?.addresses) ? prev.addresses : []).filter((addr) => addr.id !== addressId)
+      }));
       toast.success("Adresse supprimée.");
     } catch (err) {
       toast.error(err?.response?.data?.message || err?.message || "Suppression impossible.");
@@ -855,10 +830,13 @@ export default function Profile() {
     }
     try {
       const updated = await setDefaultCustomerAddress(tokenPayload.sub, addressId);
-      setAddresses((prev) => prev.map((addr) => ({
-        ...addr,
-        isDefault: addr.id === updated?.id
-      })));
+      customerSession?.updateCustomerCollection?.((prev) => ({
+        ...(prev || {}),
+        addresses: (Array.isArray(prev?.addresses) ? prev.addresses : []).map((addr) => ({
+          ...addr,
+          isDefault: addr.id === updated?.id
+        }))
+      }));
       toast.success("Adresse par défaut mise à jour.");
     } catch (err) {
       toast.error(err?.response?.data?.message || err?.message || "Mise à jour impossible.");

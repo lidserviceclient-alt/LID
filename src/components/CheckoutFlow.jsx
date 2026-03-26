@@ -4,9 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, CreditCard, Smartphone, User, MapPin, Phone, Mail, ArrowRight, ShieldCheck, Lock, ChevronLeft, Loader2, LocateFixed } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { toast } from 'sonner';
-import { getCurrentUserPayload, getUserProfile } from '@/services/authService.js';
+import { getCurrentUserPayload } from '@/services/authService.js';
 import { checkout } from '@/services/orderService.js';
-import { getCustomerAddresses } from '@/services/customerService.js';
+import { getMyCustomerCheckoutCollection } from '@/services/customerService.js';
 import { resolveBackendAssetUrl } from '@/services/categoryService';
 import { useAppConfig } from '@/features/appConfig/useAppConfig';
 
@@ -381,36 +381,21 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     const payload = getCurrentUserPayload();
     if (!payload?.sub) return;
     let active = true;
-    getUserProfile(payload.sub)
-      .then((profile) => {
-        if (!active) return;
-        const firstName = `${profile?.firstName || payload?.firstName || ''}`.trim();
-        const lastName = `${profile?.lastName || payload?.lastName || ''}`.trim();
-        const email = `${profile?.email || payload?.email || ''}`.trim();
-        setFormData((prev) => ({
-          ...prev,
-          firstName: firstName || prev.firstName,
-          lastName: lastName || prev.lastName,
-          email: email || prev.email
-        }));
-      })
-      .catch(() => {
-        if (!active) return;
-        const firstName = `${payload?.firstName || ''}`.trim();
-        const lastName = `${payload?.lastName || ''}`.trim();
-        const email = `${payload?.email || ''}`.trim();
-        setFormData((prev) => ({
-          ...prev,
-          firstName: firstName || prev.firstName,
-          lastName: lastName || prev.lastName,
-          email: email || prev.email
-        }));
-      });
     setLoadingAddresses(true);
-    getCustomerAddresses(payload.sub)
-      .then((list) => {
+    getMyCustomerCheckoutCollection()
+      .then((collection) => {
         if (!active) return;
-        const addresses = Array.isArray(list) ? list : [];
+        const customer = collection?.customer || null;
+        const addresses = Array.isArray(collection?.addresses) ? collection.addresses : [];
+        const firstName = `${customer?.firstName || payload?.firstName || ''}`.trim();
+        const lastName = `${customer?.lastName || payload?.lastName || ''}`.trim();
+        const email = `${customer?.email || payload?.email || ''}`.trim();
+        setFormData((prev) => ({
+          ...prev,
+          firstName: firstName || prev.firstName,
+          lastName: lastName || prev.lastName,
+          email: email || prev.email
+        }));
         setSavedAddresses(addresses);
         const defaultAddress = addresses.find((addr) => addr?.isDefault);
         if (defaultAddress) {
@@ -425,7 +410,17 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
         }
       })
       .catch(() => {
-        if (active) setSavedAddresses([]);
+        if (!active) return;
+        const firstName = `${payload?.firstName || ''}`.trim();
+        const lastName = `${payload?.lastName || ''}`.trim();
+        const email = `${payload?.email || ''}`.trim();
+        setFormData((prev) => ({
+          ...prev,
+          firstName: firstName || prev.firstName,
+          lastName: lastName || prev.lastName,
+          email: email || prev.email
+        }));
+        setSavedAddresses([]);
       })
       .finally(() => {
         if (active) setLoadingAddresses(false);

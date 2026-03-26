@@ -3,6 +3,7 @@ import { Plus, Search, Edit2, Trash2, MoreVertical, Package, Image as ImageIcon,
 import { motion, AnimatePresence } from 'framer-motion';
 import Papa from 'papaparse';
 import { createMyProduct, deleteMyProduct, listMyProducts, updateMyProduct } from '@/services/partnerBackofficeProductService';
+import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 
 const STATIC_CATEGORIES = [
   { id: "1", label: "Mode & Accessoires" },
@@ -21,6 +22,7 @@ const toIntPrice = (value) => {
 const formatFcfa = (value) => `${toIntPrice(value).toLocaleString("fr-FR")} FCFA`;
 
 export default function ProductManagement() {
+  const bootstrap = usePartnerBackofficeBootstrap();
   const [products, setProducts] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState(null);
@@ -60,8 +62,32 @@ export default function ProductManagement() {
   };
 
   useEffect(() => {
-    refresh();
-  }, []);
+    if (bootstrap?.routeKey !== 'products') {
+      return;
+    }
+    if (!bootstrap?.isResolved) {
+      setLoading(true);
+      return;
+    }
+    if (bootstrap?.data) {
+      const content = Array.isArray(bootstrap.data?.content) ? bootstrap.data.content : [];
+      const normalized = content.map((p) => ({
+        id: p.id,
+        sku: p.sku || "",
+        name: p.name || "",
+        price: toIntPrice(p.price || 0),
+        stock: Number(p.stock || 0),
+        categoryId: `${p.categoryId || ""}`.trim(),
+        category: `${p.category || categoryById.get(`${p.categoryId || ""}`) || ""}`.trim(),
+        image: p.imageUrl || p.img || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80"
+      }));
+      setProducts(normalized);
+      setLoading(false);
+      return;
+    }
+    setLoading(false);
+    setProducts([]);
+  }, [bootstrap, categoryById]);
 
   const generateAutoSku = () => {
     const ts = Date.now().toString().slice(-8);

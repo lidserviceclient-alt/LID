@@ -10,10 +10,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
-import { getMyPartnerStats } from '@/services/partnerBackofficeDashboardService';
-import { listMyProducts } from '@/services/partnerBackofficeProductService';
-import { listMyOrders } from '@/services/partnerBackofficeOrderService';
-import { getMyPartnerPreferences } from '@/services/partnerBackofficePreferencesService';
+import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 
 const STATUS_LABEL = {
   PENDING: "En attente",
@@ -30,6 +27,7 @@ const WEEK_DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const bootstrap = usePartnerBackofficeBootstrap();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ products: 0, orders: 0, customers: 0, revenue: 0 });
   const [orders, setOrders] = useState([]);
@@ -37,30 +35,38 @@ export default function Dashboard() {
   const [stockThreshold, setStockThreshold] = useState(5);
 
   useEffect(() => {
-    const load = async () => {
+    if (bootstrap?.routeKey !== 'dashboard') {
+      return;
+    }
+    if (!bootstrap?.isResolved) {
       setLoading(true);
-      try {
-        const [statsRes, ordersRes, productsRes, prefsRes] = await Promise.all([
-          getMyPartnerStats(),
-          listMyOrders({ page: 0, size: 50 }),
-          listMyProducts({ page: 0, size: 200 }),
-          getMyPartnerPreferences(),
-        ]);
-        setStats({
-          products: Number(statsRes?.products || 0),
-          orders: Number(statsRes?.orders || 0),
-          customers: Number(statsRes?.customers || 0),
-          revenue: Number(statsRes?.revenue || 0),
-        });
-        setOrders(Array.isArray(ordersRes?.content) ? ordersRes.content : []);
-        setProducts(Array.isArray(productsRes?.content) ? productsRes.content : []);
-        setStockThreshold(Number(prefsRes?.stockThreshold || 5));
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+      return;
+    }
+    if (!bootstrap?.data) {
+      setStats({ products: 0, orders: 0, customers: 0, revenue: 0 });
+      setOrders([]);
+      setProducts([]);
+      setStockThreshold(5);
+      setLoading(false);
+      return;
+    }
+
+    const collection = bootstrap.data?.collection || {};
+    const prefsRes = bootstrap.data?.preferences || {};
+    const statsRes = collection?.stats;
+    const ordersRes = Array.isArray(collection?.orders) ? collection.orders : [];
+    const productsRes = Array.isArray(collection?.products) ? collection.products : [];
+    setStats({
+      products: Number(statsRes?.products || 0),
+      orders: Number(statsRes?.orders || 0),
+      customers: Number(statsRes?.customers || 0),
+      revenue: Number(statsRes?.revenue || 0),
+    });
+    setOrders(ordersRes);
+    setProducts(productsRes);
+    setStockThreshold(Number(prefsRes?.stockThreshold || 5));
+    setLoading(false);
+  }, [bootstrap]);
 
   const avgBasket = useMemo(() => (stats.orders > 0 ? stats.revenue / stats.orders : 0), [stats.orders, stats.revenue]);
 

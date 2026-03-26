@@ -4,13 +4,28 @@ import {
     Search, MapPin, Star, Users, ArrowRight, Zap, SlidersHorizontal, Sparkles
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { listPublicPartners } from "@/services/publicPartnerCatalogService";
+import { useQueryClient } from "@tanstack/react-query";
+import { getPublicPartnerCollection, listPublicPartners } from "@/services/publicPartnerCatalogService";
+import { useCatalogBootstrap } from "@/features/catalog/CatalogBootstrapContext";
+
+const mapPartnerToSeller = (p) => ({
+  id: p.partnerId,
+  name: p.shopName || `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Boutique",
+  type: "product_seller",
+  category: p.mainCategoryName || "Boutique",
+  image: p.logoUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=400",
+  coverImage: p.backgroundUrl || p.logoUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1200",
+  followers: "-",
+  stats: { label: "Produits", value: 0 },
+  description: p.shopDescription || "Découvrez notre boutique partenaire.",
+  location: [p.city, p.country].filter(Boolean).join(", ") || "Côte d'Ivoire",
+  rating: 5.0,
+  verified: true,
+});
 
 // --- Components ---
 
-const HeroSection = ({ featuredSellers }) => {
-    const navigate = useNavigate();
-    
+const HeroSection = ({ featuredSellers, onOpenSeller }) => {
     return (
         <div className="relative w-full mb-20">
             <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-[#6aa200]/10 to-transparent blur-3xl -z-10" />
@@ -50,7 +65,7 @@ const HeroSection = ({ featuredSellers }) => {
                         className={`relative rounded-3xl overflow-hidden cursor-pointer group ${
                             index === 0 ? 'md:col-span-6' : 'md:col-span-3'
                         }`}
-                        onClick={() => navigate(`/sellers/${seller.id}`)}
+                        onClick={() => onOpenSeller(seller.id)}
                     >
                         <img 
                             src={seller.coverImage} 
@@ -87,9 +102,7 @@ const HeroSection = ({ featuredSellers }) => {
     );
 };
 
-const MinimalSellerCard = ({ seller }) => {
-    const navigate = useNavigate();
-
+const MinimalSellerCard = ({ seller, onOpenSeller }) => {
     return (
         <motion.div 
             layout
@@ -97,7 +110,7 @@ const MinimalSellerCard = ({ seller }) => {
             whileInView={{ opacity: 1, scale: 1 }}
             whileHover={{ y: -5 }}
             viewport={{ once: true }}
-            onClick={() => navigate(`/sellers/${seller.id}`)}
+            onClick={() => onOpenSeller(seller.id)}
             className="group cursor-pointer"
         >
             <div className="relative aspect-[4/5] rounded-[2rem] overflow-hidden mb-4 bg-neutral-100 dark:bg-neutral-900">
@@ -140,40 +153,57 @@ const MinimalSellerCard = ({ seller }) => {
 
 export default function SellersList() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const bootstrap = useCatalogBootstrap();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Tous");
   const [sellers, setSellers] = useState([]);
+  const bootstrapPartnersPage = bootstrap?.globalCollection?.partners || null;
+  const bootstrapPartners = Array.isArray(bootstrapPartnersPage?.content) ? bootstrapPartnersPage.content : null;
+  const isBootstrapLoading = Boolean(bootstrap?.isGlobalCollectionLoading);
+  const isBootstrapResolved = Boolean(bootstrap?.isGlobalCollectionResolved);
 
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
+      if (bootstrapPartners) {
+        const totalPages = Number(bootstrapPartnersPage?.totalPages || 1);
+        let all = [...bootstrapPartners];
+        for (let page = 1; page < totalPages; page += 1) {
+          const next = await listPublicPartners({ page, size: 100 });
+          if (cancelled) return;
+          const content = Array.isArray(next?.content) ? next.content : [];
+          all = all.concat(content);
+        }
+        if (cancelled) return;
+        setSellers(all.map(mapPartnerToSeller));
+        return;
+      }
+
+      if (!isBootstrapResolved || isBootstrapLoading) {
+        return;
+      }
+
       const size = 100;
       const first = await listPublicPartners({ page: 0, size });
+      if (cancelled) return;
       const firstContent = Array.isArray(first?.content) ? first.content : [];
       const totalPages = Number(first?.totalPages || 1);
       let all = [...firstContent];
       for (let page = 1; page < totalPages; page += 1) {
         const next = await listPublicPartners({ page, size });
+        if (cancelled) return;
         const content = Array.isArray(next?.content) ? next.content : [];
         all = all.concat(content);
       }
-      const mapped = all.map((p) => ({
-        id: p.partnerId,
-        name: p.shopName || `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Boutique",
-        type: "product_seller",
-        category: p.mainCategoryName || "Boutique",
-        image: p.logoUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=400",
-        coverImage: p.backgroundUrl || p.logoUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1200",
-        followers: "-",
-        stats: { label: "Produits", value: 0 },
-        description: p.shopDescription || "Découvrez notre boutique partenaire.",
-        location: [p.city, p.country].filter(Boolean).join(", ") || "Côte d'Ivoire",
-        rating: 5.0,
-        verified: true,
-      }));
-      setSellers(mapped);
+      if (cancelled) return;
+      setSellers(all.map(mapPartnerToSeller));
     };
     load();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [bootstrapPartners, bootstrapPartnersPage?.totalPages, isBootstrapLoading, isBootstrapResolved]);
 
   const sellerCategories = useMemo(() => {
     const uniq = Array.from(new Set(sellers.map((s) => s.category).filter(Boolean)));
@@ -186,12 +216,22 @@ export default function SellersList() {
     return matchesSearch && matchesCategory;
   });
 
+  const openSeller = async (sellerId) => {
+    if (!sellerId) return;
+    await queryClient.prefetchQuery({
+      queryKey: ["public-partner-collection", sellerId],
+      queryFn: () => getPublicPartnerCollection(sellerId, { page: 0, size: 20 }),
+      staleTime: 60_000,
+    });
+    navigate(`/sellers/${sellerId}`);
+  };
+
   return (
     <div className="min-h-screen bg-white dark:bg-[#050505] text-neutral-900 dark:text-neutral-100 font-sans pb-20 selection:bg-[#6aa200] selection:text-white">
       
       <div className="container mx-auto px-6 pt-32">
         
-        <HeroSection featuredSellers={sellers} />
+        <HeroSection featuredSellers={sellers} onOpenSeller={openSeller} />
 
         {/* Filter & Search Bar */}
         <div className="sticky top-24 z-30 mb-12">
@@ -246,7 +286,7 @@ export default function SellersList() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-32">
             <AnimatePresence mode="popLayout">
                 {filteredSellers.map((seller) => (
-                    <MinimalSellerCard key={seller.id} seller={seller} />
+                    <MinimalSellerCard key={seller.id} seller={seller} onOpenSeller={openSeller} />
                 ))}
             </AnimatePresence>
         </div>

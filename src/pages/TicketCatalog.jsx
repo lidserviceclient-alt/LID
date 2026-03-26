@@ -7,6 +7,7 @@ import { getTicketEvents } from "@/services/ticketService";
 import { useCart } from "@/features/cart/CartContext";
 import { useTheme } from "@/features/theme/theme-provider";
 import { toast } from "sonner";
+import { useCatalogBootstrap } from "@/features/catalog/CatalogBootstrapContext";
 
 // --- Theme Utility ---
 const getTheme = (category) => {
@@ -215,9 +216,45 @@ export default function TicketCatalog() {
   const { scrollYProgress } = useScroll();
   const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
   const scale = useTransform(scrollYProgress, [0, 0.2], [1, 0.95]);
+  const bootstrap = useCatalogBootstrap();
+  const initialTickets = Array.isArray(bootstrap?.globalCollection?.tickets)
+    ? bootstrap.globalCollection.tickets
+    : null;
+  const isBootstrapLoading = Boolean(bootstrap?.isGlobalCollectionLoading);
+  const isBootstrapResolved = Boolean(bootstrap?.isGlobalCollectionResolved);
 
   useEffect(() => {
     let cancelled = false;
+    if (initialTickets) {
+      setEvents(initialTickets);
+      setIsLoading(false);
+      setError("");
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (isBootstrapLoading) {
+      setIsLoading(true);
+      setError("");
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (!isBootstrapResolved) {
+      setIsLoading(true);
+      setError("");
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (isBootstrapResolved) {
+      setEvents([]);
+      setIsLoading(false);
+      setError("");
+      return () => {
+        cancelled = true;
+      };
+    }
     setIsLoading(true);
     setError("");
 
@@ -241,7 +278,7 @@ export default function TicketCatalog() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialTickets, isBootstrapLoading, isBootstrapResolved]);
 
   const categories = useMemo(() => {
     const set = new Set();

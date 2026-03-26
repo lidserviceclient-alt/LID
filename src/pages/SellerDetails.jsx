@@ -1,15 +1,15 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import { 
     MapPin, Users, Star, CheckCircle2, 
     ArrowLeft, Share2, Mail, Phone, Globe, MessageCircle, ShoppingCart,
     ArrowUpRight, Search, Calendar, ShoppingBag, ArrowRight, Clock,
     CreditCard, ShieldCheck, Heart, MoreHorizontal, LayoutGrid, List
 } from "lucide-react";
-import { sellers } from "@/assets/data/sellers";
 import { toast } from "sonner";
-import { getPublicPartner, listPublicPartnerProducts } from "@/services/publicPartnerCatalogService";
+import { getPublicPartnerCollection } from "@/services/publicPartnerCatalogService";
 
 // Mock events data for the seller
 const mockEvents = [
@@ -19,19 +19,44 @@ const mockEvents = [
     { id: 4, title: "Soirée Networking", date: "10 Mar 2025", time: "18:30", price: "25.000 FCFA", image: "https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=1000", location: "Terrou-Bi", type: "Networking" },
 ];
 
-// Mock products data
-const mockProducts = [
-    { id: 101, title: "iPhone 15 Pro Max", date: "En Stock", price: "950.000 FCFA", image: "https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=1000", category: "Tech" },
-    { id: 102, title: "Sony WH-1000XM5", date: "Promo", price: "250.000 FCFA", image: "https://images.unsplash.com/photo-1613040809024-b4ef7ba99bc3?q=80&w=1000", category: "Audio" },
-    { id: 103, title: "MacBook Air M2", date: "En Stock", price: "890.000 FCFA", image: "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?q=80&w=1000", category: "Laptop" },
-    { id: 104, title: "iPad Pro 12.9", date: "Nouveau", price: "750.000 FCFA", image: "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?q=80&w=1000", category: "Tablette" },
-];
+const mapCollectionToSeller = (collection, fallbackId) => {
+    const partner = collection?.partner;
+    if (!partner) return null;
+
+    return {
+        id: partner.partnerId || fallbackId,
+        name: partner.shopName || `${partner.firstName || ""} ${partner.lastName || ""}`.trim() || "Boutique",
+        type: "product_seller",
+        category: partner.mainCategoryName || "Boutique",
+        image: partner.logoUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000",
+        coverImage: partner.backgroundUrl || partner.logoUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=2070",
+        followers: "-",
+        stats: { label: "Produits", value: Number(collection?.products || 0) },
+        description: partner.shopDescription || "Découvrez cette boutique partenaire.",
+        location: [partner.city, partner.country].filter(Boolean).join(", "),
+        rating: 5,
+        verified: true,
+        email: partner.email,
+        phoneNumber: partner.phoneNumber,
+        websiteUrl: partner.websiteUrl,
+    };
+};
+
+const mapCollectionProducts = (collection) => {
+    const products = Array.isArray(collection?.productsPage?.content) ? collection.productsPage.content : [];
+    return products.map((product) => ({
+        id: product.id,
+        title: product.name,
+        date: "En Stock",
+        price: `${Number(product.price || 0).toFixed(2)} FCFA`,
+        image: product.imageUrl || product.img || "https://images.unsplash.com/photo-1560343090-f0409e92791a?q=80&w=1000",
+        category: product.mainCategoryName || "Produit"
+    }));
+};
 
 export default function SellerDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [seller, setSeller] = useState(() => sellers.find(s => String(s.id) === id) || null);
-    const [remoteProducts, setRemoteProducts] = useState([]);
     
     const [isFollowing, setIsFollowing] = useState(false);
     const [activeTab, setActiveTab] = useState("items");
@@ -42,43 +67,34 @@ export default function SellerDetails() {
     
     useEffect(() => {
         window.scrollTo(0, 0);
-        const load = async () => {
-            try {
-                const details = await getPublicPartner(id);
-                const partner = details?.partner || details;
-                if (partner) {
-                    setSeller({
-                        id: partner.partnerId || id,
-                        name: partner.shopName || `${partner.firstName || ""} ${partner.lastName || ""}`.trim() || "Boutique",
-                        type: "product_seller",
-                        category: partner.mainCategoryName || "Boutique",
-                        image: partner.logoUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000",
-                        coverImage: partner.backgroundUrl || partner.logoUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=2070",
-                        followers: "-",
-                        stats: { label: "Produits", value: Number(details?.products || 0) },
-                        description: partner.shopDescription || "Découvrez cette boutique partenaire.",
-                        location: [partner.city, partner.country].filter(Boolean).join(", "),
-                        rating: 5,
-                        verified: true
-                    });
-                }
-                const page = await listPublicPartnerProducts(id, { page: 0, size: 20 });
-                const products = Array.isArray(page?.content) ? page.content : [];
-                setRemoteProducts(products.map((p) => ({
-                    id: p.id,
-                    title: p.name,
-                    date: "En Stock",
-                    price: `${Number(p.price || 0).toFixed(2)} FCFA`,
-                    image: p.imageUrl || p.img || "https://images.unsplash.com/photo-1560343090-f0409e92791a?q=80&w=1000",
-                    category: p.mainCategoryName || "Produit"
-                })));
-            } catch {
-            }
-        };
-        if (id) {
-            load();
-        }
     }, [id]);
+
+    const collectionQuery = useQuery({
+        queryKey: ["public-partner-collection", id],
+        queryFn: () => getPublicPartnerCollection(id, { page: 0, size: 20 }),
+        enabled: Boolean(id),
+        staleTime: 60_000,
+        retry: (failureCount, error) => {
+            const status = error?.response?.status;
+            if (status === 404) {
+                return false;
+            }
+            return failureCount < 1;
+        },
+    });
+
+    useEffect(() => {
+        if (!collectionQuery.isError) return;
+        const status = collectionQuery.error?.response?.status;
+        const message = `${collectionQuery.error?.response?.data?.errorMessage || collectionQuery.error?.response?.data?.message || collectionQuery.error?.message || ""}`.toLowerCase();
+        if (status === 404 || message.includes("partner not found")) {
+            navigate("/sellers", { replace: true });
+        }
+    }, [collectionQuery.error, collectionQuery.isError, navigate]);
+
+    const seller = mapCollectionToSeller(collectionQuery.data, id);
+    const remoteProducts = mapCollectionProducts(collectionQuery.data);
+    const loadingItems = collectionQuery.isLoading;
 
     const toggleFollow = () => {
         setIsFollowing(!isFollowing);
@@ -157,7 +173,7 @@ export default function SellerDetails() {
         });
     };
 
-    if (!seller) {
+    if (collectionQuery.isLoading || !seller) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-neutral-50">
                 <div className="animate-spin w-8 h-8 border-4 border-[#6aa200] border-t-transparent rounded-full"></div>
@@ -165,9 +181,7 @@ export default function SellerDetails() {
         );
     }
 
-    const items = seller.type === 'product_seller'
-        ? (remoteProducts.length > 0 ? remoteProducts : mockProducts)
-        : mockEvents;
+    const items = seller.type === 'product_seller' ? remoteProducts : mockEvents;
     const filteredItems = items.filter((item) => {
         if (!query.trim()) return true;
         const q = query.toLowerCase();
@@ -390,6 +404,11 @@ export default function SellerDetails() {
                                     </div>
 
                                     {/* Items Grid/List */}
+                                    {loadingItems ? (
+                                        <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center text-neutral-500">
+                                            Chargement des produits...
+                                        </div>
+                                    ) : (
                                     <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3' : 'grid-cols-1'}`}>
                                         {filteredItems.map((item) => (
                                             <div 
@@ -469,6 +488,7 @@ export default function SellerDetails() {
                                             </div>
                                         ) : null}
                                     </div>
+                                    )}
                                 </motion.div>
                             )}
 

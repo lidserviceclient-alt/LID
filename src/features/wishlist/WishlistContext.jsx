@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { getAccessTokenPayload } from "@/services/auth";
-import { getCustomerWishlist, addCustomerWishlist, removeCustomerWishlist } from "@/services/customerService";
+import { addCustomerWishlist, removeCustomerWishlist } from "@/services/customerService";
+import { useCustomerSession } from "@/features/customerSession/CustomerSessionContext";
 
 const WishlistContext = createContext({
   wishlistItems: [],
@@ -50,6 +51,7 @@ const mergeWishlistItems = (localItems, remoteItems) => {
 };
 
 export function WishlistProvider({ children }) {
+  const customerSession = useCustomerSession();
   const [wishlistItems, setWishlistItems] = useState(() => {
     if (typeof window !== "undefined") {
       const savedWishlist = localStorage.getItem("wishlist");
@@ -59,6 +61,11 @@ export function WishlistProvider({ children }) {
     return [];
   });
   const [hasSynced, setHasSynced] = useState(false);
+  const remoteWishlistItems = useMemo(() => {
+    return (Array.isArray(customerSession?.wishlist) ? customerSession.wishlist : [])
+      .map(normalizeWishlistItem)
+      .filter(Boolean);
+  }, [customerSession?.wishlist]);
 
   useEffect(() => {
     localStorage.setItem("wishlist", JSON.stringify(wishlistItems));
@@ -68,12 +75,12 @@ export function WishlistProvider({ children }) {
     if (hasSynced) return;
     const payload = getAccessTokenPayload();
     if (!payload?.sub) return;
+    if (!customerSession?.canLoadCustomerSession) return;
+    if (!customerSession?.isResolved) return;
     let active = true;
     (async () => {
       try {
-        const apiItems = await getCustomerWishlist(payload.sub);
-        if (!active) return;
-        const normalizedApi = apiItems.map(normalizeWishlistItem).filter(Boolean);
+        const normalizedApi = remoteWishlistItems;
         let pendingAdds = [];
         setWishlistItems((prevItems) => {
           const normalizedLocal = prevItems.map(normalizeWishlistItem).filter(Boolean);
@@ -83,6 +90,13 @@ export function WishlistProvider({ children }) {
         for (const item of pendingAdds) {
           try {
             await addCustomerWishlist(payload.sub, item.id);
+            customerSession?.updateCustomerCollection?.((prev) => {
+              const current = Array.isArray(prev?.wishlist) ? prev.wishlist : [];
+              if (current.some((entry) => normalizeWishlistItem(entry)?.id === item.id)) {
+                return prev;
+              }
+              return { ...(prev || {}), wishlist: [...current, item] };
+            });
           } catch {
             // Ignore sync errors (offline / 403 / etc.)
           }
@@ -96,7 +110,13 @@ export function WishlistProvider({ children }) {
     return () => {
       active = false;
     };
-  }, [hasSynced]);
+  }, [customerSession, hasSynced, remoteWishlistItems]);
+
+  useEffect(() => {
+    if (!customerSession?.isResolved) return;
+    if (remoteWishlistItems.length === 0) return;
+    setWishlistItems((prevItems) => mergeWishlistItems(prevItems.map(normalizeWishlistItem).filter(Boolean), remoteWishlistItems));
+  }, [customerSession?.isResolved, remoteWishlistItems]);
 
   const addToWishlist = (product) => {
     const normalized = normalizeWishlistItem(product);
@@ -109,7 +129,17 @@ export function WishlistProvider({ children }) {
     });
     const payload = getAccessTokenPayload();
     if (payload?.sub) {
-      addCustomerWishlist(payload.sub, normalized.id).catch(() => {});
+      addCustomerWishlist(payload.sub, normalized.id)
+        .then(() => {
+          customerSession?.updateCustomerCollection?.((prev) => {
+            const current = Array.isArray(prev?.wishlist) ? prev.wishlist : [];
+            if (current.some((entry) => normalizeWishlistItem(entry)?.id === normalized.id)) {
+              return prev;
+            }
+            return { ...(prev || {}), wishlist: [...current, normalized] };
+          });
+        })
+        .catch(() => {});
     }
   };
 
@@ -117,7 +147,16 @@ export function WishlistProvider({ children }) {
     setWishlistItems((prevItems) => prevItems.filter((item) => item.id !== productId));
     const payload = getAccessTokenPayload();
     if (payload?.sub) {
-      removeCustomerWishlist(payload.sub, productId).catch(() => {});
+      removeCustomerWishlist(payload.sub, productId)
+        .then(() => {
+          customerSession?.updateCustomerCollection?.((prev) => ({
+            ...(prev || {}),
+            wishlist: (Array.isArray(prev?.wishlist) ? prev.wishlist : []).filter(
+              (entry) => normalizeWishlistItem(entry)?.id !== productId
+            ),
+          }));
+        })
+        .catch(() => {});
     }
   };
 

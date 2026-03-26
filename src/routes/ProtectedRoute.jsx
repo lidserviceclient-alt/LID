@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import Loader from '@/components/Loader';
-import { getCurrentUserPayload, getUserProfile, isAuthenticated, refreshSession } from '@/services/authService';
+import { getCachedUserProfile, getCurrentUserPayload, isAuthenticated, refreshSession } from '@/services/authService';
 
 /**
  * Composant de protection de route.
@@ -25,25 +26,17 @@ const ProtectedRoute = ({
   unverifiedPartnerRedirectTo = '/seller-join'
 }) => {
   const location = useLocation();
-  const [state, setState] = useState({
-    checking: true,
-    allowed: false,
-    roleOk: true,
-    verifiedPartnerOk: true
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      const ensureAuth = async () => {
-        if (isAuthenticated()) return true;
-        return await refreshSession();
-      };
-
-      const ok = await ensureAuth();
-      if (!ok) {
-        if (!cancelled) setState({ checking: false, allowed: false, roleOk: true });
-        return;
+  const authQuery = useQuery({
+    queryKey: ['protected-route-auth', location.pathname],
+    queryFn: async () => {
+      const allowed = isAuthenticated() ? true : await refreshSession();
+      if (!allowed) {
+        return {
+          allowed: false,
+          roleOk: true,
+          verifiedPartnerOk: true,
+          payload: null,
+        };
       }
 
       const payload = getCurrentUserPayload();
@@ -52,24 +45,30 @@ const ProtectedRoute = ({
 
       if (roleOk && requireVerifiedPartner) {
         try {
-          const profile = await getUserProfile(payload?.sub);
+          const profile = await getCachedUserProfile(payload?.sub);
           verifiedPartnerOk = `${profile?.registrationStatus || ''}`.trim().toUpperCase() === 'VERIFIED';
         } catch (_error) {
           verifiedPartnerOk = false;
         }
       }
 
-      if (!cancelled) {
-        setState({ checking: false, allowed: true, roleOk, verifiedPartnerOk });
-      }
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+      return { allowed: true, roleOk, verifiedPartnerOk, payload };
+    },
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    retry: false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
 
-  if (state.checking) {
+  const state = useMemo(() => authQuery.data || {
+    checking: true,
+    allowed: false,
+    roleOk: true,
+    verifiedPartnerOk: true,
+  }, [authQuery.data]);
+
+  if (authQuery.isLoading) {
     return <Loader />;
   }
 
