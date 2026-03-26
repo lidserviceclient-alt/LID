@@ -17,6 +17,9 @@ public class DefaultPublicAssetUrlResolver implements PublicAssetUrlResolver {
 
     private final FileStorageSelector fileStorageSelector;
 
+    @Value("${storage.cdn-base-url:}")
+    private String globalCdnBaseUrl;
+
     @Value("${storage.local.cdn-base-url:}")
     private String localCdnBaseUrl;
 
@@ -32,11 +35,17 @@ public class DefaultPublicAssetUrlResolver implements PublicAssetUrlResolver {
     @Override
     public String toPublicUrl(String objectKey) {
         String key = StoragePathUtils.normalizeObjectKey(objectKey);
-        String base = resolveBaseUrl();
+        String base = publicBaseUrl();
         return StoragePathUtils.joinPublicUrl(base, key);
     }
 
-    private String resolveBaseUrl() {
+    @Override
+    public String publicBaseUrl() {
+        String global = StoragePathUtils.normalizeBaseUrl(globalCdnBaseUrl);
+        if (global != null) {
+            return global;
+        }
+
         if (isBackblazeStorageActive()) {
             String cdnBase = StoragePathUtils.normalizeBaseUrl(backblazeCdnBaseUrl);
             if (cdnBase != null) {

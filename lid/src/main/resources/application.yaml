@@ -226,6 +226,7 @@ logging:
     org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: ERROR
 
 storage:
+  cdn-base-url: ${STORAGE_CDN_BASE_URL:}
   backblaze:
     bucket-id: ${BACKBLAZE_BUCKET_ID:}
     key-id: ${BACKBLAZE_KEY_ID:}
