@@ -16,7 +16,9 @@ const INFERRED_API_BASE_URL =
 const API_BASE_URL = ENV_API_BASE_URL || (IS_DEV && WINDOW_ORIGIN ? WINDOW_ORIGIN : INFERRED_API_BASE_URL)
 
 function buildUrl(path, params) {
-  const url = new URL(path, API_BASE_URL)
+  const normalizedBase = API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`
+  const normalizedPath = `${path || ''}`.replace(/^\/+/, '')
+  const url = new URL(normalizedPath, normalizedBase)
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value === undefined || value === null) return
