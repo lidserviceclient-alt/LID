@@ -53,12 +53,25 @@ export const logout = async () => {
 
 /**
  * Récupère le profil complet de l'utilisateur depuis l'API.
+ * Vérifie le rôle de l'utilisateur avant de requêter l'endpoint approprié.
  * @param {string} userId - L'identifiant unique de l'utilisateur (sub).
  * @returns {Promise<Object>} Les données du profil utilisateur.
  */
 export const getUserProfile = async (userId) => {
   const encodedUserId = encodeURIComponent(userId);
+  const currentUser = getCurrentUserPayload();
+  
+  // Vérifier si l'utilisateur a le rôle PARTNER
+  const hasPartnerRole = Array.isArray(currentUser?.roles) && 
+    currentUser.roles.some(r => r === "PARTNER" || r === "ROLE_PARTNER");
 
+  // Si l'utilisateur n'a pas le rôle PARTNER, récupérer directement le profil client
+  if (!hasPartnerRole) {
+    const { data } = await api.get(`/api/v1/customers/${encodedUserId}`);
+    return data;
+  }
+
+  // Si l'utilisateur a le rôle PARTNER, essayer partenaire en premier
   try {
     const { data } = await api.get(`/api/v1/partners/${encodedUserId}`);
     return data;

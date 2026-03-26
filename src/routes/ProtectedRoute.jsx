@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import Loader from '@/components/Loader';
-import { getCurrentUserPayload, isAuthenticated, refreshSession } from '@/services/authService';
+import { getCurrentUserPayload, getUserProfile, isAuthenticated, refreshSession } from '@/services/authService';
 
 /**
  * Composant de protection de route.
@@ -17,9 +17,20 @@ const hasAnyRole = (payload, requiredRoles) => {
   return required.some((rr) => userRoles.includes(rr));
 };
 
-const ProtectedRoute = ({ children, requiredRoles, forbiddenTo = '/seller-joint' }) => {
+const ProtectedRoute = ({
+  children,
+  requiredRoles,
+  forbiddenTo = '/seller-joint',
+  requireVerifiedPartner = false,
+  unverifiedPartnerRedirectTo = '/seller-join'
+}) => {
   const location = useLocation();
-  const [state, setState] = useState({ checking: true, allowed: false, roleOk: true });
+  const [state, setState] = useState({
+    checking: true,
+    allowed: false,
+    roleOk: true,
+    verifiedPartnerOk: true
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -37,7 +48,20 @@ const ProtectedRoute = ({ children, requiredRoles, forbiddenTo = '/seller-joint'
 
       const payload = getCurrentUserPayload();
       const roleOk = hasAnyRole(payload, requiredRoles);
-      if (!cancelled) setState({ checking: false, allowed: true, roleOk });
+      let verifiedPartnerOk = true;
+
+      if (roleOk && requireVerifiedPartner) {
+        try {
+          const profile = await getUserProfile(payload?.sub);
+          verifiedPartnerOk = `${profile?.registrationStatus || ''}`.trim().toUpperCase() === 'VERIFIED';
+        } catch (_error) {
+          verifiedPartnerOk = false;
+        }
+      }
+
+      if (!cancelled) {
+        setState({ checking: false, allowed: true, roleOk, verifiedPartnerOk });
+      }
     };
     run();
     return () => {
@@ -55,6 +79,10 @@ const ProtectedRoute = ({ children, requiredRoles, forbiddenTo = '/seller-joint'
 
   if (!state.roleOk) {
     return <Navigate to={forbiddenTo} replace />;
+  }
+
+  if (!state.verifiedPartnerOk) {
+    return <Navigate to={unverifiedPartnerRedirectTo} state={{ from: location }} replace />;
   }
 
   return children;

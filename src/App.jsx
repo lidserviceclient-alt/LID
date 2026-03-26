@@ -64,7 +64,7 @@ function App() {
           <Route
             path="/sel-off"
             element={
-              <ProtectedRoute requiredRoles={["PARTNER"]}>
+              <ProtectedRoute requiredRoles={["PARTNER"]} requireVerifiedPartner>
                 <BackofficeSeller />
               </ProtectedRoute>
             }
