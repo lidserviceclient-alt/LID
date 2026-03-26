@@ -14,6 +14,7 @@ import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCollectionDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCustomerDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerOrderDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerProductDto;
+import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsCollectionDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerStatsDto;
 import com.lifeevent.lid.backoffice.partner.mapper.BackOfficePartnerMapper;
@@ -24,6 +25,8 @@ import com.lifeevent.lid.backoffice.partner.preference.dto.PartnerPreferencesDto
 import com.lifeevent.lid.backoffice.partner.preference.entity.PartnerPreferences;
 import com.lifeevent.lid.backoffice.partner.preference.repository.PartnerPreferencesRepository;
 import com.lifeevent.lid.backoffice.partner.service.BackOfficePartnerService;
+import com.lifeevent.lid.catalog.dto.CatalogCategoryDto;
+import com.lifeevent.lid.catalog.service.CatalogService;
 import com.lifeevent.lid.common.cache.CacheScopeVersionService;
 import com.lifeevent.lid.common.cache.event.ProductCatalogChangedEvent;
 import com.lifeevent.lid.common.cache.CatalogCacheNames;
@@ -52,8 +55,12 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -65,6 +72,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -87,9 +95,11 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     private final PartnerPreferencesRepository partnerPreferencesRepository;
     private final BackOfficePartnerMapper mapper;
     private final BackOfficeProductMapper backOfficeProductMapper;
+    private final CatalogService catalogService;
     private final ApplicationEventPublisher eventPublisher;
     private final UserService userService;
     private final CacheScopeVersionService cacheScopeVersionService;
+    private final PlatformTransactionManager transactionManager;
     @Resource(name = "aggregatorExecutor")
     private Executor aggregatorExecutor;
 
@@ -174,7 +184,7 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     )
     public Page<BackOfficePartnerCustomerDto> getMyCustomers(int page, int size) {
         String partnerId = requireCurrentPartnerId();
-        Pageable pageable = PageRequest.of(safePage(page), safePageSize(size), Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(safePage(page), safePageSize(size));
         Page<Customer> customerPage = orderRepository.findCustomersByPartnerId(partnerId, pageable);
         Map<String, OrderRepository.CustomerOrderMetricsView> metricsByCustomer = loadMetricsByCustomerIds(customerPage.getContent());
         List<BackOfficePartnerCustomerDto> content = customerPage.getContent().stream()
@@ -192,6 +202,25 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     public BackOfficePartnerSettingsDto getMySettings() {
         Partner partner = requirePartner(requireCurrentPartnerId());
         return mapper.toSettingsDto(partner);
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_SETTINGS,
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':collection'",
+            sync = true
+    )
+    public BackOfficePartnerSettingsCollectionDto getMySettingsCollection() {
+        CompletableFuture<BackOfficePartnerSettingsDto> settingsFuture = supplyAggregationAsync(this::getMySettings);
+        CompletableFuture<PartnerPreferencesDto> preferencesFuture = supplyAggregationAsync(this::getMyPreferences);
+        CompletableFuture<List<CatalogCategoryDto>> categoriesFuture = supplyAggregationAsync(catalogService::listCategories);
+
+        CompletableFuture.allOf(settingsFuture, preferencesFuture, categoriesFuture).join();
+        return new BackOfficePartnerSettingsCollectionDto(
+                settingsFuture.join(),
+                preferencesFuture.join(),
+                categoriesFuture.join()
+        );
     }
 
     @Override
@@ -457,8 +486,22 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     }
 
     private <T> CompletableFuture<T> supplyAggregationAsync(Supplier<T> supplier) {
-        return CompletableFuture.supplyAsync(supplier, aggregatorExecutor)
-                .orTimeout(AGGREGATION_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)
+        SecurityContext capturedContext = SecurityContextHolder.getContext();
+        return CompletableFuture.supplyAsync(() -> {
+                    SecurityContext previous = SecurityContextHolder.getContext();
+                    try {
+                        SecurityContextHolder.setContext(capturedContext);
+                        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+                        tx.setReadOnly(true);
+                        return tx.execute(status -> supplier.get());
+                    } finally {
+                        SecurityContextHolder.clearContext();
+                        if (previous != null) {
+                            SecurityContextHolder.setContext(previous);
+                        }
+                    }
+                }, aggregatorExecutor)
+                .orTimeout(AGGREGATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .exceptionally(ex -> {
                     throw new RuntimeException(ex);
                 });
@@ -481,7 +524,7 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     }
 
     private List<BackOfficePartnerCustomerDto> getCustomersSlice(String partnerId, int limit) {
-        Page<Customer> page = orderRepository.findCustomersByPartnerId(partnerId, PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt")));
+        Page<Customer> page = orderRepository.findCustomersByPartnerId(partnerId, PageRequest.of(0, limit));
         Map<String, OrderRepository.CustomerOrderMetricsView> metricsByCustomer = loadMetricsByCustomerIds(page.getContent());
         return page.getContent().stream()
                 .map(customer -> mapper.toCustomerDto(customer, metricsByCustomer.get(customer.getUserId())))

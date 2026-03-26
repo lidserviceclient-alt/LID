@@ -12,7 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -27,6 +29,7 @@ public class BackOfficeLoyaltyCollectionServiceImpl implements BackOfficeLoyalty
     private static final long AGGREGATION_TIMEOUT_SECONDS = 8L;
 
     private final BackOfficeLoyaltyService backOfficeLoyaltyService;
+    private final PlatformTransactionManager transactionManager;
     @Resource(name = "aggregatorExecutor")
     private Executor aggregatorExecutor;
 
@@ -62,7 +65,11 @@ public class BackOfficeLoyaltyCollectionServiceImpl implements BackOfficeLoyalty
     }
 
     private <T> CompletableFuture<T> supplyAggregationAsync(Supplier<T> supplier) {
-        return CompletableFuture.supplyAsync(supplier, aggregatorExecutor)
+        return CompletableFuture.supplyAsync(() -> {
+                    TransactionTemplate tx = new TransactionTemplate(transactionManager);
+                    tx.setReadOnly(true);
+                    return tx.execute(status -> supplier.get());
+                }, aggregatorExecutor)
                 .orTimeout(AGGREGATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 }

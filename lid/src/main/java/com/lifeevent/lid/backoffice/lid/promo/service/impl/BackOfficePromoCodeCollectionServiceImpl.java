@@ -10,7 +10,9 @@ import com.lifeevent.lid.backoffice.lid.shop.service.BackOfficeShopService;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -26,6 +28,7 @@ public class BackOfficePromoCodeCollectionServiceImpl implements BackOfficePromo
 
     private final BackOfficePromoCodeService backOfficePromoCodeService;
     private final BackOfficeShopService backOfficeShopService;
+    private final PlatformTransactionManager transactionManager;
     @Resource(name = "aggregatorExecutor")
     private Executor aggregatorExecutor;
 
@@ -46,7 +49,11 @@ public class BackOfficePromoCodeCollectionServiceImpl implements BackOfficePromo
     }
 
     private <T> CompletableFuture<T> supplyAggregationAsync(Supplier<T> supplier) {
-        return CompletableFuture.supplyAsync(supplier, aggregatorExecutor)
+        return CompletableFuture.supplyAsync(() -> {
+                    TransactionTemplate tx = new TransactionTemplate(transactionManager);
+                    tx.setReadOnly(true);
+                    return tx.execute(status -> supplier.get());
+                }, aggregatorExecutor)
                 .orTimeout(AGGREGATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 }

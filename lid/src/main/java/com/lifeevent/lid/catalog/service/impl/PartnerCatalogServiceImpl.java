@@ -3,32 +3,49 @@ package com.lifeevent.lid.catalog.service.impl;
 import com.lifeevent.lid.article.entity.Article;
 import com.lifeevent.lid.article.enumeration.ArticleStatus;
 import com.lifeevent.lid.article.repository.ArticleRepository;
+import com.lifeevent.lid.catalog.dto.PartnerCatalogPartnerCollectionDto;
 import com.lifeevent.lid.catalog.dto.PartnerCatalogPartnerDetailsDto;
 import com.lifeevent.lid.catalog.dto.PartnerCatalogPartnerDto;
 import com.lifeevent.lid.catalog.dto.PartnerCatalogProductDto;
+import com.lifeevent.lid.catalog.dto.PartnerCatalogProductsPageDto;
 import com.lifeevent.lid.catalog.service.PartnerCatalogService;
+import com.lifeevent.lid.common.cache.CatalogCacheNames;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.common.service.PublicAssetUrlResolver;
 import com.lifeevent.lid.user.partner.entity.Partner;
 import com.lifeevent.lid.user.partner.entity.PartnerRegistrationStatus;
 import com.lifeevent.lid.user.partner.entity.Shop;
 import com.lifeevent.lid.user.partner.repository.PartnerRepository;
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PartnerCatalogServiceImpl implements PartnerCatalogService {
+    private static final long AGGREGATION_TIMEOUT_SECONDS = 8L;
 
     private final PartnerRepository partnerRepository;
     private final ArticleRepository articleRepository;
+    private final PublicAssetUrlResolver publicAssetUrlResolver;
+    private final PlatformTransactionManager transactionManager;
+    @Resource(name = "aggregatorExecutor")
+    private Executor aggregatorExecutor;
 
     @Override
     public Page<PartnerCatalogPartnerDto> listPartners(int page, int size, String q) {
@@ -49,6 +66,35 @@ public class PartnerCatalogServiceImpl implements PartnerCatalogService {
                 .orElseThrow(() -> new ResourceNotFoundException("Partner", "partnerId", partnerId));
         long products = articleRepository.countByReferencePartner(partnerId);
         return new PartnerCatalogPartnerDetailsDto(toPartnerDto(partner), products);
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_COLLECTION,
+            key = "@cacheScopeVersionService.partnerVersionToken(#partnerId) + ':public:' + #partnerId + ':p=' + #page + ':s=' + #size + ':sk=' + (#sortKey == null ? '' : #sortKey)",
+            sync = true
+    )
+    public PartnerCatalogPartnerCollectionDto getPartnerCollection(String partnerId, int page, int size, String sortKey) {
+        CompletableFuture<PartnerCatalogPartnerDetailsDto> detailsFuture =
+                supplyAggregationAsync(() -> getPartnerDetails(partnerId));
+        CompletableFuture<Page<PartnerCatalogProductDto>> productsFuture =
+                supplyAggregationAsync(() -> listPartnerProducts(partnerId, page, size, sortKey));
+
+        CompletableFuture.allOf(detailsFuture, productsFuture).join();
+
+        PartnerCatalogPartnerDetailsDto details = detailsFuture.join();
+        Page<PartnerCatalogProductDto> productsPage = productsFuture.join();
+        return new PartnerCatalogPartnerCollectionDto(
+                details.partner(),
+                details.products(),
+                new PartnerCatalogProductsPageDto(
+                        productsPage.getContent(),
+                        productsPage.getNumber(),
+                        productsPage.getSize(),
+                        productsPage.getTotalElements(),
+                        productsPage.getTotalPages()
+                )
+        );
     }
 
     @Override
@@ -75,8 +121,8 @@ public class PartnerCatalogServiceImpl implements PartnerCatalogService {
                 shop == null ? null : shop.getShopId(),
                 shop == null ? null : shop.getShopName(),
                 shop == null ? null : shop.getShopDescription(),
-                shop == null ? null : shop.getLogoUrl(),
-                shop == null ? null : shop.getBackgroundUrl(),
+                shop == null ? null : toPublicAssetUrl(shop.getLogoUrl()),
+                shop == null ? null : toPublicAssetUrl(shop.getBackgroundUrl()),
                 shop == null || shop.getMainCategory() == null ? null : shop.getMainCategory().getId(),
                 shop == null || shop.getMainCategory() == null ? null : shop.getMainCategory().getName(),
                 partner.getCity(),
@@ -116,11 +162,32 @@ public class PartnerCatalogServiceImpl implements PartnerCatalogService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    private String toPublicAssetUrl(String value) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            return null;
+        }
+        String lower = normalized.toLowerCase(Locale.ROOT);
+        if (lower.startsWith("http://") || lower.startsWith("https://") || normalized.startsWith("/")) {
+            return normalized;
+        }
+        return publicAssetUrlResolver.toPublicUrl(normalized);
+    }
+
     private SearchQuery buildSearchQuery(String q) {
         String normalized = normalize(q);
         boolean empty = normalized == null;
         String pattern = empty ? null : "%" + normalized.toLowerCase(Locale.ROOT) + "%";
         return new SearchQuery(pattern, empty);
+    }
+
+    private <T> CompletableFuture<T> supplyAggregationAsync(Supplier<T> supplier) {
+        return CompletableFuture.supplyAsync(() -> {
+                    TransactionTemplate tx = new TransactionTemplate(transactionManager);
+                    tx.setReadOnly(true);
+                    return tx.execute(status -> supplier.get());
+                }, aggregatorExecutor)
+                .orTimeout(AGGREGATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     private record SearchQuery(String pattern, boolean empty) {

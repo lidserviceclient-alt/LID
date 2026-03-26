@@ -7,6 +7,7 @@ import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCustomerDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerOrderDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerProductDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
+import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsCollectionDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerStatsDto;
 import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderDetailDto;
 import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderUpdateRequest;
@@ -62,6 +63,12 @@ public class BackOfficePartnerController implements IBackOfficePartnerController
     @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
     public ResponseEntity<BackOfficePartnerSettingsDto> getSettings() {
         return ResponseEntity.ok(backOfficePartnerService.getMySettings());
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<BackOfficePartnerSettingsCollectionDto> getSettingsCollection() {
+        return ResponseEntity.ok(backOfficePartnerService.getMySettingsCollection());
     }
 
     @Override

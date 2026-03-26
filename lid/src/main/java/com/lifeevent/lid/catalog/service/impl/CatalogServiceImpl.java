@@ -13,6 +13,7 @@ import com.lifeevent.lid.common.cache.event.ReviewCatalogChangedEvent;
 import com.lifeevent.lid.catalog.dto.*;
 import com.lifeevent.lid.catalog.mapper.CatalogMapper;
 import com.lifeevent.lid.catalog.service.CatalogService;
+import com.lifeevent.lid.catalog.service.PartnerCatalogService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
 import com.lifeevent.lid.review.entity.ProductReview;
@@ -43,6 +44,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -75,7 +78,9 @@ public class CatalogServiceImpl implements CatalogService {
     private final BlogPostRepository blogPostRepository;
     private final TicketEventRepository ticketEventRepository;
     private final CatalogMapper catalogMapper;
+    private final PartnerCatalogService partnerCatalogService;
     private final ApplicationEventPublisher eventPublisher;
+    private final PlatformTransactionManager transactionManager;
     @Resource(name = "aggregatorExecutor")
     private Executor aggregatorExecutor;
 
@@ -401,6 +406,9 @@ public class CatalogServiceImpl implements CatalogService {
             Integer featuredCategoryLimit,
             Integer postsLimit,
             Integer ticketsLimit,
+            int partnersPage,
+            int partnersSize,
+            String partnersQ,
             int page,
             int size,
             String q,
@@ -418,6 +426,8 @@ public class CatalogServiceImpl implements CatalogService {
                 supplyCatalogAsync(() -> listLatestProducts(latestLimit));
         CompletableFuture<Page<CatalogProductDto>> productsPageFuture =
                 supplyCatalogAsync(() -> listProducts(page, size, q, category, sortKey));
+        CompletableFuture<Page<PartnerCatalogPartnerDto>> partnersPageFuture =
+                supplyCatalogAsync(() -> partnerCatalogService.listPartners(partnersPage, partnersSize, partnersQ));
         CompletableFuture<List<BlogPostDto>> postsFuture = supplyCatalogAsync(() -> listRecentPosts(postsLimit));
         CompletableFuture<List<TicketEventDto>> ticketsFuture = supplyCatalogAsync(() -> listRecentTickets(ticketsLimit));
 
@@ -428,6 +438,7 @@ public class CatalogServiceImpl implements CatalogService {
                 bestSellerProductsFuture,
                 latestProductsFuture,
                 productsPageFuture,
+                partnersPageFuture,
                 postsFuture,
                 ticketsFuture
         ).join();
@@ -438,6 +449,7 @@ public class CatalogServiceImpl implements CatalogService {
         List<CatalogProductDto> bestSellerProducts = bestSellerProductsFuture.join();
         List<CatalogProductDto> latestProducts = latestProductsFuture.join();
         Page<CatalogProductDto> productsPage = productsPageFuture.join();
+        Page<PartnerCatalogPartnerDto> partnersPageResult = partnersPageFuture.join();
         List<BlogPostDto> posts = postsFuture.join();
         List<TicketEventDto> tickets = ticketsFuture.join();
 
@@ -447,6 +459,13 @@ public class CatalogServiceImpl implements CatalogService {
                 productsPage.getSize(),
                 productsPage.getTotalElements(),
                 productsPage.getTotalPages()
+        );
+        CatalogPartnersPageDto partners = new CatalogPartnersPageDto(
+                partnersPageResult.getContent(),
+                partnersPageResult.getNumber(),
+                partnersPageResult.getSize(),
+                partnersPageResult.getTotalElements(),
+                partnersPageResult.getTotalPages()
         );
 
         CatalogProductDto heroProduct = featuredProducts.isEmpty() ? null : featuredProducts.get(0);
@@ -459,6 +478,7 @@ public class CatalogServiceImpl implements CatalogService {
                 bestSellerProducts,
                 latestProducts,
                 products,
+                partners,
                 posts,
                 tickets
         );
@@ -476,23 +496,27 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
-    public CatalogProductPageCollectionDto getProductPageCollection(Long id, Integer relatedLimit, String sortKey) {
-        CatalogProductDto product = getProduct(id);
+    public CatalogProductPageCollectionDto getProductPageCollection(Long id, int page, int size, Integer relatedLimit, String sortKey) {
+        CatalogProductDetailsDto product = getProductDetails(id);
         int safeRelatedLimit = safeRelatedLimit(relatedLimit);
         String safeSortKey = normalizeSortKeyOrDefault(sortKey, "newest");
+        int safePage = safePage(page);
+        int safeSize = safeSize(size);
 
-        List<CatalogProductDto> related = buildRelatedProducts(product, safeRelatedLimit, safeSortKey);
+        List<CatalogProductDto> related = buildRelatedProducts(product.id(), product.categorySlug(), safePage, safeSize, safeRelatedLimit, safeSortKey);
         return new CatalogProductPageCollectionDto(product, related);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public CatalogProductPageCollectionDto getProductPageCollection(String idOrReference, Integer relatedLimit, String sortKey) {
-        CatalogProductDto product = getProduct(idOrReference);
+    public CatalogProductPageCollectionDto getProductPageCollection(String idOrReference, int page, int size, Integer relatedLimit, String sortKey) {
+        CatalogProductDetailsDto product = getProductDetails(idOrReference);
         int safeRelatedLimit = safeRelatedLimit(relatedLimit);
         String safeSortKey = normalizeSortKeyOrDefault(sortKey, "newest");
+        int safePage = safePage(page);
+        int safeSize = safeSize(size);
 
-        List<CatalogProductDto> related = buildRelatedProducts(product, safeRelatedLimit, safeSortKey);
+        List<CatalogProductDto> related = buildRelatedProducts(product.id(), product.categorySlug(), safePage, safeSize, safeRelatedLimit, safeSortKey);
         return new CatalogProductPageCollectionDto(product, related);
     }
 
@@ -577,15 +601,14 @@ public class CatalogServiceImpl implements CatalogService {
         return Sort.by(Sort.Direction.DESC, "createdAt");
     }
 
-    private List<CatalogProductDto> buildRelatedProducts(CatalogProductDto product, int limit, String sortKey) {
+    private List<CatalogProductDto> buildRelatedProducts(String productId, String categorySlug, int page, int size, int limit, String sortKey) {
         List<CatalogProductDto> candidates = new ArrayList<>();
-        String categoryToken = normalize(product.categorySlug());
-        String productId = product.id();
+        String categoryToken = normalize(categorySlug);
         CompletableFuture<List<CatalogProductDto>> fallbackFuture =
-                supplyCatalogAsync(() -> listProducts(0, 80, null, null, sortKey).getContent());
+                supplyCatalogAsync(() -> listProducts(page, size, null, null, sortKey).getContent());
         CompletableFuture<List<CatalogProductDto>> categoryFuture = categoryToken == null
                 ? CompletableFuture.completedFuture(List.of())
-                : supplyCatalogAsync(() -> listProducts(0, 24, null, categoryToken, sortKey).getContent());
+                : supplyCatalogAsync(() -> listProducts(page, size, null, categoryToken, sortKey).getContent());
 
         CompletableFuture.allOf(categoryFuture, fallbackFuture).join();
 
@@ -796,7 +819,11 @@ public class CatalogServiceImpl implements CatalogService {
     ) {}
 
     private <T> CompletableFuture<T> supplyCatalogAsync(Supplier<T> supplier) {
-        return CompletableFuture.supplyAsync(supplier, aggregatorExecutor)
+        return CompletableFuture.supplyAsync(() -> {
+                    TransactionTemplate tx = new TransactionTemplate(transactionManager);
+                    tx.setReadOnly(true);
+                    return tx.execute(status -> supplier.get());
+                }, aggregatorExecutor)
                 .orTimeout(AGGREGATION_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
     }
 

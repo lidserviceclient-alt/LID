@@ -90,6 +90,9 @@ public interface CatalogService {
             Integer featuredCategoryLimit,
             Integer postsLimit,
             Integer ticketsLimit,
+            int partnersPage,
+            int partnersSize,
+            String partnersQ,
             int page,
             int size,
             String q,
@@ -99,6 +102,6 @@ public interface CatalogService {
 
     CatalogLayoutCollectionDto getLayoutCollection(Integer latestLimit);
 
-    CatalogProductPageCollectionDto getProductPageCollection(Long id, Integer relatedLimit, String sortKey);
-    CatalogProductPageCollectionDto getProductPageCollection(String idOrReference, Integer relatedLimit, String sortKey);
+    CatalogProductPageCollectionDto getProductPageCollection(Long id, int page, int size, Integer relatedLimit, String sortKey);
+    CatalogProductPageCollectionDto getProductPageCollection(String idOrReference, int page, int size, Integer relatedLimit, String sortKey);
 }

@@ -92,6 +92,9 @@ public class CatalogController implements ICatalogController {
             @RequestParam(value = "featuredCategoryLimit", required = false) Integer featuredCategoryLimit,
             @RequestParam(value = "postsLimit", required = false) Integer postsLimit,
             @RequestParam(value = "ticketsLimit", required = false) Integer ticketsLimit,
+            @RequestParam(value = "partnersPage", defaultValue = "0") int partnersPage,
+            @RequestParam(value = "partnersSize", defaultValue = "20") int partnersSize,
+            @RequestParam(value = "partnersQ", required = false) String partnersQ,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "24") int size,
             @RequestParam(value = "q", required = false) String q,
@@ -105,6 +108,9 @@ public class CatalogController implements ICatalogController {
                 featuredCategoryLimit,
                 postsLimit,
                 ticketsLimit,
+                partnersPage,
+                partnersSize,
+                partnersQ,
                 page,
                 size,
                 q,
@@ -161,10 +167,12 @@ public class CatalogController implements ICatalogController {
     @Override
     public CatalogProductPageCollectionDto getProductPageCollection(
             @PathVariable String id,
+            @RequestParam(value = "page") int page,
+            @RequestParam(value = "size") int size,
             @RequestParam(value = "relatedLimit", required = false) Integer relatedLimit,
             @RequestParam(value = "sortKey", required = false) String sortKey
     ) {
-        return catalogService.getProductPageCollection(id, relatedLimit, sortKey);
+        return catalogService.getProductPageCollection(id, page, size, relatedLimit, sortKey);
     }
 
     @GetMapping("/categories")
@@ -195,6 +203,17 @@ public class CatalogController implements ICatalogController {
     @Override
     public PartnerCatalogPartnerDetailsDto getPartner(@PathVariable String partnerId) {
         return partnerCatalogService.getPartnerDetails(partnerId);
+    }
+
+    @GetMapping("/partners/{partnerId}/collection")
+    @Override
+    public PartnerCatalogPartnerCollectionDto getPartnerCollection(
+            @PathVariable String partnerId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sortKey
+    ) {
+        return partnerCatalogService.getPartnerCollection(partnerId, page, size, sortKey);
     }
 
     @GetMapping("/partners/{partnerId}/products")

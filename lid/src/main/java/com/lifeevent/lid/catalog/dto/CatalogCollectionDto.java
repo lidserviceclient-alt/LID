@@ -13,6 +13,7 @@ public record CatalogCollectionDto(
         List<CatalogProductDto> bestSellerProducts,
         List<CatalogProductDto> latestProducts,
         CatalogProductsPageDto products,
+        CatalogPartnersPageDto partners,
         List<BlogPostDto> posts,
         List<TicketEventDto> tickets
 ) {

@@ -3,7 +3,7 @@ package com.lifeevent.lid.catalog.dto;
 import java.util.List;
 
 public record CatalogProductPageCollectionDto(
-        CatalogProductDto product,
+        CatalogProductDetailsDto product,
         List<CatalogProductDto> relatedProducts
 ) {
 }

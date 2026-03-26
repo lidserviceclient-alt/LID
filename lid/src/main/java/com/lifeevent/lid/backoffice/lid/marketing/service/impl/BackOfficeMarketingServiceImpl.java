@@ -21,7 +21,9 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -44,6 +46,7 @@ public class BackOfficeMarketingServiceImpl implements BackOfficeMarketingServic
     private final BackOfficeMarketingCampaignMapper backOfficeMarketingCampaignMapper;
     private final BackOfficeMarketingAutomationService backOfficeMarketingAutomationService;
     private final CacheScopeVersionService cacheScopeVersionService;
+    private final PlatformTransactionManager transactionManager;
     @Resource(name = "aggregatorExecutor")
     private Executor aggregatorExecutor;
 
@@ -76,7 +79,11 @@ public class BackOfficeMarketingServiceImpl implements BackOfficeMarketingServic
     }
 
     private <T> CompletableFuture<T> supplyAggregationAsync(Supplier<T> supplier) {
-        return CompletableFuture.supplyAsync(supplier, aggregatorExecutor)
+        return CompletableFuture.supplyAsync(() -> {
+                    TransactionTemplate tx = new TransactionTemplate(transactionManager);
+                    tx.setReadOnly(true);
+                    return tx.execute(status -> supplier.get());
+                }, aggregatorExecutor)
                 .orTimeout(AGGREGATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 

@@ -7,6 +7,7 @@ import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCustomerDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerOrderDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerProductDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
+import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsCollectionDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerStatsDto;
 import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderDetailDto;
 import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderUpdateRequest;
@@ -53,6 +54,9 @@ public interface IBackOfficePartnerController {
 
     @GetMapping("/settings")
     ResponseEntity<BackOfficePartnerSettingsDto> getSettings();
+
+    @GetMapping("/settings/collection")
+    ResponseEntity<BackOfficePartnerSettingsCollectionDto> getSettingsCollection();
 
     @PutMapping("/settings")
     ResponseEntity<BackOfficePartnerSettingsDto> updateSettings(@RequestBody BackOfficePartnerSettingsDto dto);

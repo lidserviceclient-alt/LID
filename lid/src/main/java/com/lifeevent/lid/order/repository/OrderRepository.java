@@ -246,14 +246,33 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     """)
     Optional<Order> findPartnerOwnedWithCustomerAndStatusHistoryById(@Param("id") Long id, @Param("partnerId") String partnerId);
 
-    @Query("""
-        SELECT DISTINCT o.customer
-        FROM Order o
-        JOIN o.articles oa
-        JOIN oa.article a
-        WHERE a.referencePartner = :partnerId
-        ORDER BY o.customer.createdAt DESC
-    """)
+    @Query(
+            value = """
+                SELECT c
+                FROM Customer c
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM Order o
+                    JOIN o.articles oa
+                    JOIN oa.article a
+                    WHERE o.customer = c
+                      AND a.referencePartner = :partnerId
+                )
+                ORDER BY c.createdAt DESC
+            """,
+            countQuery = """
+                SELECT COUNT(c)
+                FROM Customer c
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM Order o
+                    JOIN o.articles oa
+                    JOIN oa.article a
+                    WHERE o.customer = c
+                      AND a.referencePartner = :partnerId
+                )
+            """
+    )
     Page<Customer> findCustomersByPartnerId(@Param("partnerId") String partnerId, Pageable pageable);
 
     @Query("""

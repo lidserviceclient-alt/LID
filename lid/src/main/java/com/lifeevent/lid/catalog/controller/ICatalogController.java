@@ -74,6 +74,9 @@ public interface ICatalogController {
             @RequestParam(value = "featuredCategoryLimit", required = false) Integer featuredCategoryLimit,
             @RequestParam(value = "postsLimit", required = false) Integer postsLimit,
             @RequestParam(value = "ticketsLimit", required = false) Integer ticketsLimit,
+            @RequestParam(value = "partnersPage", defaultValue = "0") int partnersPage,
+            @RequestParam(value = "partnersSize", defaultValue = "20") int partnersSize,
+            @RequestParam(value = "partnersQ", required = false) String partnersQ,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "24") int size,
             @RequestParam(value = "q", required = false) String q,
@@ -111,6 +114,8 @@ public interface ICatalogController {
     @Operation(summary = "Collection page produit (détail + liés)")
     CatalogProductPageCollectionDto getProductPageCollection(
             @PathVariable String id,
+            @RequestParam(value = "page") int page,
+            @RequestParam(value = "size") int size,
             @RequestParam(value = "relatedLimit", required = false) Integer relatedLimit,
             @RequestParam(value = "sortKey", required = false) String sortKey
     );
@@ -134,6 +139,15 @@ public interface ICatalogController {
     @GetMapping("/partners/{partnerId}")
     @Operation(summary = "Détail partenaire")
     PartnerCatalogPartnerDetailsDto getPartner(@PathVariable String partnerId);
+
+    @GetMapping("/partners/{partnerId}/collection")
+    @Operation(summary = "Collection partenaire (profil + produits)")
+    PartnerCatalogPartnerCollectionDto getPartnerCollection(
+            @PathVariable String partnerId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sortKey
+    );
 
     @GetMapping("/partners/{partnerId}/products")
     @Operation(summary = "Produits d'un partenaire")

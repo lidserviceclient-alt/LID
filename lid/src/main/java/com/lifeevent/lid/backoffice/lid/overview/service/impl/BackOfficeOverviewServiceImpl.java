@@ -36,7 +36,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -75,6 +77,7 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
     private final CustomerRepository customerRepository;
     private final BackOfficePromoCodeService backOfficePromoCodeService;
     private final AuthenticationRepository authenticationRepository;
+    private final PlatformTransactionManager transactionManager;
     @Resource(name = "aggregatorExecutor")
     private Executor aggregatorExecutor;
 
@@ -157,7 +160,11 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
     }
 
     private <T> CompletableFuture<T> supplyOverviewAsync(Supplier<T> supplier) {
-        return CompletableFuture.supplyAsync(supplier, aggregatorExecutor)
+        return CompletableFuture.supplyAsync(() -> {
+                    TransactionTemplate tx = new TransactionTemplate(transactionManager);
+                    tx.setReadOnly(true);
+                    return tx.execute(status -> supplier.get());
+                }, aggregatorExecutor)
                 .orTimeout(AGGREGATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
