@@ -382,7 +382,8 @@ public class AuthService {
     private void assertBackOfficeRoleOrThrow(Authentication auth) {
         List<UserRole> roles = auth.getRoles() == null ? List.of() : auth.getRoles();
         boolean allowed = roles.contains(UserRole.ADMIN)
-                || roles.contains(UserRole.SUPER_ADMIN);
+                || roles.contains(UserRole.SUPER_ADMIN)
+                || roles.contains(UserRole.LIVREUR);
         if (!allowed) {
             throw new IllegalArgumentException("Acces refuse");
         }
