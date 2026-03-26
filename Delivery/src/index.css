@@ -1,0 +1,79 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Lexend:wght@400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    --lid-primary: #6aa200;
+    --lid-primary-dark: #4d7600;
+    --lid-bg: #F8F9FA;
+    --lid-text: #111827;
+    --lid-text-secondary: #6B7280;
+  }
+
+  body {
+    margin: 0 0 0 0;
+    font-family: 'Inter', sans-serif;
+    color: var(--lid-text);
+    background-color: var(--lid-bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Lexend', sans-serif;
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #E5E7EB;
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #D1D5DB;
+  }
+
+  /* Utilities */
+  .glass {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+  }
+
+  .card-shadow {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  }
+}
+
+@layer components {
+  .input-field {
+    @apply w-full bg-white border border-neutral-200 rounded-xl px-4 py-3.5 text-base outline-none focus:border-[#6aa200] focus:ring-1 focus:ring-[#6aa200] transition-all;
+  }
+
+  .btn-primary {
+    @apply w-full bg-black text-white font-bold py-4 rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-2;
+  }
+
+  .btn-secondary {
+    @apply w-full bg-neutral-100 text-neutral-900 font-bold py-4 rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-2;
+  }
+}

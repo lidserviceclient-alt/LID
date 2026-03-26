@@ -1,0 +1,63 @@
+import { apiRequest } from './http'
+import { getAccessToken, clearAccessToken, decodeJwt } from './auth'
+
+async function authedRequest(path, options) {
+  const token = getAccessToken()
+  if (!token) {
+    const err = new Error('Non authentifié')
+    err.status = 401
+    throw err
+  }
+  try {
+    return await apiRequest(path, { ...(options || {}), token })
+  } catch (err) {
+    if (err?.status === 401) {
+      clearAccessToken()
+    }
+    throw err
+  }
+}
+
+export function getKpis(days = 30) {
+  return authedRequest('/api/backoffice/logistics/kpis', { params: { days } })
+}
+
+export function getShipments({ page = 0, size = 20, status = '', carrier = '', q = '' } = {}) {
+  return authedRequest('/api/backoffice/logistics/shipments', {
+    params: { page, size, status, carrier, q },
+  })
+}
+
+export function getShipmentDetail(id) {
+  return authedRequest(`/api/backoffice/logistics/shipments/${encodeURIComponent(id)}`)
+}
+
+export function updateShipmentStatus(id, status) {
+  return authedRequest(`/api/backoffice/logistics/shipments/${encodeURIComponent(id)}/status`, {
+    method: 'PUT',
+    body: { status },
+  })
+}
+
+export function scanShipment(qr, { courierReference, courierName, courierPhone } = {}) {
+  const token = getAccessToken()
+  const payload = decodeJwt(token)
+  const inferredName = `${payload?.firstName || ''} ${payload?.lastName || ''}`.trim()
+  const inferredRef = payload?.email || payload?.sub || ''
+  return authedRequest('/api/backoffice/logistics/shipments/scan', {
+    method: 'POST',
+    body: {
+      qr,
+      courierReference: courierReference || inferredRef || null,
+      courierName: courierName || inferredName || null,
+      courierPhone: courierPhone || null,
+    },
+  })
+}
+
+export function confirmDelivery(id, code) {
+  return authedRequest(`/api/backoffice/logistics/shipments/${encodeURIComponent(id)}/deliver`, {
+    method: 'POST',
+    body: { code },
+  })
+}
