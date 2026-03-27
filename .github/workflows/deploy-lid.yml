@@ -121,7 +121,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
-          source: "deployment/docker-compose.yml,deployment/.env,deployment/ddl.sql,deployment/scripts/*"
+          source: "deployment/docker-compose.yml,deployment/.env,deployment/ddl.sql,deployment/scripts/**"
           target: "~/apps/lid"
           strip_components: 1
           overwrite: true
@@ -136,7 +136,7 @@ jobs:
           script: |
             set -euo pipefail
             cd ~/apps/lid
-            chmod +x ./scripts/*.sh
+            find ./scripts -type f -name "*.sh" -exec chmod +x {} +
 
             WIPE_VOLUMES="${{ inputs.wipe_volumes || 'false' }}"
             if [ "${WIPE_VOLUMES}" = "true" ]; then
