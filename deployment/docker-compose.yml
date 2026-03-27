@@ -32,7 +32,7 @@ services:
   lid-redis:
     image: redis:7.2-alpine
     restart: unless-stopped
-    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    command: redis-server --maxmemory ${REDIS_MAXMEMORY} --maxmemory-policy ${REDIS_MAXMEMORY_POLICY}
 
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
@@ -90,8 +90,10 @@ services:
       SERVER_TOMCAT_ACCEPT_COUNT: 100
 
       # ===== REDIS =====
-      SPRING_DATA_REDIS_HOST: lid-redis
-      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST}
+      SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT}
+      SPRING_DATA_REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD}
+      SPRING_DATA_REDIS_DATABASE: ${SPRING_DATA_REDIS_DATABASE}
 
       # ===== JWT =====
       APP_JWT_SECRET_KEY: ${APP_JWT_SECRET_KEY}

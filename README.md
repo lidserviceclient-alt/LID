@@ -8,6 +8,15 @@ Life Event Distribution Api repository
 - Maven Wrapper (`./mvnw`)
 - Docker + Docker Compose (pour PostgreSQL local)
 
+## Charger les variables d'environnement (commande rapide)
+Depuis la racine `lid-api/` :
+
+```bash
+set -a
+source env/.env.local
+set +a
+```
+
 ## 1) Run local rapide (H2 en mémoire)
 Depuis `lid/` :
 
@@ -54,9 +63,6 @@ Depuis `deployment/` :
 
 ```bash
 docker rm -f lid-db
-# Optionnel si tu as changé POSTGRES_USER/POSTGRES_PASSWORD et que l'ancien volume persiste :
-# docker volume rm lid-db-data
-
 docker run -d \
   --name lid-db \
   -p 55432:5432 \
