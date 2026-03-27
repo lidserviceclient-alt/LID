@@ -38,9 +38,9 @@ public class BackOfficeOrderController implements IBackOfficeOrderController {
     }
 
     @Override
-    public ResponseEntity<Page<BackOfficeOrderSummaryDto>> getOrders(int page, int size, BackOfficeOrderStatus status, String q) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeOrderSummaryDto>> getOrders(int page, int size, BackOfficeOrderStatus status, String q) {
         //throw new RuntimeException("dsdsdsds");
-        return ResponseEntity.ok(backOfficeOrderService.getOrders(PageRequest.of(page, size), status, q));
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(backOfficeOrderService.getOrders(PageRequest.of(page, size), status, q)));
     }
 
     @Override
@@ -49,13 +49,13 @@ public class BackOfficeOrderController implements IBackOfficeOrderController {
     }
 
     @Override
-    public ResponseEntity<Page<BackOfficeOrderSummaryDto>> getAllCustomersOrders(int page, int size, BackOfficeOrderStatus status, String q) {
-        return ResponseEntity.ok(backOfficeOrderService.getAllCustomersOrders(PageRequest.of(page, size), status, q));
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeOrderSummaryDto>> getAllCustomersOrders(int page, int size, BackOfficeOrderStatus status, String q) {
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(backOfficeOrderService.getAllCustomersOrders(PageRequest.of(page, size), status, q)));
     }
 
     @Override
-    public ResponseEntity<Page<BackOfficeOrderSummaryDto>> getOrdersByCustomer(String customerId, int page, int size, BackOfficeOrderStatus status) {
-        return ResponseEntity.ok(backOfficeOrderService.getOrdersByCustomer(customerId, PageRequest.of(page, size), status));
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeOrderSummaryDto>> getOrdersByCustomer(String customerId, int page, int size, BackOfficeOrderStatus status) {
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(backOfficeOrderService.getOrdersByCustomer(customerId, PageRequest.of(page, size), status)));
     }
 
     @Override

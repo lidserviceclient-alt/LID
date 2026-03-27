@@ -54,7 +54,7 @@ public interface ICustomerController {
         @ApiResponse(responseCode = "401", description = "Non autorisé"),
         @ApiResponse(responseCode = "403", description = "Accès refusé - Admin only")
     })
-    ResponseEntity<Page<CustomerDto>> getAllCustomers(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<CustomerDto>> getAllCustomers(
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Taille de page") @RequestParam(defaultValue = "10") int size
     );

@@ -35,19 +35,19 @@ public interface IBackOfficePartnerController {
     ResponseEntity<BackOfficePartnerStatsDto> getStats();
 
     @GetMapping("/products")
-    ResponseEntity<Page<BackOfficePartnerProductDto>> getProducts(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficePartnerProductDto>> getProducts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     );
 
     @GetMapping("/orders")
-    ResponseEntity<Page<BackOfficePartnerOrderDto>> getOrders(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficePartnerOrderDto>> getOrders(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     );
 
     @GetMapping("/customers")
-    ResponseEntity<Page<BackOfficePartnerCustomerDto>> getCustomers(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficePartnerCustomerDto>> getCustomers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     );
@@ -62,7 +62,7 @@ public interface IBackOfficePartnerController {
     ResponseEntity<BackOfficePartnerSettingsDto> updateSettings(@RequestBody BackOfficePartnerSettingsDto dto);
 
     @GetMapping("/products-crud")
-    ResponseEntity<Page<BackOfficeProductDto>> getProductsCrud(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeProductDto>> getProductsCrud(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     );
@@ -80,7 +80,7 @@ public interface IBackOfficePartnerController {
     ResponseEntity<Void> deleteProduct(@PathVariable Long id);
 
     @GetMapping("/orders-crud")
-    ResponseEntity<Page<BackOfficePartnerOrderDto>> listOrdersCrud(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficePartnerOrderDto>> listOrdersCrud(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     );

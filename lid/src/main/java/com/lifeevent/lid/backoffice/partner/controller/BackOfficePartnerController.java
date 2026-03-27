@@ -14,7 +14,6 @@ import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderUpdateRequest;
 import com.lifeevent.lid.backoffice.partner.preference.dto.PartnerPreferencesDto;
 import com.lifeevent.lid.backoffice.partner.service.BackOfficePartnerService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,19 +42,19 @@ public class BackOfficePartnerController implements IBackOfficePartnerController
 
     @Override
     @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
-    public ResponseEntity<Page<BackOfficePartnerProductDto>> getProducts(int page, int size) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficePartnerProductDto>> getProducts(int page, int size) {
         return ResponseEntity.ok(backOfficePartnerService.getMyProducts(page, size));
     }
 
     @Override
     @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
-    public ResponseEntity<Page<BackOfficePartnerOrderDto>> getOrders(int page, int size) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficePartnerOrderDto>> getOrders(int page, int size) {
         return ResponseEntity.ok(backOfficePartnerService.getMyOrders(page, size));
     }
 
     @Override
     @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
-    public ResponseEntity<Page<BackOfficePartnerCustomerDto>> getCustomers(int page, int size) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficePartnerCustomerDto>> getCustomers(int page, int size) {
         return ResponseEntity.ok(backOfficePartnerService.getMyCustomers(page, size));
     }
 
@@ -79,7 +78,7 @@ public class BackOfficePartnerController implements IBackOfficePartnerController
 
     @Override
     @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
-    public ResponseEntity<Page<BackOfficeProductDto>> getProductsCrud(int page, int size) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeProductDto>> getProductsCrud(int page, int size) {
         return ResponseEntity.ok(backOfficePartnerService.getMyProductsCrud(page, size));
     }
 
@@ -110,7 +109,7 @@ public class BackOfficePartnerController implements IBackOfficePartnerController
 
     @Override
     @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
-    public ResponseEntity<Page<BackOfficePartnerOrderDto>> listOrdersCrud(int page, int size) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficePartnerOrderDto>> listOrdersCrud(int page, int size) {
         return ResponseEntity.ok(backOfficePartnerService.listMyOrdersCrud(page, size));
     }
 

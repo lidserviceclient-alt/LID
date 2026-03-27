@@ -68,13 +68,13 @@ public class BackOfficeLoyaltyController implements IBackOfficeLoyaltyController
     }
 
     @Override
-    public ResponseEntity<Page<BackOfficeLoyaltyCustomerDto>> getCustomers(String q, int page, int size, Integer limit) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeLoyaltyCustomerDto>> getCustomers(String q, int page, int size, Integer limit) {
         if (limit != null) {
             List<BackOfficeLoyaltyCustomerDto> customers = backOfficeLoyaltyService.topCustomers(limit);
             PageRequest pageable = PageRequest.of(0, Math.max(1, customers.size()));
-            return ResponseEntity.ok(new PageImpl<>(customers, pageable, customers.size()));
+            return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(new PageImpl<>(customers, pageable, customers.size())));
         }
-        return ResponseEntity.ok(backOfficeLoyaltyService.searchCustomers(q, PageRequest.of(page, size)));
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(backOfficeLoyaltyService.searchCustomers(q, PageRequest.of(page, size))));
     }
 
     @Override
@@ -83,8 +83,8 @@ public class BackOfficeLoyaltyController implements IBackOfficeLoyaltyController
     }
 
     @Override
-    public ResponseEntity<Page<BackOfficeLoyaltyTransactionDto>> getTransactions(String userId, int page, int size) {
-        return ResponseEntity.ok(backOfficeLoyaltyService.getTransactions(userId, PageRequest.of(page, size)));
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeLoyaltyTransactionDto>> getTransactions(String userId, int page, int size) {
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(backOfficeLoyaltyService.getTransactions(userId, PageRequest.of(page, size))));
     }
 
     @Override

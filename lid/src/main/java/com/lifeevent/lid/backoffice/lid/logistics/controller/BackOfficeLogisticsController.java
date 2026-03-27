@@ -50,8 +50,8 @@ public class BackOfficeLogisticsController implements IBackOfficeLogisticsContro
     }
 
     @Override
-    public ResponseEntity<Page<BackOfficeShipmentDto>> getShipments(int page, int size, ShipmentStatus status, String carrier, String q) {
-        return ResponseEntity.ok(backOfficeLogisticsService.getShipments(PageRequest.of(page, size), status, carrier, q));
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeShipmentDto>> getShipments(int page, int size, ShipmentStatus status, String carrier, String q) {
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(backOfficeLogisticsService.getShipments(PageRequest.of(page, size), status, carrier, q)));
     }
 
     @Override

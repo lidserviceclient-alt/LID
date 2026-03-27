@@ -17,13 +17,13 @@ public class BackOfficeUserController implements IBackOfficeUserController {
     private final BackOfficeUserService backOfficeUserService;
 
     @Override
-    public ResponseEntity<Page<BackOfficeUserDto>> getAll(
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeUserDto>> getAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String q
     ) {
-        return ResponseEntity.ok(backOfficeUserService.getAll(PageRequest.of(page, size), role, q));
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(backOfficeUserService.getAll(PageRequest.of(page, size), role, q)));
     }
 
     @Override

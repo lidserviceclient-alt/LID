@@ -20,11 +20,11 @@ public class BackOfficeMessageController implements IBackOfficeMessageController
     private final BackOfficeMessageService backOfficeMessageService;
 
     @Override
-    public ResponseEntity<Page<BackOfficeMessageDto>> getAll(int page, int size) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeMessageDto>> getAll(int page, int size) {
         return ResponseEntity.ok(
-                backOfficeMessageService.getAll(
+                com.lifeevent.lid.common.dto.PageResponse.from(backOfficeMessageService.getAll(
                         PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
-                )
+                ))
         );
     }
 

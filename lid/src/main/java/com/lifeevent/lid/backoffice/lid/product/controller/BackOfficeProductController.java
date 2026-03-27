@@ -23,8 +23,8 @@ public class BackOfficeProductController implements IBackOfficeProductController
     private final BackOfficeProductService backOfficeProductService;
 
     @Override
-    public ResponseEntity<Page<BackOfficeProductDto>> getAll(int page, int size) {
-        return ResponseEntity.ok(backOfficeProductService.getAll(PageRequest.of(page, size)));
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeProductDto>> getAll(int page, int size) {
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(backOfficeProductService.getAll(PageRequest.of(page, size))));
     }
 
     @Override

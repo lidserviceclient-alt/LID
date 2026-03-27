@@ -28,7 +28,7 @@ public interface IBackOfficeMarketingController {
     @GetMapping("/campaigns")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les campagnes")
     @ApiResponse(responseCode = "200", description = "Liste paginée des campagnes")
-    ResponseEntity<Page<BackOfficeMarketingCampaignDto>> getCampaigns(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeMarketingCampaignDto>> getCampaigns(
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size,
             @Parameter(description = "Statut") @RequestParam(required = false) MarketingCampaignStatus status

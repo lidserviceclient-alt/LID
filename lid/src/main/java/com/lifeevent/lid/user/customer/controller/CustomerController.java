@@ -36,8 +36,8 @@ public class CustomerController implements ICustomerController {
     }
     
     @Override
-    public ResponseEntity<Page<CustomerDto>> getAllCustomers(int page, int size) {
-        return ResponseEntity.ok(customerService.getAllCustomers(PageRequest.of(page, size)));
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<CustomerDto>> getAllCustomers(int page, int size) {
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(customerService.getAllCustomers(PageRequest.of(page, size))));
     }
     
     @Override

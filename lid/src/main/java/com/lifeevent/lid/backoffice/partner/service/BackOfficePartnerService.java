@@ -12,6 +12,7 @@ import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerStatsDto;
 import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderDetailDto;
 import com.lifeevent.lid.backoffice.partner.order.dto.PartnerOrderUpdateRequest;
 import com.lifeevent.lid.backoffice.partner.preference.dto.PartnerPreferencesDto;
+import com.lifeevent.lid.common.dto.PageResponse;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
@@ -22,11 +23,11 @@ public interface BackOfficePartnerService {
 
     BackOfficePartnerStatsDto getMyStats();
 
-    Page<BackOfficePartnerProductDto> getMyProducts(int page, int size);
+    PageResponse<BackOfficePartnerProductDto> getMyProducts(int page, int size);
 
-    Page<BackOfficePartnerOrderDto> getMyOrders(int page, int size);
+    PageResponse<BackOfficePartnerOrderDto> getMyOrders(int page, int size);
 
-    Page<BackOfficePartnerCustomerDto> getMyCustomers(int page, int size);
+    PageResponse<BackOfficePartnerCustomerDto> getMyCustomers(int page, int size);
 
     BackOfficePartnerSettingsDto getMySettings();
 
@@ -34,7 +35,7 @@ public interface BackOfficePartnerService {
 
     BackOfficePartnerSettingsDto updateMySettings(BackOfficePartnerSettingsDto dto);
 
-    Page<BackOfficeProductDto> getMyProductsCrud(int page, int size);
+    PageResponse<BackOfficeProductDto> getMyProductsCrud(int page, int size);
 
     BackOfficeProductDto createMyProduct(BackOfficeProductDto dto);
 
@@ -44,7 +45,7 @@ public interface BackOfficePartnerService {
 
     void deleteMyProduct(Long id);
 
-    Page<BackOfficePartnerOrderDto> listMyOrdersCrud(int page, int size);
+    PageResponse<BackOfficePartnerOrderDto> listMyOrdersCrud(int page, int size);
 
     PartnerOrderDetailDto getMyOrder(Long id);
 

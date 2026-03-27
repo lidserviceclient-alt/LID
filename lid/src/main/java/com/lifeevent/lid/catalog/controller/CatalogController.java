@@ -21,43 +21,43 @@ public class CatalogController implements ICatalogController {
 
     @GetMapping("/featured")
     @Override
-    public Page<ArticleCatalogDto> getFeaturedArticles(
+    public com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getFeaturedArticles(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return catalogService.getFeaturedArticles(page, size);
+        return com.lifeevent.lid.common.dto.PageResponse.from(catalogService.getFeaturedArticles(page, size));
     }
 
     @GetMapping("/bestsellers")
     @Override
-    public Page<ArticleCatalogDto> getBestSellers(
+    public com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getBestSellers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return catalogService.getBestSellers(page, size);
+        return com.lifeevent.lid.common.dto.PageResponse.from(catalogService.getBestSellers(page, size));
     }
 
     @GetMapping("/flash-sales")
     @Override
-    public Page<ArticleCatalogDto> getFlashSales(
+    public com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getFlashSales(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return catalogService.getFlashSales(page, size);
+        return com.lifeevent.lid.common.dto.PageResponse.from(catalogService.getFlashSales(page, size));
     }
 
     @GetMapping("/new")
     @Override
-    public Page<ArticleCatalogDto> getNewArticles(
+    public com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getNewArticles(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return catalogService.getNewArticles(page, size);
+        return com.lifeevent.lid.common.dto.PageResponse.from(catalogService.getNewArticles(page, size));
     }
 
     @GetMapping("/search")
     @Override
-    public Page<ArticleCatalogDto> search(
+    public com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> search(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Integer categoryId,
             @RequestParam(required = false) Double minPrice,
@@ -68,19 +68,19 @@ public class CatalogController implements ICatalogController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return catalogService.search(name, categoryId, minPrice, maxPrice, featured, flashSale, bestSeller, page, size);
+        return com.lifeevent.lid.common.dto.PageResponse.from(catalogService.search(name, categoryId, minPrice, maxPrice, featured, flashSale, bestSeller, page, size));
     }
 
     @GetMapping("/products")
     @Override
-    public Page<CatalogProductDto> listProducts(
+    public com.lifeevent.lid.common.dto.PageResponse<CatalogProductDto> listProducts(
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "50") int size,
             @RequestParam(value = "q", required = false) String q,
             @RequestParam(value = "category", required = false) String category,
             @RequestParam(value = "sortKey", required = false) String sortKey
     ) {
-        return catalogService.listProducts(page, size, q, category, sortKey);
+        return com.lifeevent.lid.common.dto.PageResponse.from(catalogService.listProducts(page, size, q, category, sortKey));
     }
 
     @GetMapping("/collection")
@@ -191,12 +191,12 @@ public class CatalogController implements ICatalogController {
 
     @GetMapping("/partners")
     @Override
-    public Page<PartnerCatalogPartnerDto> listPartners(
+    public com.lifeevent.lid.common.dto.PageResponse<PartnerCatalogPartnerDto> listPartners(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String q
     ) {
-        return partnerCatalogService.listPartners(page, size, q);
+        return com.lifeevent.lid.common.dto.PageResponse.from(partnerCatalogService.listPartners(page, size, q));
     }
 
     @GetMapping("/partners/{partnerId}")
@@ -218,13 +218,13 @@ public class CatalogController implements ICatalogController {
 
     @GetMapping("/partners/{partnerId}/products")
     @Override
-    public Page<PartnerCatalogProductDto> listPartnerProducts(
+    public com.lifeevent.lid.common.dto.PageResponse<PartnerCatalogProductDto> listPartnerProducts(
             @PathVariable String partnerId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String sortKey
     ) {
-        return partnerCatalogService.listPartnerProducts(partnerId, page, size, sortKey);
+        return com.lifeevent.lid.common.dto.PageResponse.from(partnerCatalogService.listPartnerProducts(partnerId, page, size, sortKey));
     }
 
     @GetMapping("/products/{productId}/reviews")

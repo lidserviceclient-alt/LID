@@ -25,12 +25,12 @@ public class BackOfficeMarketingController implements IBackOfficeMarketingContro
     }
 
     @Override
-    public ResponseEntity<Page<BackOfficeMarketingCampaignDto>> getCampaigns(int page, int size, MarketingCampaignStatus status) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeMarketingCampaignDto>> getCampaigns(int page, int size, MarketingCampaignStatus status) {
         return ResponseEntity.ok(
-                backOfficeMarketingService.getCampaigns(
+                com.lifeevent.lid.common.dto.PageResponse.from(backOfficeMarketingService.getCampaigns(
                         PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "dateCreation")),
                         status
-                )
+                ))
         );
     }
 

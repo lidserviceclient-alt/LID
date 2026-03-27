@@ -33,50 +33,50 @@ public class ArticleController implements IArticleController {
     }
     
     @Override
-    public ResponseEntity<Page<ArticleDto>> getAllArticles(int page, int size) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> getAllArticles(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<ArticleDto> articles = articleService.getAllArticles(pageable);
-        return ResponseEntity.ok(articles);
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(articles));
     }
     
     @Override
-    public ResponseEntity<Page<ArticleDto>> searchByName(String name, int page, int size) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> searchByName(String name, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<ArticleDto> articles = articleService.searchByName(name, pageable);
-        return ResponseEntity.ok(articles);
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(articles));
     }
     
     @Override
-    public ResponseEntity<Page<ArticleDto>> getByCategory(Integer categoryId, int page, int size) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> getByCategory(Integer categoryId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<ArticleDto> articles = articleService.getByCategory(categoryId, pageable);
-        return ResponseEntity.ok(articles);
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(articles));
     }
     
     @Override
-    public ResponseEntity<Page<ArticleDto>> getByPriceRange(
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> getByPriceRange(
             Double minPrice,
             Double maxPrice,
             int page,
             int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<ArticleDto> articles = articleService.getByPriceRange(minPrice, maxPrice, pageable);
-        return ResponseEntity.ok(articles);
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(articles));
     }
     
     @Override
-    public ResponseEntity<Page<ArticleDto>> searchByNameAndCategory(
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> searchByNameAndCategory(
             String name,
             Integer categoryId,
             int page,
             int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<ArticleDto> articles = articleService.searchByNameAndCategory(name, categoryId, pageable);
-        return ResponseEntity.ok(articles);
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(articles));
     }
     
     @Override
-    public ResponseEntity<Page<ArticleDto>> searchByNameAndPrice(
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> searchByNameAndPrice(
             String name,
             Double minPrice,
             Double maxPrice,
@@ -84,11 +84,11 @@ public class ArticleController implements IArticleController {
             int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<ArticleDto> articles = articleService.searchByNameAndPrice(name, minPrice, maxPrice, pageable);
-        return ResponseEntity.ok(articles);
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(articles));
     }
     
     @Override
-    public ResponseEntity<Page<ArticleDto>> advancedSearch(
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> advancedSearch(
             String name,
             Integer categoryId,
             Double minPrice,
@@ -97,7 +97,7 @@ public class ArticleController implements IArticleController {
             int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<ArticleDto> articles = articleService.advancedSearch(name, categoryId, minPrice, maxPrice, pageable);
-        return ResponseEntity.ok(articles);
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(articles));
     }
     
     @Override

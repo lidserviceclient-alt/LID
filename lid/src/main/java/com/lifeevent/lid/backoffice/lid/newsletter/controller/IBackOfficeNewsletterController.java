@@ -15,7 +15,7 @@ public interface IBackOfficeNewsletterController {
     ResponseEntity<BackOfficeNewsletterStatsDto> getStats();
 
     @GetMapping("/subscribers")
-    ResponseEntity<Page<BackOfficeNewsletterSubscriberDto>> getSubscribers(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeNewsletterSubscriberDto>> getSubscribers(
             @RequestParam(required = false) NewsletterSubscriberStatus status,
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,

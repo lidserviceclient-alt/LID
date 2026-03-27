@@ -24,12 +24,12 @@ public class StockController implements IStockController {
     }
 
     @Override
-    public ResponseEntity<Page<StockDto>> getAllStocks(int page, int size) {
-        return ResponseEntity.ok(stockService.getAllStocks(PageRequest.of(page, size)));
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<StockDto>> getAllStocks(int page, int size) {
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(stockService.getAllStocks(PageRequest.of(page, size))));
     }
 
     @Override
-    public ResponseEntity<Page<StockDto>> getStocksByArticle(Long articleId, int page, int size) {
-        return ResponseEntity.ok(stockService.getStocksByArticleId(articleId, PageRequest.of(page, size)));
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<StockDto>> getStocksByArticle(Long articleId, int page, int size) {
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(stockService.getStocksByArticleId(articleId, PageRequest.of(page, size))));
     }
 }

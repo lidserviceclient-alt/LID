@@ -21,7 +21,7 @@ public interface IBackOfficeStockController {
     @GetMapping("/movements")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les mouvements de stock")
     @ApiResponse(responseCode = "200", description = "Liste paginée des mouvements")
-    ResponseEntity<Page<BackOfficeStockMovementDto>> getMovements(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeStockMovementDto>> getMovements(
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size,
             @Parameter(description = "Filtre SKU") @RequestParam(required = false) String sku,

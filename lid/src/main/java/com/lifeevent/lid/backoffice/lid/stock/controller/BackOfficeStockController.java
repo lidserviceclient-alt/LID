@@ -24,8 +24,8 @@ public class BackOfficeStockController implements IBackOfficeStockController {
     private final BackOfficeStockService backOfficeStockService;
 
     @Override
-    public ResponseEntity<Page<BackOfficeStockMovementDto>> getMovements(int page, int size, String sku, StockMovementType type) {
-        return ResponseEntity.ok(backOfficeStockService.getMovements(PageRequest.of(page, size), sku, type));
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeStockMovementDto>> getMovements(int page, int size, String sku, StockMovementType type) {
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(backOfficeStockService.getMovements(PageRequest.of(page, size), sku, type)));
     }
 
     @Override

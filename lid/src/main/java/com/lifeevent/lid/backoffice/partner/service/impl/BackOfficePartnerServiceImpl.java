@@ -30,6 +30,7 @@ import com.lifeevent.lid.catalog.service.CatalogService;
 import com.lifeevent.lid.common.cache.CacheScopeVersionService;
 import com.lifeevent.lid.common.cache.event.ProductCatalogChangedEvent;
 import com.lifeevent.lid.common.cache.CatalogCacheNames;
+import com.lifeevent.lid.common.dto.PageResponse;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
 import com.lifeevent.lid.order.entity.Order;
@@ -51,7 +52,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -153,15 +153,12 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
             key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':summary:p=' + #page + ':s=' + #size",
             sync = true
     )
-    public Page<BackOfficePartnerProductDto> getMyProducts(int page, int size) {
+    public PageResponse<BackOfficePartnerProductDto> getMyProducts(int page, int size) {
         String partnerId = requireCurrentPartnerId();
         Pageable pageable = PageRequest.of(safePage(page), safePageSize(size), Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Article> products = articleRepository.findByReferencePartner(partnerId, pageable);
         Map<Long, Integer> stockById = loadStockByArticleIds(products.getContent().stream().map(Article::getId).toList());
-        List<BackOfficePartnerProductDto> content = products.getContent().stream()
-                .map(article -> mapper.toProductDto(article, stockById.getOrDefault(article.getId(), 0)))
-                .toList();
-        return new PageImpl<>(content, pageable, products.getTotalElements());
+        return PageResponse.from(products.map(article -> mapper.toProductDto(article, stockById.getOrDefault(article.getId(), 0))));
     }
 
     @Override
@@ -170,10 +167,10 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
             key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':summary:p=' + #page + ':s=' + #size",
             sync = true
     )
-    public Page<BackOfficePartnerOrderDto> getMyOrders(int page, int size) {
+    public PageResponse<BackOfficePartnerOrderDto> getMyOrders(int page, int size) {
         String partnerId = requireCurrentPartnerId();
         Pageable pageable = PageRequest.of(safePage(page), safePageSize(size), Sort.by(Sort.Direction.DESC, "createdAt"));
-        return orderRepository.findByPartnerId(partnerId, pageable).map(mapper::toOrderDto);
+        return PageResponse.from(orderRepository.findByPartnerId(partnerId, pageable).map(mapper::toOrderDto));
     }
 
     @Override
@@ -182,15 +179,12 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
             key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':p=' + #page + ':s=' + #size",
             sync = true
     )
-    public Page<BackOfficePartnerCustomerDto> getMyCustomers(int page, int size) {
+    public PageResponse<BackOfficePartnerCustomerDto> getMyCustomers(int page, int size) {
         String partnerId = requireCurrentPartnerId();
         Pageable pageable = PageRequest.of(safePage(page), safePageSize(size));
         Page<Customer> customerPage = orderRepository.findCustomersByPartnerId(partnerId, pageable);
         Map<String, OrderRepository.CustomerOrderMetricsView> metricsByCustomer = loadMetricsByCustomerIds(customerPage.getContent());
-        List<BackOfficePartnerCustomerDto> content = customerPage.getContent().stream()
-                .map(customer -> mapper.toCustomerDto(customer, metricsByCustomer.get(customer.getUserId())))
-                .toList();
-        return new PageImpl<>(content, pageable, customerPage.getTotalElements());
+        return PageResponse.from(customerPage.map(customer -> mapper.toCustomerDto(customer, metricsByCustomer.get(customer.getUserId()))));
     }
 
     @Override
@@ -269,12 +263,12 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
             key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':crud:p=' + #page + ':s=' + #size",
             sync = true
     )
-    public Page<BackOfficeProductDto> getMyProductsCrud(int page, int size) {
+    public PageResponse<BackOfficeProductDto> getMyProductsCrud(int page, int size) {
         String partnerId = requireCurrentPartnerId();
         Pageable pageable = PageRequest.of(safePage(page), safePageSize(size), Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Article> articles = articleRepository.findByReferencePartner(partnerId, pageable);
         Map<Long, Integer> stockById = loadStockByArticleIds(articles.getContent().stream().map(Article::getId).toList());
-        return articles.map(article -> toCrudDto(article, stockById.getOrDefault(article.getId(), 0)));
+        return PageResponse.from(articles.map(article -> toCrudDto(article, stockById.getOrDefault(article.getId(), 0))));
     }
 
     @Override
@@ -333,7 +327,7 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
             key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':crud:p=' + #page + ':s=' + #size",
             sync = true
     )
-    public Page<BackOfficePartnerOrderDto> listMyOrdersCrud(int page, int size) {
+    public PageResponse<BackOfficePartnerOrderDto> listMyOrdersCrud(int page, int size) {
         return getMyOrders(page, size);
     }
 

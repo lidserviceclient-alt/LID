@@ -16,7 +16,7 @@ public interface IBackOfficeCustomerController {
     @GetMapping
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les clients")
     @ApiResponse(responseCode = "200", description = "Liste paginée des clients")
-    ResponseEntity<Page<BackOfficeCustomerDto>> getAll(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeCustomerDto>> getAll(
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size
     );

@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface IBackOfficeNotificationController {
 
     @GetMapping
-    ResponseEntity<Page<BackOfficeNotificationActivityDto>> getNotifications(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeNotificationActivityDto>> getNotifications(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String since

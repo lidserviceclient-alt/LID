@@ -33,7 +33,7 @@ public interface IBackOfficeOrderController {
     @GetMapping
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les commandes")
     @ApiResponse(responseCode = "200", description = "Liste paginée des commandes")
-    ResponseEntity<Page<BackOfficeOrderSummaryDto>> getOrders(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeOrderSummaryDto>> getOrders(
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size,
             @Parameter(description = "Statut") @RequestParam(required = false) BackOfficeOrderStatus status,
@@ -45,7 +45,7 @@ public interface IBackOfficeOrderController {
 
     @GetMapping("/customers/orders")
     @ApiResponse(responseCode = "200", description = "Liste paginée des commandes tous clients")
-    ResponseEntity<Page<BackOfficeOrderSummaryDto>> getAllCustomersOrders(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeOrderSummaryDto>> getAllCustomersOrders(
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size,
             @Parameter(description = "Statut") @RequestParam(required = false) BackOfficeOrderStatus status,
@@ -54,7 +54,7 @@ public interface IBackOfficeOrderController {
 
     @GetMapping("/customers/{customerId}/orders")
     @ApiResponse(responseCode = "200", description = "Liste paginée des commandes d'un client")
-    ResponseEntity<Page<BackOfficeOrderSummaryDto>> getOrdersByCustomer(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeOrderSummaryDto>> getOrdersByCustomer(
             @Parameter(description = "ID client", required = true) @PathVariable String customerId,
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size,

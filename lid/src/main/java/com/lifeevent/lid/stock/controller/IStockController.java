@@ -33,7 +33,7 @@ public interface IStockController {
     @GetMapping
     @Operation(summary = "Lister les stocks", description = "Récupère tous les stocks")
     @ApiResponse(responseCode = "200", description = "Liste des stocks")
-    ResponseEntity<Page<StockDto>> getAllStocks(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<StockDto>> getAllStocks(
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size
     );
@@ -41,7 +41,7 @@ public interface IStockController {
     @GetMapping("/article/{articleId}")
     @Operation(summary = "Lister les stocks d'un article", description = "Récupère les stocks associés à un article")
     @ApiResponse(responseCode = "200", description = "Liste des stocks de l'article")
-    ResponseEntity<Page<StockDto>> getStocksByArticle(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<StockDto>> getStocksByArticle(
             @Parameter(description = "ID de l'article", required = true) @PathVariable Long articleId,
             @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size

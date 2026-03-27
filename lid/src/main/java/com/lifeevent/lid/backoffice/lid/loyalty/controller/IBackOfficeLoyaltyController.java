@@ -69,7 +69,7 @@ public interface IBackOfficeLoyaltyController {
     ResponseEntity<Void> deleteTier(@PathVariable Long id);
 
     @GetMapping("/customers")
-    ResponseEntity<Page<BackOfficeLoyaltyCustomerDto>> getCustomers(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeLoyaltyCustomerDto>> getCustomers(
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -80,7 +80,7 @@ public interface IBackOfficeLoyaltyController {
     ResponseEntity<BackOfficeLoyaltyCustomerDto> getCustomer(@PathVariable String userId);
 
     @GetMapping("/customers/{userId}/transactions")
-    ResponseEntity<Page<BackOfficeLoyaltyTransactionDto>> getTransactions(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeLoyaltyTransactionDto>> getTransactions(
             @PathVariable String userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size

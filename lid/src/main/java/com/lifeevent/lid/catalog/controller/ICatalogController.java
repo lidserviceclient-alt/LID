@@ -15,35 +15,35 @@ public interface ICatalogController {
 
     @GetMapping("/featured")
     @Operation(summary = "Articles featured")
-    Page<ArticleCatalogDto> getFeaturedArticles(
+    com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getFeaturedArticles(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     );
 
     @GetMapping("/bestsellers")
     @Operation(summary = "Articles bestsellers")
-    Page<ArticleCatalogDto> getBestSellers(
+    com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getBestSellers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     );
 
     @GetMapping("/flash-sales")
     @Operation(summary = "Articles flash sales")
-    Page<ArticleCatalogDto> getFlashSales(
+    com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getFlashSales(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     );
 
     @GetMapping("/new")
     @Operation(summary = "Nouveautés")
-    Page<ArticleCatalogDto> getNewArticles(
+    com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getNewArticles(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     );
 
     @GetMapping("/search")
     @Operation(summary = "Recherche catalogue")
-    Page<ArticleCatalogDto> search(
+    com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> search(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Integer categoryId,
             @RequestParam(required = false) Double minPrice,
@@ -57,7 +57,7 @@ public interface ICatalogController {
 
     @GetMapping("/products")
     @Operation(summary = "Lister les produits")
-    Page<CatalogProductDto> listProducts(
+    com.lifeevent.lid.common.dto.PageResponse<CatalogProductDto> listProducts(
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "50") int size,
             @RequestParam(value = "q", required = false) String q,
@@ -130,7 +130,7 @@ public interface ICatalogController {
 
     @GetMapping("/partners")
     @Operation(summary = "Lister les partenaires")
-    Page<PartnerCatalogPartnerDto> listPartners(
+    com.lifeevent.lid.common.dto.PageResponse<PartnerCatalogPartnerDto> listPartners(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String q
@@ -151,7 +151,7 @@ public interface ICatalogController {
 
     @GetMapping("/partners/{partnerId}/products")
     @Operation(summary = "Produits d'un partenaire")
-    Page<PartnerCatalogProductDto> listPartnerProducts(
+    com.lifeevent.lid.common.dto.PageResponse<PartnerCatalogProductDto> listPartnerProducts(
             @PathVariable String partnerId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,

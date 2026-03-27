@@ -27,9 +27,9 @@ public class BackOfficeNewsletterController implements IBackOfficeNewsletterCont
     }
 
     @Override
-    public ResponseEntity<Page<BackOfficeNewsletterSubscriberDto>> getSubscribers(NewsletterSubscriberStatus status, String q, int page, int size) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeNewsletterSubscriberDto>> getSubscribers(NewsletterSubscriberStatus status, String q, int page, int size) {
         PageRequest pageable = PageRequest.of(Math.max(0, page), Math.max(size, 1), Sort.by(Sort.Direction.DESC, "createdAt"));
-        return ResponseEntity.ok(backOfficeNewsletterService.getSubscribers(status, q, pageable));
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(backOfficeNewsletterService.getSubscribers(status, q, pageable)));
     }
 
     @Override

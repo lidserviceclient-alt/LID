@@ -19,8 +19,8 @@ public class BackOfficeReturnRequestController implements IBackOfficeReturnReque
     private final BackOfficeReturnRequestService backOfficeReturnRequestService;
 
     @Override
-    public ResponseEntity<Page<BackOfficeReturnRequestDto>> getAll(ReturnRequestStatus status, String q, int page, int size) {
-        return ResponseEntity.ok(backOfficeReturnRequestService.getAll(status, q, PageRequest.of(page, size)));
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeReturnRequestDto>> getAll(ReturnRequestStatus status, String q, int page, int size) {
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(backOfficeReturnRequestService.getAll(status, q, PageRequest.of(page, size))));
     }
 
     @Override

@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface IBackOfficeReturnRequestController {
 
     @GetMapping
-    ResponseEntity<Page<BackOfficeReturnRequestDto>> getAll(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeReturnRequestDto>> getAll(
             @Parameter(description = "Statut") @RequestParam(value = "status", required = false) ReturnRequestStatus status,
             @Parameter(description = "Recherche") @RequestParam(value = "q", required = false) String q,
             @Parameter(description = "Page (0..N)") @RequestParam(value = "page", defaultValue = "0") int page,

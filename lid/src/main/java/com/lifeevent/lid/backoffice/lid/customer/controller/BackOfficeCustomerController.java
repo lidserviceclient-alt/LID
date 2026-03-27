@@ -17,8 +17,8 @@ public class BackOfficeCustomerController implements IBackOfficeCustomerControll
     private final BackOfficeCustomerService backOfficeCustomerService;
 
     @Override
-    public ResponseEntity<Page<BackOfficeCustomerDto>> getAll(int page, int size) {
-        return ResponseEntity.ok(backOfficeCustomerService.getAll(PageRequest.of(page, size)));
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeCustomerDto>> getAll(int page, int size) {
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(backOfficeCustomerService.getAll(PageRequest.of(page, size))));
     }
 
     @Override

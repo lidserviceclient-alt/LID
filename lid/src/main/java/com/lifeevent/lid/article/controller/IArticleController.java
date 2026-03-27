@@ -53,7 +53,7 @@ public interface IArticleController {
             responseCode = "200",
             description = "Liste paginée des articles"
     )
-    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> getAllArticles(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> getAllArticles(
             @Parameter(description = "Numéro de page (commençant à 0)", example = "0")
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Nombre d'articles par page", example = "20")
@@ -64,7 +64,7 @@ public interface IArticleController {
     @Operation(summary = "Rechercher des articles par nom",
             description = "Effectue une recherche paginée des articles par nom (PUBLIC)")
     @ApiResponse(responseCode = "200", description = "Résultats de la recherche paginés")
-    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> searchByName(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> searchByName(
             @Parameter(description = "Nom de l'article à rechercher", required = true)
             @RequestParam String name,
             @Parameter(description = "Numéro de page (commençant à 0)", example = "0")
@@ -77,7 +77,7 @@ public interface IArticleController {
     @Operation(summary = "Récupérer les articles d'une catégorie",
             description = "Récupère les articles paginés d'une catégorie spécifique (PUBLIC)")
     @ApiResponse(responseCode = "200", description = "Articles de la catégorie paginés")
-    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> getByCategory(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> getByCategory(
             @Parameter(description = "ID de la catégorie", required = true)
             @PathVariable Integer categoryId,
             @Parameter(description = "Numéro de page (commençant à 0)", example = "0")
@@ -90,7 +90,7 @@ public interface IArticleController {
     @Operation(summary = "Rechercher des articles par prix",
             description = "Effectue une recherche paginée des articles dans une plage de prix")
     @ApiResponse(responseCode = "200", description = "Articles correspondant au critère paginés")
-    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> getByPriceRange(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> getByPriceRange(
             @Parameter(description = "Prix minimum", required = true)
             @RequestParam Double minPrice,
             @Parameter(description = "Prix maximum", required = true)
@@ -105,7 +105,7 @@ public interface IArticleController {
     @Operation(summary = "Rechercher par nom et catégorie",
             description = "Effectue une recherche paginée des articles par nom et catégorie")
     @ApiResponse(responseCode = "200", description = "Articles correspondant aux critères paginés")
-    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> searchByNameAndCategory(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> searchByNameAndCategory(
             @Parameter(description = "Nom de l'article", required = true)
             @RequestParam String name,
             @Parameter(description = "ID de la catégorie", required = true)
@@ -120,7 +120,7 @@ public interface IArticleController {
     @Operation(summary = "Rechercher par nom et prix",
             description = "Effectue une recherche paginée des articles par nom et plage de prix")
     @ApiResponse(responseCode = "200", description = "Articles correspondant aux critères paginés")
-    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> searchByNameAndPrice(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> searchByNameAndPrice(
             @Parameter(description = "Nom de l'article", required = true)
             @RequestParam String name,
             @Parameter(description = "Prix minimum", required = true)
@@ -137,7 +137,7 @@ public interface IArticleController {
     @Operation(summary = "Recherche avancée d'articles",
             description = "Effectue une recherche paginée avancée avec filtres optionnels")
     @ApiResponse(responseCode = "200", description = "Articles correspondant aux critères paginés")
-    ResponseEntity<org.springframework.data.domain.Page<ArticleDto>> advancedSearch(
+    ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<ArticleDto>> advancedSearch(
             @Parameter(description = "Nom de l'article (optionnel)")
             @RequestParam(required = false) String name,
             @Parameter(description = "ID de la catégorie (optionnel)")

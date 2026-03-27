@@ -24,11 +24,11 @@ public class BackOfficeNotificationController implements IBackOfficeNotification
     private final SecurityActivityRepository securityActivityRepository;
 
     @Override
-    public ResponseEntity<Page<BackOfficeNotificationActivityDto>> getNotifications(int page, int size, String since) {
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeNotificationActivityDto>> getNotifications(int page, int size, String since) {
         Pageable pageable = PageRequest.of(safePage(page), safeSize(size));
         LocalDateTime sinceDt = parseSince(since);
         Page<BackOfficeNotificationActivityDto> payload = loadActivities(sinceDt, pageable).map(this::toDto);
-        return ResponseEntity.ok(payload);
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(payload));
     }
 
     @Override
