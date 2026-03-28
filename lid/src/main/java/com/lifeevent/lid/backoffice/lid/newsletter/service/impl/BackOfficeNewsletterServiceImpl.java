@@ -1,8 +1,12 @@
 package com.lifeevent.lid.backoffice.lid.newsletter.service.impl;
 
 import com.lifeevent.lid.backoffice.lid.newsletter.dto.BackOfficeNewsletterStatsDto;
+import com.lifeevent.lid.backoffice.lid.newsletter.dto.BackOfficeNewsletterCollectionDto;
 import com.lifeevent.lid.backoffice.lid.newsletter.dto.BackOfficeNewsletterSubscriberDto;
 import com.lifeevent.lid.backoffice.lid.newsletter.service.BackOfficeNewsletterService;
+import com.lifeevent.lid.common.cache.CacheScopeVersionService;
+import com.lifeevent.lid.common.cache.CatalogCacheNames;
+import com.lifeevent.lid.common.dto.PageResponse;
 import com.lifeevent.lid.newsletter.entity.NewsletterSubscriber;
 import com.lifeevent.lid.newsletter.enumeration.NewsletterSubscriberSource;
 import com.lifeevent.lid.newsletter.enumeration.NewsletterSubscriberStatus;
@@ -11,6 +15,9 @@ import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,9 +37,25 @@ public class BackOfficeNewsletterServiceImpl implements BackOfficeNewsletterServ
     private static final long AGGREGATION_TIMEOUT_SECONDS = 8L;
 
     private final NewsletterSubscriberRepository newsletterSubscriberRepository;
+    private final CacheScopeVersionService cacheScopeVersionService;
     private final PlatformTransactionManager transactionManager;
     @Resource(name = "aggregatorExecutor")
     private Executor aggregatorExecutor;
+
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.BACKOFFICE_NEWSLETTER_COLLECTION,
+            key = "@cacheScopeVersionService.marketingVersion() + ':' + (#status == null ? 'ALL' : #status.name()) + ':' + (#q == null ? '' : #q.trim().toLowerCase()) + ':' + #page + ':' + #size",
+            sync = true
+    )
+    public BackOfficeNewsletterCollectionDto getCollection(NewsletterSubscriberStatus status, String q, int page, int size) {
+        PageRequest pageable = PageRequest.of(Math.max(0, page), Math.max(size, 1), Sort.by(Sort.Direction.DESC, "createdAt"));
+        return new BackOfficeNewsletterCollectionDto(
+                getStats(),
+                PageResponse.from(getSubscribers(status, q, pageable))
+        );
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -87,6 +110,7 @@ public class BackOfficeNewsletterServiceImpl implements BackOfficeNewsletterServ
         subscriber.setUnsubscribedAt(null);
 
         NewsletterSubscriber saved = newsletterSubscriberRepository.save(subscriber);
+        cacheScopeVersionService.bumpMarketing();
         return toDto(saved);
     }
 
@@ -96,6 +120,7 @@ public class BackOfficeNewsletterServiceImpl implements BackOfficeNewsletterServ
             throw new IllegalArgumentException("Abonné introuvable");
         }
         newsletterSubscriberRepository.deleteById(id);
+        cacheScopeVersionService.bumpMarketing();
     }
 
     @Override
@@ -109,6 +134,7 @@ public class BackOfficeNewsletterServiceImpl implements BackOfficeNewsletterServ
         }
 
         NewsletterSubscriber saved = newsletterSubscriberRepository.save(subscriber);
+        cacheScopeVersionService.bumpMarketing();
         return toDto(saved);
     }
 

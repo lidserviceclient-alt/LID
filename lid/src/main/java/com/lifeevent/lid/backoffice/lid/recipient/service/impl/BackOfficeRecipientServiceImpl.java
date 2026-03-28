@@ -29,15 +29,16 @@ public class BackOfficeRecipientServiceImpl implements BackOfficeRecipientServic
 
     @Override
     @Transactional(readOnly = true)
-    public List<String> getRecipientEmails(Segment segment, List<UserRole> roles, String query, Integer limit) {
+    public List<String> getRecipientEmails(Segment segment, List<String> roles, String query, Integer limit) {
         Segment safeSegment = segment == null ? Segment.CLIENT : segment;
         String safeQuery = normalizeQuery(query);
         int safeLimit = normalizeLimit(limit);
+        List<UserRole> parsedRoles = parseRoles(roles);
 
         List<String> raw = switch (safeSegment) {
             case VISITOR -> getVisitorEmails(safeQuery, safeLimit);
             case CLIENT -> getRoleBasedEmails(List.of(UserRole.CUSTOMER), safeQuery, safeLimit);
-            case TEAM -> getRoleBasedEmails(resolveTeamRoles(roles), safeQuery, safeLimit);
+            case TEAM -> getRoleBasedEmails(resolveTeamRoles(parsedRoles), safeQuery, safeLimit);
         };
 
         return normalizeEmails(raw, safeLimit);
@@ -85,6 +86,35 @@ public class BackOfficeRecipientServiceImpl implements BackOfficeRecipientServic
                 UserRole.LIVREUR,
                 UserRole.PARTNER
         );
+    }
+
+    private List<UserRole> parseRoles(List<String> rawRoles) {
+        if (rawRoles == null || rawRoles.isEmpty()) {
+            return List.of();
+        }
+        List<UserRole> parsed = new ArrayList<>();
+        for (String raw : rawRoles) {
+            UserRole role = parseRole(raw);
+            if (role != null && !parsed.contains(role)) {
+                parsed.add(role);
+            }
+        }
+        return parsed;
+    }
+
+    private UserRole parseRole(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String normalized = raw.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "PARTENAIRE", "PARTNER" -> UserRole.PARTNER;
+            case "CLIENT", "CUSTOMER" -> UserRole.CUSTOMER;
+            case "LIVREUR" -> UserRole.LIVREUR;
+            case "ADMIN" -> UserRole.ADMIN;
+            case "SUPER_ADMIN" -> UserRole.SUPER_ADMIN;
+            default -> null;
+        };
     }
 
     private List<String> normalizeEmails(List<String> emails, int limit) {

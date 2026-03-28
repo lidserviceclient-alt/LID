@@ -111,6 +111,10 @@ config:
       backoffice-finance-overview-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_FINANCE_OVERVIEW_TTL_MINUTES:1}
       backoffice-finance-transactions-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_FINANCE_TRANSACTIONS_TTL_MINUTES:1}
       backoffice-marketing-overview-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_MARKETING_OVERVIEW_TTL_MINUTES:2}
+      backoffice-newsletter-collection-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_NEWSLETTER_COLLECTION_TTL_MINUTES:1}
+      backoffice-products-collection-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_PRODUCTS_COLLECTION_TTL_MINUTES:1}
+      backoffice-inventory-collection-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_INVENTORY_COLLECTION_TTL_MINUTES:1}
+      backoffice-customers-collection-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_CUSTOMERS_COLLECTION_TTL_MINUTES:1}
       backoffice-loyalty-overview-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_LOYALTY_OVERVIEW_TTL_MINUTES:2}
       backoffice-loyalty-tiers-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_LOYALTY_TIERS_TTL_MINUTES:5}
       backoffice-loyalty-top-customers-ttl-minutes: ${CATALOG_CACHE_BACKOFFICE_LOYALTY_TOP_CUSTOMERS_TTL_MINUTES:2}
@@ -119,6 +123,10 @@ config:
       backoffice-finance-overview-max-size: ${CATALOG_CACHE_BACKOFFICE_FINANCE_OVERVIEW_MAX_SIZE:200}
       backoffice-finance-transactions-max-size: ${CATALOG_CACHE_BACKOFFICE_FINANCE_TRANSACTIONS_MAX_SIZE:500}
       backoffice-marketing-overview-max-size: ${CATALOG_CACHE_BACKOFFICE_MARKETING_OVERVIEW_MAX_SIZE:200}
+      backoffice-newsletter-collection-max-size: ${CATALOG_CACHE_BACKOFFICE_NEWSLETTER_COLLECTION_MAX_SIZE:500}
+      backoffice-products-collection-max-size: ${CATALOG_CACHE_BACKOFFICE_PRODUCTS_COLLECTION_MAX_SIZE:500}
+      backoffice-inventory-collection-max-size: ${CATALOG_CACHE_BACKOFFICE_INVENTORY_COLLECTION_MAX_SIZE:500}
+      backoffice-customers-collection-max-size: ${CATALOG_CACHE_BACKOFFICE_CUSTOMERS_COLLECTION_MAX_SIZE:500}
       backoffice-loyalty-overview-max-size: ${CATALOG_CACHE_BACKOFFICE_LOYALTY_OVERVIEW_MAX_SIZE:200}
       backoffice-loyalty-tiers-max-size: ${CATALOG_CACHE_BACKOFFICE_LOYALTY_TIERS_MAX_SIZE:200}
       backoffice-loyalty-top-customers-max-size: ${CATALOG_CACHE_BACKOFFICE_LOYALTY_TOP_CUSTOMERS_MAX_SIZE:500}

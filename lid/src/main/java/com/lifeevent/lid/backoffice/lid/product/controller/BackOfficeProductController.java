@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.lid.product.controller;
 
 import com.lifeevent.lid.backoffice.lid.product.dto.BackOfficeProductDto;
+import com.lifeevent.lid.backoffice.lid.product.dto.BackOfficeProductCollectionDto;
 import com.lifeevent.lid.backoffice.lid.product.dto.BulkProductCreateRequest;
 import com.lifeevent.lid.backoffice.lid.product.dto.BulkProductDeleteRequest;
 import com.lifeevent.lid.backoffice.lid.product.dto.BulkProductDeleteResponse;
@@ -21,6 +22,11 @@ import java.util.List;
 public class BackOfficeProductController implements IBackOfficeProductController {
 
     private final BackOfficeProductService backOfficeProductService;
+
+    @Override
+    public ResponseEntity<BackOfficeProductCollectionDto> getCollection(int page, int size) {
+        return ResponseEntity.ok(backOfficeProductService.getCollection(page, size));
+    }
 
     @Override
     public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeProductDto>> getAll(int page, int size) {

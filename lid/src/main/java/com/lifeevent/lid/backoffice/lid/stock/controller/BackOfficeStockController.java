@@ -1,5 +1,6 @@
 package com.lifeevent.lid.backoffice.lid.stock.controller;
 
+import com.lifeevent.lid.backoffice.lid.stock.dto.BackOfficeInventoryCollectionDto;
 import com.lifeevent.lid.backoffice.lid.stock.dto.BackOfficeStockMovementDto;
 import com.lifeevent.lid.backoffice.lid.stock.dto.CreateStockMovementRequest;
 import com.lifeevent.lid.backoffice.lid.stock.service.BackOfficeStockService;
@@ -22,6 +23,25 @@ import org.springframework.web.bind.annotation.*;
 public class BackOfficeStockController implements IBackOfficeStockController {
 
     private final BackOfficeStockService backOfficeStockService;
+
+    @Override
+    public ResponseEntity<BackOfficeInventoryCollectionDto> getCollection(
+            int productsPage,
+            int productsSize,
+            int movementsPage,
+            int movementsSize,
+            String sku,
+            StockMovementType type
+    ) {
+        return ResponseEntity.ok(backOfficeStockService.getCollection(
+                productsPage,
+                productsSize,
+                movementsPage,
+                movementsSize,
+                sku,
+                type
+        ));
+    }
 
     @Override
     public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeStockMovementDto>> getMovements(int page, int size, String sku, StockMovementType type) {

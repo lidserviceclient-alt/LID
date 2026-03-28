@@ -5,6 +5,8 @@ import com.lifeevent.lid.article.entity.Category;
 import com.lifeevent.lid.article.enumeration.ArticleStatus;
 import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.article.repository.CategoryRepository;
+import com.lifeevent.lid.backoffice.lid.category.service.BackOfficeCategoryService;
+import com.lifeevent.lid.backoffice.lid.product.dto.BackOfficeProductCollectionDto;
 import com.lifeevent.lid.backoffice.lid.product.dto.BackOfficeProductDto;
 import com.lifeevent.lid.backoffice.lid.product.dto.BulkProductDeleteResponse;
 import com.lifeevent.lid.backoffice.lid.product.dto.BulkProductResult;
@@ -12,13 +14,17 @@ import com.lifeevent.lid.backoffice.lid.product.dto.BulkProductResultItem;
 import com.lifeevent.lid.backoffice.lid.product.mapper.BackOfficeProductMapper;
 import com.lifeevent.lid.backoffice.lid.product.service.BackOfficeProductService;
 import com.lifeevent.lid.common.cache.event.ProductCatalogChangedEvent;
+import com.lifeevent.lid.common.cache.CatalogCacheNames;
+import com.lifeevent.lid.common.dto.PageResponse;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.stock.entity.Stock;
 import com.lifeevent.lid.stock.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,8 +48,24 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
     private final ArticleRepository articleRepository;
     private final CategoryRepository categoryRepository;
     private final StockRepository stockRepository;
+    private final BackOfficeCategoryService backOfficeCategoryService;
     private final BackOfficeProductMapper backOfficeProductMapper;
     private final ApplicationEventPublisher eventPublisher;
+
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.BACKOFFICE_PRODUCTS_COLLECTION,
+            key = "@cacheScopeVersionService.productGlobalVersion() + ':' + #page + ':' + #size",
+            sync = true
+    )
+    public BackOfficeProductCollectionDto getCollection(int page, int size) {
+        PageRequest pageable = PageRequest.of(Math.max(0, page), Math.max(1, size));
+        return new BackOfficeProductCollectionDto(
+                PageResponse.from(getAll(pageable)),
+                backOfficeCategoryService.getAll()
+        );
+    }
 
     @Override
     @Transactional(readOnly = true)

@@ -1,5 +1,6 @@
 package com.lifeevent.lid.backoffice.lid.customer.controller;
 
+import com.lifeevent.lid.backoffice.lid.customer.dto.BackOfficeCustomerCollectionDto;
 import com.lifeevent.lid.backoffice.lid.customer.dto.BackOfficeCustomerDto;
 import com.lifeevent.lid.backoffice.lid.customer.service.BackOfficeCustomerService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class BackOfficeCustomerController implements IBackOfficeCustomerController {
 
     private final BackOfficeCustomerService backOfficeCustomerService;
+
+    @Override
+    public ResponseEntity<BackOfficeCustomerCollectionDto> getCollection(int page, int size, String q, String segment) {
+        return ResponseEntity.ok(backOfficeCustomerService.getCollection(page, size, q, segment));
+    }
 
     @Override
     public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeCustomerDto>> getAll(int page, int size) {

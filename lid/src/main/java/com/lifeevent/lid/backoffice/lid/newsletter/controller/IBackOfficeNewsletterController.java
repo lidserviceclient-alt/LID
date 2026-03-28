@@ -2,6 +2,7 @@ package com.lifeevent.lid.backoffice.lid.newsletter.controller;
 
 import com.lifeevent.lid.backoffice.lid.newsletter.dto.BackOfficeNewsletterStatsDto;
 import com.lifeevent.lid.backoffice.lid.newsletter.dto.BackOfficeNewsletterSubscribeRequest;
+import com.lifeevent.lid.backoffice.lid.newsletter.dto.BackOfficeNewsletterCollectionDto;
 import com.lifeevent.lid.backoffice.lid.newsletter.dto.BackOfficeNewsletterSubscriberDto;
 import com.lifeevent.lid.newsletter.enumeration.NewsletterSubscriberStatus;
 import jakarta.validation.Valid;
@@ -10,6 +11,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 public interface IBackOfficeNewsletterController {
+
+    @GetMapping("/collection")
+    ResponseEntity<BackOfficeNewsletterCollectionDto> getCollection(
+            @RequestParam(required = false) NewsletterSubscriberStatus status,
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    );
 
     @GetMapping("/stats")
     ResponseEntity<BackOfficeNewsletterStatsDto> getStats();

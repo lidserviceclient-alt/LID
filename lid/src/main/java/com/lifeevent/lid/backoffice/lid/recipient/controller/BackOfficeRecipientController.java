@@ -1,6 +1,5 @@
 package com.lifeevent.lid.backoffice.lid.recipient.controller;
 
-import com.lifeevent.lid.auth.constant.UserRole;
 import com.lifeevent.lid.backoffice.lid.recipient.service.BackOfficeRecipientService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +18,7 @@ public class BackOfficeRecipientController implements IBackOfficeRecipientContro
     @Override
     public ResponseEntity<List<String>> getRecipients(
             BackOfficeRecipientService.Segment segment,
-            List<UserRole> roles,
+            List<String> roles,
             String q,
             Integer limit
     ) {

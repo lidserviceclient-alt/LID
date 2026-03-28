@@ -1,5 +1,6 @@
 package com.lifeevent.lid.backoffice.lid.stock.controller;
 
+import com.lifeevent.lid.backoffice.lid.stock.dto.BackOfficeInventoryCollectionDto;
 import com.lifeevent.lid.backoffice.lid.stock.dto.BackOfficeStockMovementDto;
 import com.lifeevent.lid.backoffice.lid.stock.dto.CreateStockMovementRequest;
 import com.lifeevent.lid.stock.enumeration.StockMovementType;
@@ -17,6 +18,16 @@ import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "BackOffice - Stocks", description = "API back-office pour gérer les mouvements de stock")
 public interface IBackOfficeStockController {
+
+    @GetMapping("/collection")
+    ResponseEntity<BackOfficeInventoryCollectionDto> getCollection(
+            @RequestParam(defaultValue = "0") int productsPage,
+            @RequestParam(defaultValue = "20") int productsSize,
+            @RequestParam(defaultValue = "0") int movementsPage,
+            @RequestParam(defaultValue = "20") int movementsSize,
+            @RequestParam(required = false) String sku,
+            @RequestParam(required = false) StockMovementType type
+    );
 
     @GetMapping("/movements")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les mouvements de stock")

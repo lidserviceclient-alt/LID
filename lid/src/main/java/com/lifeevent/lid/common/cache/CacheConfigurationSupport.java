@@ -35,6 +35,10 @@ final class CacheConfigurationSupport {
                 new CacheSpec(CatalogCacheNames.BACKOFFICE_FINANCE_OVERVIEW, properties.getBackofficeFinanceOverviewTtlMinutes(), properties.getBackofficeFinanceOverviewMaxSize()),
                 new CacheSpec(CatalogCacheNames.BACKOFFICE_FINANCE_TRANSACTIONS, properties.getBackofficeFinanceTransactionsTtlMinutes(), properties.getBackofficeFinanceTransactionsMaxSize()),
                 new CacheSpec(CatalogCacheNames.BACKOFFICE_MARKETING_OVERVIEW, properties.getBackofficeMarketingOverviewTtlMinutes(), properties.getBackofficeMarketingOverviewMaxSize()),
+                new CacheSpec(CatalogCacheNames.BACKOFFICE_NEWSLETTER_COLLECTION, properties.getBackofficeNewsletterCollectionTtlMinutes(), properties.getBackofficeNewsletterCollectionMaxSize()),
+                new CacheSpec(CatalogCacheNames.BACKOFFICE_PRODUCTS_COLLECTION, properties.getBackofficeProductsCollectionTtlMinutes(), properties.getBackofficeProductsCollectionMaxSize()),
+                new CacheSpec(CatalogCacheNames.BACKOFFICE_INVENTORY_COLLECTION, properties.getBackofficeInventoryCollectionTtlMinutes(), properties.getBackofficeInventoryCollectionMaxSize()),
+                new CacheSpec(CatalogCacheNames.BACKOFFICE_CUSTOMERS_COLLECTION, properties.getBackofficeCustomersCollectionTtlMinutes(), properties.getBackofficeCustomersCollectionMaxSize()),
                 new CacheSpec(CatalogCacheNames.BACKOFFICE_LOYALTY_OVERVIEW, properties.getBackofficeLoyaltyOverviewTtlMinutes(), properties.getBackofficeLoyaltyOverviewMaxSize()),
                 new CacheSpec(CatalogCacheNames.BACKOFFICE_LOYALTY_TIERS, properties.getBackofficeLoyaltyTiersTtlMinutes(), properties.getBackofficeLoyaltyTiersMaxSize()),
                 new CacheSpec(CatalogCacheNames.BACKOFFICE_LOYALTY_TOP_CUSTOMERS, properties.getBackofficeLoyaltyTopCustomersTtlMinutes(), properties.getBackofficeLoyaltyTopCustomersMaxSize())

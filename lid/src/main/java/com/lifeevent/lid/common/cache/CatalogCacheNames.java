@@ -33,6 +33,10 @@ public final class CatalogCacheNames {
     public static final String BACKOFFICE_FINANCE_OVERVIEW = "backoffice_finance_overview";
     public static final String BACKOFFICE_FINANCE_TRANSACTIONS = "backoffice_finance_transactions";
     public static final String BACKOFFICE_MARKETING_OVERVIEW = "backoffice_marketing_overview";
+    public static final String BACKOFFICE_NEWSLETTER_COLLECTION = "backoffice_newsletter_collection";
+    public static final String BACKOFFICE_PRODUCTS_COLLECTION = "backoffice_products_collection";
+    public static final String BACKOFFICE_INVENTORY_COLLECTION = "backoffice_inventory_collection";
+    public static final String BACKOFFICE_CUSTOMERS_COLLECTION = "backoffice_customers_collection";
     public static final String BACKOFFICE_LOYALTY_OVERVIEW = "backoffice_loyalty_overview";
     public static final String BACKOFFICE_LOYALTY_TIERS = "backoffice_loyalty_tiers";
     public static final String BACKOFFICE_LOYALTY_TOP_CUSTOMERS = "backoffice_loyalty_top_customers";

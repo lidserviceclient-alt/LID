@@ -1,8 +1,11 @@
 package com.lifeevent.lid.backoffice.lid.customer.service.impl;
 
+import com.lifeevent.lid.backoffice.lid.customer.dto.BackOfficeCustomerCollectionDto;
 import com.lifeevent.lid.backoffice.lid.customer.dto.BackOfficeCustomerDto;
 import com.lifeevent.lid.backoffice.lid.customer.mapper.BackOfficeCustomerMapper;
 import com.lifeevent.lid.backoffice.lid.customer.service.BackOfficeCustomerService;
+import com.lifeevent.lid.common.cache.CatalogCacheNames;
+import com.lifeevent.lid.common.dto.PageResponse;
 import com.lifeevent.lid.order.repository.OrderRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
@@ -11,7 +14,9 @@ import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.common.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +42,21 @@ public class BackOfficeCustomerServiceImpl implements BackOfficeCustomerService 
     private final UserService userService;
     private final OrderRepository orderRepository;
     private final BackOfficeCustomerMapper backOfficeCustomerMapper;
+
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.BACKOFFICE_CUSTOMERS_COLLECTION,
+            key = "#page + ':' + #size + ':' + (#q == null ? '' : #q.trim().toLowerCase()) + ':' + (#segment == null ? '' : #segment.trim().toLowerCase())",
+            sync = true
+    )
+    public BackOfficeCustomerCollectionDto getCollection(int page, int size, String q, String segment) {
+        return new BackOfficeCustomerCollectionDto(
+                PageResponse.from(getAll(PageRequest.of(Math.max(0, page), Math.max(1, size)))),
+                null,
+                null
+        );
+    }
 
     @Override
     @Transactional(readOnly = true)

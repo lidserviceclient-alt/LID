@@ -2,11 +2,11 @@ package com.lifeevent.lid.backoffice.lid.newsletter.controller;
 
 import com.lifeevent.lid.backoffice.lid.newsletter.dto.BackOfficeNewsletterStatsDto;
 import com.lifeevent.lid.backoffice.lid.newsletter.dto.BackOfficeNewsletterSubscribeRequest;
+import com.lifeevent.lid.backoffice.lid.newsletter.dto.BackOfficeNewsletterCollectionDto;
 import com.lifeevent.lid.backoffice.lid.newsletter.dto.BackOfficeNewsletterSubscriberDto;
 import com.lifeevent.lid.backoffice.lid.newsletter.service.BackOfficeNewsletterService;
 import com.lifeevent.lid.newsletter.enumeration.NewsletterSubscriberStatus;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -20,6 +20,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class BackOfficeNewsletterController implements IBackOfficeNewsletterController {
 
     private final BackOfficeNewsletterService backOfficeNewsletterService;
+
+    @Override
+    public ResponseEntity<BackOfficeNewsletterCollectionDto> getCollection(NewsletterSubscriberStatus status, String q, int page, int size) {
+        return ResponseEntity.ok(backOfficeNewsletterService.getCollection(status, q, page, size));
+    }
 
     @Override
     public ResponseEntity<BackOfficeNewsletterStatsDto> getStats() {

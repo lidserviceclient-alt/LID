@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.lid.product.controller;
 
 import com.lifeevent.lid.backoffice.lid.product.dto.BackOfficeProductDto;
+import com.lifeevent.lid.backoffice.lid.product.dto.BackOfficeProductCollectionDto;
 import com.lifeevent.lid.backoffice.lid.product.dto.BulkProductCreateRequest;
 import com.lifeevent.lid.backoffice.lid.product.dto.BulkProductDeleteRequest;
 import com.lifeevent.lid.backoffice.lid.product.dto.BulkProductDeleteResponse;
@@ -19,6 +20,12 @@ import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "BackOffice - Produits", description = "API back-office pour gérer les produits")
 public interface IBackOfficeProductController {
+
+    @GetMapping("/collection")
+    ResponseEntity<BackOfficeProductCollectionDto> getCollection(
+            @Parameter(description = "Page (0..N)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Taille de page") @RequestParam(defaultValue = "20") int size
+    );
 
     @GetMapping
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les produits")

@@ -2,6 +2,7 @@ package com.lifeevent.lid.backoffice.lid.finance.controller;
 
 import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceOverviewDto;
 import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceTransactionDto;
+import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceCollectionDto;
 import com.lifeevent.lid.backoffice.lid.finance.service.BackOfficeFinanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -19,6 +20,14 @@ import java.util.List;
 public class BackOfficeFinanceController implements IBackOfficeFinanceController {
 
     private final BackOfficeFinanceService backOfficeFinanceService;
+
+    @Override
+    public ResponseEntity<BackOfficeFinanceCollectionDto> getCollection(Integer days, Integer size) {
+        return ResponseEntity.ok(new BackOfficeFinanceCollectionDto(
+                backOfficeFinanceService.getOverview(days),
+                backOfficeFinanceService.getTransactions(size)
+        ));
+    }
 
     @Override
     public ResponseEntity<BackOfficeFinanceOverviewDto> getOverview(Integer days) {

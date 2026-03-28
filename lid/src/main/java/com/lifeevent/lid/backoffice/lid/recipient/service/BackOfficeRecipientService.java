@@ -1,7 +1,5 @@
 package com.lifeevent.lid.backoffice.lid.recipient.service;
 
-import com.lifeevent.lid.auth.constant.UserRole;
-
 import java.util.List;
 
 public interface BackOfficeRecipientService {
@@ -12,5 +10,5 @@ public interface BackOfficeRecipientService {
         TEAM
     }
 
-    List<String> getRecipientEmails(Segment segment, List<UserRole> roles, String query, Integer limit);
+    List<String> getRecipientEmails(Segment segment, List<String> roles, String query, Integer limit);
 }

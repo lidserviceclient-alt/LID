@@ -35,6 +35,10 @@ public class CatalogCacheProperties {
     private long backofficeFinanceOverviewTtlMinutes = 1;
     private long backofficeFinanceTransactionsTtlMinutes = 1;
     private long backofficeMarketingOverviewTtlMinutes = 2;
+    private long backofficeNewsletterCollectionTtlMinutes = 1;
+    private long backofficeProductsCollectionTtlMinutes = 1;
+    private long backofficeInventoryCollectionTtlMinutes = 1;
+    private long backofficeCustomersCollectionTtlMinutes = 1;
     private long backofficeLoyaltyOverviewTtlMinutes = 2;
     private long backofficeLoyaltyTiersTtlMinutes = 5;
     private long backofficeLoyaltyTopCustomersTtlMinutes = 2;
@@ -65,6 +69,10 @@ public class CatalogCacheProperties {
     private long backofficeFinanceOverviewMaxSize = 200;
     private long backofficeFinanceTransactionsMaxSize = 500;
     private long backofficeMarketingOverviewMaxSize = 200;
+    private long backofficeNewsletterCollectionMaxSize = 500;
+    private long backofficeProductsCollectionMaxSize = 500;
+    private long backofficeInventoryCollectionMaxSize = 500;
+    private long backofficeCustomersCollectionMaxSize = 500;
     private long backofficeLoyaltyOverviewMaxSize = 200;
     private long backofficeLoyaltyTiersMaxSize = 200;
     private long backofficeLoyaltyTopCustomersMaxSize = 500;

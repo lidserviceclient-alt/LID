@@ -2,6 +2,7 @@ package com.lifeevent.lid.backoffice.lid.finance.controller;
 
 import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceOverviewDto;
 import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceTransactionDto;
+import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceCollectionDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -9,6 +10,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 
 public interface IBackOfficeFinanceController {
+
+    @GetMapping("/collection")
+    ResponseEntity<BackOfficeFinanceCollectionDto> getCollection(
+            @RequestParam(defaultValue = "30") Integer days,
+            @RequestParam(defaultValue = "50") Integer size
+    );
 
     @GetMapping("/overview")
     ResponseEntity<BackOfficeFinanceOverviewDto> getOverview(@RequestParam(defaultValue = "30") Integer days);

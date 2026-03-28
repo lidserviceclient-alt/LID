@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.lid.overview.controller;
 
 import com.lifeevent.lid.backoffice.lid.overview.dto.BackOfficeDashboardResponseDto;
+import com.lifeevent.lid.backoffice.lid.overview.dto.BackOfficeAnalyticsCollectionDto;
 import com.lifeevent.lid.backoffice.lid.overview.dto.BackOfficeOverviewDto;
 import com.lifeevent.lid.backoffice.lid.overview.service.BackOfficeOverviewService;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class BackOfficeOverviewController implements IBackOfficeOverviewController {
 
     private final BackOfficeOverviewService backOfficeOverviewService;
+
+    @Override
+    public ResponseEntity<BackOfficeAnalyticsCollectionDto> getAnalyticsCollection(Integer days) {
+        BackOfficeOverviewDto overview = backOfficeOverviewService.getOverview(days);
+        return ResponseEntity.ok(new BackOfficeAnalyticsCollectionDto(
+                overview,
+                overview != null ? overview.getAnalyticsSeries() : null,
+                null,
+                null,
+                null
+        ));
+    }
 
     @Override
     public ResponseEntity<BackOfficeDashboardResponseDto> getDashboard() {

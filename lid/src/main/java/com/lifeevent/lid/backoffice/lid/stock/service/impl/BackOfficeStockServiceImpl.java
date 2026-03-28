@@ -2,10 +2,16 @@ package com.lifeevent.lid.backoffice.lid.stock.service.impl;
 
 import com.lifeevent.lid.article.entity.Article;
 import com.lifeevent.lid.article.repository.ArticleRepository;
+import com.lifeevent.lid.backoffice.lid.category.service.BackOfficeCategoryService;
+import com.lifeevent.lid.backoffice.lid.product.service.BackOfficeProductService;
+import com.lifeevent.lid.backoffice.lid.stock.dto.BackOfficeInventoryCollectionDto;
 import com.lifeevent.lid.backoffice.lid.stock.dto.BackOfficeStockMovementDto;
 import com.lifeevent.lid.backoffice.lid.stock.dto.CreateStockMovementRequest;
 import com.lifeevent.lid.backoffice.lid.stock.mapper.BackOfficeStockMovementMapper;
 import com.lifeevent.lid.backoffice.lid.stock.service.BackOfficeStockService;
+import com.lifeevent.lid.common.cache.CatalogCacheNames;
+import com.lifeevent.lid.common.cache.event.ProductCatalogChangedEvent;
+import com.lifeevent.lid.common.dto.PageResponse;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.stock.entity.Stock;
 import com.lifeevent.lid.stock.entity.StockMovement;
@@ -14,7 +20,10 @@ import com.lifeevent.lid.stock.repository.StockMovementRepository;
 import com.lifeevent.lid.stock.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +40,31 @@ public class BackOfficeStockServiceImpl implements BackOfficeStockService {
     private final StockRepository stockRepository;
     private final ArticleRepository articleRepository;
     private final BackOfficeStockMovementMapper backOfficeStockMovementMapper;
+    private final BackOfficeProductService backOfficeProductService;
+    private final BackOfficeCategoryService backOfficeCategoryService;
+    private final ApplicationEventPublisher eventPublisher;
+
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.BACKOFFICE_INVENTORY_COLLECTION,
+            key = "@cacheScopeVersionService.productGlobalVersion() + ':' + #productsPage + ':' + #productsSize + ':' + #movementsPage + ':' + #movementsSize + ':' + (#sku == null ? '' : #sku.trim().toLowerCase()) + ':' + (#type == null ? 'ALL' : #type.name())",
+            sync = true
+    )
+    public BackOfficeInventoryCollectionDto getCollection(
+            int productsPage,
+            int productsSize,
+            int movementsPage,
+            int movementsSize,
+            String sku,
+            StockMovementType type
+    ) {
+        return new BackOfficeInventoryCollectionDto(
+                PageResponse.from(backOfficeProductService.getAll(PageRequest.of(Math.max(0, productsPage), Math.max(1, productsSize)))),
+                backOfficeCategoryService.getAll(),
+                PageResponse.from(getMovements(PageRequest.of(Math.max(0, movementsPage), Math.max(1, movementsSize)), sku, type))
+        );
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -89,6 +123,7 @@ public class BackOfficeStockServiceImpl implements BackOfficeStockService {
                 .build();
 
         StockMovement saved = stockMovementRepository.save(movement);
+        eventPublisher.publishEvent(new ProductCatalogChangedEvent(article.getId() == null ? java.util.Set.of() : java.util.Set.of(article.getId())));
         return backOfficeStockMovementMapper.toDto(saved);
     }
 
