@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Search, Edit2, Trash2, AlertCircle } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
@@ -10,6 +10,7 @@ import Label from "../components/ui/Label.jsx";
 import Modal from "../components/ui/Modal.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
+import { reloadBlogPostsResolver, useBlogPostsResolver } from "../resolvers/blogPostsResolver.js";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -34,9 +35,10 @@ const normalizeDateTime = (value) => {
 };
 
 export default function BlogPosts() {
-  const [posts, setPosts] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const postsEntry = useBlogPostsResolver();
+  const posts = Array.isArray(postsEntry.data) ? postsEntry.data : [];
+  const isLoading = postsEntry.loading;
+  const error = postsEntry.error;
 
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -59,34 +61,6 @@ export default function BlogPosts() {
     featured: false,
     readTime: ""
   });
-
-  const mountedRef = useRef(true);
-
-  const loadPosts = async () => {
-    setIsLoading(true);
-    setError("");
-    try {
-      const data = await backofficeApi.blogPosts();
-      if (!mountedRef.current) return;
-      setPosts(Array.isArray(data) ? data : []);
-    } catch (err) {
-      if (!mountedRef.current) return;
-      setError(err?.message || "Impossible de charger les articles de blog.");
-    } finally {
-      if (mountedRef.current) setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    loadPosts();
-  }, []);
 
   const categories = useMemo(() => {
     const set = new Set();
@@ -183,7 +157,7 @@ export default function BlogPosts() {
         await backofficeApi.createBlogPost(payload);
       }
       setIsFormOpen(false);
-      await loadPosts();
+      await reloadBlogPostsResolver();
     } catch (err) {
       setFormError(err?.message || "Échec de l'enregistrement.");
     } finally {
@@ -199,7 +173,7 @@ export default function BlogPosts() {
       await backofficeApi.deleteBlogPost(current.id);
       setIsDeleteOpen(false);
       setCurrent(null);
-      await loadPosts();
+      await reloadBlogPostsResolver();
     } catch (err) {
       setFormError(err?.message || "Échec de la suppression.");
     } finally {

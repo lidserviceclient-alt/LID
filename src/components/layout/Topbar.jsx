@@ -18,29 +18,8 @@ import Input from "../ui/Input.jsx";
 import Label from "../ui/Label.jsx";
 import GlobalSearchModal from "../search/GlobalSearchModal.jsx";
 import { clearAccessToken, getAuthenticatedUser } from "../../services/auth.js";
-import { backofficeApi } from "../../services/api.js";
+import { useNotificationsContext } from "../../contexts/NotificationsContext.jsx";
 import { cn } from "../../utils/cn.js";
-
-const mapStatus = (status) => {
-  if (!status) return "-";
-  switch (status) {
-    case "CREEE":
-      return "Nouvelle";
-    case "PAYEE":
-      return "En préparation";
-    case "EXPEDIEE":
-      return "Expédiée";
-    case "LIVREE":
-      return "Livrée";
-    case "ANNULEE":
-      return "Retournée";
-    case "REMBOURSEE":
-      return "Retournée";
-    default:
-      return status;
-  }
-};
-
 export default function Topbar({ onMenuClick }) {
   const [focused, setFocused] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -54,17 +33,20 @@ export default function Topbar({ onMenuClick }) {
   const [feedbackStatus, setFeedbackStatus] = useState("");
 
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [notificationsError, setNotificationsError] = useState("");
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
-  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   const navigate = useNavigate();
   const location = useLocation();
   const createMenuRef = useRef(null);
   const profileMenuRef = useRef(null);
   const currentUser = getAuthenticatedUser();
+  const {
+    notifications,
+    notificationsLoading,
+    notificationsError,
+    hasUnreadNotifications,
+    unreadNotificationsCount,
+    loadNotifications
+  } = useNotificationsContext();
 
   const displayName = useMemo(() => {
     const fullName = [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(" ").trim();
@@ -97,41 +79,6 @@ export default function Topbar({ onMenuClick }) {
   const isMac = useMemo(() => {
     if (typeof navigator === "undefined") return false;
     return /Mac|iPhone|iPad|iPod/i.test(navigator.platform || "");
-  }, []);
-
-  const notificationsLastSeenKey = "lid_backoffice_notifications_last_seen";
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    let mounted = true;
-    const existing = window.localStorage.getItem(notificationsLastSeenKey);
-    if (!existing) {
-      window.localStorage.setItem(notificationsLastSeenKey, new Date().toISOString());
-      setHasUnreadNotifications(false);
-      setUnreadNotificationsCount(0);
-    }
-
-    const poll = async () => {
-      try {
-        const since = window.localStorage.getItem(notificationsLastSeenKey) || "";
-        const count = await backofficeApi.notificationsCount(since);
-        if (!mounted) return;
-        const n = Number(count) || 0;
-        setUnreadNotificationsCount(n);
-        setHasUnreadNotifications(n > 0);
-      } catch {
-        if (!mounted) return;
-        setHasUnreadNotifications(false);
-        setUnreadNotificationsCount(0);
-      }
-    };
-
-    poll();
-    const id = setInterval(poll, 30000);
-    return () => {
-      mounted = false;
-      clearInterval(id);
-    };
   }, []);
 
   const breadcrumbs = useMemo(() => {
@@ -264,34 +211,8 @@ export default function Topbar({ onMenuClick }) {
 
   useEffect(() => {
     if (!isNotificationsOpen) return;
-    let mounted = true;
-    setNotificationsLoading(true);
-    setNotificationsError("");
-    backofficeApi
-      .notifications(0, 20)
-      .then((data) => {
-        if (!mounted) return;
-        const list = Array.isArray(data) ? data : Array.isArray(data?.content) ? data.content : [];
-        setNotifications(list);
-      })
-      .catch((err) => {
-        if (!mounted) return;
-        setNotificationsError(err?.message || "Impossible de charger les notifications.");
-      })
-      .finally(() => {
-        if (!mounted) return;
-        setNotificationsLoading(false);
-        if (typeof window !== "undefined") {
-          const now = new Date().toISOString();
-          window.localStorage.setItem(notificationsLastSeenKey, now);
-          setHasUnreadNotifications(false);
-          setUnreadNotificationsCount(0);
-        }
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [isNotificationsOpen]);
+    loadNotifications().catch(() => {});
+  }, [isNotificationsOpen, loadNotifications]);
 
   const sendFeedback = async () => {
     const subject = feedbackSubject.trim() || "Feedback backoffice";

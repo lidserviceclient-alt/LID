@@ -9,6 +9,12 @@ import Select from "../components/ui/Select.jsx";
 import Modal from "../components/ui/Modal.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
+import {
+  reloadMarketingCampaignsResolver,
+  reloadMarketingNewsletterResolver,
+  useMarketingCampaignsResolver,
+  useMarketingNewsletterResolver
+} from "../resolvers/marketingResolver.js";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -121,47 +127,22 @@ export default function Marketing() {
     }));
   }, [subscribers]);
 
-  async function loadCampaigns() {
-    setCampaignLoading(true);
-    setCampaignError("");
-    try {
-      const page = await backofficeApi.marketingCampaigns(0, 50, campaignStatusFilter);
-      setCampaigns(Array.isArray(page?.content) ? page.content : []);
-    } catch (err) {
-      setCampaignError(err?.message || "Impossible de charger les campagnes.");
-    } finally {
-      setCampaignLoading(false);
-    }
-  }
+  const campaignsEntry = useMarketingCampaignsResolver(0, 50, campaignStatusFilter);
+  const newsletterEntry = useMarketingNewsletterResolver(0, 50, subscriberStatusFilter, subscriberQuery.trim());
 
   useEffect(() => {
-    loadCampaigns();
-  }, [campaignStatusFilter]);
-
-  async function loadNewsletter() {
-    setNewsletterLoading(true);
-    setNewsletterError("");
-    try {
-      const [stats, page] = await Promise.all([
-        backofficeApi.newsletterStats().catch(() => null),
-        backofficeApi.newsletterSubscribers(0, 50, subscriberStatusFilter, subscriberQuery.trim())
-      ]);
-      setNewsletterStats(stats || null);
-      setSubscribers(Array.isArray(page?.content) ? page.content : []);
-    } catch (err) {
-      setNewsletterError(err?.message || "Impossible de charger la newsletter.");
-    } finally {
-      setNewsletterLoading(false);
-    }
-  }
+    setCampaignLoading(campaignsEntry.loading);
+    setCampaignError(campaignsEntry.error);
+    setCampaigns(Array.isArray(campaignsEntry.data?.content) ? campaignsEntry.data.content : []);
+  }, [campaignsEntry.data, campaignsEntry.error, campaignsEntry.loading]);
 
   useEffect(() => {
     if (tab !== "newsletter") return;
-    const t = setTimeout(() => {
-      loadNewsletter();
-    }, 250);
-    return () => clearTimeout(t);
-  }, [tab, subscriberStatusFilter, subscriberQuery]);
+    setNewsletterLoading(newsletterEntry.loading);
+    setNewsletterError(newsletterEntry.error);
+    setNewsletterStats(newsletterEntry.data?.stats || null);
+    setSubscribers(Array.isArray(newsletterEntry.data?.subscribersPage?.content) ? newsletterEntry.data.subscribersPage.content : []);
+  }, [newsletterEntry.data, newsletterEntry.error, newsletterEntry.loading, tab]);
 
   function openCreateCampaign(preset = {}) {
     const type = preset.type || "EMAIL";
@@ -247,7 +228,7 @@ export default function Marketing() {
         await backofficeApi.createMarketingCampaign(payload);
       }
       setIsCampaignFormOpen(false);
-      await loadCampaigns();
+      await reloadMarketingCampaignsResolver(0, 50, campaignStatusFilter);
     } catch (err) {
       setCampaignFormError(err?.message || "Impossible d'enregistrer la campagne.");
     } finally {
@@ -263,7 +244,7 @@ export default function Marketing() {
       await backofficeApi.deleteMarketingCampaign(currentCampaign.id);
       setIsCampaignDeleteOpen(false);
       setCurrentCampaign(null);
-      await loadCampaigns();
+      await reloadMarketingCampaignsResolver(0, 50, campaignStatusFilter);
     } catch (err) {
       setCampaignFormError(err?.message || "Impossible de supprimer la campagne.");
     } finally {
@@ -277,7 +258,7 @@ export default function Marketing() {
     setSendingId(id);
     try {
       await backofficeApi.sendMarketingCampaign(id);
-      await loadCampaigns();
+      await reloadMarketingCampaignsResolver(0, 50, campaignStatusFilter);
     } catch (err) {
       setCampaignError(err?.message || "Impossible d'envoyer la campagne.");
     } finally {
@@ -293,7 +274,7 @@ export default function Marketing() {
     try {
       await backofficeApi.createNewsletterSubscriber({ email });
       setSubscriberEmail("");
-      await loadNewsletter();
+      await reloadMarketingNewsletterResolver(0, 50, subscriberStatusFilter, subscriberQuery.trim());
     } catch (err) {
       setNewsletterError(err?.message || "Impossible d'ajouter l'abonné.");
     } finally {
@@ -307,7 +288,7 @@ export default function Marketing() {
     setSubscriberSaving(true);
     try {
       await backofficeApi.unsubscribeNewsletterSubscriber(id);
-      await loadNewsletter();
+      await reloadMarketingNewsletterResolver(0, 50, subscriberStatusFilter, subscriberQuery.trim());
     } catch (err) {
       setNewsletterError(err?.message || "Impossible de désabonner.");
     } finally {
@@ -322,7 +303,7 @@ export default function Marketing() {
     setSubscriberSaving(true);
     try {
       await backofficeApi.createNewsletterSubscriber({ email: e });
-      await loadNewsletter();
+      await reloadMarketingNewsletterResolver(0, 50, subscriberStatusFilter, subscriberQuery.trim());
     } catch (err) {
       setNewsletterError(err?.message || "Impossible de réabonner.");
     } finally {
@@ -338,7 +319,7 @@ export default function Marketing() {
       await backofficeApi.deleteNewsletterSubscriber(currentSubscriber.id);
       setIsSubscriberDeleteOpen(false);
       setCurrentSubscriber(null);
-      await loadNewsletter();
+      await reloadMarketingNewsletterResolver(0, 50, subscriberStatusFilter, subscriberQuery.trim());
     } catch (err) {
       setNewsletterError(err?.message || "Impossible de supprimer l'abonné.");
     } finally {
@@ -349,7 +330,7 @@ export default function Marketing() {
   const rightSlot =
     tab === "campaigns" ? (
       <div className="flex items-center gap-2">
-        <Button variant="outline" className="gap-2" onClick={loadCampaigns} disabled={campaignLoading}>
+        <Button variant="outline" className="gap-2" onClick={() => campaignsEntry.reload().catch(() => {})} disabled={campaignLoading}>
           <RefreshCw className="h-4 w-4" />
           Actualiser
         </Button>
@@ -360,7 +341,7 @@ export default function Marketing() {
       </div>
     ) : (
       <div className="flex items-center gap-2">
-        <Button variant="outline" className="gap-2" onClick={loadNewsletter} disabled={newsletterLoading}>
+        <Button variant="outline" className="gap-2" onClick={() => newsletterEntry.reload().catch(() => {})} disabled={newsletterLoading}>
           <RefreshCw className="h-4 w-4" />
           Actualiser
         </Button>

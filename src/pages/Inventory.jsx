@@ -130,62 +130,41 @@ export default function Inventory() {
     setMovementSubmitError("");
   }
 
-  async function refreshProducts() {
+  async function refreshInventoryCollection(nextMovementPage = movementPage) {
     setProductsLoading(true);
+    setMovementsLoading(true);
+    setCategoriesError("");
     setProductsError("");
+    setMovementsError("");
     try {
-      const res = await backofficeApi.products(0, 500);
-      const list = Array.isArray(res?.content) ? res.content : Array.isArray(res) ? res : [];
-      setProducts(list);
+      const data = await backofficeApi.inventoryCollection(0, 500, nextMovementPage, 20, skuQuery.trim(), typeFilter);
+      setProducts(Array.isArray(data?.productsPage?.content) ? data.productsPage.content : []);
+      setCategories(Array.isArray(data?.categories) ? data.categories : []);
+      setMovementsPage(data?.movementsPage || null);
     } catch (err) {
-      setProductsError(err?.message || "Impossible de charger les produits.");
+      const message = err?.message || "Impossible de charger les stocks.";
+      setProductsError(message);
+      setCategoriesError(message);
+      setMovementsError(message);
     } finally {
       setProductsLoading(false);
+      setMovementsLoading(false);
     }
   }
-
-  async function refreshCategories() {
-    setCategoriesError("");
-    try {
-      const res = await backofficeApi.categories();
-      setCategories(Array.isArray(res) ? res : []);
-    } catch (err) {
-      setCategoriesError(err?.message || "Impossible de charger les catégories.");
-    }
-  }
-
-  useEffect(() => {
-    refreshProducts();
-    refreshCategories();
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    setMovementsLoading(true);
-    setMovementsError("");
-
     const timer = setTimeout(() => {
-      backofficeApi
-        .stockMovements(movementPage, 20, skuQuery.trim(), typeFilter)
-        .then((res) => {
-          if (cancelled) return;
-          setMovementsPage(res);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          setMovementsError(err?.message || "Impossible de charger les mouvements.");
-        })
-        .finally(() => {
-          if (cancelled) return;
-          setMovementsLoading(false);
-        });
+      if (!cancelled) {
+        refreshInventoryCollection(movementPage);
+      }
     }, 250);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [skuQuery, typeFilter, movementPage]);
+  }, [movementPage, skuQuery, typeFilter]);
 
   const categoryOptions = useMemo(() => {
     const list = Array.isArray(categories) ? categories : [];
@@ -316,11 +295,7 @@ export default function Inventory() {
     setMovementSubmitError("");
     try {
       await backofficeApi.createStockMovement(payload);
-      await refreshProducts();
-      await backofficeApi
-        .stockMovements(movementPage, 20, skuQuery.trim(), typeFilter)
-        .then((res) => setMovementsPage(res))
-        .catch(() => null);
+      await refreshInventoryCollection(movementPage);
       closeMovementModal();
     } catch (err) {
       setMovementSubmitError(err?.message || "Impossible de créer le mouvement.");
@@ -435,7 +410,7 @@ export default function Inventory() {
                 </Select>
               </div>
               <div className="flex-1" />
-              <Button variant="outline" onClick={refreshProducts} disabled={productsLoading}>
+              <Button variant="outline" onClick={() => refreshInventoryCollection(movementPage)} disabled={productsLoading || movementsLoading}>
                 Rafraîchir
               </Button>
             </div>

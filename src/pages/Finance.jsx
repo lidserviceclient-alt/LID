@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Badge from "../components/ui/Badge.jsx";
 import Button from "../components/ui/Button.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
+import { useFinanceResolver } from "../resolvers/financeResolver.js";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return "-";
@@ -32,11 +33,13 @@ const formatDate = (value) => {
 };
 
 export default function Finance() {
-  const [overview, setOverview] = useState(null);
-  const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
-  const [error, setError] = useState("");
+  const [pageError, setPageError] = useState("");
+  const financeEntry = useFinanceResolver(30, 50);
+  const overview = financeEntry.data?.overview || null;
+  const transactions = Array.isArray(financeEntry.data?.transactions) ? financeEntry.data.transactions : [];
+  const loading = financeEntry.loading;
+  const error = pageError || financeEntry.error || "";
 
   const txRows = useMemo(() => {
     const list = Array.isArray(transactions) ? transactions : [];
@@ -58,27 +61,9 @@ export default function Finance() {
     });
   }, [transactions]);
 
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      const [ov, txs] = await Promise.all([backofficeApi.financeOverview(30), backofficeApi.financeTransactions(50)]);
-      setOverview(ov || null);
-      setTransactions(Array.isArray(txs) ? txs : []);
-    } catch (err) {
-      setError(err?.message || "Impossible de charger la finance.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
   async function exportCsv() {
     setExporting(true);
-    setError("");
+    setPageError("");
     try {
       const blob = await backofficeApi.financeExportCsv(30);
       const url = URL.createObjectURL(blob);
@@ -90,7 +75,7 @@ export default function Finance() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setError(err?.message || "Impossible d'exporter le rapport.");
+      setPageError(err?.message || "Impossible d'exporter le rapport.");
     } finally {
       setExporting(false);
     }

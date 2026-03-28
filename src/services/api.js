@@ -172,6 +172,7 @@ export const backofficeApi = {
     return request(`/api/backoffice/overview${query ? `?${query}` : ""}`);
   },
   dashboard: () => request("/api/backoffice/dashboard"),
+  settingsCollection: () => request("/api/backoffice/setting/collection"),
   recentOrders: () => request("/api/backoffice/orders/recent"),
   categories: () => request("/api/backoffice/categories"),
   createCategory: (payload) =>
@@ -212,6 +213,14 @@ export const backofficeApi = {
   },
   boutiques: () => request("/api/backoffice/boutiques"),
   promoCodes: () => request("/api/backoffice/promo-codes"),
+  promoCodesCollection: (days) => {
+    const params = new URLSearchParams();
+    if (days !== null && days !== undefined && `${days}`.trim() !== "") {
+      params.set("days", `${days}`);
+    }
+    const query = params.toString();
+    return request(`/api/backoffice/promo-codes/collection${query ? `?${query}` : ""}`);
+  },
   promoCodeStats: (days) => {
     const params = new URLSearchParams();
     if (days !== null && days !== undefined && `${days}`.trim() !== "") {
@@ -293,6 +302,12 @@ export const backofficeApi = {
       method: "DELETE"
     }),
   newsletterStats: () => request("/api/backoffice/marketing/newsletter/stats"),
+  newsletterCollection: (page = 0, size = 20, status = "", q = "") => {
+    const params = new URLSearchParams({ page, size });
+    if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    return request(`/api/backoffice/marketing/newsletter/collection?${params.toString()}`);
+  },
   newsletterSubscribers: (page = 0, size = 20, status = "", q = "") => {
     const params = new URLSearchParams({ page, size });
     if (status) params.set("status", status);
@@ -313,6 +328,11 @@ export const backofficeApi = {
       method: "DELETE"
     }),
   loyaltyOverview: () => request("/api/backoffice/loyalty/overview"),
+  loyaltyCollection: (q = "", page = 0, size = 10, topLimit = 10) => {
+    const params = new URLSearchParams({ page, size, topLimit });
+    if (q) params.set("q", q);
+    return request(`/api/backoffice/loyalty/collection?${params.toString()}`);
+  },
   loyaltyTiers: () => request("/api/backoffice/loyalty/tiers"),
   loyaltyCustomers: (limit = 10) => request(`/api/backoffice/loyalty/customers?limit=${encodeURIComponent(limit)}`),
   loyaltyCustomersPage: (q = "", page = 0, size = 10) =>
@@ -387,9 +407,17 @@ export const backofficeApi = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  orderCreateBootstrap: (customersPage = 0, customersSize = 20, productsPage = 0, productsSize = 20) => {
+    const params = new URLSearchParams({ customersPage, customersSize, productsPage, productsSize });
+    return request(`/api/backoffice/orders/create-bootstrap?${params.toString()}`);
+  },
   products: (page = 0, size = 20) => {
     const params = new URLSearchParams({ page, size });
     return request(`/api/backoffice/products?${params.toString()}`);
+  },
+  productCollection: (page = 0, size = 20) => {
+    const params = new URLSearchParams({ page, size });
+    return request(`/api/backoffice/products/collection?${params.toString()}`);
   },
   stockMovements: (page = 0, size = 20, sku = "", type = "") => {
     const params = new URLSearchParams({ page, size });
@@ -402,6 +430,12 @@ export const backofficeApi = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  inventoryCollection: (productsPage = 0, productsSize = 20, movementsPage = 0, movementsSize = 20, sku = "", type = "") => {
+    const params = new URLSearchParams({ productsPage, productsSize, movementsPage, movementsSize });
+    if (sku) params.set("sku", sku);
+    if (type) params.set("type", type);
+    return request(`/api/backoffice/stocks/collection?${params.toString()}`);
+  },
   createProduct: (payload) =>
     request("/api/backoffice/products", {
       method: "POST",
@@ -451,6 +485,12 @@ export const backofficeApi = {
   customers: (page = 0, size = 20) => {
     const params = new URLSearchParams({ page, size });
     return request(`/api/backoffice/customers?${params.toString()}`);
+  },
+  customerCollection: (page = 0, size = 20, q = "", segment = "") => {
+    const params = new URLSearchParams({ page, size });
+    if (q) params.set("q", q);
+    if (segment) params.set("segment", segment);
+    return request(`/api/backoffice/customers/collection?${params.toString()}`);
   },
   users: (page = 0, size = 20, role = "", q = "") => {
     const params = new URLSearchParams({ page, size });
@@ -561,6 +601,28 @@ export const backofficeApi = {
     return request(`/api/backoffice/logistics/shipments?${params.toString()}`);
   },
   shipment: (id) => request(`/api/backoffice/logistics/shipments/${id}`),
+  logisticsCollection: ({
+    days = 30,
+    page = 0,
+    size = 20,
+    status = "",
+    carrier = "",
+    q = "",
+    deliveredPage = 0,
+    deliveredSize = 10,
+    deliveredStatus = "LIVREE",
+    deliveredCarrier = "",
+    deliveredQ = ""
+  } = {}) => {
+    const params = new URLSearchParams({ days, page, size, deliveredPage, deliveredSize });
+    if (status) params.set("status", status);
+    if (carrier) params.set("carrier", carrier);
+    if (q) params.set("q", q);
+    if (deliveredStatus) params.set("deliveredStatus", deliveredStatus);
+    if (deliveredCarrier) params.set("deliveredCarrier", deliveredCarrier);
+    if (deliveredQ) params.set("deliveredQ", deliveredQ);
+    return request(`/api/backoffice/logistics/collection?${params.toString()}`);
+  },
   upsertShipment: (payload) =>
     request("/api/backoffice/logistics/shipments", {
       method: "POST",
@@ -670,6 +732,31 @@ export const backofficeApi = {
   deleteMessage: (id) =>
     request(`/api/backoffice/messages/${id}`, {
       method: "DELETE"
-    })
+    }),
+  searchBootstrap: ({
+    productsPage = 0,
+    productsSize = 200,
+    customersPage = 0,
+    customersSize = 200,
+    usersPage = 0,
+    usersSize = 200,
+    usersRole = "",
+    usersQuery = ""
+  } = {}) => {
+    const params = new URLSearchParams({
+      productsPage,
+      productsSize,
+      customersPage,
+      customersSize,
+      usersPage,
+      usersSize
+    });
+    if (usersRole) params.set("usersRole", usersRole);
+    if (usersQuery) params.set("usersQuery", usersQuery);
+    return request(`/api/backoffice/search/bootstrap?${params.toString()}`);
+  },
+  financeCollection: (days = 30, size = 50) => {
+    const params = new URLSearchParams({ days, size });
+    return request(`/api/backoffice/finance/collection?${params.toString()}`);
+  }
 };
-

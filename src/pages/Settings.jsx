@@ -7,8 +7,10 @@ import Select from "../components/ui/Select.jsx";
 import Modal from "../components/ui/Modal.jsx";
 import Badge from "../components/ui/Badge.jsx";
 import { backofficeApi } from "../services/api.js";
+import { useSettingsResolver } from "../resolvers/settingsResolver.js";
 
 export default function Settings() {
+  const settingsEntry = useSettingsResolver();
   const [shopForm, setShopForm] = useState({
     storeName: "",
     contactEmail: "",
@@ -151,6 +153,83 @@ export default function Settings() {
   const [notificationSaving, setNotificationSaving] = useState(false);
   const [notificationError, setNotificationError] = useState("");
   const [notificationSuccess, setNotificationSuccess] = useState("");
+
+  function applySettingsCollection(data) {
+    const shopProfile = data?.shopProfile || {};
+    setShopForm({
+      storeName: shopProfile?.storeName || "",
+      contactEmail: shopProfile?.contactEmail || "",
+      contactPhone: shopProfile?.contactPhone || "",
+      city: shopProfile?.city || "",
+      logoUrl: shopProfile?.logoUrl || "",
+      slogan: shopProfile?.slogan || "",
+      activitySector: shopProfile?.activitySector || "ECOMMERCE"
+    });
+    setSocialLinks(Array.isArray(data?.socialLinks) ? data.socialLinks : []);
+    setFreeShippingRules(Array.isArray(data?.freeShippingRules) ? data.freeShippingRules : []);
+    setShippingMethods(Array.isArray(data?.shippingMethods) ? data.shippingMethods : []);
+    setCouriers(Array.isArray(data?.couriers) ? data.couriers : []);
+    setTeamMembers(Array.isArray(data?.teamMembers) ? data.teamMembers : []);
+    setSecuritySettings(data?.security || { admin2faEnabled: true });
+    setIntegrations(
+      data?.integrations || {
+        paydunyaConnected: false,
+        paydunyaMode: "test",
+        paydunyaPublicKey: "",
+        sendinblueConnected: false,
+        slackConnected: false,
+        googleAnalyticsConnected: false,
+        googleAnalyticsMeasurementId: ""
+      }
+    );
+    setNotificationPrefs(Array.isArray(data?.notificationPreferences) ? data.notificationPreferences : []);
+  }
+
+  async function loadSettingsCollection() {
+    setShopLoading(true);
+    setSocialLoading(true);
+    setFreeShippingLoading(true);
+    setShippingMethodsLoading(true);
+    setCourierLoading(true);
+    setTeamLoading(true);
+    setSecurityLoading(true);
+    setIntegrationsLoading(true);
+    setNotificationLoading(true);
+    setShopError("");
+    setSocialError("");
+    setFreeShippingError("");
+    setShippingMethodsError("");
+    setCourierError("");
+    setTeamError("");
+    setSecurityError("");
+    setIntegrationsError("");
+    setNotificationError("");
+    try {
+      const data = await backofficeApi.settingsCollection();
+      applySettingsCollection(data);
+    } catch (err) {
+      const message = err?.message || "Impossible de charger les paramètres.";
+      setShopError(message);
+      setSocialError(message);
+      setFreeShippingError(message);
+      setShippingMethodsError(message);
+      setCourierError(message);
+      setTeamError(message);
+      setSecurityError(message);
+      setIntegrationsError(message);
+      setNotificationError(message);
+    } finally {
+      setShopLoading(false);
+      setSocialLoading(false);
+      setFreeShippingLoading(false);
+      setShippingMethodsLoading(false);
+      setCourierLoading(false);
+      setTeamLoading(false);
+      setSecurityLoading(false);
+      setIntegrationsLoading(false);
+      setNotificationLoading(false);
+    }
+  }
 
   async function loadCouriers() {
     try {
@@ -397,16 +476,34 @@ export default function Settings() {
   };
 
   useEffect(() => {
-    loadShopProfile();
-    loadSocialLinks();
-    loadFreeShippingRules();
-    loadShippingMethods();
-    loadCouriers();
-    loadTeamMembers();
-    loadSecuritySettings();
-    loadIntegrations();
-    loadNotificationPreferences();
-  }, []);
+    if (!settingsEntry.loaded && !settingsEntry.loading && !settingsEntry.data) return;
+    setShopLoading(settingsEntry.loading);
+    setSocialLoading(settingsEntry.loading);
+    setFreeShippingLoading(settingsEntry.loading);
+    setShippingMethodsLoading(settingsEntry.loading);
+    setCourierLoading(settingsEntry.loading);
+    setTeamLoading(settingsEntry.loading);
+    setSecurityLoading(settingsEntry.loading);
+    setIntegrationsLoading(settingsEntry.loading);
+    setNotificationLoading(settingsEntry.loading);
+
+    if (settingsEntry.error) {
+      setShopError(settingsEntry.error);
+      setSocialError(settingsEntry.error);
+      setFreeShippingError(settingsEntry.error);
+      setShippingMethodsError(settingsEntry.error);
+      setCourierError(settingsEntry.error);
+      setTeamError(settingsEntry.error);
+      setSecurityError(settingsEntry.error);
+      setIntegrationsError(settingsEntry.error);
+      setNotificationError(settingsEntry.error);
+      return;
+    }
+
+    if (settingsEntry.data) {
+      applySettingsCollection(settingsEntry.data);
+    }
+  }, [settingsEntry.data, settingsEntry.error, settingsEntry.loading, settingsEntry.loaded]);
 
   const toggleNotificationPref = (key) => {
     setNotificationPrefs((prev) => {

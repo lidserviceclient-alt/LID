@@ -9,6 +9,7 @@ import Label from "../components/ui/Label.jsx";
 import Badge from "../components/ui/Badge.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
+import { reloadMessagesResolver, useMessagesResolver } from "../resolvers/messagesResolver.js";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -31,10 +32,11 @@ const statusVariant = (status) => {
 };
 
 export default function Messages() {
-  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
-  const [items, setItems] = useState([]);
+  const messagesEntry = useMessagesResolver(0, 50);
+  const loading = messagesEntry.loading;
+  const items = Array.isArray(messagesEntry.data?.content) ? messagesEntry.data.content : [];
 
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -44,22 +46,9 @@ export default function Messages() {
   const [segmentRoles, setSegmentRoles] = useState(["ADMIN", "SUPER_ADMIN", "IT", "LIVREUR", "PARTENAIRE"]);
   const [segmentLoading, setSegmentLoading] = useState(false);
 
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      const page = await backofficeApi.messages(0, 50);
-      setItems(Array.isArray(page?.content) ? page.content : []);
-    } catch (e) {
-      setError(e?.message || "Impossible de charger les messages.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    load();
-  }, []);
+    setError(messagesEntry.error);
+  }, [messagesEntry.error]);
 
   const recipientsList = useMemo(() => {
     return `${recipients || ""}`
@@ -114,7 +103,7 @@ export default function Messages() {
       });
       setSubject("");
       setBody("");
-      await load();
+      await reloadMessagesResolver(0, 50);
     } catch (e) {
       setError(e?.message || "Impossible d'envoyer le message.");
     } finally {
@@ -126,7 +115,7 @@ export default function Messages() {
     setError("");
     try {
       await backofficeApi.retryMessage(id);
-      await load();
+      await reloadMessagesResolver(0, 50);
     } catch (e) {
       setError(e?.message || "Retry impossible.");
     }
@@ -136,7 +125,7 @@ export default function Messages() {
     setError("");
     try {
       await backofficeApi.deleteMessage(id);
-      await load();
+      await reloadMessagesResolver(0, 50);
     } catch (e) {
       setError(e?.message || "Suppression impossible.");
     }
@@ -227,7 +216,7 @@ export default function Messages() {
         <Card className="lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <div className="text-sm text-muted-foreground">Historique</div>
-            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={() => messagesEntry.reload().catch(() => {})} disabled={loading}>
               Rafraîchir
             </Button>
           </div>
@@ -302,4 +291,3 @@ export default function Messages() {
     </div>
   );
 }
-

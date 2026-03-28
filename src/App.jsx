@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import Layout from "./components/layout/Layout.jsx";
 import Login from "./pages/Login.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
@@ -27,7 +27,9 @@ import ProductReviews from "./pages/ProductReviews.jsx";
 import BlogPosts from "./pages/BlogPosts.jsx";
 import TicketEvents from "./pages/TicketEvents.jsx";
 import { isAuthenticated } from "./services/auth.js";
+import { OverviewProvider } from "./contexts/OverviewContext.jsx";
 import TestLabel from "./pages/Test.jsx";
+
 function RequireAuth({ children }) {
   const location = useLocation();
 
@@ -36,6 +38,14 @@ function RequireAuth({ children }) {
   }
 
   return children;
+}
+
+function OverviewSection() {
+  return (
+    <OverviewProvider>
+      <Outlet />
+    </OverviewProvider>
+  );
 }
 
 export default function App() {
@@ -49,8 +59,10 @@ export default function App() {
       <Route path="/terms" element={<Terms />} />
       
       <Route element={<RequireAuth><Layout /></RequireAuth>}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/analytics" element={<Analytics />} />
+        <Route element={<OverviewSection />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/analytics" element={<Analytics />} />
+        </Route>
         <Route path="/orders" element={<Orders />} />
         <Route path="/returns" element={<Returns />} />
         <Route path="/products" element={<Products />} />

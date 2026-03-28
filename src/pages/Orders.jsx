@@ -236,14 +236,12 @@ export default function Orders() {
   };
 
   async function ensureCreateData() {
-    const [custRes, prodRes] = await Promise.all([
-      backofficeApi.customers(0, 50).catch(() => null),
-      backofficeApi.products(0, 200).catch(() => null)
-    ]);
-    const custList = Array.isArray(custRes?.content) ? custRes.content : Array.isArray(custRes) ? custRes : [];
-    const prodList = Array.isArray(prodRes?.content) ? prodRes.content : Array.isArray(prodRes) ? prodRes : [];
-    setCustomers(custList);
-    setProducts(prodList);
+    if (customers.length > 0 && products.length > 0) {
+      return;
+    }
+    const data = await backofficeApi.orderCreateBootstrap(0, 50, 0, 200).catch(() => null);
+    setCustomers(Array.isArray(data?.customers) ? data.customers : []);
+    setProducts(Array.isArray(data?.products) ? data.products : []);
   }
 
   async function openCreateModal() {

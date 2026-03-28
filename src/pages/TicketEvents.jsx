@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Search, Edit2, Trash2, AlertCircle, Calendar as CalendarIcon } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
@@ -10,6 +10,7 @@ import Label from "../components/ui/Label.jsx";
 import Modal from "../components/ui/Modal.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
+import { reloadTicketEventsResolver, useTicketEventsResolver } from "../resolvers/ticketEventsResolver.js";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -41,9 +42,10 @@ const normalizeDateTime = (value) => {
 };
 
 export default function TicketEvents() {
-  const [events, setEvents] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const eventsEntry = useTicketEventsResolver();
+  const events = Array.isArray(eventsEntry.data) ? eventsEntry.data : [];
+  const isLoading = eventsEntry.loading;
+  const error = eventsEntry.error;
 
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -65,34 +67,6 @@ export default function TicketEvents() {
     available: true,
     description: ""
   });
-
-  const mountedRef = useRef(true);
-
-  const loadEvents = async () => {
-    setIsLoading(true);
-    setError("");
-    try {
-      const data = await backofficeApi.ticketEvents();
-      if (!mountedRef.current) return;
-      setEvents(Array.isArray(data) ? data : []);
-    } catch (err) {
-      if (!mountedRef.current) return;
-      setError(err?.message || "Impossible de charger la billetterie.");
-    } finally {
-      if (mountedRef.current) setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    loadEvents();
-  }, []);
 
   const categories = useMemo(() => {
     const set = new Set();
@@ -190,7 +164,7 @@ export default function TicketEvents() {
         await backofficeApi.createTicketEvent(payload);
       }
       setIsFormOpen(false);
-      await loadEvents();
+      await reloadTicketEventsResolver();
     } catch (err) {
       setFormError(err?.message || "Échec de l'enregistrement.");
     } finally {
@@ -206,7 +180,7 @@ export default function TicketEvents() {
       await backofficeApi.deleteTicketEvent(current.id);
       setIsDeleteOpen(false);
       setCurrent(null);
-      await loadEvents();
+      await reloadTicketEventsResolver();
     } catch (err) {
       setFormError(err?.message || "Échec de la suppression.");
     } finally {

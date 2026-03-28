@@ -11,6 +11,7 @@ import Modal from "../components/ui/Modal.jsx";
 import Label from "../components/ui/Label.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
+import { reloadUsersResolver, useUsersResolver } from "../resolvers/usersResolver.js";
 
 const roles = [
   { value: "CLIENT", label: "Client" },
@@ -56,29 +57,13 @@ export default function Users() {
     pays: ""
   });
 
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      const page = await backofficeApi.users(0, 200, roleFilter, query);
-      setUsers(Array.isArray(page?.content) ? page.content : []);
-    } catch (e) {
-      setError(e?.message || "Impossible de charger les utilisateurs.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const usersEntry = useUsersResolver(0, 200, roleFilter, query);
 
   useEffect(() => {
-    load();
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      load();
-    }, 350);
-    return () => clearTimeout(t);
-  }, [query, roleFilter]);
+    setLoading(usersEntry.loading);
+    setError(usersEntry.error);
+    setUsers(Array.isArray(usersEntry.data?.content) ? usersEntry.data.content : []);
+  }, [usersEntry.data, usersEntry.error, usersEntry.loading]);
 
   const rows = useMemo(() => {
     return (users || []).map((u) => {
@@ -141,7 +126,7 @@ export default function Users() {
 
       const created = await backofficeApi.createUser(payload);
       setIsFormOpen(false);
-      await load();
+      await reloadUsersResolver(0, 200, roleFilter, query);
       if (created?.id) {
         navigate(`/users/${created.id}`);
       }
@@ -160,7 +145,7 @@ export default function Users() {
       await backofficeApi.deleteUser(currentUser.id);
       setIsDeleteOpen(false);
       setCurrentUser(null);
-      await load();
+      await reloadUsersResolver(0, 200, roleFilter, query);
     } catch (err) {
       setError(err?.message || "Impossible de supprimer l'utilisateur.");
     } finally {
@@ -176,7 +161,7 @@ export default function Users() {
     setError("");
     try {
       await backofficeApi.blockUser(u.id);
-      await load();
+      await reloadUsersResolver(0, 200, roleFilter, query);
     } catch (err) {
       setError(err?.message || "Impossible de bloquer l'utilisateur.");
     } finally {
@@ -192,7 +177,7 @@ export default function Users() {
     setError("");
     try {
       await backofficeApi.unblockUser(u.id);
-      await load();
+      await reloadUsersResolver(0, 200, roleFilter, query);
     } catch (err) {
       setError(err?.message || "Impossible de débloquer l'utilisateur.");
     } finally {

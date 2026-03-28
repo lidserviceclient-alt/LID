@@ -10,8 +10,8 @@ import Select from "../components/ui/Select.jsx";
 import Label from "../components/ui/Label.jsx";
 import Modal from "../components/ui/Modal.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
-import { customers } from "../data/mockData.js";
 import { backofficeApi } from "../services/api.js";
+import { useCustomersResolver } from "../resolvers/customersResolver.js";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return "-";
@@ -37,7 +37,11 @@ const getTier = (spent) => {
 };
 
 export default function Customers() {
-  const [customerList, setCustomerList] = useState(customers);
+  const [customerList, setCustomerList] = useState([]);
+  const [segments, setSegments] = useState([]);
+  const [selectedSegment, setSelectedSegment] = useState("");
+  const [query, setQuery] = useState("");
+  const [summary, setSummary] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -58,35 +62,27 @@ export default function Customers() {
       setSearchParams(nextParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
-
-  async function loadCustomers() {
-    backofficeApi
-      .customers(0, 50)
-      .then((data) => {
-        if (data && Array.isArray(data.content)) {
-          setCustomerList(
-            data.content.map((customer) => ({
-              id: customer.id,
-              name: customer.name,
-              tier: customer.loyaltyTier || getTier(customer.spent),
-              orders: customer.orders,
-              spent: formatCurrency(customer.spent),
-              lastOrder: formatDate(customer.lastOrder)
-            }))
-          );
-        }
-      })
-      .catch(() => {
-        // keep mock data
-      });
-  }
+  const customersEntry = useCustomersResolver(0, 50, query.trim(), selectedSegment);
 
   useEffect(() => {
-    loadCustomers();
-    const onFocus = () => loadCustomers();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, []);
+    const data = customersEntry.data;
+    setSegments(Array.isArray(data?.segments) ? data.segments : []);
+    setSummary(data?.loyaltySummary || null);
+    if (Array.isArray(data?.customersPage?.content)) {
+      setCustomerList(
+        data.customersPage.content.map((customer) => ({
+          id: customer.id,
+          name: customer.name,
+          tier: customer.loyaltyTier || getTier(customer.spent),
+          orders: customer.orders,
+          spent: formatCurrency(customer.spent),
+          lastOrder: formatDate(customer.lastOrder)
+        }))
+      );
+    } else {
+      setCustomerList([]);
+    }
+  }, [customersEntry.data]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -127,7 +123,7 @@ export default function Customers() {
         subtitle="Fidélisez et segmentez vos meilleurs acheteurs."
         rightSlot={
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={loadCustomers}>
+            <Button variant="outline" onClick={() => customersEntry.reload().catch(() => {})}>
               Rafraîchir
             </Button>
             <Button onClick={() => setIsModalOpen(true)}>
@@ -139,19 +135,39 @@ export default function Customers() {
       />
 
       <Card>
+        {summary ? (
+          <div className="grid gap-3 mb-4 md:grid-cols-3">
+            <div className="rounded-lg border border-border/60 px-4 py-3">
+              <p className="text-xs text-muted-foreground">Clients</p>
+              <p className="text-lg font-semibold">{summary.totalCustomers ?? 0}</p>
+            </div>
+            <div className="rounded-lg border border-border/60 px-4 py-3">
+              <p className="text-xs text-muted-foreground">Dépense totale</p>
+              <p className="text-lg font-semibold">{formatCurrency(summary.totalSpent ?? 0)}</p>
+            </div>
+            <div className="rounded-lg border border-border/60 px-4 py-3">
+              <p className="text-xs text-muted-foreground">Panier moyen client</p>
+              <p className="text-lg font-semibold">{formatCurrency(summary.averageSpent ?? 0)}</p>
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="w-64">
             <Input
               placeholder="Rechercher un client"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
             />
           </div>
           <div className="w-48">
-            <Select>
-              <option>Tous segments</option>
-              <option>Gold</option>
-              <option>Silver</option>
-              <option>Bronze</option>
-              <option>Platinum</option>
+            <Select value={selectedSegment} onChange={(e) => setSelectedSegment(e.target.value)}>
+              <option value="">Tous segments</option>
+              {segments.map((segment) => (
+                <option key={segment} value={segment}>
+                  {segment}
+                </option>
+              ))}
             </Select>
           </div>
         </div>

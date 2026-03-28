@@ -9,6 +9,7 @@ import Select from "../components/ui/Select.jsx";
 import Modal from "../components/ui/Modal.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
+import { reloadReturnsResolver, useReturnsResolver } from "../resolvers/returnsResolver.js";
 
 const statusOptions = [
   { value: "", label: "Tous" },
@@ -61,33 +62,13 @@ export default function Returns() {
   const [detailError, setDetailError] = useState("");
   const [statusUpdate, setStatusUpdate] = useState("");
   const [statusSaving, setStatusSaving] = useState(false);
+  const returnsEntry = useReturnsResolver(page, size, status, q.trim());
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError("");
-    const timer = setTimeout(() => {
-      backofficeApi
-        .returns(page, size, status, q.trim())
-        .then((res) => {
-          if (cancelled) return;
-          setData(res);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          setError(err?.message || "Impossible de charger les retours.");
-        })
-        .finally(() => {
-          if (cancelled) return;
-          setLoading(false);
-        });
-    }, 250);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [page, q, size, status]);
+    setLoading(returnsEntry.loading);
+    setError(returnsEntry.error);
+    setData(returnsEntry.data);
+  }, [returnsEntry.data, returnsEntry.error, returnsEntry.loading]);
 
   const rows = useMemo(() => {
     const list = Array.isArray(data?.content) ? data.content : [];
@@ -131,8 +112,7 @@ export default function Returns() {
     try {
       const updated = await backofficeApi.updateReturnStatus(detail.id, statusUpdate);
       setDetail(updated);
-      const refreshed = await backofficeApi.returns(page, size, status, q.trim());
-      setData(refreshed);
+      await reloadReturnsResolver(page, size, status, q.trim());
     } catch (err) {
       setDetailError(err?.message || "Impossible de mettre à jour le statut.");
     } finally {

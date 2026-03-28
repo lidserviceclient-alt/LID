@@ -8,6 +8,7 @@ import Input from "../components/ui/Input.jsx";
 import Modal from "../components/ui/Modal.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
+import { reloadLoyaltyResolver, useLoyaltyResolver } from "../resolvers/loyaltyResolver.js";
 
 const formatInt = (value) => {
   const n = Number(value);
@@ -95,42 +96,26 @@ export default function Loyalty() {
   const [adjustSaving, setAdjustSaving] = useState(false);
   const [adjustError, setAdjustError] = useState("");
   const [adjustForm, setAdjustForm] = useState({ deltaPoints: "", reason: "" });
-
-  async function reload() {
-    setLoading(true);
-    setError("");
-    try {
-      const q = `${customerQuery || ""}`.trim();
-      const [ov, list, top, cfg, pageRes] = await Promise.all([
-        backofficeApi.loyaltyOverview(),
-        backofficeApi.loyaltyTiers(),
-        backofficeApi.loyaltyCustomers(10),
-        backofficeApi.loyaltyConfig(),
-        backofficeApi.loyaltyCustomersPage(q, customersPageIndex, customersPageSize)
-      ]);
-      setOverview(ov || null);
-      setTiers(Array.isArray(list) ? list : []);
-      setCustomers(Array.isArray(top) ? top : []);
-      setConfig(cfg || null);
-      setCustomersPage(pageRes || null);
-
-      const pointsPerFcfa = Number(cfg?.pointsPerFcfa ?? 0.001);
-      const pointsPer1000 = pointsPerFcfa * 1000;
-      setRulesForm({
-        pointsPer1000: `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 3 }).format(pointsPer1000)}`.replaceAll(" ", ""),
-        valuePerPointFcfa: `${cfg?.valuePerPointFcfa ?? 0.1}`,
-        retentionDays: `${cfg?.retentionDays ?? 30}`
-      });
-    } catch (err) {
-      setError(err?.message || "Impossible de charger la fidélité.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const loyaltyEntry = useLoyaltyResolver(`${customerQuery || ""}`.trim(), customersPageIndex, customersPageSize, 10);
 
   useEffect(() => {
-    reload();
-  }, []);
+    setLoading(loyaltyEntry.loading);
+    setError(loyaltyEntry.error);
+    const data = loyaltyEntry.data;
+    setOverview(data?.overview || null);
+    setTiers(Array.isArray(data?.tiers) ? data.tiers : []);
+    setCustomers(Array.isArray(data?.topCustomers) ? data.topCustomers : []);
+    setConfig(data?.config || null);
+    setCustomersPage(data?.customersPage || null);
+
+    const pointsPerFcfa = Number(data?.config?.pointsPerFcfa ?? 0.001);
+    const pointsPer1000 = pointsPerFcfa * 1000;
+    setRulesForm({
+      pointsPer1000: `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 3 }).format(pointsPer1000)}`.replaceAll(" ", ""),
+      valuePerPointFcfa: `${data?.config?.valuePerPointFcfa ?? 0.1}`,
+      retentionDays: `${data?.config?.retentionDays ?? 30}`
+    });
+  }, [loyaltyEntry.data, loyaltyEntry.error, loyaltyEntry.loading]);
 
   const retentionLabel = useMemo(() => {
     const v = Number(overview?.retentionRate ?? 0);
@@ -167,7 +152,7 @@ export default function Loyalty() {
         retentionDays: Math.trunc(retentionDays)
       });
       setIsRulesOpen(false);
-      await reload();
+      await reloadLoyaltyResolver(`${customerQuery || ""}`.trim(), customersPageIndex, customersPageSize, 10);
     } catch (err) {
       setRulesError(err?.message || "Impossible d'enregistrer les règles.");
     } finally {
@@ -215,7 +200,7 @@ export default function Loyalty() {
         benefits: tierForm.benefits
       });
       setIsTierOpen(false);
-      await reload();
+      await reloadLoyaltyResolver(`${customerQuery || ""}`.trim(), customersPageIndex, customersPageSize, 10);
     } catch (err) {
       setTierError(err?.message || "Impossible de mettre à jour le niveau.");
     } finally {
@@ -253,7 +238,7 @@ export default function Loyalty() {
     try {
       await backofficeApi.createLoyaltyTier({ name, minPoints: Math.trunc(minPoints), benefits: createTierForm.benefits });
       setIsCreateTierOpen(false);
-      await reload();
+      await reloadLoyaltyResolver(`${customerQuery || ""}`.trim(), customersPageIndex, customersPageSize, 10);
     } catch (err) {
       setCreateTierError(err?.message || "Impossible de créer le niveau.");
     } finally {
@@ -275,7 +260,7 @@ export default function Loyalty() {
       await backofficeApi.deleteLoyaltyTier(tierToDelete.id);
       setIsDeleteTierOpen(false);
       setTierToDelete(null);
-      await reload();
+      await reloadLoyaltyResolver(`${customerQuery || ""}`.trim(), customersPageIndex, customersPageSize, 10);
     } catch (err) {
       setDeleteTierError(err?.message || "Impossible de supprimer le niveau.");
     } finally {
@@ -349,7 +334,7 @@ export default function Loyalty() {
       setSelectedCustomer(updated || null);
       setAdjustForm({ deltaPoints: "", reason: "" });
       await loadCustomerTransactions(0);
-      await reload();
+      await reloadLoyaltyResolver(`${customerQuery || ""}`.trim(), customersPageIndex, customersPageSize, 10);
     } catch (err) {
       setAdjustError(err?.message || "Impossible d’ajuster les points.");
     } finally {

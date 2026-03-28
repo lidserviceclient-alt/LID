@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Search, Edit2, Trash2, AlertCircle, Upload, Star } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
@@ -12,6 +12,7 @@ import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import BulkCategoryImportModal from "../components/categories/BulkCategoryImportModal.jsx";
 import CategoryImageUpload from "../components/categories/CategoryImageUpload.jsx";
 import { backofficeApi } from "../services/api.js";
+import { reloadCategoriesResolver, useCategoriesResolver } from "../resolvers/categoriesResolver.js";
 
 const levels = [
   { value: "PRINCIPALE", label: "Principale" },
@@ -37,10 +38,6 @@ const slugify = (value) =>
     .replace(/-+/g, "-");
 
 export default function Categories() {
-  const [categories, setCategories] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-
   const [query, setQuery] = useState("");
   const [levelFilter, setLevelFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL | ACTIVE | INACTIVE
@@ -58,6 +55,7 @@ export default function Categories() {
   const [bulkDeleteError, setBulkDeleteError] = useState("");
   const [disableAllSaving, setDisableAllSaving] = useState(false);
   const [disableAllError, setDisableAllError] = useState("");
+  const [pageError, setPageError] = useState("");
 
   const [formData, setFormData] = useState({
     nom: "",
@@ -69,22 +67,10 @@ export default function Categories() {
     estActive: true
   });
 
-  const loadCategories = async () => {
-    setIsLoading(true);
-    setError("");
-    try {
-      const data = await backofficeApi.categories();
-      setCategories(Array.isArray(data) ? data : []);
-    } catch (err) {
-      setError(err?.message || "Impossible de charger les catégories.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadCategories();
-  }, []);
+  const categoriesEntry = useCategoriesResolver();
+  const categories = Array.isArray(categoriesEntry.data) ? categoriesEntry.data : [];
+  const isLoading = categoriesEntry.loading;
+  const error = pageError || categoriesEntry.error || "";
 
   const parentOptions = useMemo(() => {
     const list = Array.isArray(categories) ? categories : [];
@@ -184,9 +170,9 @@ export default function Categories() {
         isFeatured: next
       };
       await backofficeApi.updateCategory(category.id, payload);
-      setCategories((prev) => prev.map((c) => (c.id === category.id ? { ...c, isFeatured: next } : c)));
+      await reloadCategoriesResolver();
     } catch (err) {
-      setError(err?.message || "Impossible de mettre à jour l’état en phare.");
+      setPageError(err?.message || "Impossible de mettre à jour l’état en phare.");
     }
   };
 
@@ -218,11 +204,11 @@ export default function Categories() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setPageError("");
 
     const trimmedParentId = `${formData.parentId || ""}`.trim();
     if (formData.niveau !== "PRINCIPALE" && !trimmedParentId) {
-      setError("Parent obligatoire pour une sous-catégorie.");
+      setPageError("Parent obligatoire pour une sous-catégorie.");
       return;
     }
 
@@ -244,35 +230,35 @@ export default function Categories() {
         await backofficeApi.createCategory(payload);
       }
       setIsFormOpen(false);
-      await loadCategories();
+      await reloadCategoriesResolver();
     } catch (err) {
-      setError(err?.message || "Erreur lors de l'enregistrement.");
+      setPageError(err?.message || "Erreur lors de l'enregistrement.");
     }
   };
 
   const handleDelete = async () => {
     if (!currentCategory?.id) return;
-    setError("");
+    setPageError("");
     try {
       await backofficeApi.deleteCategory(currentCategory.id);
       setIsDeleteOpen(false);
       setCurrentCategory(null);
-      await loadCategories();
+      await reloadCategoriesResolver();
     } catch (err) {
-      setError(err?.message || "Erreur lors de la suppression.");
+      setPageError(err?.message || "Erreur lors de la suppression.");
     }
   };
 
   const submitBulk = async (items) => {
     setBulkSaving(true);
     setBulkResult(null);
-    setError("");
+    setPageError("");
     try {
       const res = await backofficeApi.bulkCreateCategories(items);
       setBulkResult(res || null);
-      await loadCategories();
+      await reloadCategoriesResolver();
     } catch (err) {
-      setError(err?.message || "Impossible d'ajouter en masse.");
+      setPageError(err?.message || "Impossible d'ajouter en masse.");
     } finally {
       setBulkSaving(false);
     }
@@ -292,7 +278,7 @@ export default function Categories() {
       await backofficeApi.bulkDeleteCategories(ids);
       setSelectedIds(new Set());
       setIsBulkDeleteOpen(false);
-      await loadCategories();
+      await reloadCategoriesResolver();
     } catch (err) {
       setBulkDeleteError(err?.message || "Suppression en masse impossible.");
     } finally {
@@ -315,7 +301,7 @@ export default function Categories() {
       await backofficeApi.purgeCategories(Boolean(withProducts));
       setSelectedIds(new Set());
       setIsDisableAllOpen(false);
-      await loadCategories();
+      await reloadCategoriesResolver();
     } catch (err) {
       setDisableAllError(err?.message || "Suppression globale impossible.");
     } finally {
@@ -388,7 +374,7 @@ export default function Categories() {
             </div>
           </div>
 
-          <Button variant="outline" onClick={loadCategories} disabled={isLoading}>
+          <Button variant="outline" onClick={() => categoriesEntry.reload().catch(() => {})} disabled={isLoading}>
             {isLoading ? "Chargement..." : "Rafraîchir"}
           </Button>
         </div>
