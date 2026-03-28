@@ -135,7 +135,7 @@ public class AuthService {
 
     @Transactional
     public AuthResponse loginLidBackofficeLocal(LoginRequest request) {
-        return loginLocal(request, this::assertBackOfficeRoleOrThrow, true);
+        return loginLocal(request, this::assertBackOfficeRoleOrThrow, false);
     }
 
     @Transactional

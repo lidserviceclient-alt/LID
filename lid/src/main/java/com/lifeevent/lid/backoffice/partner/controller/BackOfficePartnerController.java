@@ -3,6 +3,7 @@ package com.lifeevent.lid.backoffice.partner.controller;
 import com.lifeevent.lid.backoffice.lid.product.dto.BackOfficeProductDto;
 import com.lifeevent.lid.backoffice.partner.category.dto.PartnerSubCategoryDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCollectionDto;
+import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCategoriesCollectionDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCustomerDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerOrderDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerProductDto;
@@ -136,6 +137,12 @@ public class BackOfficePartnerController implements IBackOfficePartnerController
     @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<PartnerSubCategoryDto>> listCategories() {
         return ResponseEntity.ok(backOfficePartnerService.listMyCategories());
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('PARTNER','ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<BackOfficePartnerCategoriesCollectionDto> getCategoriesCollection() {
+        return ResponseEntity.ok(backOfficePartnerService.getMyCategoriesCollection());
     }
 
     @Override

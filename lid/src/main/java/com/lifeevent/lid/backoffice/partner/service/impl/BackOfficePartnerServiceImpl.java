@@ -11,6 +11,7 @@ import com.lifeevent.lid.backoffice.partner.category.dto.PartnerSubCategoryDto;
 import com.lifeevent.lid.backoffice.partner.category.entity.PartnerSubCategory;
 import com.lifeevent.lid.backoffice.partner.category.repository.PartnerSubCategoryRepository;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCollectionDto;
+import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCategoriesCollectionDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCustomerDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerOrderDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerProductDto;
@@ -25,7 +26,6 @@ import com.lifeevent.lid.backoffice.partner.preference.dto.PartnerPreferencesDto
 import com.lifeevent.lid.backoffice.partner.preference.entity.PartnerPreferences;
 import com.lifeevent.lid.backoffice.partner.preference.repository.PartnerPreferencesRepository;
 import com.lifeevent.lid.backoffice.partner.service.BackOfficePartnerService;
-import com.lifeevent.lid.catalog.dto.CatalogCategoryDto;
 import com.lifeevent.lid.catalog.service.CatalogService;
 import com.lifeevent.lid.common.cache.CacheScopeVersionService;
 import com.lifeevent.lid.common.cache.event.ProductCatalogChangedEvent;
@@ -207,13 +207,29 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     public BackOfficePartnerSettingsCollectionDto getMySettingsCollection() {
         CompletableFuture<BackOfficePartnerSettingsDto> settingsFuture = supplyAggregationAsync(this::getMySettings);
         CompletableFuture<PartnerPreferencesDto> preferencesFuture = supplyAggregationAsync(this::getMyPreferences);
-        CompletableFuture<List<CatalogCategoryDto>> categoriesFuture = supplyAggregationAsync(catalogService::listCategories);
 
-        CompletableFuture.allOf(settingsFuture, preferencesFuture, categoriesFuture).join();
+        CompletableFuture.allOf(settingsFuture, preferencesFuture).join();
         return new BackOfficePartnerSettingsCollectionDto(
                 settingsFuture.join(),
-                preferencesFuture.join(),
-                categoriesFuture.join()
+                preferencesFuture.join()
+        );
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = CatalogCacheNames.PARTNER_CATEGORIES,
+            key = "@cacheScopeVersionService.partnerVersionToken(T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId()) + ':' + T(com.lifeevent.lid.common.security.SecurityUtils).getCurrentUserId() + ':collection'",
+            sync = true
+    )
+    public BackOfficePartnerCategoriesCollectionDto getMyCategoriesCollection() {
+        CompletableFuture<List<PartnerSubCategoryDto>> categoriesCrudFuture = supplyAggregationAsync(this::listMyCategories);
+        CompletableFuture<List<com.lifeevent.lid.catalog.dto.CatalogCategoryDto>> categoriesFuture =
+                supplyAggregationAsync(catalogService::listCategories);
+
+        CompletableFuture.allOf(categoriesCrudFuture, categoriesFuture).join();
+        return new BackOfficePartnerCategoriesCollectionDto(
+                categoriesFuture.join(),
+                categoriesCrudFuture.join()
         );
     }
 

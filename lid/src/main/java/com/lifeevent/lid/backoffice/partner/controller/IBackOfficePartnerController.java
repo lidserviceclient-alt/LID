@@ -3,6 +3,7 @@ package com.lifeevent.lid.backoffice.partner.controller;
 import com.lifeevent.lid.backoffice.lid.product.dto.BackOfficeProductDto;
 import com.lifeevent.lid.backoffice.partner.category.dto.PartnerSubCategoryDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCollectionDto;
+import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCategoriesCollectionDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCustomerDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerOrderDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerProductDto;
@@ -96,6 +97,9 @@ public interface IBackOfficePartnerController {
 
     @GetMapping("/categories-crud")
     ResponseEntity<List<PartnerSubCategoryDto>> listCategories();
+    
+    @GetMapping("/categories-crud/collection")
+    ResponseEntity<BackOfficePartnerCategoriesCollectionDto> getCategoriesCollection();
 
     @PostMapping("/categories-crud")
     ResponseEntity<PartnerSubCategoryDto> createCategory(@RequestBody PartnerSubCategoryDto dto);
