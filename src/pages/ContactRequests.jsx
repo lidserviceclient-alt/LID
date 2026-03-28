@@ -7,6 +7,7 @@ import Badge from "../components/ui/Badge.jsx";
 import Drawer from "../components/ui/Drawer.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
+import { reloadMessagesResolver, useMessagesResolver } from "../resolvers/messagesResolver.js";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -49,29 +50,16 @@ function extractContactFields(body) {
 }
 
 export default function ContactRequests() {
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      const page = await backofficeApi.messages(0, 200);
-      const all = Array.isArray(page?.content) ? page.content : [];
-      setItems(all);
-    } catch (e) {
-      setError(e?.message || "Impossible de charger les messages.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const messagesEntry = useMessagesResolver(0, 200);
+  const loading = messagesEntry.loading;
+  const items = Array.isArray(messagesEntry.data?.content) ? messagesEntry.data.content : [];
 
   useEffect(() => {
-    load();
-  }, []);
+    setError(messagesEntry.error);
+  }, [messagesEntry.error]);
 
   const contacts = useMemo(() => {
     return items.filter((m) => `${m?.subject || ""}`.startsWith("Contact - "));
@@ -99,7 +87,7 @@ export default function ContactRequests() {
         setDrawerOpen(false);
         setSelected(null);
       }
-      await load();
+      await reloadMessagesResolver(0, 200);
     } catch (e) {
       setError(e?.message || "Suppression impossible.");
     }
@@ -123,7 +111,7 @@ export default function ContactRequests() {
       <Card>
         <div className="flex items-center justify-between mb-4">
           <div className="text-sm text-muted-foreground">{contacts.length} message(s)</div>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => messagesEntry.reload().catch(() => {})} disabled={loading}>
             Rafraîchir
           </Button>
         </div>

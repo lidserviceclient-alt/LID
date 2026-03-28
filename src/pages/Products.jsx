@@ -96,9 +96,9 @@ export default function Products() {
     setLoading(true);
     setError("");
     try {
-      const [productsPage, cats] = await Promise.all([backofficeApi.products(0, 200), backofficeApi.categories()]);
-      setCategories(Array.isArray(cats) ? cats : []);
-      setProducts(Array.isArray(productsPage?.content) ? productsPage.content : []);
+      const data = await backofficeApi.productCollection(0, 200);
+      setCategories(Array.isArray(data?.categories) ? data.categories : []);
+      setProducts(Array.isArray(data?.productsPage?.content) ? data.productsPage.content : []);
     } catch (e) {
       setError(e?.message || "Impossible de charger les produits.");
     } finally {

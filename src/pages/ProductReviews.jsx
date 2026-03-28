@@ -10,6 +10,7 @@ import Select from "../components/ui/Select.jsx";
 import Label from "../components/ui/Label.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
+import { reloadProductReviewsResolver, useProductReviewsResolver } from "../resolvers/productReviewsResolver.js";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -38,49 +39,31 @@ const statusVariant = (label) => {
 };
 
 export default function ProductReviews() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [page, setPage] = useState(0);
-  const [pageData, setPageData] = useState({ content: [], totalPages: 1, totalElements: 0 });
   const [status, setStatus] = useState("ALL");
   const [q, setQ] = useState("");
   const [productId, setProductId] = useState("");
   const [userId, setUserId] = useState("");
+  const [pageError, setPageError] = useState("");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [selected, setSelected] = useState(null);
   const [editForm, setEditForm] = useState({ rating: 5, content: "", validated: true });
   const [saving, setSaving] = useState(false);
-
-  async function load(nextPage = page) {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await backofficeApi.productReviews(nextPage, 20, status, q, productId, userId);
-      const content = Array.isArray(res?.content) ? res.content : [];
-      setPageData({
-        content,
-        totalPages: Number(res?.totalPages) || 1,
-        totalElements: Number(res?.totalElements) || content.length
-      });
-      setPage(Number(res?.number) || nextPage);
-    } catch (e) {
-      setError(e?.message || "Impossible de charger les avis.");
-      setPageData({ content: [], totalPages: 1, totalElements: 0 });
-    } finally {
-      setLoading(false);
-    }
-  }
+  const reviewsEntry = useProductReviewsResolver(page, 20, status, q, productId, userId);
+  const loading = reviewsEntry.loading;
+  const error = pageError || reviewsEntry.error || "";
+  const pageData = reviewsEntry.data || { content: [], totalPages: 1, totalElements: 0 };
 
   useEffect(() => {
-    load(0);
+    setPage(0);
   }, [status]);
 
   const rows = useMemo(() => pageData.content || [], [pageData.content]);
 
   const open = async (row) => {
     if (!row?.id) return;
-    setError("");
+    setPageError("");
     try {
       const full = await backofficeApi.productReview(row.id);
       setSelected(full);
@@ -91,7 +74,7 @@ export default function ProductReviews() {
       });
       setModalOpen(true);
     } catch (e) {
-      setError(e?.message || "Impossible d'ouvrir l'avis.");
+      setPageError(e?.message || "Impossible d'ouvrir l'avis.");
     }
   };
 
@@ -99,7 +82,7 @@ export default function ProductReviews() {
     if (!selected?.id) return;
     if (!`${editForm.content || ""}`.trim()) return;
     setSaving(true);
-    setError("");
+    setPageError("");
     try {
       await backofficeApi.updateProductReview(selected.id, {
         rating: Number(editForm.rating) || 5,
@@ -108,9 +91,9 @@ export default function ProductReviews() {
       });
       setModalOpen(false);
       setSelected(null);
-      await load(page);
+      await reloadProductReviewsResolver(page, 20, status, q, productId, userId);
     } catch (e) {
-      setError(e?.message || "Sauvegarde impossible.");
+      setPageError(e?.message || "Sauvegarde impossible.");
     } finally {
       setSaving(false);
     }
@@ -118,24 +101,24 @@ export default function ProductReviews() {
 
   const toggleValidate = async (row) => {
     if (!row?.id) return;
-    setError("");
+    setPageError("");
     try {
       if (row.validated) await backofficeApi.unvalidateProductReview(row.id);
       else await backofficeApi.validateProductReview(row.id);
-      await load(page);
+      await reloadProductReviewsResolver(page, 20, status, q, productId, userId);
     } catch (e) {
-      setError(e?.message || "Action impossible.");
+      setPageError(e?.message || "Action impossible.");
     }
   };
 
   const restore = async (row) => {
     if (!row?.id) return;
-    setError("");
+    setPageError("");
     try {
       await backofficeApi.restoreProductReview(row.id);
-      await load(page);
+      await reloadProductReviewsResolver(page, 20, status, q, productId, userId);
     } catch (e) {
-      setError(e?.message || "Restauration impossible.");
+      setPageError(e?.message || "Restauration impossible.");
     }
   };
 
@@ -143,16 +126,16 @@ export default function ProductReviews() {
     if (!row?.id) return;
     const confirm = window.confirm("Supprimer cet avis ?");
     if (!confirm) return;
-    setError("");
+    setPageError("");
     try {
       await backofficeApi.deleteProductReview(row.id);
       if (selected?.id === row.id) {
         setModalOpen(false);
         setSelected(null);
       }
-      await load(page);
+      await reloadProductReviewsResolver(page, 20, status, q, productId, userId);
     } catch (e) {
-      setError(e?.message || "Suppression impossible.");
+      setPageError(e?.message || "Suppression impossible.");
     }
   };
 
@@ -207,14 +190,14 @@ export default function ProductReviews() {
               variant="outline"
               size="sm"
               onClick={() => {
-                setPage(0);
-                load(0);
+                if (page !== 0) setPage(0);
+                else reviewsEntry.reload().catch(() => {});
               }}
               disabled={loading}
             >
               Filtrer
             </Button>
-            <Button variant="outline" size="sm" onClick={() => load(page)} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={() => reviewsEntry.reload().catch(() => {})} disabled={loading}>
               Rafraîchir
             </Button>
           </div>
@@ -227,7 +210,7 @@ export default function ProductReviews() {
               variant="outline"
               size="sm"
               disabled={loading || page <= 0}
-              onClick={() => load(Math.max(0, page - 1))}
+              onClick={() => setPage(Math.max(0, page - 1))}
             >
               Précédent
             </Button>
@@ -238,7 +221,7 @@ export default function ProductReviews() {
               variant="outline"
               size="sm"
               disabled={loading || page + 1 >= (pageData.totalPages || 1)}
-              onClick={() => load(page + 1)}
+              onClick={() => setPage(page + 1)}
             >
               Suivant
             </Button>
@@ -414,4 +397,3 @@ export default function ProductReviews() {
     </div>
   );
 }
-

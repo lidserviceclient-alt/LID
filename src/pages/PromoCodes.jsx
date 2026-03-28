@@ -11,6 +11,7 @@ import Modal from "../components/ui/Modal.jsx";
 import LineChart from "../components/charts/LineChart.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
+import { reloadPromoCodesResolver, usePromoCodesResolver } from "../resolvers/promoCodesResolver.js";
 
 const ranges = [
   { value: "week", label: "7 jours", days: 7 },
@@ -100,45 +101,7 @@ export default function PromoCodes() {
     () => ranges.find((item) => item.value === statsRange) || ranges[1],
     [statsRange]
   );
-
-  const loadPromoCodes = async () => {
-    setIsLoading(true);
-    setError("");
-    try {
-      const data = await backofficeApi.promoCodes();
-      if (!mountedRef.current) return;
-      setPromoCodes(Array.isArray(data) ? data : []);
-    } catch (err) {
-      if (!mountedRef.current) return;
-      setError(err?.message || "Impossible de charger les codes promo.");
-    } finally {
-      if (mountedRef.current) setIsLoading(false);
-    }
-  };
-
-  const loadBoutiques = async () => {
-    try {
-      const data = await backofficeApi.boutiques();
-      if (!mountedRef.current) return;
-      setBoutiques(Array.isArray(data) ? data : []);
-    } catch {
-      // optional
-    }
-  };
-
-  const loadStats = async (days) => {
-    setIsStatsLoading(true);
-    try {
-      const data = await backofficeApi.promoCodeStats(days);
-      if (!mountedRef.current) return;
-      setStats(data || null);
-    } catch {
-      if (!mountedRef.current) return;
-      setStats(null);
-    } finally {
-      if (mountedRef.current) setIsStatsLoading(false);
-    }
-  };
+  const promoEntry = usePromoCodesResolver(selectedRange.days);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -148,13 +111,14 @@ export default function PromoCodes() {
   }, []);
 
   useEffect(() => {
-    loadPromoCodes();
-    loadBoutiques();
-  }, []);
-
-  useEffect(() => {
-    loadStats(selectedRange.days);
-  }, [selectedRange.days]);
+    if (!mountedRef.current) return;
+    setIsStatsLoading(promoEntry.loading);
+    setIsLoading(promoEntry.loading);
+    setError(promoEntry.error);
+    setPromoCodes(Array.isArray(promoEntry.data?.promoCodes) ? promoEntry.data.promoCodes : []);
+    setBoutiques(Array.isArray(promoEntry.data?.boutiques) ? promoEntry.data.boutiques : []);
+    setStats(promoEntry.data?.stats || null);
+  }, [promoEntry.data, promoEntry.error, promoEntry.loading]);
 
   const boutiqueOptions = useMemo(() => {
     const list = Array.isArray(boutiques) ? boutiques : [];
@@ -290,7 +254,7 @@ export default function PromoCodes() {
         await backofficeApi.createPromoCode(payload);
       }
       setIsFormOpen(false);
-      await loadPromoCodes();
+      await reloadPromoCodesResolver(selectedRange.days);
     } catch (err) {
       setError(err?.message || "Erreur lors de l'enregistrement.");
     }
@@ -303,7 +267,7 @@ export default function PromoCodes() {
       await backofficeApi.deletePromoCode(currentPromo.id);
       setIsDeleteOpen(false);
       setCurrentPromo(null);
-      await loadPromoCodes();
+      await reloadPromoCodesResolver(selectedRange.days);
     } catch (err) {
       setError(err?.message || "Erreur lors de la suppression.");
     }
@@ -407,7 +371,7 @@ export default function PromoCodes() {
             </div>
           </div>
 
-          <Button variant="outline" onClick={loadPromoCodes} disabled={isLoading}>
+          <Button variant="outline" onClick={() => promoEntry.reload().catch(() => {})} disabled={isLoading}>
             {isLoading ? "Chargement..." : "Rafraîchir"}
           </Button>
         </div>

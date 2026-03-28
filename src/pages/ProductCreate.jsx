@@ -8,13 +8,15 @@ import Button from "../components/ui/Button";
 import Select from "../components/ui/Select";
 import Toggle from "../components/ui/Toggle";
 import { backofficeApi } from "../services/api";
+import { useCategoriesResolver } from "../resolvers/categoriesResolver.js";
 
 export default function ProductCreate() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [categories, setCategories] = useState([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const categoriesEntry = useCategoriesResolver();
+  const categories = Array.isArray(categoriesEntry.data) ? categoriesEntry.data : [];
+  const categoriesLoading = categoriesEntry.loading;
 
   const [formData, setFormData] = useState({
     name: "",
@@ -33,34 +35,18 @@ export default function ProductCreate() {
   });
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadCategories() {
-      setCategoriesLoading(true);
-      try {
-        const data = await backofficeApi.categories();
-        if (cancelled) return;
-        const items = Array.isArray(data) ? data : [];
-        setCategories(items);
-        setFormData((prev) => {
-          if (prev.category) return prev;
-          const firstId = items[0]?.id || "";
-          return { ...prev, category: firstId };
-        });
-      } catch (e) {
-        if (!cancelled) {
-          setError(e?.message || "Impossible de charger les catégories.");
-        }
-      } finally {
-        if (!cancelled) setCategoriesLoading(false);
-      }
+    if (categoriesEntry.error) {
+      setError(categoriesEntry.error);
     }
+  }, [categoriesEntry.error]);
 
-    loadCategories();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  useEffect(() => {
+    if (!categories.length) return;
+    setFormData((prev) => {
+      if (prev.category) return prev;
+      return { ...prev, category: categories[0]?.id || "" };
+    });
+  }, [categories]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

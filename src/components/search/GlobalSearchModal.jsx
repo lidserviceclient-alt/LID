@@ -83,16 +83,18 @@ export default function GlobalSearchModal({ isOpen, onClose, shortcuts }) {
     setCacheLoading(true);
     setCacheError("");
     try {
-      const [productsPage, customersPage, usersPage] = await Promise.all([
-        backofficeApi.products(0, 200),
-        backofficeApi.customers(0, 200),
-        backofficeApi.users(0, 200)
-      ]);
-
+      const data = await backofficeApi.searchBootstrap({
+        productsPage: 0,
+        productsSize: 200,
+        customersPage: 0,
+        customersSize: 200,
+        usersPage: 0,
+        usersSize: 200
+      });
       setCache({
-        products: safeList(productsPage),
-        customers: safeList(customersPage),
-        users: safeList(usersPage)
+        products: safeList(data?.products),
+        customers: safeList(data?.customers),
+        users: safeList(data?.users)
       });
     } catch (e) {
       setCacheError(e?.message || "Impossible de charger les données de recherche.");
@@ -429,4 +431,3 @@ export default function GlobalSearchModal({ isOpen, onClose, shortcuts }) {
     </Modal>
   );
 }
-

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   kpiData,
@@ -9,7 +9,6 @@ import {
   analyticsSeries,
   promoUsageSeries
 } from "../data/mockData.js";
-import { backofficeApi } from "../services/api.js";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Badge from "../components/ui/Badge.jsx";
@@ -19,6 +18,7 @@ import LineChart from "../components/charts/LineChart.jsx";
 import Button from "../components/ui/Button.jsx";
 import Modal from "../components/ui/Modal.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
+import { useOverviewContext } from "../contexts/OverviewContext.jsx";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return "-";
@@ -61,116 +61,76 @@ const formatCompact = (value) => {
 };
 
 export default function Dashboard() {
-  const [dashboard, setDashboard] = useState(null);
-  const [recentOrdersState, setRecentOrdersState] = useState(recentOrders);
-  const [orderPipelineState, setOrderPipelineState] = useState(orderPipeline);
-  const [analyticsSeriesState, setAnalyticsSeriesState] = useState(analyticsSeries);
-  const [promoUsageSeriesState, setPromoUsageSeriesState] = useState(promoUsageSeries);
-  const [lowStockState, setLowStockState] = useState(lowStock);
-  const [topProductsState, setTopProductsState] = useState(topProducts);
-  const [teamActivityState, setTeamActivityState] = useState([]);
-  const [teamProductivityState, setTeamProductivityState] = useState(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
-  const [overviewRaw, setOverviewRaw] = useState(null);
 
   const navigate = useNavigate();
-  const mountedRef = useRef(true);
+  const { getOverviewEntry, loadOverview } = useOverviewContext();
+  const overviewEntry = getOverviewEntry();
+  const overviewRaw = overviewEntry.data;
+  const isRefreshing = overviewEntry.loading;
+  const lastUpdatedAt = overviewEntry.lastUpdatedAt;
 
   useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  const loadOverview = async () => {
-    setIsRefreshing(true);
-    try {
-      const data = await backofficeApi.overview();
-      if (!mountedRef.current) return;
-
-      setOverviewRaw(data);
-      setLastUpdatedAt(new Date());
-
-      if (data?.dashboard) {
-        setDashboard(data.dashboard);
-      }
-
-      if (Array.isArray(data?.recentOrders)) {
-        setRecentOrdersState(
-          data.recentOrders.map((order) => ({
-            id: order.id,
-            customer: order.customer,
-            channel: "Backoffice",
-            amount: formatCurrency(order.total),
-            status: mapStatus(order.status),
-            date: order.dateCreation
-          }))
-        );
-      }
-
-      if (Array.isArray(data?.analyticsSeries)) {
-        setAnalyticsSeriesState(data.analyticsSeries.map((v) => Number(v) || 0));
-      }
-
-      if (Array.isArray(data?.promoUsageSeries)) {
-        setPromoUsageSeriesState(data.promoUsageSeries.map((v) => Number(v) || 0));
-      }
-
-      if (Array.isArray(data?.orderPipeline)) {
-        const colors = {
-          Nouvelles: "bg-teal-500",
-          "En preparation": "bg-amber-500",
-          Expediees: "bg-emerald-500",
-          Retours: "bg-rose-500"
-        };
-        setOrderPipelineState(
-          data.orderPipeline.map((step) => ({
-            label: step.label,
-            value: Number(step.value) || 0,
-            color: colors[step.label] || "bg-primary"
-          }))
-        );
-      }
-
-      if (Array.isArray(data?.lowStock)) {
-        setLowStockState(data.lowStock);
-      }
-
-      if (Array.isArray(data?.topProducts)) {
-        setTopProductsState(
-          data.topProducts.map((product) => ({
-            name: product.name,
-            category: product.category || "-",
-            revenue: formatCompact(product.revenue),
-            delta: product.delta || "+0%"
-          }))
-        );
-      }
-
-      setTeamActivityState(Array.isArray(data?.teamActivity) ? data.teamActivity : []);
-      setTeamProductivityState(data?.teamProductivity || null);
-    } catch {
-      // keep mock data on failure
-    } finally {
-      if (mountedRef.current) {
-        setIsRefreshing(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    loadOverview();
-  }, []);
+    loadOverview(undefined).catch(() => {});
+  }, [loadOverview]);
 
   useEffect(() => {
     const t = setInterval(() => {
-      loadOverview();
+      loadOverview(undefined, { force: true }).catch(() => {});
     }, 30000);
     return () => clearInterval(t);
-  }, []);
+  }, [loadOverview]);
+
+  const dashboard = overviewRaw?.dashboard || null;
+  const recentOrdersState = useMemo(() => {
+    if (!Array.isArray(overviewRaw?.recentOrders)) return recentOrders;
+    return overviewRaw.recentOrders.map((order) => ({
+      id: order.id,
+      customer: order.customer,
+      channel: "Backoffice",
+      amount: formatCurrency(order.total),
+      status: mapStatus(order.status),
+      date: order.dateCreation
+    }));
+  }, [overviewRaw]);
+
+  const analyticsSeriesState = useMemo(() => {
+    if (!Array.isArray(overviewRaw?.analyticsSeries)) return analyticsSeries;
+    return overviewRaw.analyticsSeries.map((v) => Number(v) || 0);
+  }, [overviewRaw]);
+
+  const promoUsageSeriesState = useMemo(() => {
+    if (!Array.isArray(overviewRaw?.promoUsageSeries)) return promoUsageSeries;
+    return overviewRaw.promoUsageSeries.map((v) => Number(v) || 0);
+  }, [overviewRaw]);
+
+  const orderPipelineState = useMemo(() => {
+    if (!Array.isArray(overviewRaw?.orderPipeline)) return orderPipeline;
+    const colors = {
+      Nouvelles: "bg-teal-500",
+      "En preparation": "bg-amber-500",
+      Expediees: "bg-emerald-500",
+      Retours: "bg-rose-500"
+    };
+    return overviewRaw.orderPipeline.map((step) => ({
+      label: step.label,
+      value: Number(step.value) || 0,
+      color: colors[step.label] || "bg-primary"
+    }));
+  }, [overviewRaw]);
+
+  const lowStockState = Array.isArray(overviewRaw?.lowStock) ? overviewRaw.lowStock : lowStock;
+  const topProductsState = useMemo(() => {
+    if (!Array.isArray(overviewRaw?.topProducts)) return topProducts;
+    return overviewRaw.topProducts.map((product) => ({
+      name: product.name,
+      category: product.category || "-",
+      revenue: formatCompact(product.revenue),
+      delta: product.delta || "+0%"
+    }));
+  }, [overviewRaw]);
+  const teamActivityState = Array.isArray(overviewRaw?.teamActivity) ? overviewRaw.teamActivity : [];
+  const teamProductivityState = overviewRaw?.teamProductivity || null;
 
   const downloadReport = () => {
     const timestamp = new Date().toISOString().replaceAll(":", "-");
@@ -236,7 +196,7 @@ export default function Dashboard() {
         subtitle="Vue d'ensemble des opérations et de la performance."
         rightSlot={
           <>
-            <Button variant="outline" onClick={loadOverview} disabled={isRefreshing}>
+            <Button variant="outline" onClick={() => loadOverview(undefined, { force: true }).catch(() => {})} disabled={isRefreshing}>
               {isRefreshing ? "Synchronisation..." : "Synchroniser"}
             </Button>
             <Button onClick={() => setIsReportOpen(true)}>

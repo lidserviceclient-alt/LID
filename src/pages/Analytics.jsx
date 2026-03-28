@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import LineChart from "../components/charts/LineChart.jsx";
 import Select from "../components/ui/Select.jsx";
 import { analyticsSeries as analyticsSeriesMock, channelMix } from "../data/mockData.js";
-import { backofficeApi } from "../services/api.js";
+import { useOverviewContext } from "../contexts/OverviewContext.jsx";
 
 const ranges = [
   { value: "week", label: "Cette semaine", days: 7 },
@@ -55,10 +55,7 @@ const aggregateDailyToLast12Months = (dailySeries) => {
 
 export default function Analytics() {
   const [range, setRange] = useState("week");
-  const [rawSeries, setRawSeries] = useState(analyticsSeriesMock);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const mountedRef = useRef(true);
+  const { getOverviewEntry, loadOverview } = useOverviewContext();
 
   const selected = useMemo(
     () => ranges.find((item) => item.value === range) || ranges[0],
@@ -66,41 +63,16 @@ export default function Analytics() {
   );
 
   useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
+    loadOverview(selected.days).catch(() => {});
+  }, [loadOverview, selected.days]);
 
-  useEffect(() => {
-    let canceled = false;
-    setIsLoading(true);
-    setError("");
-
-    backofficeApi
-      .overview(selected.days)
-      .then((data) => {
-        if (canceled || !mountedRef.current) return;
-        if (Array.isArray(data?.analyticsSeries)) {
-          setRawSeries(data.analyticsSeries.map((v) => Number(v) || 0));
-        } else {
-          setRawSeries(analyticsSeriesMock);
-        }
-      })
-      .catch((err) => {
-        if (canceled || !mountedRef.current) return;
-        setError(err?.message || "Impossible de charger les analytics.");
-        setRawSeries(analyticsSeriesMock);
-      })
-      .finally(() => {
-        if (canceled || !mountedRef.current) return;
-        setIsLoading(false);
-      });
-
-    return () => {
-      canceled = true;
-    };
-  }, [selected.days]);
+  const overviewEntry = getOverviewEntry(selected.days);
+  const rawSeries = useMemo(() => {
+    if (!Array.isArray(overviewEntry.data?.analyticsSeries)) return analyticsSeriesMock;
+    return overviewEntry.data.analyticsSeries.map((v) => Number(v) || 0);
+  }, [overviewEntry.data]);
+  const isLoading = overviewEntry.loading;
+  const error = overviewEntry.error;
 
   const chartSeries = useMemo(() => {
     const safe = Array.isArray(rawSeries) ? rawSeries.map((v) => Number(v) || 0) : [];

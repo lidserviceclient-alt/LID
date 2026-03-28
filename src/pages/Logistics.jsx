@@ -115,10 +115,6 @@ export default function Logistics() {
     }
   }, [printOrder, handlePrint]);
 
-  useEffect(() => {
-    backofficeApi.appConfig().then(setCompanyInfo).catch(() => {});
-  }, []);
-
   const initPrint = async (shipmentId) => {
     try {
       const details = await backofficeApi.shipment(shipmentId);
@@ -139,59 +135,49 @@ export default function Logistics() {
     }
   };
 
-  useEffect(() => {
-    backofficeApi
-      .logisticsKpis(30)
-      .then((data) => {
-        setKpis({
-          inTransitCount: Number.isFinite(data?.inTransitCount) ? data.inTransitCount : 0,
-          avgDelayDays: Number.isFinite(data?.avgDelayDays) ? data.avgDelayDays : 0,
-          avgCost: data?.avgCost ?? 0
-        });
-      })
-      .catch((err) => {
-        setKpisError(err?.message || "Impossible de charger les KPIs.");
-      });
-  }, []);
-
-  async function refreshDelivered() {
+  async function refreshCollection(nextPage = page, nextSize = size, nextStatus = status, nextCarrier = carrier, nextQuery = q) {
+    setLoading(true);
+    setError("");
     setDeliveredLoading(true);
     setDeliveredError("");
+    setKpisError("");
     try {
-      const data = await backofficeApi.shipments(0, 10, "LIVREE", "", "");
-      const list = Array.isArray(data?.content) ? data.content : [];
-      setDelivered(list);
+      const data = await backofficeApi.logisticsCollection({
+        days: 30,
+        page: nextPage,
+        size: nextSize,
+        status: nextStatus,
+        carrier: nextCarrier,
+        q: nextQuery.trim(),
+        deliveredPage: 0,
+        deliveredSize: 10,
+        deliveredStatus: "LIVREE"
+      });
+      setShipmentsPage(data?.shipmentsPage || null);
+      setDelivered(Array.isArray(data?.delivered) ? data.delivered : []);
+      setCompanyInfo(data?.appConfig || null);
+      setKpis({
+        inTransitCount: Number.isFinite(data?.kpis?.inTransitCount) ? data.kpis.inTransitCount : 0,
+        avgDelayDays: Number.isFinite(data?.kpis?.avgDelayDays) ? data.kpis.avgDelayDays : 0,
+        avgCost: data?.kpis?.avgCost ?? 0
+      });
     } catch (err) {
-      setDeliveredError(err?.message || "Impossible de charger les livraisons effectuées.");
+      const message = err?.message || "Impossible de charger les expéditions.";
+      setError(message);
+      setDeliveredError(message);
+      setKpisError(message);
     } finally {
+      setLoading(false);
       setDeliveredLoading(false);
     }
   }
 
   useEffect(() => {
-    refreshDelivered();
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError("");
-
     const timer = setTimeout(() => {
-      backofficeApi
-        .shipments(page, size, status, carrier, q.trim())
-        .then((data) => {
-          if (cancelled) return;
-          setShipmentsPage(data);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          setError(err?.message || "Impossible de charger les expéditions.");
-        })
-        .finally(() => {
-          if (cancelled) return;
-          setLoading(false);
-        });
+      if (!cancelled) {
+        refreshCollection(page, size, status, carrier, q);
+      }
     }, 250);
 
     return () => {
@@ -300,9 +286,7 @@ export default function Logistics() {
     setShipmentError("");
     try {
       await backofficeApi.upsertShipment(payload);
-      const data = await backofficeApi.shipments(page, size, status, carrier, q.trim());
-      setShipmentsPage(data);
-      await refreshDelivered();
+      await refreshCollection(page, size, status, carrier, q);
       closeShipmentModal();
     } catch (err) {
       setShipmentError(err?.message || "Impossible d’enregistrer l’expédition.");
