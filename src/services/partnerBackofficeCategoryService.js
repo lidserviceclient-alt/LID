@@ -7,6 +7,11 @@ export async function listMySubCategories() {
   return res?.data;
 }
 
+export async function getMyCategoriesCollection() {
+  const res = await api.get(`${BASE}/collection`);
+  return res?.data;
+}
+
 export async function createMySubCategory(dto) {
   const res = await api.post(BASE, dto);
   return res?.data;
@@ -20,4 +25,3 @@ export async function updateMySubCategory(id, dto) {
 export async function deleteMySubCategory(id) {
   await api.delete(`${BASE}/${id}`);
 }
-

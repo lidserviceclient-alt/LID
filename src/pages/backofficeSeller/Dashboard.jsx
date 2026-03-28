@@ -52,7 +52,7 @@ export default function Dashboard() {
     }
 
     const collection = bootstrap.data?.collection || {};
-    const prefsRes = bootstrap.data?.preferences || {};
+    const prefsRes = bootstrap.settingsCollection?.preferences || {};
     const statsRes = collection?.stats;
     const ordersRes = Array.isArray(collection?.orders) ? collection.orders : [];
     const productsRes = Array.isArray(collection?.products) ? collection.products : [];

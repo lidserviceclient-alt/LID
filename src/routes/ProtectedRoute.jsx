@@ -27,7 +27,7 @@ const ProtectedRoute = ({
 }) => {
   const location = useLocation();
   const authQuery = useQuery({
-    queryKey: ['protected-route-auth', location.pathname],
+    queryKey: ['protected-route-auth', (requiredRoles || []).join(','), requireVerifiedPartner],
     queryFn: async () => {
       const allowed = isAuthenticated() ? true : await refreshSession();
       if (!allowed) {

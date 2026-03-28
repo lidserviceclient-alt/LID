@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, Tag, Layers, Folder, ChevronRight, ChevronDown, Shirt, Smartphone, Home, Sparkles, Dumbbell, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Papa from 'papaparse';
-import { createMySubCategory, deleteMySubCategory, listMySubCategories, updateMySubCategory } from '@/services/partnerBackofficeCategoryService';
+import { createMySubCategory, deleteMySubCategory, getMyCategoriesCollection, updateMySubCategory } from '@/services/partnerBackofficeCategoryService';
 import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 
 const DEFAULT_GLOBAL_CATEGORIES = [
@@ -31,10 +31,28 @@ export default function Categories() {
   const refresh = async () => {
     setLoading(true);
     try {
-      const list = await listMySubCategories();
-      const normalized = (Array.isArray(list) ? list : []).map((c) => ({
+      const collection = await getMyCategoriesCollection();
+      const mains = (Array.isArray(collection?.categories) ? collection.categories : [])
+        .filter((c) => !c?.parentId && !c?.parent_id)
+        .map((c, idx) => ({
+          id: `${c?.id ?? ""}`.trim(),
+          name: `${c?.nom || c?.name || ""}`.trim(),
+          icon: ICONS[idx % ICONS.length],
+          color: COLORS[idx % COLORS.length],
+          ordre: Number(c?.ordre || 0),
+        }))
+        .filter((c) => c.id && c.name)
+        .sort((a, b) => {
+          if (a.ordre !== b.ordre) return a.ordre - b.ordre;
+          return a.name.localeCompare(b.name, "fr");
+        });
+      if (mains.length > 0) {
+        setGlobalCategories(mains);
+        setExpandedCategories(mains.map((c) => c.id));
+      }
+      const normalized = (Array.isArray(collection?.categoriesCrud) ? collection.categoriesCrud : []).map((c) => ({
         id: c.id,
-        parentId: `${c.mainCategoryId || ""}`.trim() || (globalCategories[0]?.id || DEFAULT_GLOBAL_CATEGORIES[0].id),
+        parentId: `${c.mainCategoryId || ""}`.trim() || (mains[0]?.id || globalCategories[0]?.id || DEFAULT_GLOBAL_CATEGORIES[0].id),
         name: c.name || "",
         description: c.description || "",
         count: Number(c.productCount || 0)
@@ -80,12 +98,12 @@ export default function Categories() {
     if (bootstrap?.routeKey !== 'categories') {
       return;
     }
-    if (!bootstrap?.isResolved) {
+    if (!bootstrap?.isCategoriesCollectionResolved) {
       setLoading(true);
       return;
     }
-    if (bootstrap?.data) {
-      applyBootstrap(bootstrap.data?.catalogCategories, bootstrap.data?.subCategories);
+    if (bootstrap?.categoriesCollection) {
+      applyBootstrap(bootstrap.categoriesCollection?.categories, bootstrap.categoriesCollection?.categoriesCrud);
       return;
     }
     setGlobalCategories(DEFAULT_GLOBAL_CATEGORIES);
