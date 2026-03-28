@@ -4,12 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getMyPartnerCollection } from '@/services/partnerBackofficeDashboardService';
-import { getMyPartnerPreferences } from '@/services/partnerBackofficePreferencesService';
 import { getMyPartnerSettingsCollection } from '@/services/partnerBackofficeSettingsService';
 import { listMyProducts } from '@/services/partnerBackofficeProductService';
 import { listMyOrders } from '@/services/partnerBackofficeOrderService';
-import { listMySubCategories } from '@/services/partnerBackofficeCategoryService';
-import { getCatalogCategories } from '@/services/categoryService';
+import { getMyCategoriesCollection } from '@/services/partnerBackofficeCategoryService';
 import { PartnerBackofficeBootstrapProvider } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 
 export default function SellerBackoffice() {
@@ -42,18 +40,36 @@ export default function SellerBackoffice() {
     document.title = nextTitle;
   }, [location.pathname, MENU_ITEMS]);
 
+  const settingsCollectionQuery = useQuery({
+    queryKey: ['partner-backoffice-settings-collection'],
+    queryFn: () => getMyPartnerSettingsCollection(),
+    enabled: routeKey === 'dashboard' || routeKey === 'settings',
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnMount: false,
+    retry: 1,
+  });
+
+  const categoriesCollectionQuery = useQuery({
+    queryKey: ['partner-backoffice-categories-collection'],
+    queryFn: () => getMyCategoriesCollection(),
+    enabled: routeKey === 'settings' || routeKey === 'categories',
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnMount: false,
+    retry: 1,
+  });
+
   const bootstrapQuery = useQuery({
     queryKey: ['partner-backoffice-bootstrap', routeKey],
     queryFn: async () => {
       if (routeKey === 'dashboard') {
-        const [collection, preferences] = await Promise.all([
-          getMyPartnerCollection({ productLimit: 200, orderLimit: 50, customerLimit: 20 }),
-          getMyPartnerPreferences(),
-        ]);
-        return { collection, preferences };
+        return {
+          collection: await getMyPartnerCollection({ productLimit: 200, orderLimit: 50, customerLimit: 20 }),
+        };
       }
       if (routeKey === 'settings') {
-        return await getMyPartnerSettingsCollection();
+        return null;
       }
       if (routeKey === 'products') {
         return await listMyProducts({ page: 0, size: 200 });
@@ -62,11 +78,7 @@ export default function SellerBackoffice() {
         return await listMyOrders({ page: 0, size: 200 });
       }
       if (routeKey === 'categories') {
-        const [catalogCategories, subCategories] = await Promise.all([
-          getCatalogCategories(),
-          listMySubCategories(),
-        ]);
-        return { catalogCategories, subCategories };
+        return null;
       }
       return null;
     },
@@ -82,7 +94,29 @@ export default function SellerBackoffice() {
     isLoading: bootstrapQuery.isLoading,
     isResolved: Boolean(bootstrapQuery.isFetched || bootstrapQuery.error),
     error: bootstrapQuery.error || null,
-  }), [bootstrapQuery.data, bootstrapQuery.error, bootstrapQuery.isFetched, bootstrapQuery.isLoading, routeKey]);
+    settingsCollection: settingsCollectionQuery.data || null,
+    isSettingsCollectionLoading: settingsCollectionQuery.isLoading,
+    isSettingsCollectionResolved: Boolean(settingsCollectionQuery.isFetched || settingsCollectionQuery.error),
+    settingsCollectionError: settingsCollectionQuery.error || null,
+    categoriesCollection: categoriesCollectionQuery.data || null,
+    isCategoriesCollectionLoading: categoriesCollectionQuery.isLoading,
+    isCategoriesCollectionResolved: Boolean(categoriesCollectionQuery.isFetched || categoriesCollectionQuery.error),
+    categoriesCollectionError: categoriesCollectionQuery.error || null,
+  }), [
+    bootstrapQuery.data,
+    bootstrapQuery.error,
+    bootstrapQuery.isFetched,
+    bootstrapQuery.isLoading,
+    routeKey,
+    settingsCollectionQuery.data,
+    settingsCollectionQuery.error,
+    settingsCollectionQuery.isFetched,
+    settingsCollectionQuery.isLoading,
+    categoriesCollectionQuery.data,
+    categoriesCollectionQuery.error,
+    categoriesCollectionQuery.isFetched,
+    categoriesCollectionQuery.isLoading,
+  ]);
 
   return (
     <PartnerBackofficeBootstrapProvider value={bootstrapValue}>

@@ -68,10 +68,9 @@ export default function Settings() {
 
   const weekdays = useMemo(() => ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"], []);
 
-  const applyCollection = (collection) => {
+  const applySettingsCollection = (collection) => {
       const s = collection?.settings || {};
       const p = collection?.preferences || {};
-      const cats = collection?.categories || [];
       setSettings((prev) => ({
         ...prev,
         partnerId: s?.partnerId || "",
@@ -90,15 +89,6 @@ export default function Settings() {
         mainCategoryId: s?.mainCategoryId || 1,
       }));
 
-      const mains = (Array.isArray(cats) ? cats : [])
-        .filter((c) => !c?.parentId && !c?.parent_id)
-        .map((c) => ({ id: Number(c?.id), name: c?.nom || c?.name }))
-        .filter((c) => Number.isFinite(c.id) && c.name);
-      setMainCategories(mains);
-      if ((s?.mainCategoryId || 0) <= 0 && mains.length > 0) {
-        setSettings((prev) => ({ ...prev, mainCategoryId: mains[0].id }));
-      }
-
       setPrefs({
         stockThreshold: Number(p?.stockThreshold || 5),
         websiteUrl: p?.websiteUrl || "",
@@ -116,12 +106,24 @@ export default function Settings() {
       }
   };
 
+  const applyCategoriesCollection = (collection, currentMainCategoryId) => {
+      const cats = collection?.categories || [];
+      const mains = (Array.isArray(cats) ? cats : [])
+        .filter((c) => !c?.parentId && !c?.parent_id)
+        .map((c) => ({ id: Number(c?.id), name: c?.nom || c?.name }))
+        .filter((c) => Number.isFinite(c.id) && c.name);
+      setMainCategories(mains);
+      if ((currentMainCategoryId || 0) <= 0 && mains.length > 0) {
+        setSettings((prev) => ({ ...prev, mainCategoryId: mains[0].id }));
+      }
+  };
+
   const hydrate = async () => {
     setLoadingPage(true);
     setErrorMsg("");
     try {
       const collection = await getMyPartnerSettingsCollection();
-      applyCollection(collection);
+      applySettingsCollection(collection);
     } catch (e) {
       setErrorMsg(e?.response?.data?.message || "Impossible de charger les paramètres.");
     } finally {
@@ -133,12 +135,13 @@ export default function Settings() {
     if (bootstrap?.routeKey !== 'settings') {
       return;
     }
-    if (!bootstrap?.isResolved) {
+    if (!bootstrap?.isSettingsCollectionResolved || !bootstrap?.isCategoriesCollectionResolved) {
       setLoadingPage(true);
       return;
     }
-    if (bootstrap?.data) {
-      applyCollection(bootstrap.data);
+    if (bootstrap?.settingsCollection) {
+      applySettingsCollection(bootstrap.settingsCollection);
+      applyCategoriesCollection(bootstrap.categoriesCollection, bootstrap.settingsCollection?.settings?.mainCategoryId);
       setLoadingPage(false);
       setErrorMsg("");
       return;
