@@ -1,6 +1,8 @@
 import { apiRequest } from './http'
 import { clearAccessToken, getAccessToken } from './auth'
 
+const notificationsInflight = new Map()
+
 async function authedRequest(path, options) {
   const token = getAccessToken()
   if (!token) {
@@ -19,10 +21,26 @@ async function authedRequest(path, options) {
 }
 
 export function getNotifications({ page = 0, size = 20, since } = {}) {
-  return authedRequest('/api/backoffice/notifications', { params: { page, size, since } })
+  const params = { page, size, since }
+  const key = JSON.stringify({
+    page,
+    size,
+    since: since ?? '',
+  })
+
+  const inflight = notificationsInflight.get(key)
+  if (inflight) {
+    return inflight
+  }
+
+  const request = authedRequest('/api/backoffice/notifications', { params }).finally(() => {
+    notificationsInflight.delete(key)
+  })
+
+  notificationsInflight.set(key, request)
+  return request
 }
 
 export function getNotificationsCount(since) {
   return authedRequest('/api/backoffice/notifications/count', { params: { since } })
 }
-

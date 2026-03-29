@@ -1,9 +1,9 @@
-import { motion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronRight, QrCode, RefreshCw, Search, X, Package, MapPin, Clock } from 'lucide-react'
+import { QrCode, Search, X, Package, MapPin } from 'lucide-react'
 import { Html5Qrcode } from 'html5-qrcode'
 
+import { DEFAULT_DELIVERY_BOOTSTRAP_PARAMS, useDeliveryBootstrap, useShipmentDetailResolver } from '../context/LogisticsResolverContext'
 import { getShipments, scanShipment } from '../services/logistics'
 
 const TABS = [
@@ -33,10 +33,11 @@ function formatDate(value) {
 export default function DeliveriesPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [shipmentsPage, setShipmentsPage] = useState(null)
   const [q, setQ] = useState('')
+  const [appliedQ, setAppliedQ] = useState('')
+  const [filteredPage, setFilteredPage] = useState(null)
+  const [filteredError, setFilteredError] = useState('')
+  const [filteredLoading, setFilteredLoading] = useState(false)
   const [scanOpen, setScanOpen] = useState(false)
   const [scanError, setScanError] = useState('')
   const [scanLoading, setScanLoading] = useState(false)
@@ -45,36 +46,72 @@ export default function DeliveriesPage() {
   const isScanningRef = useRef(false)
 
   const status = `${searchParams.get('status') || ''}`.trim().toUpperCase()
-
-  const activeTab = useMemo(() => {
-    const found = TABS.find((t) => t.value === status)
-    return found || TABS[0]
-  }, [status])
-
-  const load = async () => {
-    setIsLoading(true)
-    setError('')
-    try {
-      const data = await getShipments({
-        page: 0,
-        size: 25,
-        status: activeTab.value,
-        q: q.trim(),
-      })
-      setShipmentsPage(data || null)
-    } catch (err) {
-      setShipmentsPage(null)
-      setError(err?.message || 'Impossible de charger les missions.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const activeTab = useMemo(() => TABS.find((t) => t.value === status) || TABS[0], [status])
+  const bootstrapParams = useMemo(
+    () => ({
+      ...DEFAULT_DELIVERY_BOOTSTRAP_PARAMS,
+      status: '',
+      q: '',
+    }),
+    [],
+  )
+  const { data, error: bootstrapError, isLoading: bootstrapLoading } = useDeliveryBootstrap(bootstrapParams)
+  const { prime } = useShipmentDetailResolver(null, { enabled: false })
+  const isUsingBootstrapList = !activeTab.value && !appliedQ
+  const shipments = Array.isArray(
+    isUsingBootstrapList ? data?.deliveriesPage?.content : filteredPage?.content,
+  )
+    ? (isUsingBootstrapList ? data?.deliveriesPage?.content : filteredPage?.content)
+    : []
+  const error = isUsingBootstrapList ? bootstrapError : filteredError
+  const isLoading = isUsingBootstrapList ? bootstrapLoading : filteredLoading
 
   useEffect(() => {
-    load()
+    setQ('')
+    setAppliedQ('')
+    setFilteredPage(null)
+    setFilteredError('')
   }, [activeTab.value])
 
-  const shipments = Array.isArray(shipmentsPage?.content) ? shipmentsPage.content : []
+  useEffect(() => {
+    if (isUsingBootstrapList) {
+      setFilteredPage(null)
+      setFilteredError('')
+      setFilteredLoading(false)
+      return
+    }
+
+    let cancelled = false
+
+    const run = async () => {
+      setFilteredLoading(true)
+      setFilteredError('')
+      try {
+        const page = await getShipments({
+          page: 0,
+          size: DEFAULT_DELIVERY_BOOTSTRAP_PARAMS.size,
+          status: activeTab.value,
+          q: appliedQ,
+        })
+        if (cancelled) return
+        setFilteredPage(page || null)
+      } catch (err) {
+        if (cancelled) return
+        setFilteredPage(null)
+        setFilteredError(err?.message || 'Impossible de charger les missions.')
+      } finally {
+        if (!cancelled) {
+          setFilteredLoading(false)
+        }
+      }
+    }
+
+    run()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab.value, appliedQ, isUsingBootstrapList])
 
   const stopScan = async () => {
     try {
@@ -93,25 +130,23 @@ export default function DeliveriesPage() {
   const submitScan = async (qrValue) => {
     const qr = `${qrValue || ''}`.trim()
     if (!qr || isScanningRef.current) return
-    
+
     isScanningRef.current = true
     setScanLoading(true)
     setScanError('')
-    
-    // Stop camera immediately to avoid duplicate scans
     await stopScan()
 
     try {
       const detail = await scanShipment(qr)
       if (detail?.id) {
         localStorage.setItem('lid_last_scanned_shipment', JSON.stringify(detail))
+        prime(detail)
         setScanOpen(false)
         setManualQr('')
         navigate(`/deliveries/${encodeURIComponent(detail.id)}`)
         return
       }
       setScanError('Scan OK mais expédition introuvable.')
-      // Restart scanner if error? No, let user retry or manual
     } catch (err) {
       setScanError(err?.message || 'Impossible de démarrer la livraison.')
     } finally {
@@ -129,35 +164,29 @@ export default function DeliveriesPage() {
       return
     }
 
-    // Wait a bit for DOM to be ready
     const timer = setTimeout(async () => {
       try {
         if (!html5QrCodeRef.current) {
-           html5QrCodeRef.current = new Html5Qrcode("reader")
+          html5QrCodeRef.current = new Html5Qrcode('reader')
         }
-        
-        // Dynamic config for better mobile support
-        const qrBoxSize = Math.min(window.innerWidth, window.innerHeight) * 0.7;
-        const config = { 
-          fps: 15, 
-          qrbox: { width: qrBoxSize, height: qrBoxSize }, 
-          aspectRatio: window.innerWidth / window.innerHeight,
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true
-          }
-        }
-        
+
+        const qrBoxSize = Math.min(window.innerWidth, window.innerHeight) * 0.7
         await html5QrCodeRef.current.start(
-          { facingMode: "environment" },
-          config,
-          (decodedText) => {
-             submitScan(decodedText)
+          { facingMode: 'environment' },
+          {
+            fps: 15,
+            qrbox: { width: qrBoxSize, height: qrBoxSize },
+            aspectRatio: window.innerWidth / window.innerHeight,
+            experimentalFeatures: { useBarCodeDetectorIfSupported: true },
           },
-          () => {} // ignore failures
+          (decodedText) => {
+            submitScan(decodedText)
+          },
+          () => {},
         )
       } catch (err) {
         console.error(err)
-        setScanError('Erreur caméra: ' + (err?.message || 'Inconnue'))
+        setScanError(`Erreur caméra: ${err?.message || 'Inconnue'}`)
       }
     }, 100)
 
@@ -169,7 +198,7 @@ export default function DeliveriesPage() {
 
   const applySearch = (event) => {
     event.preventDefault()
-    load()
+    setAppliedQ(q.trim())
   }
 
   return (
@@ -198,19 +227,17 @@ export default function DeliveriesPage() {
         </form>
 
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-          {TABS.map((t) => {
-            const active = t.value === activeTab.value
+          {TABS.map((tab) => {
+            const active = tab.value === activeTab.value
             return (
               <button
-                key={t.label}
-                onClick={() => setSearchParams(t.value ? { status: t.value } : {})}
+                key={tab.label}
+                onClick={() => setSearchParams(tab.value ? { status: tab.value } : {})}
                 className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-colors ${
-                  active
-                    ? 'bg-black text-white'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  active ? 'bg-black text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                 }`}
               >
-                {t.label}
+                {tab.label}
               </button>
             )
           })}
@@ -232,30 +259,28 @@ export default function DeliveriesPage() {
             <p className="text-neutral-500 font-medium">Aucune mission trouvée</p>
           </div>
         ) : (
-          shipments.map((s) => {
-            const badge = toStatusUi(s?.status)
+          shipments.map((shipment) => {
+            const badge = toStatusUi(shipment?.status)
             return (
               <button
-                key={s?.id}
-                onClick={() => navigate(`/deliveries/${encodeURIComponent(s.id)}`)}
+                key={shipment?.id}
+                onClick={() => navigate(`/deliveries/${encodeURIComponent(shipment.id)}`)}
                 className="w-full bg-white p-5 rounded-3xl shadow-sm border border-neutral-100 text-left active:scale-[0.99] transition-transform"
               >
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${badge.className}`}>
-                      {badge.label}
-                    </span>
-                    <h3 className="font-bold text-neutral-900 mt-2 text-lg">#{s?.trackingId || s?.id}</h3>
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${badge.className}`}>{badge.label}</span>
+                    <h3 className="font-bold text-neutral-900 mt-2 text-lg">#{shipment?.trackingId || shipment?.id}</h3>
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">ETA</p>
-                    <p className="font-mono font-bold text-neutral-900">{formatDate(s?.eta)}</p>
+                    <p className="font-mono font-bold text-neutral-900">{formatDate(shipment?.eta)}</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-2 text-neutral-500 text-sm">
                   <MapPin size={16} />
-                  <span className="truncate font-medium">{s?.customerAddress || 'Adresse inconnue'}</span>
+                  <span className="truncate font-medium">{shipment?.customerAddress || 'Adresse inconnue'}</span>
                 </div>
               </button>
             )
@@ -275,22 +300,23 @@ export default function DeliveriesPage() {
             <div id="reader" className="w-full h-full object-cover"></div>
           </div>
           <div className="p-6 bg-white rounded-t-3xl">
-             <p className="text-center font-bold text-neutral-900 mb-4">Ou saisir manuellement</p>
-             <div className="flex gap-2">
-               <input 
-                 value={manualQr}
-                 onChange={(e) => setManualQr(e.target.value)}
-                 className="flex-1 bg-neutral-100 rounded-xl px-4 py-3 font-mono font-bold outline-none focus:ring-2 focus:ring-[#6aa200]"
-                 placeholder="CODE..."
-               />
-               <button 
-                 onClick={() => submitScan(manualQr)}
-                 className="bg-black text-white px-6 rounded-xl font-bold"
-               >
-                 OK
-               </button>
-             </div>
-             {scanError && <p className="text-red-500 text-sm font-bold text-center mt-4">{scanError}</p>}
+            <p className="text-center font-bold text-neutral-900 mb-4">Ou saisir manuellement</p>
+            <div className="flex gap-2">
+              <input
+                value={manualQr}
+                onChange={(e) => setManualQr(e.target.value)}
+                className="flex-1 bg-neutral-100 rounded-xl px-4 py-3 font-mono font-bold outline-none focus:ring-2 focus:ring-[#6aa200]"
+                placeholder="CODE..."
+              />
+              <button
+                onClick={() => submitScan(manualQr)}
+                disabled={scanLoading}
+                className="bg-black text-white px-6 rounded-xl font-bold disabled:opacity-50"
+              >
+                OK
+              </button>
+            </div>
+            {scanError && <p className="text-red-500 text-sm font-bold text-center mt-4">{scanError}</p>}
           </div>
         </div>
       )}

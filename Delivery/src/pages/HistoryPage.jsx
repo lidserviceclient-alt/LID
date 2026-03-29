@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
-import { useEffect, useState } from 'react'
 import { RefreshCw, TrendingUp } from 'lucide-react'
-import { getKpis, getShipments } from '../services/logistics'
+
+import { DEFAULT_DELIVERY_BOOTSTRAP_PARAMS, useDeliveryBootstrap } from '../context/LogisticsResolverContext'
 
 const MotionDiv = motion.div
 
@@ -13,33 +13,9 @@ function formatNumber(value) {
 }
 
 export default function HistoryPage() {
-  const [kpis, setKpis] = useState(null)
-  const [delivered, setDelivered] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  const load = async () => {
-    setIsLoading(true)
-    setError('')
-    try {
-      const [k, page] = await Promise.all([
-        getKpis(30),
-        getShipments({ page: 0, size: 10, status: 'LIVREE' }),
-      ])
-      setKpis(k || null)
-      setDelivered(Array.isArray(page?.content) ? page.content : [])
-    } catch (err) {
-      setKpis(null)
-      setDelivered([])
-      setError(err?.message || 'Impossible de charger l’historique.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    load()
-  }, [])
+  const { data, isLoading, error, refresh } = useDeliveryBootstrap(DEFAULT_DELIVERY_BOOTSTRAP_PARAMS)
+  const kpis = data?.kpis || null
+  const delivered = Array.isArray(data?.deliveredPage?.content) ? data.deliveredPage.content : []
 
   return (
     <MotionDiv
@@ -54,11 +30,11 @@ export default function HistoryPage() {
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">30 jours</p>
             <p className="font-display mt-1 text-lg font-semibold text-slate-900">Performance</p>
-            <p className="mt-1 text-xs text-slate-500">Synthèse KPI (données backoffice).</p>
+            <p className="mt-1 text-xs text-slate-500">Synthèse KPI (bootstrap logistique partagé).</p>
           </div>
           <button
             type="button"
-            onClick={load}
+            onClick={refresh}
             disabled={isLoading}
             className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
           >
@@ -70,15 +46,11 @@ export default function HistoryPage() {
         <div className="mt-4 grid grid-cols-3 gap-2">
           <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">En cours</p>
-            <p className="font-display mt-1 text-2xl font-semibold text-slate-900">
-              {formatNumber(kpis?.inTransitCount)}
-            </p>
+            <p className="font-display mt-1 text-2xl font-semibold text-slate-900">{formatNumber(kpis?.inTransitCount)}</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Délai</p>
-            <p className="font-display mt-1 text-2xl font-semibold text-slate-900">
-              {formatNumber(kpis?.avgDelayDays)}j
-            </p>
+            <p className="font-display mt-1 text-2xl font-semibold text-slate-900">{formatNumber(kpis?.avgDelayDays)}j</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white/70 p-3">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Coût</p>
@@ -110,18 +82,11 @@ export default function HistoryPage() {
               <div key={s?.id} className="rounded-[28px] border border-slate-200 bg-white/70 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-slate-900">{s?.trackingId || s?.id}</p>
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-                    LIVRÉE
-                  </span>
+                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">LIVRÉE</span>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
                   Commande: <span className="font-semibold text-slate-700">{s?.orderId || '-'}</span>
-                  {s?.carrier ? (
-                    <>
-                      {' '}
-                      • <span className="font-semibold text-slate-700">{s.carrier}</span>
-                    </>
-                  ) : null}
+                  {s?.carrier ? <> • <span className="font-semibold text-slate-700">{s.carrier}</span></> : null}
                 </p>
               </div>
             ))

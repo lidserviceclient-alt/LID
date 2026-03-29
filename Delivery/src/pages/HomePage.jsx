@@ -1,9 +1,8 @@
-import { motion } from 'framer-motion'
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, MapPin, Package, RefreshCw, Timer, TrendingUp } from 'lucide-react'
+import { ArrowRight, MapPin, Package, Timer, TrendingUp } from 'lucide-react'
 
-import { getKpis, getShipments } from '../services/logistics'
+import { DEFAULT_DELIVERY_BOOTSTRAP_PARAMS, useDeliveryBootstrap } from '../context/LogisticsResolverContext'
 
 const STATUS_KEY = 'lid_delivery_status'
 
@@ -29,31 +28,11 @@ function formatNumber(value) {
 export default function HomePage() {
   const navigate = useNavigate()
   const [status, setStatus] = useState(getSavedStatus())
-  const [kpis, setKpis] = useState(null)
-  const [active, setActive] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
+  const { data } = useDeliveryBootstrap(DEFAULT_DELIVERY_BOOTSTRAP_PARAMS)
 
   const isOnline = status === 'AVAILABLE' || status === 'DELIVERING'
-
-  const load = async () => {
-    setIsLoading(true)
-    try {
-      const [k, page] = await Promise.all([
-        getKpis(30),
-        getShipments({ page: 0, size: 5, status: 'EN_COURS' }),
-      ])
-      setKpis(k)
-      setActive(page?.content || [])
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    load()
-  }, [])
+  const kpis = data?.kpis || null
+  const active = Array.isArray(data?.activeShipments) ? data.activeShipments.slice(0, 5) : []
 
   const toggleStatus = () => {
     const next = isOnline ? 'OFFLINE' : 'AVAILABLE'
@@ -63,14 +42,13 @@ export default function HomePage() {
 
   return (
     <div className="space-y-6 pb-24">
-      {/* Header Status */}
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-100">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-black text-neutral-900">Bonjour, Livreur</h1>
             <p className="text-neutral-500 font-medium">Prêt à rouler ?</p>
           </div>
-          <button 
+          <button
             onClick={toggleStatus}
             className={`w-14 h-8 rounded-full transition-colors relative ${isOnline ? 'bg-[#6aa200]' : 'bg-neutral-200'}`}
           >
@@ -81,9 +59,7 @@ export default function HomePage() {
         <button
           onClick={() => navigate('/deliveries?status=EN_PREPARATION')}
           className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
-            isOnline 
-              ? 'bg-black text-white shadow-lg shadow-black/20' 
-              : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+            isOnline ? 'bg-black text-white shadow-lg shadow-black/20' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
           }`}
           disabled={!isOnline}
         >
@@ -92,7 +68,6 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-5 rounded-3xl shadow-sm border border-neutral-100">
           <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-3">
@@ -110,7 +85,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Active Missions */}
       <div>
         <div className="flex items-center justify-between px-2 mb-4">
           <h2 className="text-lg font-bold text-neutral-900">En cours</h2>
@@ -126,8 +100,8 @@ export default function HomePage() {
               <p className="text-neutral-500 font-medium">Aucune livraison active</p>
             </div>
           ) : (
-            active.map(mission => (
-              <Link 
+            active.map((mission) => (
+              <Link
                 key={mission.id}
                 to={`/deliveries/${mission.id}`}
                 className="block bg-white p-4 rounded-3xl shadow-sm border border-neutral-100 active:scale-[0.99] transition-transform"
@@ -138,7 +112,7 @@ export default function HomePage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start">
-                      <h3 className="font-bold text-neutral-900 truncate">Commande #{mission.orderId || mission.id.slice(0, 6)}</h3>
+                      <h3 className="font-bold text-neutral-900 truncate">Commande #{mission.orderId || mission.id}</h3>
                       <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-full">EN COURS</span>
                     </div>
                     <p className="text-neutral-500 text-sm mt-1 truncate">
