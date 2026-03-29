@@ -9,6 +9,8 @@ import com.lifeevent.lid.logistics.enumeration.ShipmentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+
 public interface BackOfficeLogisticsService {
     LogisticsKpisDto getKpis(Integer days);
     Page<BackOfficeShipmentDto> getShipments(Pageable pageable, ShipmentStatus status, String carrier, String q);
@@ -17,4 +19,5 @@ public interface BackOfficeLogisticsService {
     BackOfficeShipmentDto updateShipmentStatus(Long id, ShipmentStatus status);
     BackOfficeShipmentDetailDto scanShipment(BackOfficeShipmentScanRequest request, String scannedBy);
     BackOfficeShipmentDto confirmDelivery(Long id, BackOfficeShipmentDeliveryConfirmRequest request);
+    List<BackOfficeShipmentDetailDto> getShipmentDetailsByIds(List<Long> ids);
 }

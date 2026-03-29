@@ -165,6 +165,26 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("""
         SELECT DISTINCT o
         FROM Order o
+        LEFT JOIN FETCH o.customer c
+        LEFT JOIN FETCH c.user
+        WHERE o.id IN :orderIds
+    """)
+    List<Order> findWithCustomerByIdIn(@Param("orderIds") Collection<Long> orderIds);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.customer c
+        LEFT JOIN FETCH c.user
+        LEFT JOIN FETCH o.articles oa
+        LEFT JOIN FETCH oa.article
+        WHERE o.id IN :orderIds
+    """)
+    List<Order> findWithCustomerAndArticlesByIdIn(@Param("orderIds") Collection<Long> orderIds);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
         LEFT JOIN FETCH o.statusHistory
         WHERE o.id IN :orderIds
     """)

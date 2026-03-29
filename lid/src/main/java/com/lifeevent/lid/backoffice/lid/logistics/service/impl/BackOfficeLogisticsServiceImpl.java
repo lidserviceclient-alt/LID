@@ -23,15 +23,20 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -69,8 +74,13 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     @Override
     @Transactional(readOnly = true)
     public Page<BackOfficeShipmentDto> getShipments(Pageable pageable, ShipmentStatus status, String carrier, String q) {
-        return shipmentRepository.search(status, carrier, q, pageable)
-                .map(backOfficeShipmentMapper::toDto);
+        Pageable safePageable = ensureDefaultSort(pageable);
+        Page<Shipment> shipments = shipmentRepository.search(status, carrier, q, safePageable);
+        Map<Long, Order> ordersById = loadOrdersByShipmentOrderIds(shipments.getContent(), false);
+        List<BackOfficeShipmentDto> content = shipments.getContent().stream()
+                .map(shipment -> toShipmentDto(shipment, resolveOrderForShipment(shipment, ordersById)))
+                .toList();
+        return new PageImpl<>(content, safePageable, shipments.getTotalElements());
     }
 
     @Override
@@ -85,7 +95,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
         Shipment saved = shipmentRepository.save(shipment);
         syncLinkedOrder(saved);
-        return backOfficeShipmentMapper.toDto(saved);
+        return toShipmentDto(saved, findLinkedOrder(saved).orElse(null));
     }
 
     @Override
@@ -106,7 +116,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
         Shipment saved = shipmentRepository.save(shipment);
         syncLinkedOrder(saved);
-        return backOfficeShipmentMapper.toDto(saved);
+        return toShipmentDto(saved, findLinkedOrder(saved).orElse(null));
     }
 
     @Override
@@ -164,7 +174,34 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
         Shipment saved = shipmentRepository.save(shipment);
         syncLinkedOrder(saved);
-        return backOfficeShipmentMapper.toDto(saved);
+        return toShipmentDto(saved, findLinkedOrder(saved).orElse(null));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BackOfficeShipmentDetailDto> getShipmentDetailsByIds(List<Long> ids) {
+        List<Long> safeIds = normalizeIds(ids);
+        if (safeIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Shipment> shipmentsById = new HashMap<>();
+        for (Shipment shipment : shipmentRepository.findAllById(safeIds)) {
+            if (shipment != null && shipment.getId() != null) {
+                shipmentsById.put(shipment.getId(), shipment);
+            }
+        }
+
+        Map<Long, Order> ordersById = loadOrdersByShipmentOrderIds(new ArrayList<>(shipmentsById.values()), true);
+        List<BackOfficeShipmentDetailDto> details = new ArrayList<>();
+        for (Long id : safeIds) {
+            Shipment shipment = shipmentsById.get(id);
+            if (shipment == null) {
+                continue;
+            }
+            details.add(toDetail(shipment, resolveOrderForShipment(shipment, ordersById)));
+        }
+        return details;
     }
 
     private Shipment resolveShipmentForUpsert(BackOfficeShipmentDto dto) {
@@ -363,8 +400,10 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     }
 
     private BackOfficeShipmentDetailDto toDetail(Shipment shipment) {
-        Optional<Order> orderOpt = findLinkedOrder(shipment);
-        Order order = orderOpt.orElse(null);
+        return toDetail(shipment, findLinkedOrder(shipment).orElse(null));
+    }
+
+    private BackOfficeShipmentDetailDto toDetail(Shipment shipment, Order order) {
 
         return BackOfficeShipmentDetailDto.builder()
                 .id(shipment.getId())
@@ -388,6 +427,86 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
                 .courierUser(shipment.getCourierUser())
                 .scannedAt(shipment.getScannedAt())
                 .build();
+    }
+
+    private BackOfficeShipmentDto toShipmentDto(Shipment shipment, Order order) {
+        return BackOfficeShipmentDto.builder()
+                .id(shipment.getId())
+                .orderId(shipment.getOrderId())
+                .carrier(shipment.getCarrier())
+                .trackingId(shipment.getTrackingId())
+                .status(shipment.getStatus())
+                .eta(shipment.getEta())
+                .cost(shipment.getCost())
+                .customerName(resolveCustomerName(order))
+                .customerPhone(resolveCustomerPhone(order))
+                .customerAddress(resolveCustomerAddress(order))
+                .customerEmail(resolveCustomerEmail(order))
+                .scannedAt(shipment.getScannedAt())
+                .courierName(shipment.getCourierName())
+                .courierReference(shipment.getCourierReference())
+                .build();
+    }
+
+    private Map<Long, Order> loadOrdersByShipmentOrderIds(List<Shipment> shipments, boolean withItems) {
+        List<Long> orderIds = new ArrayList<>();
+        if (shipments != null) {
+            for (Shipment shipment : shipments) {
+                Long orderId = parseOrderIdOrNull(shipment == null ? null : shipment.getOrderId());
+                if (orderId != null) {
+                    orderIds.add(orderId);
+                }
+            }
+        }
+        if (orderIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Order> orders = withItems
+                ? orderRepository.findWithCustomerAndArticlesByIdIn(orderIds)
+                : orderRepository.findWithCustomerByIdIn(orderIds);
+        Map<Long, Order> byId = new HashMap<>();
+        for (Order order : orders) {
+            if (order != null && order.getId() != null) {
+                byId.put(order.getId(), order);
+            }
+        }
+        return byId;
+    }
+
+    private Order resolveOrderForShipment(Shipment shipment, Map<Long, Order> ordersById) {
+        if (shipment == null || ordersById == null || ordersById.isEmpty()) {
+            return null;
+        }
+        Long orderId = parseOrderIdOrNull(shipment.getOrderId());
+        return orderId == null ? null : ordersById.get(orderId);
+    }
+
+    private Pageable ensureDefaultSort(Pageable pageable) {
+        if (pageable == null) {
+            return Pageable.unpaged();
+        }
+        if (pageable.getSort().isSorted()) {
+            return pageable;
+        }
+        return org.springframework.data.domain.PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+    }
+
+    private List<Long> normalizeIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<Long> orderedUnique = new LinkedHashSet<>();
+        for (Long id : ids) {
+            if (id != null && id > 0L) {
+                orderedUnique.add(id);
+            }
+        }
+        return new ArrayList<>(orderedUnique);
     }
 
     private Optional<Order> findLinkedOrder(Shipment shipment) {
@@ -632,6 +751,18 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             return Long.parseLong(safeOrderId);
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException("Commande introuvable");
+        }
+    }
+
+    private Long parseOrderIdOrNull(String orderId) {
+        String safeOrderId = trimToNull(orderId);
+        if (safeOrderId == null) {
+            return null;
+        }
+        try {
+            return Long.parseLong(safeOrderId);
+        } catch (NumberFormatException ex) {
+            return null;
         }
     }
 

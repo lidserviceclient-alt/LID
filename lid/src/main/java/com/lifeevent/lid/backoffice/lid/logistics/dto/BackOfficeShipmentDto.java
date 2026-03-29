@@ -4,6 +4,7 @@ import com.lifeevent.lid.logistics.enumeration.ShipmentStatus;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -18,4 +19,11 @@ public class BackOfficeShipmentDto {
     private ShipmentStatus status;
     private LocalDate eta;
     private Double cost;
+    private String customerName;
+    private String customerPhone;
+    private String customerAddress;
+    private String customerEmail;
+    private LocalDateTime scannedAt;
+    private String courierName;
+    private String courierReference;
 }

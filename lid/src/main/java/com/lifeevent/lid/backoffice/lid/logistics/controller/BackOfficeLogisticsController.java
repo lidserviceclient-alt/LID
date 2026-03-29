@@ -1,8 +1,10 @@
 package com.lifeevent.lid.backoffice.lid.logistics.controller;
 
 import com.lifeevent.lid.backoffice.lid.logistics.dto.BackOfficeShipmentDeliveryConfirmRequest;
+import com.lifeevent.lid.backoffice.lid.logistics.dto.BackOfficeDeliveryBootstrapDto;
 import com.lifeevent.lid.backoffice.lid.logistics.dto.BackOfficeLogisticsCollectionDto;
 import com.lifeevent.lid.backoffice.lid.logistics.dto.BackOfficeShipmentDetailDto;
+import com.lifeevent.lid.backoffice.lid.logistics.dto.BackOfficeShipmentDetailsCollectionDto;
 import com.lifeevent.lid.backoffice.lid.logistics.dto.BackOfficeShipmentDto;
 import com.lifeevent.lid.backoffice.lid.logistics.dto.BackOfficeShipmentScanRequest;
 import com.lifeevent.lid.backoffice.lid.logistics.dto.BackOfficeShipmentStatusUpdateRequest;
@@ -18,6 +20,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping({"/api/v1/backoffice/logistics", "/api/backoffice/logistics"})
 @RequiredArgsConstructor
@@ -31,6 +35,8 @@ public class BackOfficeLogisticsController implements IBackOfficeLogisticsContro
             Integer days,
             int page,
             int size,
+            Integer limit,
+            String sortKey,
             ShipmentStatus status,
             String carrier,
             String q,
@@ -41,7 +47,45 @@ public class BackOfficeLogisticsController implements IBackOfficeLogisticsContro
             String deliveredQ
     ) {
         return ResponseEntity.ok(backOfficeLogisticsCollectionService
-                .getCollection(days, page, size, status, carrier, q, deliveredPage, deliveredSize, deliveredStatus, deliveredCarrier, deliveredQ));
+                .getCollection(days, page, size, limit, sortKey, status, carrier, q, deliveredPage, deliveredSize, deliveredStatus, deliveredCarrier, deliveredQ));
+    }
+
+    @Override
+    public ResponseEntity<BackOfficeDeliveryBootstrapDto> getDeliveryBootstrap(
+            Integer days,
+            int page,
+            int size,
+            Integer limit,
+            String sortKey,
+            ShipmentStatus status,
+            String carrier,
+            String q,
+            int deliveredPage,
+            int deliveredSize,
+            ShipmentStatus deliveredStatus,
+            String deliveredCarrier,
+            String deliveredQ
+    ) {
+        return ResponseEntity.ok(backOfficeLogisticsCollectionService.getDeliveryBootstrap(
+                days,
+                page,
+                size,
+                limit,
+                sortKey,
+                status,
+                carrier,
+                q,
+                deliveredPage,
+                deliveredSize,
+                deliveredStatus,
+                deliveredCarrier,
+                deliveredQ
+        ));
+    }
+
+    @Override
+    public ResponseEntity<BackOfficeShipmentDetailsCollectionDto> getShipmentDetailsCollection(List<Long> ids) {
+        return ResponseEntity.ok(backOfficeLogisticsCollectionService.getShipmentDetailsCollection(ids));
     }
 
     @Override

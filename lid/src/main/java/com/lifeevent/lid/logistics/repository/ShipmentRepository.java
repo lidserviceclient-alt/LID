@@ -27,7 +27,6 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
             LOWER(CAST(s.trackingId AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
             LOWER(CAST(s.orderId AS string)) LIKE LOWER(CONCAT('%', :q, '%'))
           )
-        ORDER BY s.createdAt DESC
     """)
     Page<Shipment> search(
             @Param("status") ShipmentStatus status,
