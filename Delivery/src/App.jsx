@@ -1,9 +1,10 @@
 import './App.css'
 import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import AppShell from './components/AppShell.jsx'
 import RequireAuth from './components/RequireAuth.jsx'
+import { LogisticsResolverProvider } from './context/LogisticsResolverContext.jsx'
 
 const HomePage = lazy(() => import('./pages/HomePage.jsx'))
 const ExplorePage = lazy(() => import('./pages/ExplorePage.jsx'))
@@ -26,13 +27,21 @@ function LoadingScreen() {
   )
 }
 
+function LogisticsSectionLayout() {
+  return (
+    <LogisticsResolverProvider>
+      <Outlet />
+    </LogisticsResolverProvider>
+  )
+}
+
 function App() {
   const location = useLocation()
 
   return (
     <Suspense fallback={<LoadingScreen />}>
       <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
+        <Routes location={location}>
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="/explore" element={<ExplorePage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -44,11 +53,13 @@ function App() {
               </RequireAuth>
             }
           >
-            <Route path="/home" element={<HomePage />} />
-            <Route path="/deliveries" element={<DeliveriesPage />} />
-            <Route path="/deliveries/:shipmentId" element={<DeliveryDetailsPage />} />
-            <Route path="/map" element={<MapPage />} />
-            <Route path="/history" element={<HistoryPage />} />
+            <Route element={<LogisticsSectionLayout />}>
+              <Route path="/home" element={<HomePage />} />
+              <Route path="/deliveries" element={<DeliveriesPage />} />
+              <Route path="/deliveries/:shipmentId" element={<DeliveryDetailsPage />} />
+              <Route path="/map" element={<MapPage />} />
+              <Route path="/history" element={<HistoryPage />} />
+            </Route>
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/support" element={<SupportPage />} />
             <Route path="/profile" element={<ProfilePage />} />

@@ -22,6 +22,52 @@ export function getKpis(days = 30) {
   return authedRequest('/api/backoffice/logistics/kpis', { params: { days } })
 }
 
+export function getDeliveryBootstrap({
+  days,
+  page = 0,
+  size = 20,
+  limit,
+  sortKey = '',
+  status = '',
+  carrier = '',
+  q = '',
+  deliveredPage = 0,
+  deliveredSize = 20,
+  deliveredStatus = '',
+  deliveredCarrier = '',
+  deliveredQ = '',
+} = {}) {
+  return authedRequest('/api/backoffice/logistics/delivery-bootstrap', {
+    params: {
+      days,
+      page,
+      size,
+      limit,
+      sortKey,
+      status,
+      carrier,
+      q,
+      deliveredPage,
+      deliveredSize,
+      deliveredStatus,
+      deliveredCarrier,
+      deliveredQ,
+    },
+  })
+}
+
+export function getShipmentDetailsCollection(ids = []) {
+  const safeIds = Array.isArray(ids)
+    ? ids
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    : []
+
+  return authedRequest('/api/backoffice/logistics/shipments/details/collection', {
+    params: { ids: safeIds.join(',') },
+  })
+}
+
 export function getShipments({ page = 0, size = 20, status = '', carrier = '', q = '' } = {}) {
   return authedRequest('/api/backoffice/logistics/shipments', {
     params: { page, size, status, carrier, q },

@@ -2,10 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigation, RefreshCw, MapPin } from 'lucide-react'
 
 import LiveTrackingMap from '../components/map/LiveTrackingMap'
+import {
+  DEFAULT_DELIVERY_BOOTSTRAP_PARAMS,
+  useDeliveryBootstrap,
+  useShipmentDetailResolver,
+  useShipmentDetailsPrefetch,
+} from '../context/LogisticsResolverContext'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { geocodeAddress } from '../services/geocoding'
 import { getDrivingRoute } from '../services/routing'
-import { getShipmentDetail, getShipments } from '../services/logistics'
 
 function openExternalNav(address) {
   const addr = `${address || ''}`.trim()
@@ -15,72 +20,54 @@ function openExternalNav(address) {
 }
 
 export default function MapPage() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [shipments, setShipments] = useState([])
   const [selectedId, setSelectedId] = useState('')
-  const [selectedDetail, setSelectedDetail] = useState(null)
   const [destination, setDestination] = useState(null)
   const [route, setRoute] = useState(null)
   const [follow, setFollow] = useState(true)
 
   const { position: currentPos, error: gpsError } = useGeolocation()
   const routeTimerRef = useRef(null)
+  const { data, error, isLoading, refresh } = useDeliveryBootstrap(DEFAULT_DELIVERY_BOOTSTRAP_PARAMS)
+  const shipments = Array.isArray(data?.activeShipments) ? data.activeShipments : []
 
-  const loadShipments = async () => {
-    setIsLoading(true)
-    setError('')
-    try {
-      const page = await getShipments({ page: 0, size: 12, status: 'EN_COURS' })
-      const list = Array.isArray(page?.content) ? page.content : []
-      setShipments(list)
-      if (!selectedId && list[0]?.id) {
-        setSelectedId(list[0].id)
-      }
-    } catch (err) {
-      setShipments([])
-      setError(err?.message || 'Impossible de charger les missions.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  useShipmentDetailsPrefetch(shipments.map((shipment) => shipment?.id), { enabled: shipments.length > 0 })
+
+  const { data: selectedDetail, error: detailError } = useShipmentDetailResolver(selectedId, {
+    enabled: Boolean(selectedId),
+  })
 
   useEffect(() => {
-    loadShipments()
-  }, [])
+    if (!selectedId && shipments[0]?.id) {
+      setSelectedId(String(shipments[0].id))
+      return
+    }
+    if (selectedId && shipments.length > 0 && shipments.every((shipment) => String(shipment?.id) !== String(selectedId))) {
+      setSelectedId(String(shipments[0]?.id || ''))
+    }
+  }, [selectedId, shipments])
 
   useEffect(() => {
     let canceled = false
     const run = async () => {
-      if (!selectedId) {
-        setSelectedDetail(null)
+      const addr = `${selectedDetail?.customerAddress || ''}`.trim()
+      if (!addr) {
         setDestination(null)
         return
       }
       try {
-        const detail = await getShipmentDetail(selectedId)
-        if (canceled) return
-        setSelectedDetail(detail || null)
-        const addr = `${detail?.customerAddress || ''}`.trim()
-        if (!addr) {
-          setDestination(null)
-          return
-        }
         const geo = await geocodeAddress(addr)
         if (canceled) return
         setDestination(geo)
-      } catch (err) {
+      } catch {
         if (canceled) return
-        setSelectedDetail(null)
         setDestination(null)
-        setError(err?.message || 'Impossible de charger la mission.')
       }
     }
     run()
     return () => {
       canceled = true
     }
-  }, [selectedId])
+  }, [selectedDetail?.customerAddress])
 
   useEffect(() => {
     if (routeTimerRef.current) {
@@ -95,8 +82,8 @@ export default function MapPage() {
 
     routeTimerRef.current = setTimeout(async () => {
       try {
-        const r = await getDrivingRoute(currentPos, destination)
-        setRoute(r)
+        const nextRoute = await getDrivingRoute(currentPos, destination)
+        setRoute(nextRoute)
       } catch {
         setRoute(null)
       }
@@ -111,7 +98,7 @@ export default function MapPage() {
   }, [currentPos, destination])
 
   const eta = useMemo(() => {
-    if (!route || !route.summary) return null
+    if (!route?.summary) return null
     const durationMin = Math.round(route.summary.totalTime / 60)
     const distanceKm = (route.summary.totalDistance / 1000).toFixed(1)
     return { duration: durationMin, distance: distanceKm }
@@ -119,9 +106,9 @@ export default function MapPage() {
 
   return (
     <div className="space-y-4 pb-24 h-[calc(100vh-180px)] flex flex-col">
-      {(error || gpsError) && (
+      {(error || detailError || gpsError) && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 mx-4">
-          {error || gpsError}
+          {error || detailError || gpsError}
         </div>
       )}
 
@@ -134,8 +121,7 @@ export default function MapPage() {
           follow={follow}
           interactive={!follow}
         />
-        
-        {/* ETA & Distance Overlay */}
+
         {eta && (
           <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-md text-white px-4 py-2 rounded-xl shadow-lg z-10">
             <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Trajet estimé</p>
@@ -145,11 +131,10 @@ export default function MapPage() {
             </div>
           </div>
         )}
-        
-        {/* Map Controls */}
+
         <div className="absolute top-4 right-4 flex flex-col gap-2">
           <button
-            onClick={() => setFollow((v) => !v)}
+            onClick={() => setFollow((value) => !value)}
             className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-colors ${
               follow ? 'bg-black text-white' : 'bg-white text-neutral-600'
             }`}
@@ -157,14 +142,13 @@ export default function MapPage() {
             <MapPin size={20} />
           </button>
           <button
-            onClick={loadShipments}
+            onClick={refresh}
             className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg text-neutral-600 active:bg-neutral-50"
           >
             <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
           </button>
         </div>
 
-        {/* Bottom Actions */}
         <div className="absolute bottom-4 left-4 right-4">
           <button
             onClick={() => openExternalNav(selectedDetail?.customerAddress)}
@@ -177,7 +161,6 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* Horizontal List of Active Missions */}
       <div className="pl-4">
         <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-wider mb-2">Missions actives</h3>
         <div className="flex gap-3 overflow-x-auto pb-4 pr-4 scrollbar-hide">
@@ -186,21 +169,19 @@ export default function MapPage() {
               Aucune course en cours.
             </div>
           ) : (
-            shipments.map((s) => {
-              const active = s.id === selectedId
+            shipments.map((shipment) => {
+              const active = String(shipment.id) === String(selectedId)
               return (
                 <button
-                  key={s.id}
-                  onClick={() => setSelectedId(s.id)}
+                  key={shipment.id}
+                  onClick={() => setSelectedId(String(shipment.id))}
                   className={`min-w-[200px] p-4 rounded-2xl border text-left transition-all ${
-                    active
-                      ? 'bg-black text-white border-black shadow-lg'
-                      : 'bg-white text-neutral-900 border-neutral-200'
+                    active ? 'bg-black text-white border-black shadow-lg' : 'bg-white text-neutral-900 border-neutral-200'
                   }`}
                 >
-                  <p className="font-bold text-lg">#{s.trackingId || s.id.slice(0, 6)}</p>
+                  <p className="font-bold text-lg">#{shipment.trackingId || shipment.id}</p>
                   <p className={`text-xs mt-1 ${active ? 'text-neutral-400' : 'text-neutral-500'}`}>
-                    {s.customerAddress || 'Adresse inconnue'}
+                    {shipment.customerAddress || 'Adresse inconnue'}
                   </p>
                 </button>
               )
