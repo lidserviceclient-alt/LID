@@ -25,7 +25,7 @@ import CheckoutFlow from "@/components/CheckoutFlow";
 
 import { useAppConfig } from "@/features/appConfig/useAppConfig";
 
-const FALLBACK_IMAGE = "/imgs/logo.png";
+const FALLBACK_IMAGE = "https://cdn.pixabay.com/photo/2016/11/21/06/53/beautiful-natural-image-1844362_1280.jpg";
 const FREE_SHIPPING_THRESHOLD = 10000;
 // const STANDARD_SHIPPING_COST = 3250; // Removed constant, now from AppConfig
 const TAX_RATE = 0.18;
@@ -50,8 +50,8 @@ const pickGalleryImages = (product) => {
     if (!resolved) return;
     if (!urls.includes(resolved)) urls.push(resolved);
   };
-  add(product?.imageUrl);
-  (Array.isArray(product?.images) ? product.images : []).forEach(add);
+  add(product?.mainImageUrl);
+  (Array.isArray(product?.secondaryImageUrls) ? product.secondaryImageUrls : []).forEach(add);
   return urls.length > 0 ? urls : [FALLBACK_IMAGE];
 };
 
@@ -160,6 +160,7 @@ export default function ProductDetailsDb() {
   const mainImage =
     galleryImages[Math.min(Math.max(selectedImage, 0), galleryImages.length - 1)] ||
     FALLBACK_IMAGE;
+  const galleryCount = galleryImages.length;
 
   const price = Number(product?.price) || 0;
   const itemsTotal = price * (Number.isFinite(Number(quantity)) ? Number(quantity) : 1);
@@ -185,6 +186,7 @@ export default function ProductDetailsDb() {
     if (!product?.id) return;
 
     const qty = Math.max(1, Math.trunc(Number(quantity) || 1));
+    const firstImage = product.mainImageUrl || "";
     addToCart({
       id: product.id,
       name: product.name,
@@ -192,7 +194,7 @@ export default function ProductDetailsDb() {
       quantity: qty,
       size: "Unique",
       color: "Standard",
-      imageUrl: product.imageUrl || (Array.isArray(product.images) ? product.images[0] : "") || "",
+      imageUrl: firstImage,
       referenceProduitPartenaire: product.referenceProduitPartenaire
     });
   };
@@ -200,9 +202,10 @@ export default function ProductDetailsDb() {
   const handleWishlist = () => {
     if (!product?.id) return;
     const adding = !isWishlisted;
+    const firstImage = product?.mainImageUrl || "";
     toggleWishlist({
       ...product,
-      image: product?.imageUrl || (Array.isArray(product?.images) ? product.images[0] : "") || ""
+      image: firstImage
     });
     setFavNotification({ show: true, product, isAdding: adding });
   };
@@ -211,7 +214,7 @@ export default function ProductDetailsDb() {
     if (typeof window === "undefined") return;
     try {
       const productUrl = `${window.location.origin}/product/${product?.id}`;
-      const rawImage = product?.imageUrl || (Array.isArray(product?.images) ? product.images[0] : "");
+      const rawImage = product?.mainImageUrl || "";
       const previewUrl = resolveImageSrc(rawImage) || productUrl;
       if (navigator.share) {
         await navigator.share({
@@ -345,36 +348,67 @@ export default function ProductDetailsDb() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-6">
-            <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 overflow-hidden">
-              <div className="aspect-square flex items-center justify-center p-4">
+            <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 overflow-hidden shadow-sm p-4">
+              <div className="aspect-square relative flex items-center justify-center rounded-2xl overflow-hidden bg-white dark:bg-neutral-950">
                 <img
                   src={mainImage}
                   alt={product?.name || ""}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-cover"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
                     e.currentTarget.src = FALLBACK_IMAGE;
                   }}
                 />
+
+                {galleryCount > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImage((prev) => (prev <= 0 ? galleryCount - 1 : prev - 1))}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white/90 dark:bg-neutral-950/90 text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-900 transition"
+                      aria-label="Image précédente"
+                    >
+                      <ChevronLeft size={18} className="mx-auto" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImage((prev) => (prev >= galleryCount - 1 ? 0 : prev + 1))}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white/90 dark:bg-neutral-950/90 text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-900 transition"
+                      aria-label="Image suivante"
+                    >
+                      <ChevronRight size={18} className="mx-auto" />
+                    </button>
+                  </>
+                ) : null}
               </div>
 
               {galleryImages.length > 1 ? (
-                <div className="p-4 pt-0 grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-2">
-                  {galleryImages.slice(0, 8).map((img, idx) => (
+                <div className="px-4 pb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-xs font-semibold tracking-wide uppercase text-neutral-500 dark:text-neutral-400">
+                      Galerie produit
+                    </div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                      {galleryCount} visuel{galleryCount > 1 ? "s" : ""}
+                    </div>
+                  </div>
+                  <div className="flex gap-2.5 overflow-x-auto pb-1">
+                    {galleryImages.map((img, idx) => (
                     <button
                       key={`${img}-${idx}`}
                       type="button"
                       onClick={() => setSelectedImage(idx)}
-                      className={`rounded-xl overflow-hidden border bg-white dark:bg-neutral-950 aspect-square p-1 transition-colors ${
+                      className={`shrink-0 h-20 w-20 rounded-2xl overflow-hidden border bg-white dark:bg-neutral-950 p-1.5 transition ${
                         idx === selectedImage
-                          ? "border-orange-600"
+                          ? "border-orange-600 ring-2 ring-orange-200 dark:ring-orange-900/40"
                           : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700"
                       }`}
                       aria-label={`Image ${idx + 1}`}
                     >
-                      <img src={img} alt="" className="w-full h-full object-contain" />
+                      <img src={img} alt="" className="w-full h-full object-cover" />
                     </button>
                   ))}
+                </div>
                 </div>
               ) : null}
             </div>
@@ -640,7 +674,7 @@ La livraison comprend différentes modalités.
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {relatedProducts.map((p) => {
                 const pPrice = Number(p?.price) || 0;
-                const img = resolveImageSrc(p?.imageUrl) || FALLBACK_IMAGE;
+                const img = resolveImageSrc(p?.mainImageUrl) || FALLBACK_IMAGE;
                 const rating = Number(p?.rating) || 0;
                 const reviews = Number(p?.reviews) || 0;
                 return (
@@ -690,10 +724,7 @@ La livraison comprend différentes modalités.
         onClose={() => setShowCheckout(false)}
         product={{
           ...product,
-          imageUrl:
-            resolveBackendAssetUrl(
-              product?.imageUrl || (Array.isArray(product?.images) ? product.images[0] : "")
-            ) || ""
+          imageUrl: resolveBackendAssetUrl(product?.mainImageUrl) || ""
         }}
         selectedColor="Standard"
         selectedSize="Unique"

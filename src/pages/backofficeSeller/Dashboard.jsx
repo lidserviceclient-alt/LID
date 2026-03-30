@@ -119,7 +119,7 @@ export default function Dashboard() {
         name: p.name || "Produit",
         sales: stock,
         revenue: `${(stock * price).toFixed(2)} FCFA`,
-        image: p.imageUrl || p.img || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=100&q=80",
+        image: p.mainImageUrl || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=100&q=80",
       };
     });
     return data.sort((a, b) => b.sales - a.sales).slice(0, 3);

@@ -1,14 +1,34 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { verifyPayment } from '@/services/paymentService.js';
+import { subscribeFrontendRealtime } from '@/services/realtimeService.js';
 import { useCart } from '@/features/cart/CartContext';
+
+const verifyPromiseByToken = new Map();
+
+function getOrCreateVerifyPromise(token) {
+  const existing = verifyPromiseByToken.get(token);
+  if (existing) {
+    return existing;
+  }
+  const promise = verifyPayment(token).finally(() => {
+    verifyPromiseByToken.delete(token);
+  });
+  verifyPromiseByToken.set(token, promise);
+  return promise;
+}
 
 export default function PaymentSuccess() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { clearCart } = useCart();
+  const { consumePurchasedItems } = useCart();
+  const consumePurchasedItemsRef = useRef(consumePurchasedItems);
   const [state, setState] = useState({ loading: true, ok: false, message: '' });
+
+  useEffect(() => {
+    consumePurchasedItemsRef.current = consumePurchasedItems;
+  }, [consumePurchasedItems]);
 
   useEffect(() => {
     const token = (params.get('token') || params.get('invoice_token') || params.get('invoiceToken') || '').trim();
@@ -17,29 +37,28 @@ export default function PaymentSuccess() {
       return;
     }
 
+    const cacheKey = `lid_payment_verify_result_${token}`;
+    const cachedRaw = typeof window !== 'undefined' ? window.sessionStorage.getItem(cacheKey) : null;
+    if (cachedRaw) {
+      try {
+        const cachedData = JSON.parse(cachedRaw);
+        applyPaymentState(cachedData);
+        return;
+      } catch {
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.removeItem(cacheKey);
+        }
+      }
+    }
+
     let mounted = true;
-    verifyPayment(token)
+    getOrCreateVerifyPromise(token)
       .then((data) => {
         if (!mounted) return;
-        const status = `${data?.status || ''}`.toUpperCase();
-        if (status === 'COMPLETED') {
-          clearCart();
-          if (data?.postPaymentSyncOk === false) {
-            const extra = data?.coreOrderId ? ` (commande: ${data.coreOrderId})` : '';
-            const err = data?.postPaymentSyncError ? `: ${data.postPaymentSyncError}` : '';
-            setState({ loading: false, ok: true, message: `Paiement confirmé, mais le traitement interne a échoué${extra}${err}` });
-            return;
-          }
-
-          setState({ loading: false, ok: true, message: 'Paiement confirmé. Merci !' });
-          setTimeout(() => navigate('/profile?tab=orders', { replace: true }), 800);
-          return;
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(cacheKey, JSON.stringify(data));
         }
-        if (status === 'PENDING') {
-          setState({ loading: false, ok: false, message: 'Paiement en attente. Vous pouvez réessayer dans quelques secondes.' });
-          return;
-        }
-        setState({ loading: false, ok: false, message: 'Paiement non confirmé.' });
+        applyPaymentState(data);
       })
       .catch((err) => {
         if (!mounted) return;
@@ -55,7 +74,70 @@ export default function PaymentSuccess() {
     return () => {
       mounted = false;
     };
-  }, [params, navigate, clearCart]);
+  }, [params, navigate]);
+
+  useEffect(() => {
+    const token = (params.get('token') || params.get('invoice_token') || params.get('invoiceToken') || '').trim();
+    if (!token) {
+      return () => {};
+    }
+
+    const unsubscribe = subscribeFrontendRealtime((event) => {
+      if (event?.topic !== 'payment.status.updated') {
+        return;
+      }
+      const invoiceToken = `${event?.payload?.invoiceToken || ''}`.trim();
+      if (!invoiceToken || invoiceToken !== token) {
+        return;
+      }
+      applyPaymentState({
+        status: event?.payload?.status || '',
+      });
+    }, ['payment.status.updated']);
+
+    return () => {
+      unsubscribe();
+    };
+  }, [params]);
+
+  function applyPaymentState(data) {
+    const status = `${data?.status || ''}`.toUpperCase();
+    if (status === 'COMPLETED') {
+      const token = (params.get('token') || params.get('invoice_token') || params.get('invoiceToken') || '').trim();
+      if (typeof window !== 'undefined' && token) {
+        const consumedKey = `lid_payment_checkout_consumed_${token}`;
+        const alreadyConsumed = window.sessionStorage.getItem(consumedKey) === '1';
+        if (!alreadyConsumed) {
+          const checkoutItemsKey = `lid_payment_checkout_items_${token}`;
+          const rawItems = window.sessionStorage.getItem(checkoutItemsKey);
+          if (rawItems) {
+            try {
+              const parsedItems = JSON.parse(rawItems);
+              consumePurchasedItemsRef.current(parsedItems);
+            } finally {
+              window.sessionStorage.setItem(consumedKey, '1');
+              window.sessionStorage.removeItem(checkoutItemsKey);
+            }
+          }
+        }
+      }
+      if (data?.postPaymentSyncOk === false) {
+        const extra = data?.coreOrderId ? ` (commande: ${data.coreOrderId})` : '';
+        const err = data?.postPaymentSyncError ? `: ${data.postPaymentSyncError}` : '';
+        setState({ loading: false, ok: true, message: `Paiement confirmé, mais le traitement interne a échoué${extra}${err}` });
+        return;
+      }
+
+      setState({ loading: false, ok: true, message: 'Paiement confirmé. Merci !' });
+      setTimeout(() => navigate('/profile?tab=orders', { replace: true }), 800);
+      return;
+    }
+    if (status === 'PENDING') {
+      setState({ loading: false, ok: false, message: 'Paiement en attente. Vous pouvez réessayer dans quelques secondes.' });
+      return;
+    }
+    setState({ loading: false, ok: false, message: 'Paiement non confirmé.' });
+  }
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4 py-16">

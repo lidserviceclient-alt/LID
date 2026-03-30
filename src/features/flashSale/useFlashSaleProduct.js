@@ -23,7 +23,6 @@ export function useFlashSaleProduct(limit = 1) {
     initialData: isHomeRoute ? seededList : undefined,
     select: (list) => (Array.isArray(list) && list.length ? list[0] : null),
     staleTime: 15 * 1000,
-    refetchInterval: 30 * 1000,
     refetchOnMount: false,
     retry: 1,
   })

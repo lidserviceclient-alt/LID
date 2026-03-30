@@ -19,7 +19,6 @@ export function useLatestCatalogProducts(limit = 30) {
     enabled: !isHomeRoute,
     initialData: isHomeRoute ? seededList : undefined,
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
     refetchOnMount: false,
     retry: 1,
   });

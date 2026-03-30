@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Search, 
@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import Newsletter from "../components/Newsletter";
 import { getBlogPosts } from "../services/blogService";
 import { useCatalogBootstrap } from "@/features/catalog/CatalogBootstrapContext";
+import { subscribeFrontendRealtime } from "@/services/realtimeService";
 
 export default function BlogPage() {
   const [activeCategory, setActiveCategory] = useState("Tout");
@@ -25,6 +26,7 @@ export default function BlogPage() {
     : null;
   const isBootstrapLoading = Boolean(bootstrap?.isGlobalCollectionLoading);
   const isBootstrapResolved = Boolean(bootstrap?.isGlobalCollectionResolved);
+  const refreshControlRef = useRef({ inFlight: false, timer: null, lastAt: 0 });
 
   useEffect(() => {
     let cancelled = false;
@@ -78,6 +80,53 @@ export default function BlogPage() {
       cancelled = true;
     };
   }, [initialPosts, isBootstrapLoading, isBootstrapResolved]);
+
+  useEffect(() => {
+    const control = refreshControlRef.current;
+    const runRefresh = () => {
+      if (control.inFlight) return;
+      control.inFlight = true;
+      getBlogPosts()
+        .then((list) => {
+          setPosts(Array.isArray(list) ? list : []);
+          setLoadError("");
+        })
+        .catch((err) => {
+          setLoadError(err?.message || "Impossible de charger les articles");
+        })
+        .finally(() => {
+          control.inFlight = false;
+        });
+    };
+
+    const unsubscribe = subscribeFrontendRealtime((event) => {
+      if (event?.topic !== "catalog.updated") {
+        return;
+      }
+      const now = Date.now();
+      const minGapMs = 1200;
+      const elapsed = now - control.lastAt;
+      if (elapsed >= minGapMs) {
+        control.lastAt = now;
+        runRefresh();
+        return;
+      }
+      if (control.timer) return;
+      control.timer = window.setTimeout(() => {
+        control.timer = null;
+        control.lastAt = Date.now();
+        runRefresh();
+      }, minGapMs - elapsed);
+    }, ["catalog.updated"]);
+
+    return () => {
+      if (control.timer) {
+        window.clearTimeout(control.timer);
+        control.timer = null;
+      }
+      unsubscribe();
+    };
+  }, []);
 
   const categories = useMemo(() => {
     const set = new Set(["Tout"]);

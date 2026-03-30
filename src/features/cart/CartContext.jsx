@@ -7,6 +7,7 @@ const CartContext = createContext({
   removeFromCart: () => {},
   updateQuantity: () => {},
   clearCart: () => {},
+  consumePurchasedItems: () => {},
   cartTotal: 0,
   cartCount: 0,
   isCartOpen: false,
@@ -72,6 +73,49 @@ export function CartProvider({ children }) {
     setCartItems([]);
   };
 
+  const consumePurchasedItems = (purchasedItems) => {
+    const normalized = Array.isArray(purchasedItems) ? purchasedItems : [];
+    if (normalized.length === 0) return;
+
+    const toNumberId = (value) => {
+      const n = Number(value);
+      return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+    };
+    const normalizeRef = (value) => `${value || ''}`.trim().toLowerCase();
+
+    setCartItems((prevItems) => {
+      let nextItems = [...prevItems];
+
+      normalized.forEach((line) => {
+        let remaining = Math.max(0, Math.trunc(Number(line?.quantity) || 0));
+        if (remaining <= 0) return;
+
+        const lineId = toNumberId(line?.articleId);
+        const lineRef = normalizeRef(line?.referenceProduitPartenaire);
+
+        for (let i = 0; i < nextItems.length && remaining > 0; i += 1) {
+          const item = nextItems[i];
+          const itemId = toNumberId(item?.articleId ?? item?.id);
+          const itemRef = normalizeRef(item?.referenceProduitPartenaire || item?.referencePartenaire || item?.sku);
+          const idMatch = lineId !== null && itemId !== null && lineId === itemId;
+          const refMatch = !!lineRef && !!itemRef && lineRef === itemRef;
+          if (!idMatch && !refMatch) continue;
+
+          const itemQty = Math.max(0, Math.trunc(Number(item?.quantity) || 0));
+          if (itemQty <= remaining) {
+            remaining -= itemQty;
+            nextItems[i] = null;
+          } else {
+            nextItems[i] = { ...item, quantity: itemQty - remaining };
+            remaining = 0;
+          }
+        }
+      });
+
+      return nextItems.filter(Boolean);
+    });
+  };
+
   const cartTotal = cartItems.reduce((total, item) => {
     const price = Number(item?.price);
     const qty = Number(item?.quantity);
@@ -88,6 +132,7 @@ export function CartProvider({ children }) {
         removeFromCart,
         updateQuantity,
         clearCart,
+        consumePurchasedItems,
         cartTotal,
         cartCount,
         isCartOpen,

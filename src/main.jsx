@@ -6,7 +6,16 @@ import './index.css'
 import { ThemeProvider } from './features/theme/theme-provider.jsx'
 import App from './App.jsx'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      retry: 1,
+    },
+  },
+})
 const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '/'
 
 createRoot(document.getElementById('root')).render(

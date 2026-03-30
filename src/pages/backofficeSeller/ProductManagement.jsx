@@ -5,14 +5,6 @@ import Papa from 'papaparse';
 import { createMyProduct, deleteMyProduct, listMyProducts, updateMyProduct } from '@/services/partnerBackofficeProductService';
 import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 
-const STATIC_CATEGORIES = [
-  { id: "1", label: "Mode & Accessoires" },
-  { id: "2", label: "Beauté & Santé" },
-  { id: "3", label: "Maison & Déco" },
-  { id: "4", label: "High-Tech" },
-  { id: "5", label: "Alimentation" }
-];
-
 const toIntPrice = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
@@ -33,12 +25,60 @@ export default function ProductManagement() {
   const [isImportGuideOpen, setIsImportGuideOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
+  const categoryOptions = useMemo(() => {
+    const list = Array.isArray(bootstrap?.categoriesCollection?.categories)
+      ? bootstrap.categoriesCollection.categories
+      : [];
+    return list
+      .filter((c) => !c?.parentId && !c?.parent_id)
+      .map((c) => ({
+        id: `${c?.id ?? ''}`.trim(),
+        label: `${c?.nom || c?.name || ''}`.trim(),
+        businessId: `${c?.businessId || c?.business_id || ''}`.trim(),
+      }))
+      .filter((c) => c.id && c.label);
+  }, [bootstrap?.categoriesCollection?.categories]);
+  const selectableCategoryOptions = useMemo(() => {
+    if (categoryOptions.length > 0) return categoryOptions;
+    const seen = new Set();
+    return products
+      .map((p) => ({
+        id: `${p?.categoryId || ''}`.trim(),
+        label: `${p?.category || ''}`.trim(),
+      }))
+      .filter((c) => c.id && c.label && !seen.has(c.id) && seen.add(c.id));
+  }, [categoryOptions, products]);
+  const defaultCategoryId = selectableCategoryOptions[0]?.id || '';
 
   const categoryById = useMemo(() => {
     const map = new Map();
-    STATIC_CATEGORIES.forEach((c) => map.set(`${c.id}`, c.label));
+    selectableCategoryOptions.forEach((c) => map.set(`${c.id}`, c.label));
     return map;
-  }, []);
+  }, [selectableCategoryOptions]);
+  const categoryIdByLowerLabel = useMemo(() => {
+    const map = new Map();
+    selectableCategoryOptions.forEach((c) => map.set(`${c.label || ''}`.trim().toLowerCase(), `${c.id}`));
+    return map;
+  }, [selectableCategoryOptions]);
+  const categoryIdByLowerBusinessId = useMemo(() => {
+    const map = new Map();
+    selectableCategoryOptions.forEach((c) => {
+      const key = `${c.businessId || ''}`.trim().toLowerCase();
+      if (key) map.set(key, `${c.id}`);
+    });
+    return map;
+  }, [selectableCategoryOptions]);
+  const categoryBusinessIdById = useMemo(() => {
+    const map = new Map();
+    selectableCategoryOptions.forEach((c) => {
+      map.set(`${c.id}`, `${c.businessId || ''}`.trim());
+    });
+    return map;
+  }, [selectableCategoryOptions]);
+  const defaultCategoryBusinessId = useMemo(
+    () => `${selectableCategoryOptions.find((c) => `${c.businessId || ''}`.trim())?.businessId || 'CAT-EXEMPLE'}`,
+    [selectableCategoryOptions]
+  );
 
   const refresh = async () => {
     setLoading(true);
@@ -53,7 +93,7 @@ export default function ProductManagement() {
         stock: Number(p.stock || 0),
         categoryId: `${p.categoryId || ""}`.trim(),
         category: `${p.category || categoryById.get(`${p.categoryId || ""}`) || ""}`.trim(),
-        image: p.imageUrl || p.img || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80"
+        image: p.mainImageUrl || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80"
       }));
       setProducts(normalized);
     } finally {
@@ -79,7 +119,7 @@ export default function ProductManagement() {
         stock: Number(p.stock || 0),
         categoryId: `${p.categoryId || ""}`.trim(),
         category: `${p.category || categoryById.get(`${p.categoryId || ""}`) || ""}`.trim(),
-        image: p.imageUrl || p.img || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80"
+        image: p.mainImageUrl || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80"
       }));
       setProducts(normalized);
       setLoading(false);
@@ -130,8 +170,9 @@ export default function ProductManagement() {
       price: toIntPrice(newProduct.price),
       stock: Number.isFinite(newProduct.stock) ? newProduct.stock : 0,
       categoryId: newProduct.categoryId,
+      categoryBusinessId: categoryBusinessIdById.get(newProduct.categoryId) || null,
       img: currentProduct?.image || null,
-      imageUrl: currentProduct?.image || null,
+      mainImageUrl: currentProduct?.image || null,
       status: "ACTIF"
     };
 
@@ -153,15 +194,22 @@ export default function ProductManagement() {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
-          const newProducts = results.data.map(item => ({
-            categoryId: `${item.categoryId || ""}`.trim() || `${STATIC_CATEGORIES.find((c) => c.label.toLowerCase() === `${item.category || item.categorie || ""}`.trim().toLowerCase())?.id || "1"}`,
-            id: Date.now() + Math.random(),
-            name: item.name || item.nom,
-            price: toIntPrice(item.price || item.prix || 0),
-            stock: parseInt(item.stock || 0),
-            category: item.category || item.categorie || (categoryById.get(`${item.categoryId || ""}`.trim()) || 'Uncategorized'),
-            image: item.image || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80"
-          })).filter(p => p.name); // Filter out empty entries
+          const newProducts = results.data.map(item => {
+            const categoryBusinessId = `${item.categoryBusinessId || item.category_business_id || item.categorie_metier || ""}`.trim();
+            const categoryId = `${item.categoryId || ""}`.trim()
+              || `${categoryIdByLowerBusinessId.get(categoryBusinessId.toLowerCase()) || ""}`
+              || `${categoryIdByLowerLabel.get(`${item.category || item.categorie || ""}`.trim().toLowerCase()) || defaultCategoryId}`;
+            return {
+              categoryBusinessId,
+              categoryId,
+              id: Date.now() + Math.random(),
+              name: item.name || item.nom,
+              price: toIntPrice(item.price || item.prix || 0),
+              stock: parseInt(item.stock || 0),
+              category: item.category || item.categorie || (categoryById.get(categoryId) || categoryById.get(defaultCategoryId) || 'Uncategorized'),
+              image: item.image || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80"
+            };
+          }).filter(p => p.name); // Filter out empty entries
           
           setImportPreview(newProducts);
           setIsImportModalOpen(true);
@@ -176,10 +224,10 @@ export default function ProductManagement() {
 
   const downloadImportTemplate = () => {
     const rows = [
-      ["name", "price", "stock", "categoryId", "image"],
-      ["Casque Bluetooth", "25000", "15", "4", "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80"],
-      ["Chaussures Running", "32000", "8", "1", "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80"],
-      ["Crème Hydratante", "8500", "30", "2", "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=400&q=80"]
+      ["name", "price", "stock", "categoryBusinessId", "image"],
+      ["Casque Bluetooth", "25000", "15", `${defaultCategoryBusinessId}`, "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80"],
+      ["Chaussures Running", "32000", "8", `${defaultCategoryBusinessId}`, "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80"],
+      ["Crème Hydratante", "8500", "30", `${defaultCategoryBusinessId}`, "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=400&q=80"]
     ];
     const csv = rows.map((r) => r.map((v) => `"${`${v}`.replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -197,15 +245,16 @@ export default function ProductManagement() {
     if (!importPreview || importPreview.length === 0) return;
     setIsImportModalOpen(false);
     for (const p of importPreview) {
-      const categoryId = `${p.categoryId || ""}`.trim() || "1";
+      const categoryId = `${p.categoryId || ""}`.trim() || defaultCategoryId;
       const payload = {
         sku: `${p.sku || p.reference || p.id}`.toString().trim(),
         name: `${p.name || ""}`.trim(),
         price: toIntPrice(p.price || 0),
         stock: Number(p.stock || 0),
         categoryId,
+        categoryBusinessId: `${p.categoryBusinessId || ""}`.trim() || categoryBusinessIdById.get(categoryId) || null,
         img: p.image || null,
-        imageUrl: p.image || null,
+        mainImageUrl: p.image || null,
         status: "ACTIF"
       };
       if (!payload.sku || !payload.name) continue;
@@ -392,15 +441,17 @@ export default function ProductManagement() {
                       <li><span className="font-medium">name</span> : nom du produit</li>
                       <li><span className="font-medium">price</span> : prix en FCFA entier</li>
                       <li><span className="font-medium">stock</span> : quantité en stock</li>
-                      <li><span className="font-medium">categoryId</span> : 1 à 5</li>
+                      <li><span className="font-medium">categoryBusinessId</span> : identifiant métier de la catégorie</li>
                       <li><span className="font-medium">image</span> : URL image (optionnel)</li>
                     </ul>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                     <h3 className="font-bold text-gray-900 mb-2">Référence catégories</h3>
                     <ul className="text-sm text-gray-600 space-y-1">
-                      {STATIC_CATEGORIES.map((c) => (
-                        <li key={c.id}><span className="font-medium">{c.id}</span> : {c.label}</li>
+                      {selectableCategoryOptions.map((c) => (
+                        <li key={c.id}>
+                          <span className="font-medium">{c.businessId || "ID métier non exposé"}</span> : {c.label}
+                        </li>
                       ))}
                     </ul>
                   </div>
@@ -411,7 +462,7 @@ export default function ProductManagement() {
                       <th className="px-3 py-2">name</th>
                       <th className="px-3 py-2">price</th>
                       <th className="px-3 py-2">stock</th>
-                      <th className="px-3 py-2">categoryId</th>
+                      <th className="px-3 py-2">categoryBusinessId</th>
                       <th className="px-3 py-2">image</th>
                     </tr>
                   </thead>
@@ -420,14 +471,14 @@ export default function ProductManagement() {
                       <td className="px-3 py-2">Casque Bluetooth</td>
                       <td className="px-3 py-2">25000</td>
                       <td className="px-3 py-2">15</td>
-                      <td className="px-3 py-2">4</td>
+                      <td className="px-3 py-2">{defaultCategoryBusinessId}</td>
                       <td className="px-3 py-2 text-xs text-gray-500 truncate">https://images.unsplash.com/...</td>
                     </tr>
                     <tr>
                       <td className="px-3 py-2">Chaussures Running</td>
                       <td className="px-3 py-2">32000</td>
                       <td className="px-3 py-2">8</td>
-                      <td className="px-3 py-2">1</td>
+                      <td className="px-3 py-2">{defaultCategoryBusinessId}</td>
                       <td className="px-3 py-2 text-xs text-gray-500 truncate">https://images.unsplash.com/...</td>
                     </tr>
                   </tbody>
@@ -536,10 +587,10 @@ export default function ProductManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
                   <select 
                     name="categoryId" 
-                    defaultValue={currentProduct?.categoryId || "1"} 
+                    defaultValue={currentProduct?.categoryId || defaultCategoryId} 
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/5 bg-white"
                   >
-                    {STATIC_CATEGORIES.map((c) => (
+                    {selectableCategoryOptions.map((c) => (
                       <option key={c.id} value={c.id}>{c.label}</option>
                     ))}
                   </select>
