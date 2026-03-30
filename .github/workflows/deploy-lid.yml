@@ -11,7 +11,12 @@ on:
         required: true
         type: string
       wipe_volumes:
-        description: "Run docker compose down -v before redeploy"
+        description: "vider volume"
+        required: false
+        default: false
+        type: boolean
+      flush_cache:
+        description: "vider le cache"
         required: false
         default: false
         type: boolean
@@ -150,6 +155,11 @@ jobs:
             docker compose pull lid-api
             REPLICAS="${LID_API_REPLICAS:-2}"
             docker compose up -d --pull always --force-recreate --scale "lid-api=${REPLICAS}" lid-api
+
+            FLUSH_CACHE="${{ inputs.flush_cache || 'false' }}"
+            if [ "${FLUSH_CACHE}" = "true" ]; then
+              ./scripts/redis/flush_redis_cache.sh
+            fi
 
             API_CONTAINER_IDS="$(docker compose ps -q lid-api)"
             if [ -z "${API_CONTAINER_IDS}" ]; then
