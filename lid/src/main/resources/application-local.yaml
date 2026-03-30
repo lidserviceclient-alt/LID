@@ -19,3 +19,7 @@ storage:
   cdn-base-url: ${STORAGE_CDN_BASE_URL:http://localhost:9000/api/v1/cdn}
   local:
     cdn-base-url: ${LOCAL_STORAGE_CDN_BASE_URL:}
+
+config:
+  realtime:
+    redis-enabled: false

@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/promo-codes", "/api/backoffice/promo-codes"})
+@RequestMapping("/api/v1/backoffice/promo-codes")
 @RequiredArgsConstructor
 public class BackOfficePromoCodeController implements IBackOfficePromoCodeController {
 

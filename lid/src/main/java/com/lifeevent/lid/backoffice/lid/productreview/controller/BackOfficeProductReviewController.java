@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/product-reviews", "/api/backoffice/product-reviews"})
+@RequestMapping("/api/v1/backoffice/product-reviews")
 @RequiredArgsConstructor
 public class BackOfficeProductReviewController implements IBackOfficeProductReviewController {
 

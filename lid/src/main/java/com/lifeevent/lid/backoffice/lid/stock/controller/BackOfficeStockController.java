@@ -13,12 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping({
-        "/api/v1/backoffice/stocks",
-        "/api/backoffice/stocks",
-        "/api/v1/backoffice/stocks/movements",
-        "/api/backoffice/stocks/movements"
-})
+@RequestMapping("/api/v1/backoffice/stocks")
 @RequiredArgsConstructor
 public class BackOfficeStockController implements IBackOfficeStockController {
 

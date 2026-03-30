@@ -211,8 +211,7 @@ public class CatalogServiceImpl implements CatalogService {
     )
     public CatalogProductDetailsDto getProductDetails(Long id) {
         Article article = getActiveArticleOrThrow(id);
-        String image = article.getImg();
-        List<String> images = image == null || image.isBlank() ? List.of() : List.of(image);
+        List<String> images = buildProductImages(article);
         return catalogMapper.toCatalogProductDetailsDto(article, computeStock(article.getId()), images);
     }
 
@@ -225,8 +224,7 @@ public class CatalogServiceImpl implements CatalogService {
     )
     public CatalogProductDetailsDto getProductDetails(String idOrReference) {
         Article article = resolveActiveArticleOrThrow(idOrReference);
-        String image = article.getImg();
-        List<String> images = image == null || image.isBlank() ? List.of() : List.of(image);
+        List<String> images = buildProductImages(article);
         return catalogMapper.toCatalogProductDetailsDto(article, computeStock(article.getId()), images);
     }
 
@@ -468,7 +466,10 @@ public class CatalogServiceImpl implements CatalogService {
                 partnersPageResult.getTotalPages()
         );
 
-        CatalogProductDto heroProduct = featuredProducts.isEmpty() ? null : featuredProducts.get(0);
+        CatalogProductDto heroProduct = featuredProducts.stream()
+                .filter(this::hasMainImage)
+                .findFirst()
+                .orElseGet(() -> featuredProducts.isEmpty() ? null : featuredProducts.get(0));
 
         return new CatalogCollectionDto(
                 categories,
@@ -709,6 +710,24 @@ public class CatalogServiceImpl implements CatalogService {
         return Boolean.TRUE.equals(category.getIsActivated());
     }
 
+    private List<String> buildProductImages(Article article) {
+        if (article == null) {
+            return List.of();
+        }
+        List<String> images = new ArrayList<>();
+        String mainImage = normalize(article.getMainImageUrl());
+        if (mainImage != null) {
+            images.add(mainImage);
+        }
+        if (article.getSecondaryImageUrls() != null) {
+            article.getSecondaryImageUrls().stream()
+                    .map(this::normalize)
+                    .filter(Objects::nonNull)
+                    .forEach(images::add);
+        }
+        return images;
+    }
+
     private List<BlogPostDto> listRecentPosts(Integer limit) {
         int safeLimit = safeLimit(limit, 6);
         return blogPostRepository
@@ -809,6 +828,13 @@ public class CatalogServiceImpl implements CatalogService {
         }
         String trimmed = value.trim();
         return trimmed.isBlank() ? null : trimmed;
+    }
+
+    private boolean hasMainImage(CatalogProductDto product) {
+        if (product == null || product.mainImageUrl() == null) {
+            return false;
+        }
+        return !product.mainImageUrl().trim().isEmpty();
     }
 
     private record SearchPayload(

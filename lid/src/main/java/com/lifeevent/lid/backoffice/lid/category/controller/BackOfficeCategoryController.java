@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/categories", "/api/backoffice/categories"})
+@RequestMapping("/api/v1/backoffice/categories")
 @RequiredArgsConstructor
 public class BackOfficeCategoryController implements IBackOfficeCategoryController {
 

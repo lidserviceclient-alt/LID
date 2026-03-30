@@ -17,7 +17,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/notifications", "/api/backoffice/notifications"})
+@RequestMapping("/api/v1/backoffice/notifications")
 @RequiredArgsConstructor
 public class BackOfficeNotificationController implements IBackOfficeNotificationController {
 

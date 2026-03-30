@@ -85,6 +85,8 @@ public class SecurityConfig {
                     auth.requestMatchers(
                             "/api/v1/webhooks/**",
                             "/api/v1/payments/verify/**",
+                            "/api/v1/realtime/ws",
+                            "/api/v1/realtime/ws-access/public",
                             "/api/v1/public/**",
                             "/api/v1/blog/**",
                             "/api/v1/tickets/**",
@@ -93,31 +95,21 @@ public class SecurityConfig {
                             "/api/v1/articles/search/**",
                             "/api/v1/newsletter/**",
                             "/api/v1/storage/**",
-                            "/api/v1/cdn/**",
-                            // alias pour la migration
-                            "/api/webhooks/**",
-                            "/api/payments/verify/**",
-                            "/api/public/**",
-                            "/api/blog/**",
-                            "/api/tickets/**",
-                            "/api/partners/register/step-1",
-                            "/api/catalog/**",
-                            "/api/articles/search/**",
-                            "/api/newsletter/**"
+                            "/api/v1/cdn/**"
                     ).permitAll();
 
                     if (isLocal) {
-                        auth.requestMatchers("/api/v1/checkout/**", "/api/checkout/**").permitAll();
-                        auth.requestMatchers(HttpMethod.GET, "/api/v1/articles/**", "/api/articles/**").permitAll();
+                        auth.requestMatchers("/api/v1/checkout/**").permitAll();
+                        auth.requestMatchers(HttpMethod.GET, "/api/v1/articles/**").permitAll();
                     }
 
-                    auth.requestMatchers("/api/backoffice/logistics/**", "/api/v1/backoffice/logistics/**")
+                    auth.requestMatchers("/api/v1/backoffice/logistics/**")
                             .hasAnyRole("ADMIN", "SUPER_ADMIN", "LIVREUR");
-                    auth.requestMatchers("/api/backoffice/notifications/**", "/api/v1/backoffice/notifications/**")
+                    auth.requestMatchers("/api/v1/backoffice/notifications/**")
                             .hasAnyRole("ADMIN", "SUPER_ADMIN", "LIVREUR");
-                    auth.requestMatchers("/api/backoffice/partners/me/**", "/api/v1/backoffice/partners/me/**")
+                    auth.requestMatchers("/api/v1/backoffice/partners/me/**")
                             .hasAnyRole("PARTNER", "ADMIN", "SUPER_ADMIN");
-                    auth.requestMatchers("/api/backoffice/**", "/api/v1/backoffice/**")
+                    auth.requestMatchers("/api/v1/backoffice/**")
                             .hasAnyRole("ADMIN", "SUPER_ADMIN");
 
                     auth.anyRequest().authenticated();

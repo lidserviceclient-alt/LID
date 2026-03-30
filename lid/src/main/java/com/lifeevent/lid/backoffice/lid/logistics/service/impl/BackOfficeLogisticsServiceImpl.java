@@ -18,6 +18,7 @@ import com.lifeevent.lid.order.entity.OrderArticle;
 import com.lifeevent.lid.order.entity.StatusHistory;
 import com.lifeevent.lid.order.enumeration.Status;
 import com.lifeevent.lid.order.repository.OrderRepository;
+import com.lifeevent.lid.realtime.service.RealtimeEventPublisher;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +54,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     private final BackOfficeShipmentMapper backOfficeShipmentMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final EmailService emailService;
+    private final RealtimeEventPublisher realtimeEventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -95,6 +97,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
         Shipment saved = shipmentRepository.save(shipment);
         syncLinkedOrder(saved);
+        publishShipmentRealtime(saved, "upsert");
         return toShipmentDto(saved, findLinkedOrder(saved).orElse(null));
     }
 
@@ -116,6 +119,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
         Shipment saved = shipmentRepository.save(shipment);
         syncLinkedOrder(saved);
+        publishShipmentRealtime(saved, "status_update");
         return toShipmentDto(saved, findLinkedOrder(saved).orElse(null));
     }
 
@@ -149,6 +153,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         Shipment saved = shipmentRepository.save(shipment);
         syncLinkedOrder(saved, linkedOrder.orElse(null));
         sendDeliveryCodeIfNeeded(saved, codeGenerated, alreadyInTransit, linkedOrder.orElse(null));
+        publishShipmentRealtime(saved, "scan");
         return toDetail(saved);
     }
 
@@ -174,6 +179,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
         Shipment saved = shipmentRepository.save(shipment);
         syncLinkedOrder(saved);
+        publishShipmentRealtime(saved, "delivery_confirm");
         return toShipmentDto(saved, findLinkedOrder(saved).orElse(null));
     }
 
@@ -787,5 +793,19 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             return;
         }
         eventPublisher.publishEvent(new PartnerOrderChangedEvent(partnerIds));
+    }
+
+    private void publishShipmentRealtime(Shipment shipment, String trigger) {
+        if (shipment == null) {
+            return;
+        }
+        realtimeEventPublisher.publishDeliveryShipmentUpdated(
+                shipment.getId(),
+                shipment.getOrderId(),
+                shipment.getStatus() == null ? null : shipment.getStatus().name(),
+                shipment.getCarrier(),
+                trigger
+        );
+        realtimeEventPublisher.publishBackofficeOverviewUpdated("shipment:" + trigger);
     }
 }

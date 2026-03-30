@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/products", "/api/backoffice/products"})
+@RequestMapping("/api/v1/backoffice/products")
 @RequiredArgsConstructor
 public class BackOfficeProductController implements IBackOfficeProductController {
 

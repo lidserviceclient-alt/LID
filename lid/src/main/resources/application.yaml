@@ -62,6 +62,24 @@ server:
 
 
 config:
+  realtime:
+    enabled: ${REALTIME_ENABLED:true}
+    redis-enabled: ${REALTIME_REDIS_ENABLED:false}
+    redis-channel: ${REALTIME_REDIS_CHANNEL:lid:realtime:v1}
+    outbox:
+      poll-delay-ms: ${REALTIME_OUTBOX_POLL_DELAY_MS:1000}
+      batch-size: ${REALTIME_OUTBOX_BATCH_SIZE:100}
+      max-attempts: ${REALTIME_OUTBOX_MAX_ATTEMPTS:20}
+    ticket:
+      ttl-seconds: ${REALTIME_TICKET_TTL_SECONDS:30}
+    heartbeat:
+      interval-seconds: ${REALTIME_HEARTBEAT_INTERVAL_SECONDS:25}
+    topics:
+      backoffice-notifications-enabled: ${REALTIME_TOPIC_BACKOFFICE_NOTIFICATIONS_ENABLED:true}
+      backoffice-overview-enabled: ${REALTIME_TOPIC_BACKOFFICE_OVERVIEW_ENABLED:true}
+      delivery-shipment-enabled: ${REALTIME_TOPIC_DELIVERY_SHIPMENT_ENABLED:true}
+      payment-status-enabled: ${REALTIME_TOPIC_PAYMENT_STATUS_ENABLED:true}
+      catalog-enabled: ${REALTIME_TOPIC_CATALOG_ENABLED:true}
   cache:
     catalog:
       collection-ttl-minutes: ${CATALOG_CACHE_COLLECTION_TTL_MINUTES:30}

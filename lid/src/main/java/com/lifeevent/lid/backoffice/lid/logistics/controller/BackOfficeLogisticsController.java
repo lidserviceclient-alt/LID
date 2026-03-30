@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/logistics", "/api/backoffice/logistics"})
+@RequestMapping("/api/v1/backoffice/logistics")
 @RequiredArgsConstructor
 public class BackOfficeLogisticsController implements IBackOfficeLogisticsController {
 

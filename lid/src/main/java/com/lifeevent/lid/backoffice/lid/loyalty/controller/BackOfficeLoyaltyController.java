@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/loyalty", "/api/backoffice/loyalty"})
+@RequestMapping("/api/v1/backoffice/loyalty")
 @RequiredArgsConstructor
 public class BackOfficeLoyaltyController implements IBackOfficeLoyaltyController {
 

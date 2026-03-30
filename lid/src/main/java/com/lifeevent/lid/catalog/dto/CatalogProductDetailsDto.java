@@ -18,7 +18,8 @@ public record CatalogProductDetailsDto(
         String categorySlug,
         Boolean isFeatured,
         Boolean isBestSeller,
-        String imageUrl,
+        String mainImageUrl,
+        List<String> secondaryImageUrls,
         List<String> images,
         Integer stock,
         LocalDateTime dateCreation

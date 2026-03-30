@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/messages", "/api/backoffice/messages"})
+@RequestMapping("/api/v1/backoffice/messages")
 @RequiredArgsConstructor
 public class BackOfficeMessageController implements IBackOfficeMessageController {
 

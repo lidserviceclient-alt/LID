@@ -1,6 +1,7 @@
 package com.lifeevent.lid.catalog.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record PartnerCatalogProductDto(
         Long id,
@@ -8,7 +9,8 @@ public record PartnerCatalogProductDto(
         String sku,
         String ean,
         Double price,
-        String imageUrl,
+        String mainImageUrl,
+        List<String> secondaryImageUrls,
         String brand,
         LocalDateTime createdAt
 ) {

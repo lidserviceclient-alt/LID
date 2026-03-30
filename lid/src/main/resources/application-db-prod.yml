@@ -78,6 +78,8 @@ spring:
             required: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED:${SMTP_STARTTLS_REQUIRED:false}}
 
 config:
+  realtime:
+    redis-enabled: true
   mail:
     from: ${CONFIG_MAIL_FROM:${SMTP_FROM}}
   backoffice:

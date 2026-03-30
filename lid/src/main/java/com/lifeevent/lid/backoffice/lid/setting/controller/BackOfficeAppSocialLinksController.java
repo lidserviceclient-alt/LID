@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/app-config/social-links", "/api/backoffice/app-config/social-links"})
+@RequestMapping("/api/v1/backoffice/app-config/social-links")
 @RequiredArgsConstructor
 public class BackOfficeAppSocialLinksController {
 

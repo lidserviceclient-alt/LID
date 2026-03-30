@@ -11,8 +11,11 @@ public record PublicOrderTrackingResponseDto(
         String trackingNumber,
         String deliveryType,
         Status currentStatus,
+        Double amount,
+        String currency,
         LocalDateTime updatedAt,
         LocalDateTime deliveryDate,
+        List<PublicOrderTrackingItemDto> items,
         List<PublicOrderTrackingStepDto> statusHistory
 ) {
 }

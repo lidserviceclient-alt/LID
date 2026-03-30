@@ -4,6 +4,7 @@ import com.lifeevent.lid.payment.entity.PaymentTransaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.List;
 
 /**
@@ -15,4 +16,11 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     List<PaymentTransaction> findByPaymentId(Long paymentId);
     
     List<PaymentTransaction> findByTransactionType(String transactionType);
+
+    Optional<PaymentTransaction> findTopByPaymentIdAndTransactionTypeAndStatusAtTimeAndSourceOrderByCreatedAtDesc(
+            Long paymentId,
+            String transactionType,
+            String statusAtTime,
+            String source
+    );
 }

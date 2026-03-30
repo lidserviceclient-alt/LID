@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/finance", "/api/backoffice/finance"})
+@RequestMapping("/api/v1/backoffice/finance")
 @RequiredArgsConstructor
 public class BackOfficeFinanceController implements IBackOfficeFinanceController {
 

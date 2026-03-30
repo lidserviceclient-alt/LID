@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/returns", "/api/backoffice/returns"})
+@RequestMapping("/api/v1/backoffice/returns")
 @RequiredArgsConstructor
 public class BackOfficeReturnRequestController implements IBackOfficeReturnRequestController {
 

@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class BackOfficeProductServiceImpl implements BackOfficeProductService {
+    private static final int MAX_SECONDARY_IMAGES = 5;
 
     private final ArticleRepository articleRepository;
     private final CategoryRepository categoryRepository;
@@ -205,12 +206,19 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
 
     private BackOfficeProductDto toDtoWithExtras(Article entity, int stock) {
         BackOfficeProductDto dto = backOfficeProductMapper.toDto(entity);
-        dto.setImg(entity != null ? entity.getImg() : null);
-        dto.setImageUrl(entity != null ? entity.getImg() : null);
+        String mainImageUrl = entity != null ? entity.getMainImageUrl() : null;
+        dto.setMainImageUrl(mainImageUrl);
+        dto.setSecondaryImageUrls(entity == null || entity.getSecondaryImageUrls() == null
+                ? List.of()
+                : entity.getSecondaryImageUrls().stream()
+                .map(value -> value == null ? null : value.trim())
+                .filter(value -> value != null && !value.isBlank())
+                .toList());
         dto.setStatus(toBackOfficeStatus(entity != null ? entity.getStatus() : null));
         Category cat = resolvePrimaryCategory(entity);
         if (cat != null) {
             dto.setCategoryId(cat.getId() != null ? String.valueOf(cat.getId()) : null);
+            dto.setCategoryBusinessId(cat.getBusinessId());
             dto.setCategory(cat.getName());
         }
         dto.setStock(stock);
@@ -223,12 +231,14 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
     }
 
     private Article buildArticleForCreate(BackOfficeProductDto dto) {
+        normalizeImageFields(dto);
         Article entity = backOfficeProductMapper.toEntity(dto);
         enrichArticle(entity, dto);
         return entity;
     }
 
     private void enrichExistingArticle(Article entity, BackOfficeProductDto dto) {
+        normalizeImageFields(dto);
         backOfficeProductMapper.updateEntityFromDto(dto, entity);
         enrichArticle(entity, dto);
     }
@@ -290,25 +300,58 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
     }
 
     private void applyCategory(Article entity, BackOfficeProductDto dto) {
-        Integer categoryId = parseCategoryId(dto);
-        if (categoryId == null) return;
-        Optional<Category> categoryOpt = categoryRepository.findById(categoryId);
-        if (categoryOpt.isEmpty()) return;
-        entity.setCategories(new ArrayList<>(List.of(categoryOpt.get())));
+        Category category = resolveCategory(dto);
+        if (category == null) return;
+        entity.setCategories(new ArrayList<>(List.of(category)));
     }
 
-    private Integer parseCategoryId(BackOfficeProductDto dto) {
+    private Category resolveCategory(BackOfficeProductDto dto) {
         if (dto == null) return null;
-        String raw = dto.getCategoryId();
-        if (raw == null || raw.trim().isEmpty()) {
-            raw = dto.getCategory();
+        String rawCategoryId = normalize(dto.getCategoryId());
+        String rawCategoryBusinessId = normalize(dto.getCategoryBusinessId());
+        String rawCategory = normalize(dto.getCategory());
+
+        List<String> candidates = new ArrayList<>();
+        if (rawCategoryId != null) candidates.add(rawCategoryId);
+        if (rawCategoryBusinessId != null) candidates.add(rawCategoryBusinessId);
+        if (rawCategory != null) candidates.add(rawCategory);
+
+        for (String candidate : candidates) {
+            Category resolved = findCategoryByCandidate(candidate);
+            if (resolved != null) {
+                return resolved;
+            }
         }
-        if (raw == null || raw.trim().isEmpty()) return null;
+        return null;
+    }
+
+    private Category findCategoryByCandidate(String raw) {
+        if (raw == null) return null;
+        Integer id = tryParseInteger(raw);
+        if (id != null) {
+            Optional<Category> byId = categoryRepository.findById(id);
+            if (byId.isPresent()) return byId.get();
+        }
+        Optional<Category> byBusinessId = categoryRepository.findByBusinessIdIgnoreCase(raw);
+        if (byBusinessId.isPresent()) return byBusinessId.get();
+        Optional<Category> bySlug = categoryRepository.findBySlugIgnoreCase(raw);
+        if (bySlug.isPresent()) return bySlug.get();
+        return categoryRepository.findByNameIgnoreCase(raw).orElse(null);
+    }
+
+    private Integer tryParseInteger(String value) {
+        if (value == null) return null;
         try {
-            return Integer.parseInt(raw.trim());
+            return Integer.parseInt(value.trim());
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    private String normalize(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private Category resolvePrimaryCategory(Article entity) {
@@ -439,11 +482,22 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
         if (dto == null) {
             return;
         }
-        if ((dto.getImg() == null || dto.getImg().isBlank()) && dto.getImageUrl() != null && !dto.getImageUrl().isBlank()) {
-            dto.setImg(dto.getImageUrl());
+        dto.setMainImageUrl(dto.getMainImageUrl() == null ? null : dto.getMainImageUrl().trim());
+        if (dto.getMainImageUrl() != null && dto.getMainImageUrl().isBlank()) {
+            dto.setMainImageUrl(null);
         }
-        if ((dto.getImageUrl() == null || dto.getImageUrl().isBlank()) && dto.getImg() != null && !dto.getImg().isBlank()) {
-            dto.setImageUrl(dto.getImg());
+        if (dto.getSecondaryImageUrls() != null) {
+            List<String> secondaryImages = dto.getSecondaryImageUrls().stream()
+                    .map(value -> value == null ? null : value.trim())
+                    .filter(value -> value != null && !value.isBlank())
+                    .toList();
+            if (secondaryImages.size() > MAX_SECONDARY_IMAGES) {
+                throw new IllegalArgumentException("secondaryImageUrls: maximum " + MAX_SECONDARY_IMAGES + " images.");
+            }
+            dto.setSecondaryImageUrls(secondaryImages);
+            if (!secondaryImages.isEmpty() && dto.getMainImageUrl() == null) {
+                throw new IllegalArgumentException("mainImageUrl is required when secondaryImageUrls is provided.");
+            }
         }
     }
 

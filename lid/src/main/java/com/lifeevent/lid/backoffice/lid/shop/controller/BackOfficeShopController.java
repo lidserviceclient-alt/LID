@@ -10,12 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping({
-        "/api/v1/backoffice/shops",
-        "/api/backoffice/shops",
-        "/api/v1/backoffice/boutiques",
-        "/api/backoffice/boutiques"
-})
+@RequestMapping("/api/v1/backoffice/shops")
 @RequiredArgsConstructor
 public class BackOfficeShopController implements IBackOfficeShopController {
 

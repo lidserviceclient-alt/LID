@@ -16,6 +16,7 @@ import com.lifeevent.lid.payment.repository.PaymentRepository;
 import com.lifeevent.lid.payment.repository.PaymentTransactionRepository;
 import com.lifeevent.lid.payment.service.PaymentService;
 import com.lifeevent.lid.payment.service.PaydunyaSecurityService;
+import com.lifeevent.lid.realtime.service.RealtimeEventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -46,6 +48,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaydunyaSetup paydunyaSetup;
     private final PaydunyaCheckoutStore paydunyaStore;
     private final PaymentMapper paymentMapper;
+    private final RealtimeEventPublisher realtimeEventPublisher;
     
     @Override
     public PaymentResponseDto createPayment(CreatePaymentRequestDto request) {
@@ -126,6 +129,7 @@ public class PaymentServiceImpl implements PaymentService {
                     "Statut local: " + payment.getStatus().getCode(),
                     "LOCAL"
             );
+            realtimeEventPublisher.publishPaymentStatusUpdated(payment, "verify_local");
             return PaymentStatusResponseDto.builder()
                     .paymentId(payment.getId())
                     .invoiceToken(payment.getInvoiceToken())
@@ -160,6 +164,7 @@ public class PaymentServiceImpl implements PaymentService {
                 "Statut confirmé: " + safeText(invoice.getResponseText(), payment.getStatus().getCode()),
                 "API"
         );
+        realtimeEventPublisher.publishPaymentStatusUpdated(payment, "verify_api");
         return buildStatusResponse(payment, invoice);
     }
     
@@ -205,6 +210,7 @@ public class PaymentServiceImpl implements PaymentService {
                 "Callback reçu et traité",
                 "WEBHOOK"
         );
+        realtimeEventPublisher.publishPaymentStatusUpdated(payment, "webhook");
     }
     
     @Override
@@ -235,6 +241,9 @@ public class PaymentServiceImpl implements PaymentService {
     
     private void saveTransaction(Payment payment, String type, String statusAtTime, 
                                 String details, String source) {
+        if (shouldSkipDuplicateTransaction(payment, type, statusAtTime, source)) {
+            return;
+        }
         PaymentTransaction transaction = PaymentTransaction.builder()
             .payment(payment)
             .transactionType(type)
@@ -243,6 +252,33 @@ public class PaymentServiceImpl implements PaymentService {
             .source(source)
             .build();
         transactionRepository.save(transaction);
+    }
+
+    private boolean shouldSkipDuplicateTransaction(Payment payment,
+                                                   String type,
+                                                   String statusAtTime,
+                                                   String source) {
+        if (payment == null || payment.getId() == null) {
+            return false;
+        }
+        if (!"CONFIRMATION".equals(type) && !"LOCAL_VERIFY".equals(type)) {
+            return false;
+        }
+        return transactionRepository
+                .findTopByPaymentIdAndTransactionTypeAndStatusAtTimeAndSourceOrderByCreatedAtDesc(
+                        payment.getId(),
+                        type,
+                        statusAtTime,
+                        source
+                )
+                .map(existing -> {
+                    LocalDateTime createdAt = existing.getCreatedAt();
+                    if (createdAt == null) {
+                        return false;
+                    }
+                    return ChronoUnit.SECONDS.between(createdAt, LocalDateTime.now()) < 10;
+                })
+                .orElse(false);
     }
 
     private Payment findPaymentByToken(String invoiceToken) {

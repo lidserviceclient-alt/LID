@@ -3,6 +3,8 @@ package com.lifeevent.lid.backoffice.lid.product.dto;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.*;
 
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -17,8 +19,10 @@ public class BackOfficeProductDto {
     private String ean;
     private String name;
     private String description;
-    private String img;
-    private String imageUrl;
+    @JsonAlias({"main_image_url", "mainImage", "imageUrl"})
+    private String mainImageUrl;
+    @JsonAlias({"secondaryImages", "secondary_image_urls"})
+    private List<String> secondaryImageUrls;
     private String brand;
     private Double price;
     private Float vat;
@@ -29,6 +33,8 @@ public class BackOfficeProductDto {
      * Le front envoie parfois "category" au lieu de "categoryId".
      */
     private String categoryId;
+    @JsonAlias({"categoryBusinessId", "category_business_id"})
+    private String categoryBusinessId;
 
     /**
      * Libellé de la catégorie (affichage).

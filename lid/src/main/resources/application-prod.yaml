@@ -14,3 +14,7 @@ spring:
       timeout: ${REDIS_TIMEOUT:2s}
   cache:
     type: redis
+
+config:
+  realtime:
+    redis-enabled: true

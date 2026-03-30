@@ -29,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Locale;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -131,13 +132,19 @@ public class PartnerCatalogServiceImpl implements PartnerCatalogService {
     }
 
     private PartnerCatalogProductDto toProductDto(Article article) {
+        List<String> secondary = article.getSecondaryImageUrls() == null
+                ? List.of()
+                : article.getSecondaryImageUrls().stream()
+                .filter(value -> value != null && !value.isBlank())
+                .toList();
         return new PartnerCatalogProductDto(
                 article.getId(),
                 article.getName(),
                 article.getSku(),
                 article.getEan(),
                 article.getPrice(),
-                article.getImg(),
+                article.getMainImageUrl(),
+                secondary,
                 article.getBrand(),
                 article.getCreatedAt()
         );

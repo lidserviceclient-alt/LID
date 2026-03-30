@@ -28,6 +28,7 @@ public interface BackOfficeProductMapper {
     @Mapping(target = "discountPercent", ignore = true)
     @Mapping(target = "isFlashSale", ignore = true)
     @Mapping(target = "flashSaleEndsAt", ignore = true)
+    @Mapping(target = "mainImageUrl", source = "mainImageUrl")
     Article toEntity(BackOfficeProductDto dto);
 
     List<BackOfficeProductDto> toDtoList(List<Article> entities);
@@ -38,5 +39,6 @@ public interface BackOfficeProductMapper {
     @Mapping(target = "discountPercent", ignore = true)
     @Mapping(target = "isFlashSale", ignore = true)
     @Mapping(target = "flashSaleEndsAt", ignore = true)
+    @Mapping(target = "mainImageUrl", source = "mainImageUrl")
     void updateEntityFromDto(BackOfficeProductDto dto, @MappingTarget Article entity);
 }

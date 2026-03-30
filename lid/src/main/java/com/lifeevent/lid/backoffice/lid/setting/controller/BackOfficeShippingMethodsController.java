@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/shipping-methods", "/api/backoffice/shipping-methods"})
+@RequestMapping("/api/v1/backoffice/shipping-methods")
 @RequiredArgsConstructor
 public class BackOfficeShippingMethodsController {
 

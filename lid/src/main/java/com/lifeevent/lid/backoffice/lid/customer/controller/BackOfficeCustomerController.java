@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/customers", "/api/backoffice/customers"})
+@RequestMapping("/api/v1/backoffice/customers")
 @RequiredArgsConstructor
 public class BackOfficeCustomerController implements IBackOfficeCustomerController {
 

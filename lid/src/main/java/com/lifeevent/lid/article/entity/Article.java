@@ -7,6 +7,7 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -47,7 +48,20 @@ public class Article extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    private String img;
+    @Column(name = "img")
+    private String mainImageUrl;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "article_secondary_image",
+            joinColumns = @JoinColumn(name = "article_id"),
+            indexes = {
+                    @Index(name = "idx_article_secondary_image_article", columnList = "article_id")
+            }
+    )
+    @Column(name = "image_url", length = 2048)
+    @Builder.Default
+    private List<String> secondaryImageUrls = new ArrayList<>();
 
     private String brand;
 
@@ -106,5 +120,15 @@ public class Article extends BaseEntity {
             }
     )
     private List<Category> categories;
+
+    @Deprecated
+    public String getImg() {
+        return mainImageUrl;
+    }
+
+    @Deprecated
+    public void setImg(String img) {
+        this.mainImageUrl = img;
+    }
 
 }

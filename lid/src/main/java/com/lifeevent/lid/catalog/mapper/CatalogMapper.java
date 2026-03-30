@@ -33,6 +33,8 @@ public class CatalogMapper {
 
     public CatalogProductDto toCatalogProductDto(Article article, int stock, double rating, long reviews) {
         Category category = firstCategory(article);
+        String mainImageUrl = resolveMainImageUrl(article);
+        List<String> secondaryImages = resolveSecondaryImages(article);
         return new CatalogProductDto(
                 String.valueOf(article.getId()),
                 article.getSku(),
@@ -45,7 +47,8 @@ public class CatalogMapper {
                 category == null ? null : category.getSlug(),
                 Boolean.TRUE.equals(article.getIsFeatured()),
                 Boolean.TRUE.equals(article.getIsBestSeller()),
-                article.getImg(),
+                mainImageUrl,
+                secondaryImages,
                 stock,
                 article.getCreatedAt(),
                 rating,
@@ -55,7 +58,8 @@ public class CatalogMapper {
 
     public CatalogProductDetailsDto toCatalogProductDetailsDto(Article article, int stock, List<String> images) {
         Category category = firstCategory(article);
-        String mainImage = images.isEmpty() ? null : images.get(0);
+        String mainImage = resolveMainImageUrl(article);
+        List<String> secondaryImages = resolveSecondaryImages(article);
         return new CatalogProductDetailsDto(
                 String.valueOf(article.getId()),
                 article.getSku(),
@@ -71,6 +75,7 @@ public class CatalogMapper {
                 Boolean.TRUE.equals(article.getIsFeatured()),
                 Boolean.TRUE.equals(article.getIsBestSeller()),
                 mainImage,
+                secondaryImages,
                 images,
                 stock,
                 article.getCreatedAt()
@@ -142,5 +147,22 @@ public class CatalogMapper {
             return full;
         }
         return review.getCustomer().getEmail() == null ? "Utilisateur" : review.getCustomer().getEmail();
+    }
+
+    private String resolveMainImageUrl(Article article) {
+        if (article == null) {
+            return null;
+        }
+        return article.getMainImageUrl();
+    }
+
+    private List<String> resolveSecondaryImages(Article article) {
+        if (article == null || article.getSecondaryImageUrls() == null) {
+            return List.of();
+        }
+        return article.getSecondaryImageUrls().stream()
+                .map(value -> value == null ? null : value.trim())
+                .filter(value -> value != null && !value.isBlank())
+                .toList();
     }
 }

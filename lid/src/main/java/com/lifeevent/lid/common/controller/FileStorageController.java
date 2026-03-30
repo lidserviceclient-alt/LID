@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping({"/api/v1/storage"})
+@RequestMapping("/api/v1/storage")
 @RequiredArgsConstructor
 public class FileStorageController implements IFileStorageController {
 

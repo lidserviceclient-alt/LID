@@ -69,6 +69,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -83,6 +84,7 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
+    private static final int MAX_SECONDARY_IMAGES = 5;
     private static final long AGGREGATION_TIMEOUT_SECONDS = 8L;
 
     private final PartnerRepository partnerRepository;
@@ -649,13 +651,20 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
 
     private BackOfficeProductDto toCrudDto(Article article, Integer stock) {
         BackOfficeProductDto dto = backOfficeProductMapper.toDto(article);
-        dto.setImg(article.getImg());
-        dto.setImageUrl(article.getImg());
+        String mainImageUrl = article.getMainImageUrl();
+        dto.setMainImageUrl(mainImageUrl);
+        dto.setSecondaryImageUrls(article.getSecondaryImageUrls() == null
+                ? List.of()
+                : article.getSecondaryImageUrls().stream()
+                .map(value -> value == null ? null : value.trim())
+                .filter(value -> value != null && !value.isBlank())
+                .toList());
         dto.setStatus(toBackOfficeStatus(article.getStatus()));
         if (article.getCategories() != null && !article.getCategories().isEmpty()) {
             Category category = article.getCategories().get(0);
             if (category != null) {
                 dto.setCategoryId(category.getId() == null ? null : String.valueOf(category.getId()));
+                dto.setCategoryBusinessId(category.getBusinessId());
                 dto.setCategory(category.getName());
             }
         }
@@ -667,11 +676,22 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
         if (dto == null) {
             return;
         }
-        if ((dto.getImg() == null || dto.getImg().isBlank()) && dto.getImageUrl() != null && !dto.getImageUrl().isBlank()) {
-            dto.setImg(dto.getImageUrl());
+        dto.setMainImageUrl(dto.getMainImageUrl() == null ? null : dto.getMainImageUrl().trim());
+        if (dto.getMainImageUrl() != null && dto.getMainImageUrl().isBlank()) {
+            dto.setMainImageUrl(null);
         }
-        if ((dto.getImageUrl() == null || dto.getImageUrl().isBlank()) && dto.getImg() != null && !dto.getImg().isBlank()) {
-            dto.setImageUrl(dto.getImg());
+        if (dto.getSecondaryImageUrls() != null) {
+            List<String> secondaryImages = dto.getSecondaryImageUrls().stream()
+                    .map(value -> value == null ? null : value.trim())
+                    .filter(value -> value != null && !value.isBlank())
+                    .toList();
+            if (secondaryImages.size() > MAX_SECONDARY_IMAGES) {
+                throw new IllegalArgumentException("secondaryImageUrls: maximum " + MAX_SECONDARY_IMAGES + " images.");
+            }
+            dto.setSecondaryImageUrls(secondaryImages);
+            if (!secondaryImages.isEmpty() && dto.getMainImageUrl() == null) {
+                throw new IllegalArgumentException("mainImageUrl is required when secondaryImageUrls is provided.");
+            }
         }
     }
 
@@ -727,26 +747,48 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     }
 
     private void applyCategory(Article entity, BackOfficeProductDto dto) {
-        Integer categoryId = parseCategoryId(dto);
-        if (categoryId == null) {
+        Category category = resolveCategory(dto);
+        if (category == null) {
             return;
         }
-        entity.setCategories(List.of(requireCategory(categoryId)));
+        entity.setCategories(List.of(category));
     }
 
-    private Integer parseCategoryId(BackOfficeProductDto dto) {
-        if (dto == null) {
-            return null;
+    private Category resolveCategory(BackOfficeProductDto dto) {
+        if (dto == null) return null;
+        List<String> candidates = new ArrayList<>();
+        String categoryId = normalizeOrNull(dto.getCategoryId());
+        String categoryBusinessId = normalizeOrNull(dto.getCategoryBusinessId());
+        String category = normalizeOrNull(dto.getCategory());
+        if (categoryId != null) candidates.add(categoryId);
+        if (categoryBusinessId != null) candidates.add(categoryBusinessId);
+        if (category != null) candidates.add(category);
+
+        for (String candidate : candidates) {
+            Category resolved = findCategoryByCandidate(candidate);
+            if (resolved != null) return resolved;
         }
-        String raw = dto.getCategoryId();
-        if (raw == null || raw.trim().isEmpty()) {
-            raw = dto.getCategory();
+        return null;
+    }
+
+    private Category findCategoryByCandidate(String raw) {
+        if (raw == null) return null;
+        Integer id = tryParseInt(raw);
+        if (id != null) {
+            Optional<Category> byId = categoryRepository.findById(id);
+            if (byId.isPresent()) return byId.get();
         }
-        if (raw == null || raw.trim().isEmpty()) {
-            return null;
-        }
+        Optional<Category> byBusinessId = categoryRepository.findByBusinessIdIgnoreCase(raw);
+        if (byBusinessId.isPresent()) return byBusinessId.get();
+        Optional<Category> bySlug = categoryRepository.findBySlugIgnoreCase(raw);
+        if (bySlug.isPresent()) return bySlug.get();
+        return categoryRepository.findByNameIgnoreCase(raw).orElse(null);
+    }
+
+    private Integer tryParseInt(String value) {
+        if (value == null || value.trim().isEmpty()) return null;
         try {
-            return Integer.parseInt(raw.trim());
+            return Integer.parseInt(value.trim());
         } catch (NumberFormatException ex) {
             return null;
         }

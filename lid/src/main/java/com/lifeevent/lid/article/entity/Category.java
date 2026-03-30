@@ -17,7 +17,8 @@ import lombok.experimental.SuperBuilder;
         name = "category",
         indexes = {
                 @Index(name = "idx_category_slug", columnList = "slug"),
-                @Index(name = "idx_category_parent_slug", columnList = "parent_slug")
+                @Index(name = "idx_category_parent_slug", columnList = "parent_slug"),
+                @Index(name = "idx_category_business_id", columnList = "business_id")
         }
 )
 public class Category extends BaseEntity {
@@ -27,6 +28,9 @@ public class Category extends BaseEntity {
     private Integer orderIdx;
     @Column(unique = true)
     private String name;
+
+    @Column(name = "business_id", unique = true)
+    private String businessId;
 
     @Enumerated(EnumType.STRING)
     @Builder.Default

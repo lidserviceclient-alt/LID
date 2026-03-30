@@ -15,7 +15,8 @@ public class ArticleDto {
     private String sku;
     private String name;
     private Double price;
-    private String img;
+    private String mainImageUrl;
+    private List<String> secondaryImageUrls;
     private String ean;
     private Float vat;
 

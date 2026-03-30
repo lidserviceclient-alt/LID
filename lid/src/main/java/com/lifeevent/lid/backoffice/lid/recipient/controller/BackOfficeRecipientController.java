@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/recipients", "/api/backoffice/recipients"})
+@RequestMapping("/api/v1/backoffice/recipients")
 @RequiredArgsConstructor
 public class BackOfficeRecipientController implements IBackOfficeRecipientController {
 

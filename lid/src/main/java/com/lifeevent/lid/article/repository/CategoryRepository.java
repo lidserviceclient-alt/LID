@@ -17,6 +17,8 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
      * Recherche par nom
      */
     Optional<Category> findByNameIgnoreCase(String name);
+    Optional<Category> findBySlugIgnoreCase(String slug);
+    Optional<Category> findByBusinessIdIgnoreCase(String businessId);
 
 
     /**

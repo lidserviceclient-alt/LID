@@ -19,7 +19,7 @@ import java.util.Locale;
 import java.util.Map;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/orders", "/api/backoffice/orders"})
+@RequestMapping("/api/v1/backoffice/orders")
 @RequiredArgsConstructor
 public class BackOfficeOrderController implements IBackOfficeOrderController {
 

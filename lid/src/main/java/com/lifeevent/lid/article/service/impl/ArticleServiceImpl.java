@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -35,6 +36,7 @@ public class ArticleServiceImpl implements ArticleService {
     @Override
     public ArticleDto createArticle(ArticleDto dto) {
         log.info("Création d'un nouvel article: {}", dto.getName());
+        normalizeAndValidateImages(dto);
         Article article = articleMapper.toEntity(dto);
         article.setStatus(ArticleStatus.ACTIVE);
         Article saved = articleRepository.save(article);
@@ -108,6 +110,7 @@ public class ArticleServiceImpl implements ArticleService {
     @Override
     public ArticleDto updateArticle(Long id, ArticleDto dto) {
         log.info("Mise à jour de l'article: {}", id);
+        normalizeAndValidateImages(dto);
         Article article = articleRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Article","articleId",id.toString()));
         
@@ -176,6 +179,32 @@ public class ArticleServiceImpl implements ArticleService {
         return articleRepository.findById(articleId)
             .map(article -> currentUserId.equals(article.getReferencePartner()))
             .orElse(false);
+    }
+
+    private void normalizeAndValidateImages(ArticleDto dto) {
+        if (dto == null) {
+            return;
+        }
+        String mainImage = normalizeBlank(dto.getMainImageUrl());
+        dto.setMainImageUrl(mainImage);
+        List<String> secondary = dto.getSecondaryImageUrls() == null
+                ? List.of()
+                : dto.getSecondaryImageUrls().stream()
+                .map(this::normalizeBlank)
+                .filter(value -> value != null)
+                .toList();
+        dto.setSecondaryImageUrls(secondary);
+        if (!secondary.isEmpty() && dto.getMainImageUrl() == null) {
+            throw new IllegalArgumentException("mainImageUrl is required when secondaryImageUrls is provided.");
+        }
+    }
+
+    private String normalizeBlank(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
     
     @Override

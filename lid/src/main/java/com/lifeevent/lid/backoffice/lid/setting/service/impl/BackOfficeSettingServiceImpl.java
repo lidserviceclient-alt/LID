@@ -9,6 +9,7 @@ import com.lifeevent.lid.backoffice.lid.user.dto.BackOfficeUserDto;
 import com.lifeevent.lid.backoffice.lid.user.service.BackOfficeUserService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
+import com.lifeevent.lid.realtime.service.RealtimeEventPublisher;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
     private final BackOfficeIntegrationSettingRepository integrationSettingRepository;
     private final BackOfficeNotificationPreferenceRepository notificationPreferenceRepository;
     private final SecurityActivityRepository securityActivityRepository;
+    private final RealtimeEventPublisher realtimeEventPublisher;
     private final PlatformTransactionManager transactionManager;
     @Resource(name = "aggregatorExecutor")
     private Executor aggregatorExecutor;
@@ -628,6 +630,8 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .build();
 
         securityActivityRepository.save(entity);
+        realtimeEventPublisher.publishBackofficeNotificationsCountUpdated(trimToNull(currentUserId), action);
+        realtimeEventPublisher.publishBackofficeOverviewUpdated("security_activity");
     }
 
     private String resolveRequestIp() {

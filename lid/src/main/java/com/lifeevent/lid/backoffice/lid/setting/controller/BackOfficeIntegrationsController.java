@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/integrations", "/api/backoffice/integrations"})
+@RequestMapping("/api/v1/backoffice/integrations")
 @RequiredArgsConstructor
 public class BackOfficeIntegrationsController {
 

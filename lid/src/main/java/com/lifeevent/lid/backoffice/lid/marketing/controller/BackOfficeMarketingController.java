@@ -13,7 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/marketing", "/api/backoffice/marketing"})
+@RequestMapping("/api/v1/backoffice/marketing")
 @RequiredArgsConstructor
 public class BackOfficeMarketingController implements IBackOfficeMarketingController {
 

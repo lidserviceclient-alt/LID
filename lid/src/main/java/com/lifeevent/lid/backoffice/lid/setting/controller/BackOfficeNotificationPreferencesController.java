@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/notification-preferences", "/api/backoffice/notification-preferences"})
+@RequestMapping("/api/v1/backoffice/notification-preferences")
 @RequiredArgsConstructor
 public class BackOfficeNotificationPreferencesController {
 

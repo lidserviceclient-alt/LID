@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping({"/api/v1/backoffice/marketing/newsletter", "/api/backoffice/marketing/newsletter"})
+@RequestMapping("/api/v1/backoffice/marketing/newsletter")
 @RequiredArgsConstructor
 public class BackOfficeNewsletterController implements IBackOfficeNewsletterController {
 

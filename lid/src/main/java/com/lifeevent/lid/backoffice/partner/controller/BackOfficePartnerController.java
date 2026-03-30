@@ -24,7 +24,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping({"/api/v1/backoffice/partners/me", "/api/backoffice/partners/me"})
+@RequestMapping("/api/v1/backoffice/partners/me")
 public class BackOfficePartnerController implements IBackOfficePartnerController {
 
     private final BackOfficePartnerService backOfficePartnerService;
