@@ -620,11 +620,15 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
       const url = res?.paymentUrl;
       setLoadingStep(3);
       if (typeof window !== 'undefined') {
+        const token = `${res?.invoiceToken || ''}`.trim();
+        if (token) {
+          const checkoutItemsKey = `lid_payment_checkout_items_${token}`;
+          window.sessionStorage.setItem(checkoutItemsKey, JSON.stringify(items));
+        }
         if (url && paymentProvider.toUpperCase() !== 'LOCAL') {
           window.location.href = url;
           return;
         }
-        const token = `${res?.invoiceToken || ''}`.trim();
         if (!token) {
           throw new Error("Token de paiement introuvable.");
         }

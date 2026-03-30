@@ -28,7 +28,7 @@ const FavoriteNotification = ({ isVisible, onClose, product, isAdding = true }) 
           {/* Product Image */}
           <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-2 flex-shrink-0">
             <img 
-              src={resolveBackendAssetUrl(product?.imageUrl || product?.image || product?.img) || FALLBACK_PRODUCT_IMAGE} 
+              src={resolveBackendAssetUrl(product?.mainImageUrl || product?.image) || FALLBACK_PRODUCT_IMAGE} 
               alt={product?.name} 
               onError={(e) => {
                 e.currentTarget.src = FALLBACK_PRODUCT_IMAGE;

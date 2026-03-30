@@ -53,7 +53,7 @@ export default function SellerBackoffice() {
   const categoriesCollectionQuery = useQuery({
     queryKey: ['partner-backoffice-categories-collection'],
     queryFn: () => getMyCategoriesCollection(),
-    enabled: routeKey === 'settings' || routeKey === 'categories',
+    enabled: routeKey === 'settings' || routeKey === 'categories' || routeKey === 'products',
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnMount: false,

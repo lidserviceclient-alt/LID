@@ -148,7 +148,7 @@ export default function Orders() {
         name: i.name || "Produit",
         quantity: Number(i.quantity || 0),
         price: Number(i.price || 0),
-        image: i.imageUrl || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=100&q=80"
+        image: i.mainImageUrl || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=100&q=80"
       }))
     };
     setStatusDraft(normalized.status);

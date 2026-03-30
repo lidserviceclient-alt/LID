@@ -170,6 +170,8 @@ export default function ProductDetails() {
     );
   }
 
+  const productMainImage = resolveBackendAssetUrl(product?.mainImageUrl) || "/imgs/logo.png";
+
   // Functional Handlers
   const handleAddToCart = async () => {
     setIsAdding(true);
@@ -197,7 +199,7 @@ export default function ProductDetails() {
   const handleShare = async () => {
     try {
       const productUrl = `${window.location.origin}/product/${product.id}`;
-      const rawImage = product?.imageUrl || product?.image || (Array.isArray(product?.images) ? product.images[0] : "");
+      const rawImage = product?.mainImageUrl || "";
       const previewUrl = resolveBackendAssetUrl(rawImage) || productUrl;
       if (navigator.share) {
         await navigator.share({
@@ -285,7 +287,7 @@ export default function ProductDetails() {
             <div className="max-w-[1500px] mx-auto flex items-center justify-between gap-4">
               {/* Product Info (Hidden on small mobile) */}
               <div className="hidden md:flex items-center gap-4">
-                <img src={product.image} alt={product.name} className="w-12 h-12 object-contain bg-neutral-100 rounded-md" />
+                <img src={productMainImage} alt={product.name} className="w-12 h-12 object-contain bg-neutral-100 rounded-md" />
                 <div>
                   <h3 className="font-bold text-neutral-900 dark:text-white line-clamp-1">{product.name}</h3>
                   <div className="text-sm text-neutral-500">
@@ -434,7 +436,7 @@ export default function ProductDetails() {
                   <AnimatePresence mode="wait">
                     <motion.img 
                       key={`${selectedImage}-${selectedColor}`}
-                      src={product.image} 
+                      src={productMainImage} 
                       alt={product.name} 
                       initial={{ opacity: 0, scale: 0.8, z: -100, rotate: -5 }}
                       animate={{ opacity: 1, scale: 1, z: 50, rotate: 0 }}
@@ -481,7 +483,7 @@ export default function ProductDetails() {
                       selectedImage === idx ? 'border-orange-500 shadow-md ring-2 ring-orange-200 dark:ring-orange-900' : 'border-neutral-200 dark:border-neutral-700 hover:border-orange-300'
                     }`}
                   >
-                    <img src={product.image} alt="" className="w-full h-full object-contain p-2 mix-blend-multiply dark:mix-blend-normal" />
+                    <img src={productMainImage} alt="" className="w-full h-full object-contain p-2 mix-blend-multiply dark:mix-blend-normal" />
                   </motion.button>
                 ))}
               </motion.div>

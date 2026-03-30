@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { isAuthenticated, getCurrentUserPayload, logout, getUserProfile, refreshSession, loginPartnerLocal, storeAccessToken } from "@/services/authService";
 import { uploadFile } from "@/services/fileStorageService";
 import { getPartnerRegistrationAggregate, upgradeToPartner, registerPartnerStep1, registerPartnerStep2, registerPartnerStep3, registerPartnerStep4 } from "@/services/partnerService";
+import { getCatalogCategories } from "@/services/categoryService";
 import ResetPasswordForm from "@/components/ResetPasswordForm";
 
 const BRAND = "#6aa200";
@@ -58,15 +59,6 @@ const buildCdnPreviewUrl = (cdnBaseUrl, path) => {
   if (!base || !objectPath) return "";
   return `${base}/${objectPath}`;
 };
-
-// Animation variants
-const STATIC_CATEGORIES = [
-  { id: 1, label: "Mode & Accessoires" },
-  { id: 2, label: "Beauté & Santé" },
-  { id: 3, label: "Maison & Déco" },
-  { id: 4, label: "High-Tech" },
-  { id: 5, label: "Alimentation" }
-];
 
 // Animation variants
 const stepAnim = {
@@ -307,6 +299,7 @@ export default function Seller() {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [partnerLoginOnly, setPartnerLoginOnly] = useState(false);
   const [partnerStatus, setPartnerStatus] = useState("");
+  const [categoryOptions, setCategoryOptions] = useState([]);
   
   const isAuth = isAuthenticated();
   const currentUser = getCurrentUserPayload();
@@ -320,13 +313,50 @@ export default function Seller() {
     // 1. Compte
     firstName: "", lastName: "", email: "", phone: "", password: "",
     // 2. Entreprise
-    storeName: "", mainCategoryId: `${STATIC_CATEGORIES[0].id}`, description: "",
+    storeName: "", mainCategoryId: "", description: "",
     address: "", city: "", region: "Côte d'Ivoire",
     // 3. Branding
     logo: null, banner: null,
     // 4. Contrat
     contractAccepted: false
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCategories = async () => {
+      try {
+        const categories = await getCatalogCategories();
+        if (cancelled) return;
+        const mains = (Array.isArray(categories) ? categories : [])
+          .filter((c) => !c?.parentId && !c?.parent_id)
+          .map((c) => ({
+            id: `${c?.id ?? ""}`.trim(),
+            label: `${c?.nom || c?.name || ""}`.trim(),
+          }))
+          .filter((c) => c.id && c.label);
+        setCategoryOptions(mains);
+      } catch (_error) {
+        if (!cancelled) {
+          setCategoryOptions([]);
+        }
+      }
+    };
+    loadCategories();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!categoryOptions.length) return;
+    setFormData((prev) => {
+      const currentId = `${prev.mainCategoryId || ""}`.trim();
+      if (currentId && categoryOptions.some((c) => c.id === currentId)) {
+        return prev;
+      }
+      return { ...prev, mainCategoryId: categoryOptions[0].id };
+    });
+  }, [categoryOptions]);
 
   const isPartner = Array.isArray(currentUser?.roles) && 
     currentUser.roles.some(r => r === "PARTNER" || r === "ROLE_PARTNER");
@@ -351,7 +381,7 @@ export default function Seller() {
     }));
   };
 
-  const applyPartnerDataToForm = (profile, aggregate) => {
+  const applyPartnerDataToForm = useCallback((profile, aggregate) => {
     const step1 = aggregate?.step1 || {};
     const step2 = aggregate?.step2 || {};
     const step3 = aggregate?.step3 || {};
@@ -365,7 +395,7 @@ export default function Seller() {
       email: step1.email || profile?.email || currentUserEmail || prev.email,
       phone: step1.phoneNumber || profile?.phoneNumber || prev.phone,
       storeName: step2.shopName || shop.shopName || prev.storeName,
-      mainCategoryId: `${step2.mainCategoryId || shop.mainCategoryId || prev.mainCategoryId || STATIC_CATEGORIES[0].id}`,
+      mainCategoryId: `${step2.mainCategoryId || shop.mainCategoryId || prev.mainCategoryId || categoryOptions[0]?.id || ""}`,
       description: step2.description || step2.shopDescription || shop.shopDescription || prev.description,
       address: step2.headOfficeAddress || profile?.headOfficeAddress || prev.address,
       city: step2.city || profile?.city || prev.city,
@@ -374,7 +404,7 @@ export default function Seller() {
       logo: prev.logo,
       banner: prev.banner,
     }));
-  };
+  }, [categoryOptions, currentUserEmail, currentUserFirstName, currentUserLastName]);
 
   const resolvePartnerRoute = (status, aggregate) => {
     const normalizedStatus = normalizePartnerStatus(status || aggregate?.currentStatus);
@@ -464,7 +494,7 @@ export default function Seller() {
   const selectedCategoryLabel = (() => {
     const raw = `${formData.mainCategoryId || ""}`.trim();
     if (!raw) return "";
-    const match = STATIC_CATEGORIES.find((c) => `${c.id}` === raw);
+    const match = categoryOptions.find((c) => `${c.id}` === raw);
     return `${match?.label || ""}`.trim();
   })();
 
@@ -1007,7 +1037,7 @@ export default function Seller() {
                             value={formData.mainCategoryId}
                             onChange={e => handleChange("mainCategoryId", e.target.value)}
                          >
-                          {STATIC_CATEGORIES.map((c) => (
+                          {categoryOptions.map((c) => (
                             <option key={c.id} value={`${c.id}`}>
                               {c.label}
                             </option>

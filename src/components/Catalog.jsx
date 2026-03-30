@@ -266,7 +266,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid', enab
   const rating = Number(product?.rating) || 0;
   const reviews = Number(product?.reviews) || 0;
 
-  const rawImage = product?.imageUrl || product?.image;
+  const rawImage = product?.mainImageUrl;
   const resolvedImage = rawImage ? resolveBackendAssetUrl(rawImage) : "";
   const [imageFailed, setImageFailed] = useState(false);
 

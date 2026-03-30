@@ -165,6 +165,14 @@ export default function Home() {
   }, [bestSellerProducts]);
 
   const bestSellers = normalizedBestSellerProducts.slice(0, 8);
+  const heroProducts = useMemo(() => {
+    const pick = (Array.isArray(featuredOnHome) && featuredOnHome.length > 0)
+      ? featuredOnHome
+      : (Array.isArray(normalizedBestSellerProducts) && normalizedBestSellerProducts.length > 0)
+        ? normalizedBestSellerProducts
+        : (Array.isArray(catalogProducts) ? catalogProducts : []);
+    return pick.slice(0, 12);
+  }, [featuredOnHome, normalizedBestSellerProducts, catalogProducts]);
 
   const trending = useMemo(() => {
     const list = Array.isArray(catalogProducts) ? [...catalogProducts] : [];
@@ -252,7 +260,7 @@ export default function Home() {
           
           {/* Mobile Hero */}
           <div className="-mt-1">
-            <Hero enableMotion={false} />
+            <Hero enableMotion={false} products={heroProducts} />
           </div>
 
         {/* Reassurance Grid (Compact) - always visible on mobile */}
@@ -383,7 +391,7 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Hero />
+          <Hero products={heroProducts} />
         </motion.section>
 
         {/* Reassurance Bar */}

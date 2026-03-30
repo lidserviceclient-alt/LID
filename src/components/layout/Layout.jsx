@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Lenis from 'lenis'
 import { useCatalogCollection } from '@/features/catalog/useCatalogCollection'
 import { CatalogBootstrapProvider } from '@/features/catalog/CatalogBootstrapContext'
-import { getFeaturedCatalogProducts, getLatestCatalogProducts } from '@/services/productService'
+import { subscribeFrontendRealtime } from '@/services/realtimeService'
 
 export default function Layout() {
   const location = useLocation();
@@ -19,6 +19,7 @@ export default function Layout() {
     isLoading: isGlobalCollectionLoading,
     isFetched: isGlobalCollectionFetched,
     error: globalCollectionError,
+    refetch: refetchGlobalCollection,
   } = useCatalogCollection({
     featuredCategoryLimit: 6,
     featuredLimit: 12,
@@ -40,59 +41,61 @@ export default function Layout() {
   }, [globalCollection]);
 
   useEffect(() => {
-    if (!isHomeRoute || !globalCollectionState) return;
+    if (!isHomeRoute) return;
+    let refreshInFlight = false;
+    let queuedRefresh = false;
+    let lastRefreshAt = 0;
+    let throttleTimer = null;
 
-    let cancelled = false;
-
-    const refreshFeatured = async () => {
-      try {
-        const list = await getFeaturedCatalogProducts(1);
-        if (cancelled) return;
-        const featured = Array.isArray(list) ? list : [];
-        setGlobalCollectionState((prev) => {
-          if (!prev) return prev;
-          const current = Array.isArray(prev.featuredProducts) ? prev.featuredProducts : [];
-          const nextFirst = featured[0];
-          if (!nextFirst) return prev;
-          if (current[0]?.id === nextFirst.id) return prev;
-          return {
-            ...prev,
-            featuredProducts: [nextFirst, ...current.filter((item) => item?.id && item.id !== nextFirst.id)],
-          };
-        });
-      } catch {
+    const refreshCollection = () => {
+      if (refreshInFlight) {
+        queuedRefresh = true;
+        return;
       }
+      refreshInFlight = true;
+      refetchGlobalCollection().then((result) => {
+        const next = result?.data;
+        if (next) {
+          setGlobalCollectionState(next);
+        }
+      }).catch(() => {}).finally(() => {
+        refreshInFlight = false;
+        if (queuedRefresh) {
+          queuedRefresh = false;
+          refreshCollection();
+        }
+      });
     };
 
-    const refreshLatest = async () => {
-      try {
-        const list = await getLatestCatalogProducts(30);
-        if (cancelled) return;
-        const latest = Array.isArray(list) ? list : [];
-        setGlobalCollectionState((prev) => {
-          if (!prev) return prev;
-          const current = Array.isArray(prev.latestProducts) ? prev.latestProducts : [];
-          if (
-            current.length === latest.length &&
-            current.every((item, index) => item?.id === latest[index]?.id)
-          ) {
-            return prev;
-          }
-          return { ...prev, latestProducts: latest };
-        });
-      } catch {
+    const unsubscribe = subscribeFrontendRealtime((event) => {
+      const topic = `${event?.topic || ''}`.trim();
+      if (topic !== 'catalog.updated' && topic !== 'connection.ack') {
+        return;
       }
-    };
-
-    const featuredTimer = window.setInterval(refreshFeatured, 30_000);
-    const latestTimer = window.setInterval(refreshLatest, 60_000);
-
+      const now = Date.now();
+      const minGapMs = 1200;
+      const elapsed = now - lastRefreshAt;
+      if (elapsed >= minGapMs) {
+        lastRefreshAt = now;
+        refreshCollection();
+        return;
+      }
+      if (throttleTimer) {
+        return;
+      }
+      throttleTimer = window.setTimeout(() => {
+        throttleTimer = null;
+        lastRefreshAt = Date.now();
+        refreshCollection();
+      }, minGapMs - elapsed);
+    }, ['catalog.updated', 'connection.ack']);
     return () => {
-      cancelled = true;
-      window.clearInterval(featuredTimer);
-      window.clearInterval(latestTimer);
+      if (throttleTimer) {
+        window.clearTimeout(throttleTimer);
+      }
+      unsubscribe();
     };
-  }, [globalCollectionState, isHomeRoute]);
+  }, [isHomeRoute, refetchGlobalCollection]);
 
   const bootstrapValue = useMemo(() => ({
     isHomeRoute,

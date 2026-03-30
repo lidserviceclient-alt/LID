@@ -4,6 +4,7 @@ import { Search, Package, Truck, MapPin, CheckCircle, Clock, ArrowRight } from "
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { trackOrder } from "@/services/trackingService";
+import { resolveBackendAssetUrl } from "@/services/categoryService";
 
 const statusKeyFromBackend = (value) => {
   const s = `${value || ""}`.trim().toUpperCase();
@@ -47,6 +48,12 @@ const formatStepDate = (value) => {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return `${value}`;
   return d.toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
+};
+
+const formatMoney = (value, currency = "FCFA") => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return `0 ${currency}`;
+  return `${n.toLocaleString("fr-FR")} ${currency}`;
 };
 
 export default function OrderTracking() {
@@ -102,11 +109,37 @@ export default function OrderTracking() {
                 ? "En cours de livraison"
                 : "Livré";
 
+      const items = Array.isArray(data?.items)
+        ? data.items
+            .map((item) => {
+              const qty = Number(item?.quantity || 0);
+              const unitPrice = Number(item?.unitPrice || 0);
+              const subtotal = Number(item?.subtotal);
+              return {
+                id: item?.articleId || `${item?.articleName || "item"}-${Math.random()}`,
+                name: `${item?.articleName || "Article"}`.trim(),
+                imageUrl: resolveBackendAssetUrl(item?.mainImageUrl) || "/imgs/logo.png",
+                quantity: Number.isFinite(qty) ? qty : 0,
+                unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
+                subtotal: Number.isFinite(subtotal) ? subtotal : ((Number.isFinite(unitPrice) ? unitPrice : 0) * (Number.isFinite(qty) ? qty : 0)),
+              };
+            })
+            .filter((item) => item.name)
+        : [];
+
+      const currency = `${data?.currency || "FCFA"}`.trim() || "FCFA";
+      const totalAmount = Number.isFinite(Number(data?.amount))
+        ? Number(data.amount)
+        : items.reduce((acc, item) => acc + Number(item?.subtotal || 0), 0);
+
       setTrackingData({
         id: data?.orderNumber || trimmed,
         status: statusKey,
         trackingNumber: data?.trackingNumber || "",
         deliveryType: data?.deliveryType || "Standard",
+        currency,
+        amount: totalAmount,
+        items,
         eta,
         location,
         timeline: [
@@ -232,6 +265,56 @@ export default function OrderTracking() {
                     <div className="mt-2 text-2xl font-black">{trackingData.eta || "À confirmer"}</div>
                     <p className="text-xs text-neutral-500">Date estimée ou dernière mise à jour</p>
                   </div>
+                </div>
+
+                <div className="rounded-3xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-lg font-bold">Récapitulatif de la commande</h3>
+                    <span className="text-xs text-neutral-400">
+                      {Array.isArray(trackingData.items) ? trackingData.items.length : 0} article(s)
+                    </span>
+                  </div>
+
+                  {Array.isArray(trackingData.items) && trackingData.items.length > 0 ? (
+                    <div className="space-y-3">
+                      {trackingData.items.map((item, index) => (
+                        <div
+                          key={item.id || index}
+                          className="flex items-center gap-3 rounded-2xl border border-neutral-100 p-3 sm:p-4 dark:border-neutral-800"
+                        >
+                          <div className="h-14 w-14 rounded-xl overflow-hidden border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950 shrink-0">
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = "/imgs/logo.png";
+                              }}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-neutral-900 dark:text-white truncate">{item.name}</p>
+                            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                              Qté: {item.quantity} • {formatMoney(item.unitPrice, trackingData.currency)}
+                            </p>
+                          </div>
+                          <div className="text-sm font-bold whitespace-nowrap">{formatMoney(item.subtotal, trackingData.currency)}</div>
+                        </div>
+                      ))}
+
+                      <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+                        <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Montant total</span>
+                        <span className="text-xl font-black text-neutral-900 dark:text-white">
+                          {formatMoney(trackingData.amount, trackingData.currency)}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-800 p-4 text-sm text-neutral-500 dark:text-neutral-400">
+                      Les détails des articles ne sont pas disponibles pour cette commande.
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded-3xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">

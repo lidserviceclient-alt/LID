@@ -332,7 +332,7 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
                     {suggestions.length > 0 ? (
                       <div className="space-y-1">
                         {suggestions.map((p) => {
-                          const img = resolveBackendAssetUrl(p?.imageUrl) || '/imgs/logo.png';
+                          const img = resolveBackendAssetUrl(p?.mainImageUrl) || '/imgs/logo.png';
                           const actionIndex = flatActions.findIndex((a) => a.type === 'product' && a.product?.id === p.id);
                           const price = formatMoney(p?.price);
                           const rating = Number(p?.rating) || 0;

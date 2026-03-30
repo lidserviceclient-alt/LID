@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, Tag, Layers, Folder, ChevronRight, ChevronDown, Shirt, Smartphone, Home, Sparkles, Dumbbell, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Papa from 'papaparse';
@@ -26,7 +26,9 @@ export default function Categories() {
   const [selectedParentId, setSelectedParentId] = useState(DEFAULT_GLOBAL_CATEGORIES[0].id);
   const [importPreview, setImportPreview] = useState(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImportGuideOpen, setIsImportGuideOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const refresh = async () => {
     setLoading(true);
@@ -170,8 +172,12 @@ export default function Categories() {
           const newCategories = results.data.map(item => {
             // Find parent ID based on provided parent name or code, or default to first one
             let parentId = item.parentId || item.parent_id || item.parent;
+            const parentName = `${item.parentName || item.parent_name || item.parentLabel || ""}`.trim().toLowerCase();
+            if (!parentId && parentName) {
+              parentId = globalCategories.find((c) => `${c.name || ""}`.trim().toLowerCase() === parentName)?.id;
+            }
             // Validate parentId exists
-      if (!globalCategories.find(c => c.id === parentId)) {
+            if (!globalCategories.find(c => c.id === parentId)) {
               parentId = globalCategories[0]?.id || DEFAULT_GLOBAL_CATEGORIES[0].id;
             }
             
@@ -193,6 +199,27 @@ export default function Categories() {
         }
       });
     }
+  };
+
+  const downloadImportTemplate = () => {
+    const exampleParentId = `${globalCategories[0]?.id || DEFAULT_GLOBAL_CATEGORIES[0].id}`;
+    const exampleParentName = `${globalCategories[0]?.name || DEFAULT_GLOBAL_CATEGORIES[0].name}`;
+    const rows = [
+      ["name", "description", "parentId", "parentName"],
+      ["Sneakers Premium", "Sous-catégorie sport premium", exampleParentId, exampleParentName],
+      ["Accessoires Running", "Accessoires dédiés au running", exampleParentId, exampleParentName],
+      ["Crèmes visage", "Soins et hydratation", exampleParentId, exampleParentName],
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${`${v}`.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "modele-import-sous-categories.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const confirmImport = async () => {
@@ -222,16 +249,27 @@ export default function Categories() {
           <p className="text-gray-500 text-sm mt-1">Gérez vos sous-catégories par univers</p>
         </div>
         <div className="flex gap-2">
-          <label className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm cursor-pointer">
+          <button
+            onClick={() => setIsImportGuideOpen(true)}
+            className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            <Upload size={18} />
+            <span className="hidden sm:inline">Exemple Import</span>
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
+          >
             <Upload size={18} />
             <span className="hidden sm:inline">Import CSV</span>
-            <input 
-              type="file" 
-              accept=".csv"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
-          </label>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
           <button 
             onClick={() => { setCurrentCategory(null); setSelectedParentId(globalCategories[0]?.id || DEFAULT_GLOBAL_CATEGORIES[0].id); setIsModalOpen(true); }}
             className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
@@ -346,6 +384,84 @@ export default function Categories() {
       </div>
 
       {/* Add/Edit Modal */}
+      <AnimatePresence>
+        {isImportGuideOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Exemple pour import des sous-catégories</h2>
+                  <p className="text-sm text-gray-500">Remplissez votre CSV avec ces colonnes obligatoires.</p>
+                </div>
+                <button onClick={() => setIsImportGuideOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">&times;</button>
+              </div>
+              <div className="p-6 overflow-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <h3 className="font-bold text-gray-900 mb-2">Colonnes attendues</h3>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li><span className="font-medium">name</span> : nom de la sous-catégorie</li>
+                      <li><span className="font-medium">description</span> : description (optionnel)</li>
+                      <li><span className="font-medium">parentId</span> : id de la catégorie parente</li>
+                      <li><span className="font-medium">parentName</span> : nom parent (fallback si parentId absent)</li>
+                    </ul>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <h3 className="font-bold text-gray-900 mb-2">Référence catégories parentes</h3>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      {globalCategories.map((c) => (
+                        <li key={c.id}><span className="font-medium">{c.id}</span> : {c.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                <table className="w-full text-left text-sm border border-gray-200 rounded-xl overflow-hidden">
+                  <thead className="bg-gray-50 text-gray-500">
+                    <tr>
+                      <th className="px-3 py-2">name</th>
+                      <th className="px-3 py-2">description</th>
+                      <th className="px-3 py-2">parentId</th>
+                      <th className="px-3 py-2">parentName</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    <tr>
+                      <td className="px-3 py-2">Sneakers Premium</td>
+                      <td className="px-3 py-2">Sous-catégorie sport premium</td>
+                      <td className="px-3 py-2">{globalCategories[0]?.id || "-"}</td>
+                      <td className="px-3 py-2">{globalCategories[0]?.name || "-"}</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2">Accessoires Running</td>
+                      <td className="px-3 py-2">Accessoires dédiés au running</td>
+                      <td className="px-3 py-2">{globalCategories[0]?.id || "-"}</td>
+                      <td className="px-3 py-2">{globalCategories[0]?.name || "-"}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+                <button onClick={() => setIsImportGuideOpen(false)} className="px-5 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-white transition-colors font-medium">Fermer</button>
+                <button onClick={downloadImportTemplate} className="px-5 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium">Télécharger le modèle CSV</button>
+                <button
+                  onClick={() => {
+                    setIsImportGuideOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="px-5 py-2 bg-[#6aa200] text-white rounded-lg hover:bg-[#5a8b00] transition-colors font-medium"
+                >
+                  Importer maintenant
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">

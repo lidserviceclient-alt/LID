@@ -15,7 +15,7 @@ export default function Offer({ className, onClose, enableMotion = true }) {
   const { data: offerProduct } = useFlashSaleProduct(1);
 
   const offerImageSrc = useMemo(() => {
-    const raw = offerProduct?.imageUrl || offerProduct?.image;
+    const raw = offerProduct?.mainImageUrl;
     const resolved = raw ? resolveBackendAssetUrl(raw) : "";
     return resolved || "/imgs/logo.png";
   }, [offerProduct]);
@@ -107,7 +107,7 @@ export default function Offer({ className, onClose, enableMotion = true }) {
                   }}
                   className={cn(
                     "w-full h-full object-contain",
-                    offerProduct?.imageUrl || offerProduct?.image ? "opacity-100" : "opacity-30"
+                    offerProduct?.mainImageUrl ? "opacity-100" : "opacity-30"
                   )}
                 />
               </div>
@@ -330,7 +330,7 @@ function TiltCard({ isFlipped, onClose, product, imageSrc, price }) {
                     }}
                     className={cn(
                       "h-auto drop-shadow-[0_30px_30px_rgba(0,0,0,0.5)] rotate-[-15deg] group-hover:rotate-[-5deg] group-hover:scale-110 transition-all duration-500 backface-hidden",
-                      product?.imageUrl || product?.image ? "w-[120%] object-cover" : "w-[70%] object-contain opacity-30"
+                      product?.mainImageUrl ? "w-[120%] object-cover" : "w-[70%] object-contain opacity-30"
                     )}
                 />
             </motion.div>

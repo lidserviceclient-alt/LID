@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Search, Ticket, MapPin, Calendar, Star, TrendingUp, Music, Globe, Trophy, ShieldCheck, Mail, ArrowRight, Zap } from "lucide-react";
@@ -8,6 +8,7 @@ import { useCart } from "@/features/cart/CartContext";
 import { useTheme } from "@/features/theme/theme-provider";
 import { toast } from "sonner";
 import { useCatalogBootstrap } from "@/features/catalog/CatalogBootstrapContext";
+import { subscribeFrontendRealtime } from "@/services/realtimeService";
 
 // --- Theme Utility ---
 const getTheme = (category) => {
@@ -222,6 +223,7 @@ export default function TicketCatalog() {
     : null;
   const isBootstrapLoading = Boolean(bootstrap?.isGlobalCollectionLoading);
   const isBootstrapResolved = Boolean(bootstrap?.isGlobalCollectionResolved);
+  const refreshControlRef = useRef({ inFlight: false, timer: null, lastAt: 0 });
 
   useEffect(() => {
     let cancelled = false;
@@ -279,6 +281,54 @@ export default function TicketCatalog() {
       cancelled = true;
     };
   }, [initialTickets, isBootstrapLoading, isBootstrapResolved]);
+
+  useEffect(() => {
+    const control = refreshControlRef.current;
+    const runRefresh = () => {
+      if (control.inFlight) return;
+      control.inFlight = true;
+      getTicketEvents()
+        .then((list) => {
+          setEvents(Array.isArray(list) ? list : []);
+          setError("");
+        })
+        .catch((err) => {
+          const message = err?.message || "Impossible de charger la billetterie.";
+          setError(message);
+        })
+        .finally(() => {
+          control.inFlight = false;
+        });
+    };
+
+    const unsubscribe = subscribeFrontendRealtime((event) => {
+      if (event?.topic !== "catalog.updated") {
+        return;
+      }
+      const now = Date.now();
+      const minGapMs = 1200;
+      const elapsed = now - control.lastAt;
+      if (elapsed >= minGapMs) {
+        control.lastAt = now;
+        runRefresh();
+        return;
+      }
+      if (control.timer) return;
+      control.timer = window.setTimeout(() => {
+        control.timer = null;
+        control.lastAt = Date.now();
+        runRefresh();
+      }, minGapMs - elapsed);
+    }, ["catalog.updated"]);
+
+    return () => {
+      if (control.timer) {
+        window.clearTimeout(control.timer);
+        control.timer = null;
+      }
+      unsubscribe();
+    };
+  }, []);
 
   const categories = useMemo(() => {
     const set = new Set();

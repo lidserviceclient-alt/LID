@@ -179,7 +179,7 @@ export default function Cart() {
             name: p.name,
             brand: p.brand,
             price: Number(p.price) || 0,
-            imageUrl: p.imageUrl || "",
+            imageUrl: p.mainImageUrl || "",
             referenceProduitPartenaire: p.referenceProduitPartenaire,
           }))
           .filter((p) => p?.id);
@@ -463,7 +463,7 @@ export default function Cart() {
                   >
                     <div className="aspect-square bg-neutral-100 dark:bg-neutral-800 rounded-lg overflow-hidden p-4">
                       <img
-                        src={resolveBackendAssetUrl(product?.imageUrl) || "/imgs/logo.png"}
+                        src={resolveBackendAssetUrl(product?.mainImageUrl) || "/imgs/logo.png"}
                         alt={product?.name || ""}
                         className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
                         onError={(e) => {
@@ -488,7 +488,7 @@ export default function Cart() {
                             quantity: 1,
                             size: "Unique",
                             color: "Standard",
-                            imageUrl: product.imageUrl,
+                            imageUrl: product.mainImageUrl,
                             referenceProduitPartenaire: product.referenceProduitPartenaire
                           })
                         }
