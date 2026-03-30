@@ -19,7 +19,7 @@ async function authedRequest(path, options) {
 }
 
 export function getKpis(days = 30) {
-  return authedRequest('/api/backoffice/logistics/kpis', { params: { days } })
+  return authedRequest('/api/v1/backoffice/logistics/kpis', { params: { days } })
 }
 
 export function getDeliveryBootstrap({
@@ -37,7 +37,7 @@ export function getDeliveryBootstrap({
   deliveredCarrier = '',
   deliveredQ = '',
 } = {}) {
-  return authedRequest('/api/backoffice/logistics/delivery-bootstrap', {
+  return authedRequest('/api/v1/backoffice/logistics/delivery-bootstrap', {
     params: {
       days,
       page,
@@ -63,23 +63,23 @@ export function getShipmentDetailsCollection(ids = []) {
         .filter((id) => Number.isFinite(id) && id > 0)
     : []
 
-  return authedRequest('/api/backoffice/logistics/shipments/details/collection', {
+  return authedRequest('/api/v1/backoffice/logistics/shipments/details/collection', {
     params: { ids: safeIds.join(',') },
   })
 }
 
 export function getShipments({ page = 0, size = 20, status = '', carrier = '', q = '' } = {}) {
-  return authedRequest('/api/backoffice/logistics/shipments', {
+  return authedRequest('/api/v1/backoffice/logistics/shipments', {
     params: { page, size, status, carrier, q },
   })
 }
 
 export function getShipmentDetail(id) {
-  return authedRequest(`/api/backoffice/logistics/shipments/${encodeURIComponent(id)}`)
+  return authedRequest(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}`)
 }
 
 export function updateShipmentStatus(id, status) {
-  return authedRequest(`/api/backoffice/logistics/shipments/${encodeURIComponent(id)}/status`, {
+  return authedRequest(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/status`, {
     method: 'PUT',
     body: { status },
   })
@@ -90,7 +90,7 @@ export function scanShipment(qr, { courierReference, courierName, courierPhone }
   const payload = decodeJwt(token)
   const inferredName = `${payload?.firstName || ''} ${payload?.lastName || ''}`.trim()
   const inferredRef = payload?.email || payload?.sub || ''
-  return authedRequest('/api/backoffice/logistics/shipments/scan', {
+  return authedRequest('/api/v1/backoffice/logistics/shipments/scan', {
     method: 'POST',
     body: {
       qr,
@@ -102,7 +102,7 @@ export function scanShipment(qr, { courierReference, courierName, courierPhone }
 }
 
 export function confirmDelivery(id, code) {
-  return authedRequest(`/api/backoffice/logistics/shipments/${encodeURIComponent(id)}/deliver`, {
+  return authedRequest(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/deliver`, {
     method: 'POST',
     body: { code },
   })

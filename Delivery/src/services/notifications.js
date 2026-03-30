@@ -33,7 +33,7 @@ export function getNotifications({ page = 0, size = 20, since } = {}) {
     return inflight
   }
 
-  const request = authedRequest('/api/backoffice/notifications', { params }).finally(() => {
+  const request = authedRequest('/api/v1/backoffice/notifications', { params }).finally(() => {
     notificationsInflight.delete(key)
   })
 
@@ -42,5 +42,5 @@ export function getNotifications({ page = 0, size = 20, since } = {}) {
 }
 
 export function getNotificationsCount(since) {
-  return authedRequest('/api/backoffice/notifications/count', { params: { since } })
+  return authedRequest('/api/v1/backoffice/notifications/count', { params: { since } })
 }
