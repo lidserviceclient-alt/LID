@@ -10,6 +10,12 @@ import Toggle from "../components/ui/Toggle";
 import { backofficeApi } from "../services/api";
 import { useCategoriesResolver } from "../resolvers/categoriesResolver.js";
 
+const parseSecondaryImageUrls = (raw) =>
+  `${raw ?? ""}`
+    .split(/[|,;]/)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
 export default function ProductCreate() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -23,7 +29,8 @@ export default function ProductCreate() {
     referenceProduitPartenaire: "",
     ean: "",
     description: "",
-    img: "",
+    mainImageUrl: "",
+    secondaryImageUrls: "",
     brand: "",
     price: "",
     vat: 20,
@@ -83,7 +90,8 @@ export default function ProductCreate() {
         referenceProduitPartenaire: formData.referenceProduitPartenaire,
         ean: formData.ean || null,
         description: formData.description || null,
-        img: formData.img || null,
+        mainImageUrl: formData.mainImageUrl || null,
+        secondaryImageUrls: parseSecondaryImageUrls(formData.secondaryImageUrls),
         brand: formData.brand || null,
         price,
         vat,
@@ -206,13 +214,13 @@ export default function ProductCreate() {
             
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="img">Lien de l'image principale</Label>
+                <Label htmlFor="mainImageUrl">Lien de l'image principale</Label>
                 <Input
-                  id="img"
-                  name="img"
+                  id="mainImageUrl"
+                  name="mainImageUrl"
                   type="url"
                   placeholder="https://raw.githubusercontent.com/.../image.jpg"
-                  value={formData.img}
+                  value={formData.mainImageUrl}
                   onChange={handleChange}
                 />
                 <p className="text-xs text-muted-foreground">
@@ -220,10 +228,23 @@ export default function ProductCreate() {
                 </p>
               </div>
 
-              {formData.img ? (
+              <div className="space-y-2">
+                <Label htmlFor="secondaryImageUrls">Liens des images secondaires</Label>
+                <Input
+                  id="secondaryImageUrls"
+                  name="secondaryImageUrls"
+                  type="text"
+                  placeholder="https://cdn.exemple.com/a.jpg|https://cdn.exemple.com/b.jpg"
+                  value={formData.secondaryImageUrls}
+                  onChange={handleChange}
+                />
+                <p className="text-xs text-muted-foreground">Séparez plusieurs URLs avec `|`.</p>
+              </div>
+
+              {formData.mainImageUrl ? (
                 <div className="rounded-xl border border-border bg-muted/20 p-3">
                   <img
-                    src={formData.img}
+                    src={formData.mainImageUrl}
                     alt=""
                     className="h-48 w-full rounded-lg object-contain bg-white"
                     loading="lazy"

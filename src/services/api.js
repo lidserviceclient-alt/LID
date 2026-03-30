@@ -158,6 +158,11 @@ export const backofficeApi = {
       method: "POST",
       body: JSON.stringify({ email, password })
     }),
+  realtimeWsAccess: (topics = []) =>
+    request("/api/v1/realtime/ws-access", {
+      method: "POST",
+      body: JSON.stringify({ topics: Array.isArray(topics) ? topics : [] })
+    }),
   verifyAdminMfa: (mfaTokenId, code) =>
     request("/api/v1/auth/login/local/verify", {
       method: "POST",
@@ -169,57 +174,57 @@ export const backofficeApi = {
       params.set("days", `${days}`);
     }
     const query = params.toString();
-    return request(`/api/backoffice/overview${query ? `?${query}` : ""}`);
+    return request(`/api/v1/backoffice/overview${query ? `?${query}` : ""}`);
   },
-  dashboard: () => request("/api/backoffice/dashboard"),
-  settingsCollection: () => request("/api/backoffice/setting/collection"),
-  recentOrders: () => request("/api/backoffice/orders/recent"),
-  categories: () => request("/api/backoffice/categories"),
+  dashboard: () => request("/api/v1/backoffice/dashboard"),
+  settingsCollection: () => request("/api/v1/backoffice/setting/collection"),
+  recentOrders: () => request("/api/v1/backoffice/orders/recent"),
+  categories: () => request("/api/v1/backoffice/categories"),
   createCategory: (payload) =>
-    request("/api/backoffice/categories", {
+    request("/api/v1/backoffice/categories", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   bulkCreateCategories: (categories) =>
-    request("/api/backoffice/categories/bulk", {
+    request("/api/v1/backoffice/categories/bulk", {
       method: "POST",
       body: JSON.stringify({ categories })
     }),
   bulkDeleteCategories: (ids) =>
-    request("/api/backoffice/categories/bulk-delete", {
+    request("/api/v1/backoffice/categories/bulk-delete", {
       method: "POST",
       body: JSON.stringify({ ids })
     }),
   purgeCategories: (withProducts = false) =>
-    request(`/api/backoffice/categories/purge${withProducts ? "?withProducts=true" : ""}`, {
+    request(`/api/v1/backoffice/categories/purge${withProducts ? "?withProducts=true" : ""}`, {
       method: "POST"
     }),
   updateCategory: (id, payload) =>
-    request(`/api/backoffice/categories/${id}`, {
+    request(`/api/v1/backoffice/categories/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
   deleteCategory: (id) =>
-    request(`/api/backoffice/categories/${id}`, {
+    request(`/api/v1/backoffice/categories/${id}`, {
       method: "DELETE"
     }),
   uploadCategoryImage: (file) => {
     const formData = new FormData();
     formData.append("file", file);
-    return requestForm("/api/backoffice/categories/upload-image", {
+    return requestForm("/api/v1/backoffice/categories/upload-image", {
       method: "POST",
       body: formData
     });
   },
-  boutiques: () => request("/api/backoffice/boutiques"),
-  promoCodes: () => request("/api/backoffice/promo-codes"),
+  boutiques: () => request("/api/v1/backoffice/shops"),
+  promoCodes: () => request("/api/v1/backoffice/promo-codes"),
   promoCodesCollection: (days) => {
     const params = new URLSearchParams();
     if (days !== null && days !== undefined && `${days}`.trim() !== "") {
       params.set("days", `${days}`);
     }
     const query = params.toString();
-    return request(`/api/backoffice/promo-codes/collection${query ? `?${query}` : ""}`);
+    return request(`/api/v1/backoffice/promo-codes/collection${query ? `?${query}` : ""}`);
   },
   promoCodeStats: (days) => {
     const params = new URLSearchParams();
@@ -227,162 +232,162 @@ export const backofficeApi = {
       params.set("days", `${days}`);
     }
     const query = params.toString();
-    return request(`/api/backoffice/promo-codes/stats${query ? `?${query}` : ""}`);
+    return request(`/api/v1/backoffice/promo-codes/stats${query ? `?${query}` : ""}`);
   },
   createPromoCode: (payload) =>
-    request("/api/backoffice/promo-codes", {
+    request("/api/v1/backoffice/promo-codes", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   updatePromoCode: (id, payload) =>
-    request(`/api/backoffice/promo-codes/${id}`, {
+    request(`/api/v1/backoffice/promo-codes/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
   deletePromoCode: (id) =>
-    request(`/api/backoffice/promo-codes/${id}`, {
+    request(`/api/v1/backoffice/promo-codes/${id}`, {
       method: "DELETE"
     }),
-  blogPosts: () => request("/api/backoffice/blog-posts"),
+  blogPosts: () => request("/api/v1/backoffice/blog-posts"),
   createBlogPost: (payload) =>
-    request("/api/backoffice/blog-posts", {
+    request("/api/v1/backoffice/blog-posts", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   updateBlogPost: (id, payload) =>
-    request(`/api/backoffice/blog-posts/${id}`, {
+    request(`/api/v1/backoffice/blog-posts/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
   deleteBlogPost: (id) =>
-    request(`/api/backoffice/blog-posts/${id}`, {
+    request(`/api/v1/backoffice/blog-posts/${id}`, {
       method: "DELETE"
     }),
-  ticketEvents: () => request("/api/backoffice/tickets"),
+  ticketEvents: () => request("/api/v1/backoffice/tickets"),
   createTicketEvent: (payload) =>
-    request("/api/backoffice/tickets", {
+    request("/api/v1/backoffice/tickets", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   updateTicketEvent: (id, payload) =>
-    request(`/api/backoffice/tickets/${id}`, {
+    request(`/api/v1/backoffice/tickets/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
   deleteTicketEvent: (id) =>
-    request(`/api/backoffice/tickets/${id}`, {
+    request(`/api/v1/backoffice/tickets/${id}`, {
       method: "DELETE"
     }),
   marketingOverview: (days = 30) => {
     const params = new URLSearchParams();
     if (days !== null && days !== undefined && `${days}`.trim() !== "") params.set("days", `${days}`);
-    return request(`/api/backoffice/marketing/overview?${params.toString()}`);
+    return request(`/api/v1/backoffice/marketing/overview?${params.toString()}`);
   },
   marketingCampaigns: (page = 0, size = 20, status = "") => {
     const params = new URLSearchParams({ page, size });
     if (status) params.set("status", status);
-    return request(`/api/backoffice/marketing/campaigns?${params.toString()}`);
+    return request(`/api/v1/backoffice/marketing/campaigns?${params.toString()}`);
   },
   createMarketingCampaign: (payload) =>
-    request("/api/backoffice/marketing/campaigns", {
+    request("/api/v1/backoffice/marketing/campaigns", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   updateMarketingCampaign: (id, payload) =>
-    request(`/api/backoffice/marketing/campaigns/${id}`, {
+    request(`/api/v1/backoffice/marketing/campaigns/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
   sendMarketingCampaign: (id) =>
-    request(`/api/backoffice/marketing/campaigns/${id}/send`, {
+    request(`/api/v1/backoffice/marketing/campaigns/${id}/send`, {
       method: "POST"
     }),
   deleteMarketingCampaign: (id) =>
-    request(`/api/backoffice/marketing/campaigns/${id}`, {
+    request(`/api/v1/backoffice/marketing/campaigns/${id}`, {
       method: "DELETE"
     }),
-  newsletterStats: () => request("/api/backoffice/marketing/newsletter/stats"),
+  newsletterStats: () => request("/api/v1/backoffice/marketing/newsletter/stats"),
   newsletterCollection: (page = 0, size = 20, status = "", q = "") => {
     const params = new URLSearchParams({ page, size });
     if (status) params.set("status", status);
     if (q) params.set("q", q);
-    return request(`/api/backoffice/marketing/newsletter/collection?${params.toString()}`);
+    return request(`/api/v1/backoffice/marketing/newsletter/collection?${params.toString()}`);
   },
   newsletterSubscribers: (page = 0, size = 20, status = "", q = "") => {
     const params = new URLSearchParams({ page, size });
     if (status) params.set("status", status);
     if (q) params.set("q", q);
-    return request(`/api/backoffice/marketing/newsletter/subscribers?${params.toString()}`);
+    return request(`/api/v1/backoffice/marketing/newsletter/subscribers?${params.toString()}`);
   },
   createNewsletterSubscriber: (payload) =>
-    request("/api/backoffice/marketing/newsletter/subscribers", {
+    request("/api/v1/backoffice/marketing/newsletter/subscribers", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   unsubscribeNewsletterSubscriber: (id) =>
-    request(`/api/backoffice/marketing/newsletter/subscribers/${id}/unsubscribe`, {
+    request(`/api/v1/backoffice/marketing/newsletter/subscribers/${id}/unsubscribe`, {
       method: "POST"
     }),
   deleteNewsletterSubscriber: (id) =>
-    request(`/api/backoffice/marketing/newsletter/subscribers/${id}`, {
+    request(`/api/v1/backoffice/marketing/newsletter/subscribers/${id}`, {
       method: "DELETE"
     }),
-  loyaltyOverview: () => request("/api/backoffice/loyalty/overview"),
+  loyaltyOverview: () => request("/api/v1/backoffice/loyalty/overview"),
   loyaltyCollection: (q = "", page = 0, size = 10, topLimit = 10) => {
     const params = new URLSearchParams({ page, size, topLimit });
     if (q) params.set("q", q);
-    return request(`/api/backoffice/loyalty/collection?${params.toString()}`);
+    return request(`/api/v1/backoffice/loyalty/collection?${params.toString()}`);
   },
-  loyaltyTiers: () => request("/api/backoffice/loyalty/tiers"),
-  loyaltyCustomers: (limit = 10) => request(`/api/backoffice/loyalty/customers?limit=${encodeURIComponent(limit)}`),
+  loyaltyTiers: () => request("/api/v1/backoffice/loyalty/tiers"),
+  loyaltyCustomers: (limit = 10) => request(`/api/v1/backoffice/loyalty/customers?limit=${encodeURIComponent(limit)}`),
   loyaltyCustomersPage: (q = "", page = 0, size = 10) =>
     request(
-      `/api/backoffice/loyalty/customers?q=${encodeURIComponent(q || "")}&page=${encodeURIComponent(page)}&size=${encodeURIComponent(size)}`
+      `/api/v1/backoffice/loyalty/customers?q=${encodeURIComponent(q || "")}&page=${encodeURIComponent(page)}&size=${encodeURIComponent(size)}`
     ),
-  loyaltyCustomer: (userId) => request(`/api/backoffice/loyalty/customers/${encodeURIComponent(userId)}`),
+  loyaltyCustomer: (userId) => request(`/api/v1/backoffice/loyalty/customers/${encodeURIComponent(userId)}`),
   loyaltyCustomerTransactions: (userId, page = 0, size = 20) =>
     request(
-      `/api/backoffice/loyalty/customers/${encodeURIComponent(userId)}/transactions?page=${encodeURIComponent(page)}&size=${encodeURIComponent(size)}`
+      `/api/v1/backoffice/loyalty/customers/${encodeURIComponent(userId)}/transactions?page=${encodeURIComponent(page)}&size=${encodeURIComponent(size)}`
     ),
   adjustLoyaltyPoints: (userId, payload) =>
-    request(`/api/backoffice/loyalty/customers/${encodeURIComponent(userId)}/adjust`, {
+    request(`/api/v1/backoffice/loyalty/customers/${encodeURIComponent(userId)}/adjust`, {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   createLoyaltyTier: (payload) =>
-    request("/api/backoffice/loyalty/tiers", {
+    request("/api/v1/backoffice/loyalty/tiers", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   deleteLoyaltyTier: (id) =>
-    request(`/api/backoffice/loyalty/tiers/${encodeURIComponent(id)}`, {
+    request(`/api/v1/backoffice/loyalty/tiers/${encodeURIComponent(id)}`, {
       method: "DELETE"
     }),
-  loyaltyConfig: () => request("/api/backoffice/loyalty/config"),
+  loyaltyConfig: () => request("/api/v1/backoffice/loyalty/config"),
   updateLoyaltyConfig: (payload) =>
-    request("/api/backoffice/loyalty/config", {
+    request("/api/v1/backoffice/loyalty/config", {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
   updateLoyaltyTier: (id, payload) =>
-    request(`/api/backoffice/loyalty/tiers/${id}`, {
+    request(`/api/v1/backoffice/loyalty/tiers/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
   financeOverview: (days = 30) => {
     const params = new URLSearchParams();
     if (days !== null && days !== undefined && `${days}`.trim() !== "") params.set("days", `${days}`);
-    return request(`/api/backoffice/finance/overview?${params.toString()}`);
+    return request(`/api/v1/backoffice/finance/overview?${params.toString()}`);
   },
   financeTransactions: (size = 50) => {
     const params = new URLSearchParams();
     if (size !== null && size !== undefined && `${size}`.trim() !== "") params.set("size", `${size}`);
-    return request(`/api/backoffice/finance/transactions?${params.toString()}`);
+    return request(`/api/v1/backoffice/finance/transactions?${params.toString()}`);
   },
   financeExportCsv: (days = 30) => {
     const params = new URLSearchParams();
     if (days !== null && days !== undefined && `${days}`.trim() !== "") params.set("days", `${days}`);
-    return requestBlob(`/api/backoffice/finance/export?${params.toString()}`, {
+    return requestBlob(`/api/v1/backoffice/finance/export?${params.toString()}`, {
       headers: { Accept: "text/csv" }
     });
   },
@@ -390,43 +395,43 @@ export const backofficeApi = {
     const params = new URLSearchParams({ page, size });
     if (status) params.set("status", status);
     if (q) params.set("q", q);
-    return request(`/api/backoffice/orders?${params.toString()}`);
+    return request(`/api/v1/backoffice/orders?${params.toString()}`);
   },
   createOrder: (payload) =>
-    request("/api/backoffice/orders", {
+    request("/api/v1/backoffice/orders", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   updateOrderStatus: (id, status) =>
-    request(`/api/backoffice/orders/${id}/status`, {
+    request(`/api/v1/backoffice/orders/${id}/status`, {
       method: "PUT",
       body: JSON.stringify({ status })
     }),
   orderQuote: (payload) =>
-    request("/api/backoffice/orders/quote", {
+    request("/api/v1/backoffice/orders/quote", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   orderCreateBootstrap: (customersPage = 0, customersSize = 20, productsPage = 0, productsSize = 20) => {
     const params = new URLSearchParams({ customersPage, customersSize, productsPage, productsSize });
-    return request(`/api/backoffice/orders/create-bootstrap?${params.toString()}`);
+    return request(`/api/v1/backoffice/orders/create-bootstrap?${params.toString()}`);
   },
   products: (page = 0, size = 20) => {
     const params = new URLSearchParams({ page, size });
-    return request(`/api/backoffice/products?${params.toString()}`);
+    return request(`/api/v1/backoffice/products?${params.toString()}`);
   },
   productCollection: (page = 0, size = 20) => {
     const params = new URLSearchParams({ page, size });
-    return request(`/api/backoffice/products/collection?${params.toString()}`);
+    return request(`/api/v1/backoffice/products/collection?${params.toString()}`);
   },
   stockMovements: (page = 0, size = 20, sku = "", type = "") => {
     const params = new URLSearchParams({ page, size });
     if (sku) params.set("sku", sku);
     if (type) params.set("type", type);
-    return request(`/api/backoffice/stocks/movements?${params.toString()}`);
+    return request(`/api/v1/backoffice/stocks/movements?${params.toString()}`);
   },
   createStockMovement: (payload) =>
-    request("/api/backoffice/stocks/movements", {
+    request("/api/v1/backoffice/stocks/movements", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
@@ -434,30 +439,30 @@ export const backofficeApi = {
     const params = new URLSearchParams({ productsPage, productsSize, movementsPage, movementsSize });
     if (sku) params.set("sku", sku);
     if (type) params.set("type", type);
-    return request(`/api/backoffice/stocks/collection?${params.toString()}`);
+    return request(`/api/v1/backoffice/stocks/collection?${params.toString()}`);
   },
   createProduct: (payload) =>
-    request("/api/backoffice/products", {
+    request("/api/v1/backoffice/products", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   bulkCreateProducts: (products) =>
-    request("/api/backoffice/products/bulk", {
+    request("/api/v1/backoffice/products/bulk", {
       method: "POST",
       body: JSON.stringify({ products })
     }),
   bulkDeleteProducts: (ids) =>
-    request("/api/backoffice/products/bulk-delete", {
+    request("/api/v1/backoffice/products/bulk-delete", {
       method: "POST",
       body: JSON.stringify({ ids })
     }),
   updateProduct: (id, payload) =>
-    request(`/api/backoffice/products/${id}`, {
+    request(`/api/v1/backoffice/products/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
   deleteProduct: (id) =>
-    request(`/api/backoffice/products/${id}`, {
+    request(`/api/v1/backoffice/products/${id}`, {
       method: "DELETE"
     }),
   productReviews: (page = 0, size = 20, status = "", q = "", productId = "", userId = "") => {
@@ -466,51 +471,51 @@ export const backofficeApi = {
     if (q) params.set("q", q);
     if (productId) params.set("productId", productId);
     if (userId) params.set("userId", userId);
-    return request(`/api/backoffice/product-reviews?${params.toString()}`);
+    return request(`/api/v1/backoffice/product-reviews?${params.toString()}`);
   },
-  productReview: (id) => request(`/api/backoffice/product-reviews/${encodeURIComponent(id)}`),
+  productReview: (id) => request(`/api/v1/backoffice/product-reviews/${encodeURIComponent(id)}`),
   updateProductReview: (id, payload) =>
-    request(`/api/backoffice/product-reviews/${encodeURIComponent(id)}`, {
+    request(`/api/v1/backoffice/product-reviews/${encodeURIComponent(id)}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
   validateProductReview: (id) =>
-    request(`/api/backoffice/product-reviews/${encodeURIComponent(id)}/validate`, { method: "POST" }),
+    request(`/api/v1/backoffice/product-reviews/${encodeURIComponent(id)}/validate`, { method: "POST" }),
   unvalidateProductReview: (id) =>
-    request(`/api/backoffice/product-reviews/${encodeURIComponent(id)}/unvalidate`, { method: "POST" }),
+    request(`/api/v1/backoffice/product-reviews/${encodeURIComponent(id)}/unvalidate`, { method: "POST" }),
   restoreProductReview: (id) =>
-    request(`/api/backoffice/product-reviews/${encodeURIComponent(id)}/restore`, { method: "POST" }),
+    request(`/api/v1/backoffice/product-reviews/${encodeURIComponent(id)}/restore`, { method: "POST" }),
   deleteProductReview: (id) =>
-    request(`/api/backoffice/product-reviews/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    request(`/api/v1/backoffice/product-reviews/${encodeURIComponent(id)}`, { method: "DELETE" }),
   customers: (page = 0, size = 20) => {
     const params = new URLSearchParams({ page, size });
-    return request(`/api/backoffice/customers?${params.toString()}`);
+    return request(`/api/v1/backoffice/customers?${params.toString()}`);
   },
   customerCollection: (page = 0, size = 20, q = "", segment = "") => {
     const params = new URLSearchParams({ page, size });
     if (q) params.set("q", q);
     if (segment) params.set("segment", segment);
-    return request(`/api/backoffice/customers/collection?${params.toString()}`);
+    return request(`/api/v1/backoffice/customers/collection?${params.toString()}`);
   },
   users: (page = 0, size = 20, role = "", q = "") => {
     const params = new URLSearchParams({ page, size });
     if (role) params.set("role", role);
     if (q) params.set("q", q);
-    return request(`/api/backoffice/users?${params.toString()}`);
+    return request(`/api/v1/backoffice/users?${params.toString()}`);
   },
-  user: (id) => request(`/api/backoffice/users/${id}`),
+  user: (id) => request(`/api/v1/backoffice/users/${id}`),
   createUser: (payload) =>
-    request("/api/backoffice/users", {
+    request("/api/v1/backoffice/users", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   createCourier: (payload) =>
-    request("/api/backoffice/users/couriers", {
+    request("/api/v1/backoffice/users/couriers", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   updateUser: (id, payload) =>
-    request(`/api/backoffice/users/${id}`, {
+    request(`/api/v1/backoffice/users/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
@@ -518,89 +523,89 @@ export const backofficeApi = {
     const params = new URLSearchParams({ page, size });
     if (status) params.set("status", status);
     if (q) params.set("q", q);
-    return request(`/api/backoffice/returns?${params.toString()}`);
+    return request(`/api/v1/backoffice/returns?${params.toString()}`);
   },
-  returnDetail: (id) => request(`/api/backoffice/returns/${id}`),
+  returnDetail: (id) => request(`/api/v1/backoffice/returns/${id}`),
   updateReturnStatus: (id, status) =>
-    request(`/api/backoffice/returns/${id}/status`, {
+    request(`/api/v1/backoffice/returns/${id}/status`, {
       method: "PUT",
       body: JSON.stringify({ status })
     }),
   deleteUser: (id) =>
-    request(`/api/backoffice/users/${id}`, {
+    request(`/api/v1/backoffice/users/${id}`, {
       method: "DELETE"
     }),
   blockUser: (id) =>
-    request(`/api/backoffice/users/${id}/block`, {
+    request(`/api/v1/backoffice/users/${id}/block`, {
       method: "POST"
     }),
   unblockUser: (id) =>
-    request(`/api/backoffice/users/${id}/unblock`, {
+    request(`/api/v1/backoffice/users/${id}/unblock`, {
       method: "POST"
     }),
-  freeShippingRules: () => request("/api/backoffice/free-shipping-rules"),
+  freeShippingRules: () => request("/api/v1/backoffice/free-shipping-rules"),
   createFreeShippingRule: (payload) =>
-    request("/api/backoffice/free-shipping-rules", {
+    request("/api/v1/backoffice/free-shipping-rules", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   updateFreeShippingRule: (id, payload) =>
-    request(`/api/backoffice/free-shipping-rules/${id}`, {
+    request(`/api/v1/backoffice/free-shipping-rules/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
   deleteFreeShippingRule: (id) =>
-    request(`/api/backoffice/free-shipping-rules/${id}`, {
+    request(`/api/v1/backoffice/free-shipping-rules/${id}`, {
       method: "DELETE"
     }),
   enableFreeShippingRule: (id) =>
-    request(`/api/backoffice/free-shipping-rules/${id}/enable`, {
+    request(`/api/v1/backoffice/free-shipping-rules/${id}/enable`, {
       method: "POST"
     }),
   disableFreeShippingRule: (id) =>
-    request(`/api/backoffice/free-shipping-rules/${id}/disable`, {
+    request(`/api/v1/backoffice/free-shipping-rules/${id}/disable`, {
       method: "POST"
     }),
-  shippingMethods: () => request("/api/backoffice/shipping-methods"),
+  shippingMethods: () => request("/api/v1/backoffice/shipping-methods"),
   createShippingMethod: (payload) =>
-    request("/api/backoffice/shipping-methods", {
+    request("/api/v1/backoffice/shipping-methods", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   updateShippingMethod: (id, payload) =>
-    request(`/api/backoffice/shipping-methods/${id}`, {
+    request(`/api/v1/backoffice/shipping-methods/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
   deleteShippingMethod: (id) =>
-    request(`/api/backoffice/shipping-methods/${id}`, {
+    request(`/api/v1/backoffice/shipping-methods/${id}`, {
       method: "DELETE"
     }),
   enableShippingMethod: (id) =>
-    request(`/api/backoffice/shipping-methods/${id}/enable`, {
+    request(`/api/v1/backoffice/shipping-methods/${id}/enable`, {
       method: "POST"
     }),
   disableShippingMethod: (id) =>
-    request(`/api/backoffice/shipping-methods/${id}/disable`, {
+    request(`/api/v1/backoffice/shipping-methods/${id}/disable`, {
       method: "POST"
     }),
   setDefaultShippingMethod: (id) =>
-    request(`/api/backoffice/shipping-methods/${id}/default`, {
+    request(`/api/v1/backoffice/shipping-methods/${id}/default`, {
       method: "POST"
     }),
   logisticsKpis: (days = 30) => {
     const params = new URLSearchParams();
     if (days !== null && days !== undefined && `${days}`.trim() !== "") params.set("days", `${days}`);
-    return request(`/api/backoffice/logistics/kpis?${params.toString()}`);
+    return request(`/api/v1/backoffice/logistics/kpis?${params.toString()}`);
   },
   shipments: (page = 0, size = 20, status = "", carrier = "", q = "") => {
     const params = new URLSearchParams({ page, size });
     if (status) params.set("status", status);
     if (carrier) params.set("carrier", carrier);
     if (q) params.set("q", q);
-    return request(`/api/backoffice/logistics/shipments?${params.toString()}`);
+    return request(`/api/v1/backoffice/logistics/shipments?${params.toString()}`);
   },
-  shipment: (id) => request(`/api/backoffice/logistics/shipments/${id}`),
+  shipment: (id) => request(`/api/v1/backoffice/logistics/shipments/${id}`),
   logisticsCollection: ({
     days = 30,
     page = 0,
@@ -621,15 +626,15 @@ export const backofficeApi = {
     if (deliveredStatus) params.set("deliveredStatus", deliveredStatus);
     if (deliveredCarrier) params.set("deliveredCarrier", deliveredCarrier);
     if (deliveredQ) params.set("deliveredQ", deliveredQ);
-    return request(`/api/backoffice/logistics/collection?${params.toString()}`);
+    return request(`/api/v1/backoffice/logistics/collection?${params.toString()}`);
   },
   upsertShipment: (payload) =>
-    request("/api/backoffice/logistics/shipments", {
+    request("/api/v1/backoffice/logistics/shipments", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   createCustomer: (payload) =>
-    request("/api/backoffice/customers", {
+    request("/api/v1/backoffice/customers", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
@@ -651,57 +656,57 @@ export const backofficeApi = {
   notifications: (page = 0, size = 20, since = "") => {
     const params = new URLSearchParams({ page, size });
     if (since) params.set("since", since);
-    return request(`/api/backoffice/notifications?${params.toString()}`);
+    return request(`/api/v1/backoffice/notifications?${params.toString()}`);
   },
   notificationsCount: (since = "") => {
     const params = new URLSearchParams();
     if (since) params.set("since", since);
     const qs = params.toString();
-    return request(`/api/backoffice/notifications/count${qs ? `?${qs}` : ""}`);
+    return request(`/api/v1/backoffice/notifications/count${qs ? `?${qs}` : ""}`);
   },
-  securitySettings: () => request("/api/backoffice/security/settings"),
+  securitySettings: () => request("/api/v1/backoffice/security/settings"),
   updateSecuritySettings: (payload) =>
-    request("/api/backoffice/security/settings", {
+    request("/api/v1/backoffice/security/settings", {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
   securityActivityExportCsv: (size = 500) => {
     const params = new URLSearchParams();
     if (size !== null && size !== undefined && `${size}`.trim() !== "") params.set("size", `${size}`);
-    return requestBlob(`/api/backoffice/security/activity/export?${params.toString()}`, {
+    return requestBlob(`/api/v1/backoffice/security/activity/export?${params.toString()}`, {
       headers: { Accept: "text/csv" }
     });
   },
-  appConfig: () => request("/api/backoffice/app-config"),
+  appConfig: () => request("/api/v1/backoffice/app-config"),
   updateAppConfig: (payload) =>
-    request("/api/backoffice/app-config", {
+    request("/api/v1/backoffice/app-config", {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
-  socialLinks: () => request("/api/backoffice/app-config/social-links"),
+  socialLinks: () => request("/api/v1/backoffice/app-config/social-links"),
   createSocialLink: (payload) =>
-    request("/api/backoffice/app-config/social-links", {
+    request("/api/v1/backoffice/app-config/social-links", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   updateSocialLink: (id, payload) =>
-    request(`/api/backoffice/app-config/social-links/${id}`, {
+    request(`/api/v1/backoffice/app-config/social-links/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
   deleteSocialLink: (id) =>
-    request(`/api/backoffice/app-config/social-links/${id}`, {
+    request(`/api/v1/backoffice/app-config/social-links/${id}`, {
       method: "DELETE"
     }),
-  notificationPreferences: () => request("/api/backoffice/notification-preferences"),
+  notificationPreferences: () => request("/api/v1/backoffice/notification-preferences"),
   updateNotificationPreferences: (payload) =>
-    request("/api/backoffice/notification-preferences", {
+    request("/api/v1/backoffice/notification-preferences", {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
-  integrations: () => request("/api/backoffice/integrations"),
+  integrations: () => request("/api/v1/backoffice/integrations"),
   updateIntegrations: (payload) =>
-    request("/api/backoffice/integrations", {
+    request("/api/v1/backoffice/integrations", {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
@@ -713,24 +718,24 @@ export const backofficeApi = {
     }
     if (q) params.set("q", q);
     if (limit !== null && limit !== undefined) params.set("limit", `${limit}`);
-    return request(`/api/backoffice/recipients?${params.toString()}`);
+    return request(`/api/v1/backoffice/recipients?${params.toString()}`);
   },
   messages: (page = 0, size = 20) => {
     const params = new URLSearchParams({ page, size });
-    return request(`/api/backoffice/messages?${params.toString()}`);
+    return request(`/api/v1/backoffice/messages?${params.toString()}`);
   },
-  message: (id) => request(`/api/backoffice/messages/${id}`),
+  message: (id) => request(`/api/v1/backoffice/messages/${id}`),
   createMessage: (payload) =>
-    request("/api/backoffice/messages", {
+    request("/api/v1/backoffice/messages", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   retryMessage: (id) =>
-    request(`/api/backoffice/messages/${id}/retry`, {
+    request(`/api/v1/backoffice/messages/${id}/retry`, {
       method: "POST"
     }),
   deleteMessage: (id) =>
-    request(`/api/backoffice/messages/${id}`, {
+    request(`/api/v1/backoffice/messages/${id}`, {
       method: "DELETE"
     }),
   searchBootstrap: ({
@@ -753,10 +758,10 @@ export const backofficeApi = {
     });
     if (usersRole) params.set("usersRole", usersRole);
     if (usersQuery) params.set("usersQuery", usersQuery);
-    return request(`/api/backoffice/search/bootstrap?${params.toString()}`);
+    return request(`/api/v1/backoffice/search/bootstrap?${params.toString()}`);
   },
   financeCollection: (days = 30, size = 50) => {
     const params = new URLSearchParams({ days, size });
-    return request(`/api/backoffice/finance/collection?${params.toString()}`);
+    return request(`/api/v1/backoffice/finance/collection?${params.toString()}`);
   }
 };

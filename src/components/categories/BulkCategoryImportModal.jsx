@@ -14,14 +14,15 @@ function splitRow(line) {
 
 function buildTemplate(parentOptions) {
   const firstParentSlug = Array.isArray(parentOptions) && parentOptions.length > 0 ? parentOptions[0].slug : "";
-  return `nom;slug;niveau;parentId;ordre;estActive;imageUrl
-Catégorie A;categorie-a;PRINCIPALE;;0;true;
-Sous Catégorie A;sous-categorie-a;SOUS_CATEGORIE;${firstParentSlug};0;true;`;
+  return `businessId;nom;slug;niveau;parentId;ordre;estActive;imageUrl
+CAT-A;Catégorie A;categorie-a;PRINCIPALE;;0;true;
+CAT-A-1;Sous Catégorie A;sous-categorie-a;SOUS_CATEGORIE;${firstParentSlug};0;true;`;
 }
 
 function toPayload(row) {
   const isParentCategory = row.niveau === "PRINCIPALE" && !`${row.parentId || ""}`.trim();
   return {
+    businessId: row.businessId?.trim() ? row.businessId.trim() : null,
     nom: row.nom,
     slug: row.slug?.trim() ? row.slug.trim() : null,
     imageUrl: isParentCategory && row.imageUrl?.trim() ? row.imageUrl.trim() : null,
@@ -86,7 +87,7 @@ export default function BulkCategoryImportModal({ isOpen, onClose, categories, o
     setError("");
     setImportText(buildTemplate(parentCatalog));
     setRows([
-      { nom: "", slug: "", niveau: "PRINCIPALE", parentId: "", ordre: "0", estActive: "true", imageUrl: "" },
+      { businessId: "", nom: "", slug: "", niveau: "PRINCIPALE", parentId: "", ordre: "0", estActive: "true", imageUrl: "" },
     ]);
   };
 
@@ -144,7 +145,7 @@ export default function BulkCategoryImportModal({ isOpen, onClose, categories, o
   const addRow = () => {
     setRows((prev) => [
       ...prev,
-      { nom: "", slug: "", niveau: "PRINCIPALE", parentId: "", ordre: "0", estActive: "true", imageUrl: "" },
+      { businessId: "", nom: "", slug: "", niveau: "PRINCIPALE", parentId: "", ordre: "0", estActive: "true", imageUrl: "" },
     ]);
   };
 
@@ -166,6 +167,7 @@ export default function BulkCategoryImportModal({ isOpen, onClose, categories, o
       return hasHeader ? -1 : fallbackIdx;
     };
 
+    const idxBusinessId = colIndex("businessid", -1);
     const idxNom = colIndex("nom", 0);
     const idxSlug = colIndex("slug", 1);
     const idxNiveau = colIndex("niveau", 2);
@@ -179,6 +181,7 @@ export default function BulkCategoryImportModal({ isOpen, onClose, categories, o
     for (let i = start; i < lines.length; i++) {
       const cells = splitRow(lines[i]);
       nextRows.push({
+        businessId: idxBusinessId >= 0 ? cells[idxBusinessId] : "",
         nom: idxNom >= 0 ? cells[idxNom] : "",
         slug: idxSlug >= 0 ? cells[idxSlug] : "",
         niveau: idxNiveau >= 0 ? cells[idxNiveau] : "PRINCIPALE",
@@ -366,6 +369,7 @@ export default function BulkCategoryImportModal({ isOpen, onClose, categories, o
             <table className="min-w-[1200px] w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
+                  <td className="p-2">ID métier</td>
                   <td className="p-2">Nom</td>
                   <td className="p-2">Slug</td>
                   <td className="p-2">Niveau</td>
@@ -381,6 +385,13 @@ export default function BulkCategoryImportModal({ isOpen, onClose, categories, o
                   const errs = row._errors || {};
                   return (
                     <tr key={`bulk-cat-${idx}`} className="border-t border-border align-top">
+                      <td className="p-2">
+                        <Input
+                          value={row.businessId}
+                          onChange={(e) => setRowField(idx, "businessId", e.target.value)}
+                          placeholder="CAT-XXX"
+                        />
+                      </td>
                       <td className="p-2">
                         <Input
                           value={row.nom}

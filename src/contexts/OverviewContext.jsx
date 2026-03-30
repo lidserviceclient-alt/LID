@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { backofficeApi } from "../services/api.js";
+import { subscribeBackofficeRealtime } from "../services/realtime.js";
 
 const OverviewContext = createContext(null);
 
@@ -14,6 +15,7 @@ export function OverviewProvider({ children }) {
   const [entries, setEntries] = useState({});
   const entriesRef = useRef({});
   const inflightRef = useRef(new Map());
+  const realtimeRefreshTimerRef = useRef(null);
 
   useEffect(() => {
     entriesRef.current = entries;
@@ -75,6 +77,40 @@ export function OverviewProvider({ children }) {
     return pending;
   }, []);
 
+  const refreshLoadedOverviews = useCallback(() => {
+    const currentEntries = entriesRef.current || {};
+    Object.entries(currentEntries).forEach(([key, entry]) => {
+      if (!entry?.loaded && !entry?.data) {
+        return;
+      }
+      const days = key === "default" ? null : key;
+      loadOverview(days, { force: true }).catch(() => {});
+    });
+  }, [loadOverview]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeBackofficeRealtime((event) => {
+      if (event?.topic !== "backoffice.overview.updated") {
+        return;
+      }
+      if (realtimeRefreshTimerRef.current) {
+        return;
+      }
+      realtimeRefreshTimerRef.current = window.setTimeout(() => {
+        realtimeRefreshTimerRef.current = null;
+        refreshLoadedOverviews();
+      }, 700);
+    }, ["backoffice.overview.updated"]);
+
+    return () => {
+      if (realtimeRefreshTimerRef.current) {
+        window.clearTimeout(realtimeRefreshTimerRef.current);
+        realtimeRefreshTimerRef.current = null;
+      }
+      unsubscribe();
+    };
+  }, [refreshLoadedOverviews]);
+
   const getOverviewEntry = useCallback(
     (days) => {
       const key = getOverviewKey(days);
@@ -86,9 +122,10 @@ export function OverviewProvider({ children }) {
   const value = useMemo(
     () => ({
       loadOverview,
-      getOverviewEntry
+      getOverviewEntry,
+      refreshLoadedOverviews
     }),
-    [getOverviewEntry, loadOverview]
+    [getOverviewEntry, loadOverview, refreshLoadedOverviews]
   );
 
   return <OverviewContext.Provider value={value}>{children}</OverviewContext.Provider>;

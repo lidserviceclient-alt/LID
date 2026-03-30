@@ -6,6 +6,8 @@ import Input from "../ui/Input.jsx";
 import Select from "../ui/Select.jsx";
 import Label from "../ui/Label.jsx";
 
+const MAX_SECONDARY_IMAGES = 5;
+
 function normalizeNumber(value) {
   const raw = `${value ?? ""}`.trim();
   if (!raw) return NaN;
@@ -153,16 +155,29 @@ function parseDelimitedRecords(raw) {
 }
 
 function buildTemplate(categories) {
-  const firstCategory = Array.isArray(categories) && categories.length > 0 ? categories[0].id : "cat-001";
-  return `referenceProduitPartenaire;name;description;category;price;stock;brand;img;isFeatured;isBestSeller
-REF-001;Produit A;Description A;${firstCategory};15000;10;Marque A;;1;0
-REF-002;Produit B;;${firstCategory};25000;5;;;0;1`;
+  const firstCategory = Array.isArray(categories) && categories.length > 0
+    ? (categories[0].businessId || categories[0].id)
+    : "CAT-001";
+  return `referenceProduitPartenaire;name;description;category;price;stock;brand;mainImageUrl;secondaryImageUrls;isFeatured;isBestSeller
+REF-001;Produit A;Description A;${firstCategory};15000;10;Marque A;https://cdn.exemple.com/prod-a-main.jpg;https://cdn.exemple.com/prod-a-1.jpg|https://cdn.exemple.com/prod-a-2.jpg;1;0
+REF-002;Produit B;;${firstCategory};25000;5;Marque B;https://cdn.exemple.com/prod-b-main.jpg;;0;1`;
+}
+
+function parseSecondaryImageUrls(raw) {
+  const text = `${raw ?? ""}`.trim();
+  if (!text) return [];
+  return text
+    .split(/[|,;]/)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
 }
 
 function toBulkPayload(row) {
   const price = normalizeNumber(row.price);
   const vatRaw = `${row.vat ?? ""}`.trim();
   const vat = vatRaw === "" ? undefined : normalizeNumber(vatRaw);
+  const mainImageUrl = `${row.mainImageUrl || ""}`.trim();
+  const secondaryImageUrls = parseSecondaryImageUrls(row.secondaryImageUrls);
   return {
     referenceProduitPartenaire: row.referenceProduitPartenaire,
     ean: `${row.ean || ""}`.trim() || undefined,
@@ -171,10 +186,12 @@ function toBulkPayload(row) {
     price: Number.isFinite(price) ? price : undefined,
     vat: Number.isFinite(vat) ? vat : undefined,
     status: `${row.status || ""}`.trim().toUpperCase() || undefined,
+    categoryBusinessId: row.categoryId || undefined,
     category: row.categoryId || undefined,
     stock: Number.isFinite(Number(row.stock)) ? Math.trunc(Number(row.stock)) : 0,
     brand: row.brand || undefined,
-    img: row.img || undefined,
+    mainImageUrl: mainImageUrl || undefined,
+    secondaryImageUrls: secondaryImageUrls.length ? secondaryImageUrls : undefined,
     isFeatured: Boolean(row.isFeatured),
     isBestSeller: Boolean(row.isBestSeller),
   };
@@ -197,7 +214,10 @@ export default function BulkProductImportModal({
   const categoryOptions = useMemo(() => {
     const opts = [{ value: "", label: "—" }];
     for (const c of categories || []) {
-      opts.push({ value: c.id, label: c.nom });
+      opts.push({
+        value: c.businessId || c.id,
+        label: c.nom
+      });
     }
     return opts;
   }, [categories]);
@@ -217,7 +237,8 @@ export default function BulkProductImportModal({
         categoryId: "",
         stock: "0",
         brand: "",
-        img: "",
+        mainImageUrl: "",
+        secondaryImageUrls: "",
         isFeatured: false,
         isBestSeller: false,
       },
@@ -248,6 +269,9 @@ export default function BulkProductImportModal({
     const statusRaw = `${row.status || ""}`.trim();
     if (statusRaw && !["ACTIVE", "DRAFT", "ARCHIVED"].includes(statusRaw.toUpperCase())) {
       errs.status = "Statut invalide";
+    }
+    if (parseSecondaryImageUrls(row.secondaryImageUrls).length > MAX_SECONDARY_IMAGES) {
+      errs.secondaryImageUrls = `Maximum ${MAX_SECONDARY_IMAGES} images secondaires`;
     }
     return errs;
   };
@@ -284,7 +308,8 @@ export default function BulkProductImportModal({
         categoryId: "",
         stock: "0",
         brand: "",
-        img: "",
+        mainImageUrl: "",
+        secondaryImageUrls: "",
         isFeatured: false,
         isBestSeller: false,
       },
@@ -328,9 +353,10 @@ export default function BulkProductImportModal({
     const idxCategories = colIndexAny(["categories", "categoryids", "category_ids"], -1);
     const idxStock = colIndexAny(["stock"], 5);
     const idxBrand = colIndexAny(["brand", "marque"], 6);
-    const idxImg = colIndexAny(["img", "image", "imageurl", "image_url"], 7);
-    const idxFeatured = colIndexAny(["isfeatured", "featured", "mis_en_avant", "misenavant"], 8);
-    const idxBestSeller = colIndexAny(["isbestseller", "bestseller", "best_seller", "meilleur_vente", "meilleurvente"], 9);
+    const idxMainImage = colIndexAny(["mainimageurl", "main_image_url", "mainimage", "img", "image", "imageurl", "image_url"], 7);
+    const idxSecondaryImages = colIndexAny(["secondaryimageurls", "secondary_image_urls", "secondaryimages", "images"], 8);
+    const idxFeatured = colIndexAny(["isfeatured", "featured", "mis_en_avant", "misenavant"], 9);
+    const idxBestSeller = colIndexAny(["isbestseller", "bestseller", "best_seller", "meilleur_vente", "meilleurvente"], 10);
     const start = hasHeader ? 1 : 0;
     if (hasHeader) {
       const missing = [];
@@ -346,12 +372,14 @@ export default function BulkProductImportModal({
       const v = `${value || ""}`.trim();
       if (!v) return "";
       const byId = (categories || []).find((c) => c.id === v);
-      if (byId) return byId.id;
+      if (byId) return byId.businessId || byId.id;
       const low = v.toLowerCase();
+      const byBusinessId = (categories || []).find((c) => `${c.businessId || ""}`.toLowerCase() === low);
+      if (byBusinessId) return byBusinessId.businessId || byBusinessId.id;
       const bySlug = (categories || []).find((c) => `${c.slug || ""}`.toLowerCase() === low);
-      if (bySlug) return bySlug.id;
+      if (bySlug) return bySlug.businessId || bySlug.slug || bySlug.id;
       const byName = (categories || []).find((c) => `${c.nom || ""}`.toLowerCase() === low);
-      if (byName) return byName.id;
+      if (byName) return byName.businessId || byName.id;
       return v;
     };
 
@@ -369,7 +397,8 @@ export default function BulkProductImportModal({
       const categoriesRaw = idxCategories >= 0 ? cells[idxCategories] : "";
       const stockRaw = idxStock >= 0 ? cells[idxStock] : "";
       const brand = idxBrand >= 0 ? cells[idxBrand] : "";
-      const img = idxImg >= 0 ? cells[idxImg] : "";
+      const mainImageUrl = idxMainImage >= 0 ? cells[idxMainImage] : "";
+      const secondaryImageUrls = idxSecondaryImages >= 0 ? cells[idxSecondaryImages] : "";
       const featuredRaw = idxFeatured >= 0 ? cells[idxFeatured] : "";
       const bestSellerRaw = idxBestSeller >= 0 ? cells[idxBestSeller] : "";
 
@@ -388,7 +417,8 @@ export default function BulkProductImportModal({
         categoryId: normalizeCategory(categoryKey),
         stock: stockRaw === "" ? "0" : stockRaw,
         brand,
-        img,
+        mainImageUrl,
+        secondaryImageUrls,
         isFeatured: normalizeBoolean(featuredRaw),
         isBestSeller: normalizeBoolean(bestSellerRaw),
       });
@@ -495,6 +525,7 @@ export default function BulkProductImportModal({
                 - Séparateur colonnes: ; (CSV). Valeurs avec ; à entourer de guillemets.
                 - Prix/TVA acceptent 15000, 15 000, 15.000, 15000,50.
                 - Catégorie: utiliser l’ID, le slug ou le nom (une seule catégorie).
+                - Images secondaires: séparer les URLs avec `|` (ou `,` / `;`).
                 - EAN: généré automatiquement si vide.
               </div>
               <div className="flex justify-end">
@@ -685,8 +716,8 @@ export default function BulkProductImportModal({
                       </td>
                       <td className="p-2">
                         <div className="flex items-center gap-2">
-                          {row.img ? (
-                            <img src={row.img} alt="" className="h-9 w-9 rounded object-cover border border-border" />
+                          {row.mainImageUrl ? (
+                            <img src={row.mainImageUrl} alt="" className="h-9 w-9 rounded object-cover border border-border" />
                           ) : (
                             <div className="h-9 w-9 rounded border border-dashed border-border bg-muted/30" />
                           )}
@@ -696,13 +727,16 @@ export default function BulkProductImportModal({
                             onClick={() => setImageRowIndex(idx)}
                             disabled={isSubmitting}
                           >
-                            {row.img ? "Changer" : "Lien"}
+                            {row.mainImageUrl ? "Changer" : "Lien"}
                           </Button>
-                          {row.img ? (
+                          {row.mainImageUrl ? (
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setRowField(idx, "img", "")}
+                              onClick={() => {
+                                setRowField(idx, "mainImageUrl", "");
+                                setRowField(idx, "secondaryImageUrls", "");
+                              }}
                               disabled={isSubmitting}
                             >
                               <X className="h-4 w-4" />
@@ -744,17 +778,36 @@ export default function BulkProductImportModal({
       >
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Lien de l'image</Label>
+            <Label>Lien de l'image principale</Label>
             <Input
               type="url"
-              value={typeof imageRowIndex === "number" ? rows[imageRowIndex]?.img : ""}
+              value={typeof imageRowIndex === "number" ? rows[imageRowIndex]?.mainImageUrl : ""}
               onChange={(e) => {
                 if (typeof imageRowIndex !== "number") return;
-                setRowField(imageRowIndex, "img", e.target.value);
+                setRowField(imageRowIndex, "mainImageUrl", e.target.value);
               }}
               placeholder="https://raw.githubusercontent.com/.../image.jpg"
             />
             <p className="text-xs text-muted-foreground">Collez un lien direct vers l'image (GitHub raw, CDN, etc.).</p>
+          </div>
+          <div className="space-y-2">
+            <Label>Images secondaires</Label>
+            <Input
+              type="text"
+              value={typeof imageRowIndex === "number" ? rows[imageRowIndex]?.secondaryImageUrls : ""}
+              onChange={(e) => {
+                if (typeof imageRowIndex !== "number") return;
+                setRowField(imageRowIndex, "secondaryImageUrls", e.target.value);
+              }}
+              placeholder="https://cdn.exemple.com/a.jpg|https://cdn.exemple.com/b.jpg"
+            />
+            <p className="text-xs text-muted-foreground">Séparez chaque URL avec `|` (max {MAX_SECONDARY_IMAGES}).</p>
+            {typeof imageRowIndex === "number" &&
+            (validatedRows[imageRowIndex]?._errors?.secondaryImageUrls) ? (
+              <div className="mt-1 text-xs text-destructive">
+                {validatedRows[imageRowIndex]._errors.secondaryImageUrls}
+              </div>
+            ) : null}
           </div>
         </div>
       </Modal>

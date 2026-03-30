@@ -47,6 +47,12 @@ const DEFAULT_ADVANCED_FILTERS = {
   sort: "DEFAULT" // DEFAULT | NAME_ASC | NAME_DESC | PRICE_ASC | PRICE_DESC | STOCK_ASC | STOCK_DESC
 };
 
+const parseSecondaryImageUrls = (raw) =>
+  `${raw ?? ""}`
+    .split(/[|,;]/)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
 export default function Products() {
   const navigate = useNavigate();
   // --- State Management ---
@@ -75,7 +81,8 @@ export default function Products() {
     ean: "",
     name: "",
     categoryId: "",
-    img: "",
+    mainImageUrl: "",
+    secondaryImageUrls: "",
     price: 0,
     stock: 0,
     status: "ACTIF",
@@ -237,7 +244,8 @@ export default function Products() {
       ean: product.ean || "",
       name: product.name || "",
       categoryId: product.categoryId || "",
-      img: product.imageUrl || "",
+      mainImageUrl: product.mainImageUrl || "",
+      secondaryImageUrls: Array.isArray(product.secondaryImageUrls) ? product.secondaryImageUrls.join("|") : "",
       price: product.price ?? 0,
       stock: Number.isFinite(product.stock) ? product.stock : 0,
       status: product.status || "ACTIF",
@@ -287,7 +295,8 @@ export default function Products() {
         stock: Number(formData.stock),
         categoryId: formData.categoryId,
         ean: `${formData.ean || ""}`.trim(),
-        img: `${formData.img ?? ""}`,
+        mainImageUrl: `${formData.mainImageUrl ?? ""}`,
+        secondaryImageUrls: parseSecondaryImageUrls(formData.secondaryImageUrls),
         isFeatured: Boolean(formData.isFeatured),
         isBestSeller: Boolean(formData.isBestSeller)
       };
@@ -558,7 +567,10 @@ export default function Products() {
               className="bg-background w-full md:w-40"
               options={[
                 { value: "", label: "Toutes catégories" },
-                ...categories.map((c) => ({ value: c.id, label: c.nom }))
+                ...categories.map((c) => ({
+                  value: c.id,
+                  label: c.businessId ? `${c.nom} (${c.businessId})` : c.nom
+                }))
               ]}
             />
             <Select 
@@ -726,7 +738,10 @@ export default function Products() {
                 id="category"
                 value={formData.categoryId}
                 onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
-                options={categories.map((c) => ({ value: c.id, label: c.nom }))}
+                options={categories.map((c) => ({
+                  value: c.id,
+                  label: c.businessId ? `${c.nom} (${c.businessId})` : c.nom
+                }))}
               />
             </div>
           </div>
@@ -742,18 +757,18 @@ export default function Products() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="img">Lien de l'image</Label>
+            <Label htmlFor="mainImageUrl">Lien de l'image principale</Label>
             <Input
-              id="img"
+              id="mainImageUrl"
               type="url"
-              value={formData.img}
-              onChange={(e) => setFormData({ ...formData, img: e.target.value })}
+              value={formData.mainImageUrl}
+              onChange={(e) => setFormData({ ...formData, mainImageUrl: e.target.value })}
               placeholder="https://raw.githubusercontent.com/.../image.jpg"
             />
-            {formData.img ? (
+            {formData.mainImageUrl ? (
               <div className="rounded-xl border border-border bg-muted/20 p-3">
                 <img
-                  src={formData.img}
+                  src={formData.mainImageUrl}
                   alt=""
                   className="h-44 w-full rounded-lg object-contain bg-white"
                   loading="lazy"
@@ -764,6 +779,17 @@ export default function Products() {
                 />
               </div>
             ) : null}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="secondaryImageUrls">Images secondaires</Label>
+            <Input
+              id="secondaryImageUrls"
+              type="text"
+              value={formData.secondaryImageUrls}
+              onChange={(e) => setFormData({ ...formData, secondaryImageUrls: e.target.value })}
+              placeholder="https://cdn.exemple.com/a.jpg|https://cdn.exemple.com/b.jpg"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

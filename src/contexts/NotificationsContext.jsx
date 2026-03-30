@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { backofficeApi } from "../services/api.js";
+import { subscribeBackofficeRealtime } from "../services/realtime.js";
 
 const NotificationsContext = createContext(null);
 const NOTIFICATIONS_LAST_SEEN_KEY = "lid_backoffice_notifications_last_seen";
@@ -10,6 +11,7 @@ export function NotificationsProvider({ children }) {
   const [notificationsError, setNotificationsError] = useState("");
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const realtimeRefreshTimerRef = useRef(null);
 
   const markNotificationsSeen = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -56,13 +58,30 @@ export function NotificationsProvider({ children }) {
     if (!existing) {
       window.localStorage.setItem(NOTIFICATIONS_LAST_SEEN_KEY, new Date().toISOString());
     }
-
     refreshNotificationsCount();
-    const intervalId = setInterval(() => {
-      refreshNotificationsCount();
-    }, 30000);
+  }, [refreshNotificationsCount]);
 
-    return () => clearInterval(intervalId);
+  useEffect(() => {
+    const unsubscribe = subscribeBackofficeRealtime((event) => {
+      if (event?.topic !== "backoffice.notifications.count.updated") {
+        return;
+      }
+      if (realtimeRefreshTimerRef.current) {
+        return;
+      }
+      realtimeRefreshTimerRef.current = window.setTimeout(() => {
+        realtimeRefreshTimerRef.current = null;
+        refreshNotificationsCount().catch(() => {});
+      }, 500);
+    }, ["backoffice.notifications.count.updated"]);
+
+    return () => {
+      if (realtimeRefreshTimerRef.current) {
+        window.clearTimeout(realtimeRefreshTimerRef.current);
+        realtimeRefreshTimerRef.current = null;
+      }
+      unsubscribe();
+    };
   }, [refreshNotificationsCount]);
 
   const value = useMemo(
