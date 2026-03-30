@@ -74,13 +74,6 @@ export default function Dashboard() {
     loadOverview(undefined).catch(() => {});
   }, [loadOverview]);
 
-  useEffect(() => {
-    const t = setInterval(() => {
-      loadOverview(undefined, { force: true }).catch(() => {});
-    }, 30000);
-    return () => clearInterval(t);
-  }, [loadOverview]);
-
   const dashboard = overviewRaw?.dashboard || null;
   const recentOrdersState = useMemo(() => {
     if (!Array.isArray(overviewRaw?.recentOrders)) return recentOrders;
