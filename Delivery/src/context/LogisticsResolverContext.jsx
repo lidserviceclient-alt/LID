@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 import { getDeliveryBootstrap, getShipmentDetailsCollection } from '../services/logistics'
+import { subscribeDeliveryRealtime } from '../services/realtime'
 
 const LogisticsResolverContext = createContext(null)
 
@@ -69,8 +70,14 @@ function detailKey(id) {
 export function LogisticsResolverProvider({ children }) {
   const [bootstraps, setBootstraps] = useState({})
   const [details, setDetails] = useState({})
+  const bootstrapsRef = useRef({})
   const bootstrapInflightRef = useRef(new Map())
   const detailInflightRef = useRef(new Map())
+  const refreshTimerRef = useRef(null)
+
+  useEffect(() => {
+    bootstrapsRef.current = bootstraps
+  }, [bootstraps])
 
   const ensureBootstrap = async (params, { force = false } = {}) => {
     const normalized = normalizeBootstrapParams(params)
@@ -221,6 +228,42 @@ export function LogisticsResolverProvider({ children }) {
 
   useEffect(() => {
     ensureBootstrap(DEFAULT_DELIVERY_BOOTSTRAP_PARAMS).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = subscribeDeliveryRealtime((event) => {
+      if (event?.topic !== 'delivery.shipment.updated') {
+        return
+      }
+
+      const runRefresh = () => {
+        const entries = bootstrapsRef.current || {}
+        Object.entries(entries).forEach(([key]) => {
+          try {
+            const params = JSON.parse(key)
+            ensureBootstrap(params, { force: true }).catch(() => {})
+          } catch {
+            // ignore malformed keys
+          }
+        })
+      }
+
+      if (refreshTimerRef.current) {
+        return
+      }
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null
+        runRefresh()
+      }, 800)
+    }, ['delivery.shipment.updated'])
+
+    return () => {
+      if (refreshTimerRef.current) {
+        window.clearTimeout(refreshTimerRef.current)
+        refreshTimerRef.current = null
+      }
+      unsubscribe()
+    }
   }, [])
 
   const value = useMemo(
