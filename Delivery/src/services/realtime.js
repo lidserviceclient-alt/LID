@@ -16,7 +16,11 @@ function inferApiBaseUrl() {
   if (env) return env
   if (typeof window !== 'undefined' && window.location) {
     if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      return `${window.location.protocol}//${window.location.host}`
+      const pathname = `${window.location.pathname || ''}`
+      const hasLidPrefix = pathname === '/lid' || pathname.startsWith('/lid/')
+      return hasLidPrefix
+        ? `${window.location.protocol}//${window.location.host}/lid`
+        : `${window.location.protocol}//${window.location.host}`
     }
   }
   return 'http://localhost:9000'
@@ -24,7 +28,10 @@ function inferApiBaseUrl() {
 
 function buildWsUrl(path, wsAccess) {
   const base = inferApiBaseUrl()
-  const url = new URL(path || '/api/v1/realtime/ws', base)
+  const baseUrl = new URL(base)
+  const baseRoot = `${baseUrl.origin}${baseUrl.pathname.endsWith('/') ? baseUrl.pathname : `${baseUrl.pathname}/`}`
+  const cleanPath = `${path || '/api/v1/realtime/ws'}`.replace(/^\/+/, '')
+  const url = new URL(cleanPath, baseRoot)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
   url.searchParams.set('ws-access', wsAccess)
   return url.toString()
