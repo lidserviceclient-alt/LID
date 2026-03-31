@@ -113,6 +113,15 @@ export default function Categories() {
     setLoading(false);
   }, [bootstrap]);
 
+  useEffect(() => {
+    if (bootstrap?.routeKey !== 'categories') {
+      return;
+    }
+    refresh().catch(() => {
+      setLoading(false);
+    });
+  }, [bootstrap?.routeKey]);
+
   const toggleCategory = (id) => {
     setExpandedCategories(prev => 
       prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
