@@ -52,6 +52,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         LocalDate getDay();
         Long getOrders();
     }
+
+    @Query("""
+        SELECT o.customer.userId
+        FROM Order o
+        WHERE o.id = :orderId
+    """)
+    Optional<String> findCustomerUserIdByOrderId(@Param("orderId") Long orderId);
     
     /**
      * Commandes d'un client avec pagination
