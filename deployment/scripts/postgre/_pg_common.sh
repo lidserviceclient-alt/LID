@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEPLOY_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DEPLOY_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 ENV_FILE="${DEPLOY_DIR}/.env"
 
 if [[ -f "${ENV_FILE}" ]]; then
