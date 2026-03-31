@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { getCurrentUserPayload } from "@/services/authService";
+import { clearCustomerCart, getCustomerCart, syncCustomerCart } from "@/services/cartService";
 
 const CartContext = createContext({
   cartItems: [],
@@ -14,20 +16,215 @@ const CartContext = createContext({
   setIsCartOpen: () => {},
 });
 
-export function CartProvider({ children }) {
-  const [cartItems, setCartItems] = useState(() => {
-    if (typeof window !== "undefined") {
-      const savedCart = localStorage.getItem("cart");
-      return savedCart ? JSON.parse(savedCart) : [];
-    }
+const LOCAL_CART_KEY = "cart";
+
+const normalizeVariant = (value) => {
+  const normalized = `${value ?? ""}`.trim();
+  return normalized || null;
+};
+
+const lineKey = (item) => {
+  const articleId = Number(item?.articleId ?? item?.id);
+  const color = `${normalizeVariant(item?.color) || ""}`.toLowerCase();
+  const size = `${normalizeVariant(item?.size) || ""}`.toLowerCase();
+  return `${articleId || 0}::${color}::${size}`;
+};
+
+const toPositiveInt = (value, fallback = 0) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.trunc(n));
+};
+
+const toSignedInt = (value, fallback = 0) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.trunc(n);
+};
+
+const normalizeCartItem = (item) => {
+  if (!item) return null;
+  const articleId = toPositiveInt(item?.articleId ?? item?.id, 0);
+  if (!articleId) return null;
+  const quantity = toPositiveInt(item?.quantity, 0);
+  if (!quantity) return null;
+  const price = Number(item?.price);
+  return {
+    ...item,
+    id: articleId,
+    articleId,
+    quantity,
+    color: normalizeVariant(item?.color),
+    size: normalizeVariant(item?.size),
+    price: Number.isFinite(price) ? price : 0,
+    name: `${item?.name ?? item?.articleName ?? ""}`.trim(),
+    image: `${item?.image ?? item?.articleImage ?? item?.imageUrl ?? ""}`.trim(),
+    imageUrl: `${item?.imageUrl ?? item?.articleImage ?? item?.image ?? ""}`.trim(),
+    referenceProduitPartenaire: `${item?.referenceProduitPartenaire ?? item?.referencePartenaire ?? item?.sku ?? ""}`.trim(),
+  };
+};
+
+const localCartSnapshot = () => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(LOCAL_CART_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return (Array.isArray(parsed) ? parsed : []).map(normalizeCartItem).filter(Boolean);
+  } catch {
     return [];
-  });
-  
+  }
+};
+
+const saveLocalCartSnapshot = (items) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LOCAL_CART_KEY, JSON.stringify(Array.isArray(items) ? items : []));
+};
+
+const readCustomerId = () => {
+  const payload = getCurrentUserPayload();
+  if (!payload?.sub) return null;
+  return payload.sub;
+};
+
+const mapServerCartToItems = (cart) => {
+  const fromItems = Array.isArray(cart?.items) ? cart.items : [];
+  if (fromItems.length > 0) {
+    return fromItems.map((item) => normalizeCartItem(item)).filter(Boolean);
+  }
+  const fromArticles = Array.isArray(cart?.articles) ? cart.articles : [];
+  return fromArticles
+    .map((line) =>
+      normalizeCartItem({
+        id: line?.article?.id,
+        articleId: line?.article?.id,
+        quantity: line?.quantity,
+        color: line?.color,
+        size: line?.size,
+        name: line?.article?.name,
+        price: line?.article?.price,
+        image: line?.article?.mainImageUrl,
+        imageUrl: line?.article?.mainImageUrl,
+        sku: line?.article?.sku,
+        referenceProduitPartenaire: line?.article?.referenceProduitPartenaire || line?.article?.sku,
+      })
+    )
+    .filter(Boolean);
+};
+
+const toServerPayload = (items) =>
+  (Array.isArray(items) ? items : [])
+    .map((item) => normalizeCartItem(item))
+    .filter(Boolean)
+    .map((item) => ({
+      articleId: item.articleId,
+      quantity: item.quantity,
+      color: item.color || null,
+      size: item.size || null,
+    }));
+
+const mergeItems = (baseItems, incomingItems) => {
+  const merged = new Map();
+  for (const raw of Array.isArray(baseItems) ? baseItems : []) {
+    const item = normalizeCartItem(raw);
+    if (!item) continue;
+    merged.set(lineKey(item), item);
+  }
+  for (const raw of Array.isArray(incomingItems) ? incomingItems : []) {
+    const item = normalizeCartItem(raw);
+    if (!item) continue;
+    const key = lineKey(item);
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, item);
+    } else {
+      merged.set(key, { ...existing, quantity: existing.quantity + item.quantity });
+    }
+  }
+  return Array.from(merged.values());
+};
+
+export function CartProvider({ children }) {
+  const [cartItems, setCartItems] = useState(() => localCartSnapshot());
+  const [customerId, setCustomerId] = useState(() => readCustomerId());
+  const syncTimerRef = useRef(null);
+  const pendingSyncRef = useRef(null);
+  const hydratingRef = useRef(false);
+
   const [isCartOpen, setIsCartOpen] = useState(false);
 
+  const refreshCustomerId = useCallback(() => {
+    setCustomerId(readCustomerId());
+  }, []);
+
+  const flushSync = useCallback(async () => {
+    if (!customerId) return;
+    if (!pendingSyncRef.current) return;
+    const payload = pendingSyncRef.current;
+    pendingSyncRef.current = null;
+    try {
+      const cart = await syncCustomerCart(customerId, payload);
+      setCartItems(mapServerCartToItems(cart));
+    } catch {
+      // Keep optimistic local state, backend sync will retry on next mutation.
+    }
+  }, [customerId]);
+
+  const scheduleSync = useCallback(
+    (items) => {
+      if (!customerId) return;
+      pendingSyncRef.current = toServerPayload(items);
+      if (syncTimerRef.current) {
+        window.clearTimeout(syncTimerRef.current);
+      }
+      syncTimerRef.current = window.setTimeout(() => {
+        syncTimerRef.current = null;
+        flushSync();
+      }, 250);
+    },
+    [customerId, flushSync]
+  );
+
   useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cartItems));
-  }, [cartItems]);
+    if (typeof window === "undefined") return undefined;
+    const onStorage = (event) => {
+      if (event?.key && event.key !== "lid_access_token") return;
+      refreshCustomerId();
+    };
+    const onFocus = () => refreshCustomerId();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshCustomerId]);
+
+  useEffect(() => {
+    if (!customerId) {
+      setCartItems(localCartSnapshot());
+      return;
+    }
+    if (hydratingRef.current) return;
+    hydratingRef.current = true;
+    (async () => {
+      try {
+        const dbCart = await getCustomerCart(customerId).catch((err) => (err?.response?.status === 404 ? null : Promise.reject(err)));
+        const dbItems = mapServerCartToItems(dbCart);
+        const localItems = localCartSnapshot();
+        const merged = mergeItems(dbItems, localItems);
+        const synced = await syncCustomerCart(customerId, toServerPayload(merged));
+        setCartItems(mapServerCartToItems(synced));
+        saveLocalCartSnapshot([]);
+      } finally {
+        hydratingRef.current = false;
+      }
+    })();
+  }, [customerId]);
+
+  useEffect(() => {
+    if (customerId) return;
+    saveLocalCartSnapshot(cartItems);
+  }, [cartItems, customerId]);
 
   const playSuccessSound = () => {
     const audioObj = new Audio('/sound/click.wav'); 
@@ -38,39 +235,63 @@ export function CartProvider({ children }) {
   const addToCart = (product) => {
     playSuccessSound();
     toast.success("Ajouté au panier !");
-    const qtyToAdd = Math.max(1, Math.trunc(Number(product?.quantity) || 1));
+    const qtyToAdd = Math.max(1, toPositiveInt(product?.quantity, 1));
     setCartItems((prevItems) => {
-      const existingItem = prevItems.find((item) => item.id === product.id && item.color === product.color && item.size === product.size);
-      
+      const normalized = normalizeCartItem({ ...product, quantity: qtyToAdd });
+      if (!normalized) return prevItems;
+      const existingItem = prevItems.find((item) => lineKey(item) === lineKey(normalized));
       if (existingItem) {
-        return prevItems.map((item) =>
-          item.id === product.id && item.color === product.color && item.size === product.size
-            ? { ...item, quantity: item.quantity + qtyToAdd }
+        const next = prevItems.map((item) =>
+          lineKey(item) === lineKey(normalized)
+            ? { ...item, quantity: toPositiveInt(item.quantity, 0) + qtyToAdd }
             : item
         );
+        scheduleSync(next);
+        return next;
       }
-      return [...prevItems, { ...product, quantity: qtyToAdd }];
+      const next = [...prevItems, normalized];
+      scheduleSync(next);
+      return next;
     });
   };
 
   const removeFromCart = (itemId, color, size) => {
-    setCartItems((prevItems) => prevItems.filter((item) => !(item.id === itemId && item.color === color && item.size === size)));
+    setCartItems((prevItems) => {
+      const targetKey = lineKey({ id: itemId, color, size });
+      const next = prevItems.filter((item) => lineKey(item) !== targetKey);
+      scheduleSync(next);
+      return next;
+    });
   };
 
   const updateQuantity = (itemId, color, size, delta) => {
-    setCartItems((prevItems) =>
-      prevItems.map((item) => {
-        if (item.id === itemId && item.color === color && item.size === size) {
-          const newQuantity = Math.max(1, item.quantity + delta);
+    setCartItems((prevItems) => {
+      const targetKey = lineKey({ id: itemId, color, size });
+      const next = prevItems
+        .map((item) => {
+          if (lineKey(item) !== targetKey) return item;
+          const newQuantity = Math.max(1, toPositiveInt(item.quantity, 1) + toSignedInt(delta, 0));
           return { ...item, quantity: newQuantity };
-        }
-        return item;
-      })
-    );
+        })
+        .filter(Boolean);
+      scheduleSync(next);
+      return next;
+    });
   };
 
   const clearCart = () => {
     setCartItems([]);
+    saveLocalCartSnapshot([]);
+    if (customerId) {
+      clearCustomerCart(customerId).catch(() => {});
+      if (syncTimerRef.current) {
+        window.clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+      }
+      pendingSyncRef.current = null;
+      return;
+    }
+    saveLocalCartSnapshot([]);
   };
 
   const consumePurchasedItems = (purchasedItems) => {
@@ -112,7 +333,9 @@ export function CartProvider({ children }) {
         }
       });
 
-      return nextItems.filter(Boolean);
+      const next = nextItems.filter(Boolean);
+      scheduleSync(next);
+      return next;
     });
   };
 
