@@ -5,14 +5,10 @@ import { getMyCustomerProfileCollection } from "@/services/customerService";
 
 const CustomerSessionContext = createContext(null);
 
-const normalizeRole = (role) => `${role || ""}`.replace(/^ROLE_/, "").trim().toUpperCase();
-
 export function CustomerSessionProvider({ children }) {
   const queryClient = useQueryClient();
   const tokenPayload = getCurrentUserPayload();
-  const roles = Array.isArray(tokenPayload?.roles) ? tokenPayload.roles.map(normalizeRole) : [];
-  const hasPartnerRole = roles.includes("PARTNER");
-  const canLoadCustomerSession = Boolean(tokenPayload?.sub) && !hasPartnerRole;
+  const canLoadCustomerSession = Boolean(tokenPayload?.sub);
 
   const query = useQuery({
     queryKey: ["customer-session-collection"],
