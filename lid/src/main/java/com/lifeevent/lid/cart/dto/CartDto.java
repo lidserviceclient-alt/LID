@@ -14,6 +14,7 @@ public class CartDto {
     private Integer id;
     private CustomerDto customer;
     private List<CartArticleDto> articles;
+    private List<CartItemDto> items;
 
     private Double totalPrice;
     private Integer totalQuantity;

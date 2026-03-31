@@ -39,6 +39,18 @@ public class CartArticle extends BaseEntity {
     private Integer quantity;
 
     /**
+     * Variante optionnelle choisie par l'utilisateur.
+     */
+    @Column(length = 64)
+    private String color;
+
+    /**
+     * Taille optionnelle choisie par l'utilisateur.
+     */
+    @Column(length = 64)
+    private String size;
+
+    /**
      * Prix au moment de l'ajout au panier (pour tracer les changements de prix)
      */
     private Double priceAtAddedTime;

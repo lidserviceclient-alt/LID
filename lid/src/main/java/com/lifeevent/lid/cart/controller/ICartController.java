@@ -1,5 +1,6 @@
 package com.lifeevent.lid.cart.controller;
 
+import com.lifeevent.lid.cart.dto.AddToCartDto;
 import com.lifeevent.lid.cart.dto.CartDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -10,7 +11,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * Interface documentant les endpoints Cart pour Swagger
@@ -31,6 +35,7 @@ public interface ICartController {
 //            @Parameter(description = "ID du client", required = true) @PathVariable Integer customerId);
 //
     @GetMapping("/customer/{customerId}")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     @Operation(summary = "Récupérer le panier d'un client", description = "Récupère le panier d'achat d'un client avec tous ses articles (CUSTOMER or ADMIN)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Panier trouvé",
@@ -43,6 +48,7 @@ public interface ICartController {
             @Parameter(description = "ID du client", required = true) @PathVariable String customerId);
     
     @PostMapping("/{customerId}/articles/{articleId}")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     @Operation(summary = "Ajouter un article au panier", description = "Ajoute un article au panier d'un client ou augmente la quantité si l'article est déjà présent (CUSTOMER or ADMIN)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Article ajouté avec succès",
@@ -54,8 +60,24 @@ public interface ICartController {
     ResponseEntity<CartDto> addArticle(
             @Parameter(description = "ID du client", required = true) @PathVariable String customerId,
             @Parameter(description = "ID de l'article à ajouter", required = true) @PathVariable Long articleId);
+
+    @PutMapping("/customer/{customerId}/items")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
+    @Operation(summary = "Synchroniser le panier", description = "Remplace le panier courant par la liste fournie (snapshot DB-first)")
+    ResponseEntity<CartDto> syncCart(
+            @PathVariable String customerId,
+            @RequestBody List<AddToCartDto> items);
+
+    @PutMapping("/customer/{customerId}/items/{articleId}")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
+    @Operation(summary = "Ajouter / modifier une ligne panier", description = "Upsert d'une ligne panier (article + couleur + taille)")
+    ResponseEntity<CartDto> upsertItem(
+            @PathVariable String customerId,
+            @PathVariable Long articleId,
+            @RequestBody AddToCartDto item);
     
     @DeleteMapping("/{customerId}/articles/{articleId}")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     @Operation(summary = "Retirer un article du panier", description = "Supprime complètement un article du panier d'un client (CUSTOMER or ADMIN)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Article retiré avec succès",
@@ -66,9 +88,12 @@ public interface ICartController {
     })
     ResponseEntity<CartDto> removeArticle(
             @Parameter(description = "ID du client", required = true) @PathVariable String customerId,
-            @Parameter(description = "ID de l'article à retirer", required = true) @PathVariable Long articleId);
+            @Parameter(description = "ID de l'article à retirer", required = true) @PathVariable Long articleId,
+            @RequestParam(required = false) String color,
+            @RequestParam(required = false) String size);
     
     @DeleteMapping("/customer/{customerId}/clear")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     @Operation(summary = "Vider le panier", description = "Supprime tous les articles du panier d'un client (CUSTOMER or ADMIN)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Panier vidé avec succès"),
@@ -80,6 +105,7 @@ public interface ICartController {
             @Parameter(description = "ID du client", required = true) @PathVariable String customerId);
     
     @DeleteMapping("/{cartId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @Operation(summary = "Supprimer un panier", description = "Supprime complètement un panier et tous ses articles (ADMIN only)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Panier supprimé avec succès"),

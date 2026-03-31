@@ -23,4 +23,14 @@ public class AddToCartDto {
      * Quantité à ajouter
      */
     private Integer quantity;
+
+    /**
+     * Variante optionnelle.
+     */
+    private String color;
+
+    /**
+     * Taille optionnelle.
+     */
+    private String size;
 }

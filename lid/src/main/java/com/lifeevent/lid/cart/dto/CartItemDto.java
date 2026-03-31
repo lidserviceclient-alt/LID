@@ -17,10 +17,18 @@ public class CartItemDto {
     private Integer id;
     
     private Long articleId;
+
+    private String sku;
+
+    private String referenceProduitPartenaire;
     
     private String articleName;
     
     private String articleImage;
+
+    private String color;
+
+    private String size;
     
     private Integer quantity;
     

@@ -15,4 +15,6 @@ public class CartArticleDto {
     private Integer id;
     private ArticleDto article;
     private Integer quantity;
+    private String color;
+    private String size;
 }
