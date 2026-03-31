@@ -16,7 +16,10 @@ let activeSocketAuthMode = null;
 
 function buildWsUrl(path, wsAccess) {
   const apiBase = import.meta.env.VITE_API_URL || 'https://jean-emmanuel-diap.com/lid';
-  const url = new URL(path || '/api/v1/realtime/ws', apiBase);
+  const base = new URL(apiBase);
+  const baseRoot = `${base.origin}${base.pathname.endsWith('/') ? base.pathname : `${base.pathname}/`}`;
+  const cleanPath = `${path || '/api/v1/realtime/ws'}`.replace(/^\/+/, '');
+  const url = new URL(cleanPath, baseRoot);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   url.searchParams.set('ws-access', wsAccess);
   return url.toString();
