@@ -38,6 +38,7 @@ const navSections = [
     items: [
       { label: "Commandes", to: "/orders", icon: ShoppingCart },
       { label: "Retours", to: "/returns", icon: RotateCcw },
+      { label: "Partenaires", to: "/partners", icon: Store },
       { label: "Produits", to: "/products", icon: Package },
       { label: "Catégories", to: "/categories", icon: Tag },
       { label: "Stocks", to: "/inventory", icon: Boxes },

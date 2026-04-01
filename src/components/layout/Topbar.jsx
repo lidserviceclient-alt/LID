@@ -87,6 +87,7 @@ export default function Topbar({ onMenuClick }) {
     const labelForStatic = {
       "/": { parent: "Dashboard", current: "Vue d'ensemble" },
       "/orders": { parent: "Commandes", current: "Liste" },
+      "/partners": { parent: "Partenaires", current: "Liste" },
       "/products": { parent: "Produits", current: "Liste" },
       "/products/create": { parent: "Produits", current: "Créer" },
       "/categories": { parent: "Catégories", current: "Liste" },
@@ -153,6 +154,7 @@ export default function Topbar({ onMenuClick }) {
     () => [
       { label: "Aller au Dashboard", keywords: ["dashboard", "accueil"], action: () => navigate("/") },
       { label: "Commandes", keywords: ["orders", "commandes"], action: () => navigate("/orders") },
+      { label: "Partenaires", keywords: ["partners", "partenaires", "vendeurs"], action: () => navigate("/partners") },
       { label: "Clients", keywords: ["customers", "clients"], action: () => navigate("/customers") },
       { label: "Produits", keywords: ["products", "produits"], action: () => navigate("/products") },
       { label: "Stocks", keywords: ["inventory", "stock"], action: () => navigate("/inventory") },

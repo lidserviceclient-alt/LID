@@ -1,4 +1,4 @@
-﻿﻿﻿﻿import { clearAccessToken, getAccessToken } from "./auth.js";
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { clearAccessToken, getAccessToken } from "./auth.js";
 
 const BASE_URL = import.meta.env.VITE_BACKOFFICE_API_URL || "http://localhost:9000";
 
@@ -175,6 +175,14 @@ export const backofficeApi = {
     }
     const query = params.toString();
     return request(`/api/v1/backoffice/overview${query ? `?${query}` : ""}`);
+  },
+  analyticsCollection: (days) => {
+    const params = new URLSearchParams();
+    if (days !== null && days !== undefined && `${days}`.trim() !== "") {
+      params.set("days", `${days}`);
+    }
+    const query = params.toString();
+    return request(`/api/v1/backoffice/analytics/collection${query ? `?${query}` : ""}`);
   },
   dashboard: () => request("/api/v1/backoffice/dashboard"),
   settingsCollection: () => request("/api/v1/backoffice/setting/collection"),
@@ -518,6 +526,22 @@ export const backofficeApi = {
     request(`/api/v1/backoffice/users/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
+    }),
+  partners: (page = 0, size = 20, status = "ALL", q = "") => {
+    const params = new URLSearchParams({ page, size });
+    if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    return request(`/api/v1/backoffice/partners?${params.toString()}`);
+  },
+  partner: (id) => request(`/api/v1/backoffice/partners/${encodeURIComponent(id)}`),
+  approvePartner: (id) =>
+    request(`/api/v1/backoffice/partners/${encodeURIComponent(id)}/approve`, {
+      method: "POST"
+    }),
+  rejectPartner: (id, payload) =>
+    request(`/api/v1/backoffice/partners/${encodeURIComponent(id)}/reject`, {
+      method: "POST",
+      body: JSON.stringify(payload || {})
     }),
   returns: (page = 0, size = 20, status = "", q = "") => {
     const params = new URLSearchParams({ page, size });
