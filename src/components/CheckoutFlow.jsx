@@ -861,16 +861,68 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
               ) : (
                 /* FORM STEPS */
                 <>
-                  <div className="flex items-center gap-3 mb-8">
-                     <span className={cn("w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors", step === 1 ? "bg-black text-white dark:bg-white dark:text-black" : "bg-green-500 text-white")}>
-                       {step > 1 ? <Check size={16} /> : "1"}
-                     </span>
-                     <span className={cn("text-sm font-bold uppercase tracking-wider", step === 1 ? "text-black dark:text-white" : "text-neutral-400")}>Information</span>
-                     <div className="w-12 h-px bg-neutral-200 dark:bg-neutral-800" />
-                     <span className={cn("w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors", step === 2 ? "bg-black text-white dark:bg-white dark:text-black" : "bg-neutral-100 dark:bg-neutral-800 text-neutral-400")}>
-                       2
-                     </span>
-                     <span className={cn("text-sm font-bold uppercase tracking-wider", step === 2 ? "text-black dark:text-white" : "text-neutral-400")}>Paiement</span>
+                  <div className="flex flex-col gap-3 mb-7">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-orange-600 to-[#6aa200] text-white flex items-center justify-center shadow-sm font-black">
+                          {step > 1 ? <Check size={18} /> : "1"}
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-[11px] font-bold tracking-[0.18em] text-neutral-500 dark:text-neutral-400 uppercase">
+                            Checkout
+                          </div>
+                          <div className="text-lg font-black text-neutral-900 dark:text-white leading-tight">
+                            Livraison & paiement
+                          </div>
+                        </div>
+                      </div>
+                      <div className="hidden sm:flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold border transition-colors",
+                            step === 1
+                              ? "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/10 dark:text-orange-200 dark:border-orange-900/50"
+                              : "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/10 dark:text-green-200 dark:border-green-900/50"
+                          )}
+                        >
+                          {step > 1 ? <Check size={14} /> : null}
+                          Livraison
+                        </span>
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold border transition-colors",
+                            step === 2
+                              ? "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/10 dark:text-orange-200 dark:border-orange-900/50"
+                              : "bg-neutral-50 text-neutral-500 border-neutral-200 dark:bg-neutral-900 dark:text-neutral-400 dark:border-neutral-800"
+                          )}
+                        >
+                          Paiement
+                        </span>
+                      </div>
+                    </div>
+                    <div className="sm:hidden flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold border transition-colors",
+                          step === 1
+                            ? "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/10 dark:text-orange-200 dark:border-orange-900/50"
+                            : "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/10 dark:text-green-200 dark:border-green-900/50"
+                        )}
+                      >
+                        {step > 1 ? <Check size={14} /> : null}
+                        Livraison
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold border transition-colors",
+                          step === 2
+                            ? "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/10 dark:text-orange-200 dark:border-orange-900/50"
+                            : "bg-neutral-50 text-neutral-500 border-neutral-200 dark:bg-neutral-900 dark:text-neutral-400 dark:border-neutral-800"
+                        )}
+                      >
+                        Paiement
+                      </span>
+                    </div>
                   </div>
 
                   <AnimatePresence mode="wait">
@@ -883,84 +935,189 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                         onSubmit={handleSubmitInfo}
                         className="space-y-6"
                       >
-                        <h1 className="text-3xl font-black mb-2">Détails de livraison</h1>
-                        <p className="text-neutral-500 mb-8">Où devons-nous envoyer votre commande ?</p>
-
-                        <div className="grid grid-cols-2 gap-4">
-                           <div className="group">
-                             <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Prénom</label>
-                             <input required name="firstName" value={formData.firstName} readOnly className="w-full p-3 bg-neutral-100 dark:bg-neutral-900 border-2 border-transparent rounded-xl outline-none transition-all font-medium cursor-not-allowed opacity-80" placeholder="Votre prénom" />
-                           </div>
-                           <div className="group">
-                             <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Nom</label>
-                             <input required name="lastName" value={formData.lastName} readOnly className="w-full p-3 bg-neutral-100 dark:bg-neutral-900 border-2 border-transparent rounded-xl outline-none transition-all font-medium cursor-not-allowed opacity-80" placeholder="Votre nom" />
-                           </div>
-                        </div>
-
-                     <div className="group">
-                        <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Email</label>
-                        <input required type="email" name="email" value={formData.email} readOnly className="w-full p-3 bg-neutral-100 dark:bg-neutral-900 border-2 border-transparent rounded-xl outline-none transition-all font-medium cursor-not-allowed opacity-80" placeholder="exemple@email.com" />
-                     </div>
-
-                     <div className="group">
-                       <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Téléphone</label>
-                       <input
-                         required
-                         type="tel"
-                         name="phone"
-                         value={formData.phone}
-                         onChange={handleInputChange}
-                         className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium"
-                         placeholder="+2250102030405"
-                       />
-                     </div>
-
-                        {loadingAddresses ? (
-                          <div className="text-sm text-neutral-500">Chargement des adresses...</div>
-                        ) : savedAddresses.length > 0 ? (
-                          <div className="group">
-                            <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Adresse sauvegardée</label>
-                            <select value={selectedAddressId} onChange={handleAddressSelect} className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium">
-                              <option value="">Nouvelle adresse</option>
-                              {savedAddresses.map((addr) => (
-                                <option key={addr.id} value={addr.id}>
-                                  {[addr.type, addr.addressLine, addr.city].filter(Boolean).join(' · ')}
-                                </option>
-                              ))}
-                            </select>
+                        <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-5 sm:p-6">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <h1 className="text-2xl sm:text-3xl font-black text-neutral-900 dark:text-white">
+                                Détails de livraison
+                              </h1>
+                              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                                Où devons-nous envoyer votre commande ?
+                              </p>
+                            </div>
+                            <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-3 py-2 text-xs font-bold text-neutral-600 dark:text-neutral-300">
+                              <ShieldCheck className="h-4 w-4 text-[#6aa200]" />
+                              Données sécurisées
+                            </div>
                           </div>
-                        ) : null}
 
-                        <div className="group">
-                           <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Adresse</label>
-                           <div className="relative">
-                             <input required name="address" value={formData.address} onChange={handleInputChange} className="w-full p-3 pr-12 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium" placeholder="Numéro et nom de rue" />
-                             <button
-                               type="button"
-                               onClick={setAddressFromPosition}
-                               disabled={isResolvingCurrentAddress}
-                               className="absolute right-2.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg bg-white/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 hover:text-orange-600 transition-colors disabled:opacity-60"
-                               aria-label="Utiliser ma position"
-                             >
-                               {isResolvingCurrentAddress ? <Loader2 size={18} className="animate-spin" /> : <LocateFixed size={18} />}
-                             </button>
-                           </div>
+                          <div className="mt-6 grid gap-4">
+                            <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-4">
+                              <div className="flex items-center gap-2 text-sm font-black text-neutral-900 dark:text-white">
+                                <User className="h-4 w-4 text-orange-600" />
+                                Informations du compte
+                              </div>
+                              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-1.5">
+                                  <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                    Prénom
+                                  </label>
+                                  <input
+                                    required
+                                    name="firstName"
+                                    value={formData.firstName}
+                                    readOnly
+                                    className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-950/60 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none opacity-80 cursor-not-allowed"
+                                    placeholder="Votre prénom"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                    Nom
+                                  </label>
+                                  <input
+                                    required
+                                    name="lastName"
+                                    value={formData.lastName}
+                                    readOnly
+                                    className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-950/60 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none opacity-80 cursor-not-allowed"
+                                    placeholder="Votre nom"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="mt-4 space-y-1.5">
+                                <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                  Email
+                                </label>
+                                <div className="relative">
+                                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                                  <input
+                                    required
+                                    type="email"
+                                    name="email"
+                                    value={formData.email}
+                                    readOnly
+                                    className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-950/60 pl-11 pr-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none opacity-80 cursor-not-allowed"
+                                    placeholder="exemple@email.com"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-4">
+                              <div className="flex items-center gap-2 text-sm font-black text-neutral-900 dark:text-white">
+                                <MapPin className="h-4 w-4 text-orange-600" />
+                                Adresse de livraison
+                              </div>
+
+                              <div className="mt-4 space-y-4">
+                                <div className="space-y-1.5">
+                                  <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                    Téléphone
+                                  </label>
+                                  <div className="relative">
+                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                                    <input
+                                      required
+                                      type="tel"
+                                      name="phone"
+                                      value={formData.phone}
+                                      onChange={handleInputChange}
+                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 pl-11 pr-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                      placeholder="+2250102030405"
+                                    />
+                                  </div>
+                                </div>
+
+                                {loadingAddresses ? (
+                                  <div className="text-sm text-neutral-500 dark:text-neutral-400">
+                                    Chargement des adresses...
+                                  </div>
+                                ) : savedAddresses.length > 0 ? (
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                      Adresse sauvegardée
+                                    </label>
+                                    <select
+                                      value={selectedAddressId}
+                                      onChange={handleAddressSelect}
+                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                    >
+                                      <option value="">Nouvelle adresse</option>
+                                      {savedAddresses.map((addr) => (
+                                        <option key={addr.id} value={addr.id}>
+                                          {[addr.type, addr.addressLine, addr.city].filter(Boolean).join(' · ')}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                ) : null}
+
+                                <div className="space-y-1.5">
+                                  <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                    Adresse
+                                  </label>
+                                  <div className="relative">
+                                    <input
+                                      required
+                                      name="address"
+                                      value={formData.address}
+                                      onChange={handleInputChange}
+                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 pr-12 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                      placeholder="Numéro et nom de rue"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={setAddressFromPosition}
+                                      disabled={isResolvingCurrentAddress}
+                                      className="absolute right-2.5 top-1/2 -translate-y-1/2 h-10 w-10 rounded-2xl bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-200 hover:border-orange-300 hover:text-orange-600 transition disabled:opacity-60"
+                                      aria-label="Utiliser ma position"
+                                    >
+                                      {isResolvingCurrentAddress ? <Loader2 size={18} className="animate-spin" /> : <LocateFixed size={18} />}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                      Ville
+                                    </label>
+                                    <input
+                                      required
+                                      name="city"
+                                      value={formData.city}
+                                      onChange={handleInputChange}
+                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                      placeholder="Ville"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                      Code postal
+                                    </label>
+                                    <input
+                                      required
+                                      name="zip"
+                                      value={formData.zip}
+                                      onChange={handleInputChange}
+                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                      placeholder="00000"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            type="submit"
+                            className="w-full mt-6 rounded-2xl bg-gradient-to-r from-orange-600 to-[#6aa200] text-white py-4 font-black text-base shadow-lg shadow-orange-600/15 hover:shadow-orange-600/25 transition flex items-center justify-center gap-2 active:scale-[0.99]"
+                          >
+                            Continuer vers le paiement <ArrowRight size={20} />
+                          </button>
                         </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                           <div className="group">
-                             <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Ville</label>
-                             <input required name="city" value={formData.city} onChange={handleInputChange} className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium" placeholder="Ville" />
-                           </div>
-                           <div className="group">
-                             <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Code Postal</label>
-                             <input required name="zip" value={formData.zip} onChange={handleInputChange} className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium" placeholder="00000" />
-                           </div>
-                        </div>
-
-                        <button type="submit" className="w-full py-4 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold text-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mt-8">
-                          Continuer vers le paiement <ArrowRight size={20} />
-                        </button>
                       </motion.form>
                     )}
 
