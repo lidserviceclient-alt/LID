@@ -379,9 +379,9 @@ function TiltCard({ isFlipped, onClose, product, imageSrc, price }) {
                 <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 to-black p-5 md:p-8 flex flex-col">
                     <h3 className="text-xl md:text-3xl font-bold text-white mb-2">{product?.name || "Offre exclusive"}</h3>
                     <div className="flex items-center gap-2 mb-3 md:mb-6">
-                        {Boolean(product?.isBestSeller) ? (
+                        {product?.isBestSeller ? (
                           <span className="px-3 py-1 bg-orange-600/20 text-orange-400 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider">Best Seller</span>
-                        ) : Boolean(product?.isFeatured) ? (
+                        ) : product?.isFeatured ? (
                           <span className="px-3 py-1 bg-orange-600/20 text-orange-400 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider">En phare</span>
                         ) : (
                           <span className="px-3 py-1 bg-orange-600/20 text-orange-400 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider">Offre</span>

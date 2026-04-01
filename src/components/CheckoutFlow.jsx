@@ -50,18 +50,6 @@ const formatMoney = (value) => {
   });
 };
 
-const getCardBrand = (rawNumber) => {
-  const n = `${rawNumber || ''}`.replace(/\D/g, '');
-  if (!n) return { label: 'CARTE', color: 'text-white/80' };
-  if (n.startsWith('4')) return { label: 'VISA', color: 'text-[#b6d7ff]' };
-  const first2 = Number(n.slice(0, 2));
-  const first4 = Number(n.slice(0, 4));
-  if ((first2 >= 51 && first2 <= 55) || (first4 >= 2221 && first4 <= 2720)) return { label: 'MASTERCARD', color: 'text-[#ffd6c2]' };
-  if (n.startsWith('34') || n.startsWith('37')) return { label: 'AMEX', color: 'text-[#c7ffe2]' };
-  if (n.startsWith('6011') || n.startsWith('65')) return { label: 'DISCOVER', color: 'text-[#ffe7b6]' };
-  return { label: 'CARTE', color: 'text-white/80' };
-};
-
 const normalizeExpiry = (value) => {
   const v = `${value || ''}`.trim();
   if (!v) return 'MM/YY';
@@ -616,6 +604,12 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
         cancelUrl,
         paymentProvider
       });
+
+      const rawOrderNumber = `${res?.orderNumber || res?.orderId || res?.orderReference || res?.reference || ""}`.trim();
+      if (rawOrderNumber) {
+        setOrderNumber(rawOrderNumber.replace(/^LID-/, ""));
+      }
+      onSuccess?.(res);
 
       const url = res?.paymentUrl;
       setLoadingStep(3);

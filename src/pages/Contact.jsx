@@ -3,6 +3,7 @@ import { Mail, Phone, MapPin, Send, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { sendContactMessage } from "@/services/contactService.js";
 
 export default function Contact() {
@@ -119,11 +120,12 @@ export default function Contact() {
               <p className="text-neutral-300 dark:text-neutral-600 mb-6 max-w-sm">
                 Consultez notre foire aux questions pour trouver des réponses immédiates.
               </p>
-              <button 
-              onClick={() => navigate("/faq")}
-              className="px-6 py-2 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white rounded-full font-bold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+              <Link
+                to="/faq"
+                className="inline-flex px-6 py-2 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white rounded-full font-bold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              >
                 Voir la FAQ
-              </button>
+              </Link>
             </div>
             {/* Decoration */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />

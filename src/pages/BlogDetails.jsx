@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
   ArrowLeft, 
@@ -17,7 +17,6 @@ import { getBlogPost, getBlogPosts } from "../services/blogService";
 
 export default function BlogDetails() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [post, setPost] = useState(null);
   const [relatedPosts, setRelatedPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);

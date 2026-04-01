@@ -87,9 +87,10 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
         if (requestSeqRef.current !== seq) return;
         setSuggestions([]);
       } finally {
-        if (requestSeqRef.current !== seq) return;
-        setSuggestLoading(false);
-        setActiveIndex(-1);
+        if (requestSeqRef.current === seq) {
+          setSuggestLoading(false);
+          setActiveIndex(-1);
+        }
       }
     }, 250);
 
@@ -291,7 +292,7 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
                         </span>
                       </div>
                       <div className="space-y-1">
-                        {categoryMatches.map((c, idx) => {
+                        {categoryMatches.map((c, _idx) => {
                           const actionIndex = flatActions.findIndex((a) => a.type === 'category' && a.category?.value === c.value);
                           return (
                             <button

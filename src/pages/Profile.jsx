@@ -1,7 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { useReactToPrint } from 'react-to-print';
-import ShippingLabel from '@/components/ShippingLabel';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useMemo } from 'react';
+import { motion as Motion } from 'framer-motion';
 import { 
   User, 
   Package, 
@@ -13,8 +11,7 @@ import {
   ChevronRight,
   Clock,
   Store,
-  Camera,
-  Printer
+  Camera
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/utils/cn';
@@ -75,11 +72,11 @@ const SidebarItem = ({ icon: Icon, label, active, onClick, danger }) => (
   >
     <Icon size={18} className={cn("transition-transform group-hover:scale-110", active && "scale-110")} />
     <span className="relative z-10">{label}</span>
-    {active && <motion.div layoutId="activeTab" className="absolute inset-0 bg-[#6aa200] z-0" />}
+    {active && <Motion.div layoutId="activeTab" className="absolute inset-0 bg-[#6aa200] z-0" />}
   </button>
 );
 
-const OrderCard = ({ order, email, onPrint }) => {
+const OrderCard = ({ order, email }) => {
   const getStatusColor = (status) => {
     switch(status) {
       case 'delivered': return 'bg-green-100 text-green-700 border-green-200';
@@ -680,7 +677,7 @@ const SettingsSection = ({ profile, userId, onProfileUpdated }) => {
 export default function Profile() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
+  const activeTab = searchParams.get('tab') || 'overview';
   const tokenPayload = getCurrentUserPayload();
   const { wishlistItems } = useWishlist();
   const customerSession = useCustomerSession();
@@ -692,12 +689,12 @@ export default function Profile() {
     saveLocalJson(PAYMENT_STORAGE_KEY, paymentMethods);
   }, [paymentMethods]);
 
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab) {
-      setActiveTab(tab);
-    }
-  }, [searchParams]);
+  const setActiveTab = (nextTab) => {
+    const next = new URLSearchParams(searchParams);
+    if (nextTab) next.set('tab', nextTab);
+    else next.delete('tab');
+    navigate({ pathname: '/profile', search: `?${next.toString()}` });
+  };
 
   const profileCollection = customerSession?.customerCollection || null;
   const loadingOverview = Boolean(customerSession?.isLoading);

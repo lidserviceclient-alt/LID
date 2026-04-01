@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Search, Package, Truck, MapPin, CheckCircle, Clock, ArrowRight } from "lucide-react";
+import { motion as Motion, AnimatePresence } from "framer-motion";
+import { Search, Package, Truck, MapPin, CheckCircle, Clock, ArrowRight, AlertTriangle } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { trackOrder } from "@/services/trackingService";
@@ -12,7 +12,9 @@ const statusKeyFromBackend = (value) => {
   if (s === "PAID" || s === "PROCESSING") return "processing";
   if (s === "READY_TO_DELIVER") return "shipped";
   if (s === "DELIVERY_IN_PROGRESS") return "out_for_delivery";
+  if (s === "DELIVERY_FAILED" || s === "CANCELED") return "delivery_issue";
   if (s === "DELIVERED") return "delivered";
+  if (s === "REFUNDED") return "refunded";
   return "pending";
 };
 
@@ -26,8 +28,11 @@ const statusIndexFromKey = (value) => {
       return 2;
     case "out_for_delivery":
       return 3;
-    case "delivered":
+    case "delivery_issue":
       return 4;
+    case "delivered":
+    case "refunded":
+      return 5;
     default:
       return 0;
   }
@@ -39,7 +44,8 @@ const stepIndexFromBackend = (value) => {
   if (s === "PAID" || s === "PROCESSING") return 1;
   if (s === "READY_TO_DELIVER") return 2;
   if (s === "DELIVERY_IN_PROGRESS") return 3;
-  if (s === "DELIVERED") return 4;
+  if (s === "DELIVERY_FAILED" || s === "CANCELED") return 4;
+  if (s === "DELIVERED" || s === "REFUNDED") return 5;
   return 0;
 };
 
@@ -68,6 +74,7 @@ export default function OrderTracking() {
     { key: "processing", label: "Préparation", icon: Clock },
     { key: "shipped", label: "Expédiée", icon: Truck },
     { key: "out_for_delivery", label: "Livraison", icon: MapPin },
+    { key: "delivery_issue", label: "Problème de livraison", icon: AlertTriangle },
     { key: "delivered", label: "Livrée", icon: CheckCircle },
   ];
 
@@ -98,6 +105,7 @@ export default function OrderTracking() {
           : "À confirmer";
 
       const statusKey = statusKeyFromBackend(currentStatus);
+      const latestComment = history.length ? `${history[history.length - 1]?.comment || ""}`.trim() : "";
       const location =
         statusKey === "pending"
           ? "Commande enregistrée"
@@ -107,7 +115,11 @@ export default function OrderTracking() {
               ? "En transit"
               : statusKey === "out_for_delivery"
                 ? "En cours de livraison"
-                : "Livré";
+                : statusKey === "delivery_issue"
+                  ? "Tentative de livraison échouée"
+                  : statusKey === "refunded"
+                    ? "Remboursement effectué"
+                    : "Livré";
 
       const items = Array.isArray(data?.items)
         ? data.items
@@ -142,12 +154,14 @@ export default function OrderTracking() {
         items,
         eta,
         location,
+        note: latestComment,
         timeline: [
           { status: "Commande confirmée", date: formatStepDate(dateByStatus.get("PENDING") || data?.updatedAt), done: idx >= 0 },
           { status: "Préparation en cours", date: formatStepDate(dateByStatus.get("PROCESSING") || dateByStatus.get("PAID")), done: idx >= 1 },
           { status: "Expédié", date: formatStepDate(dateByStatus.get("READY_TO_DELIVER")), done: idx >= 2 },
           { status: "En livraison", date: formatStepDate(dateByStatus.get("DELIVERY_IN_PROGRESS")), done: idx >= 3 },
-          { status: "Livré", date: formatStepDate(dateByStatus.get("DELIVERED")), done: idx >= 4 }
+          { status: "Problème de livraison", date: formatStepDate(dateByStatus.get("DELIVERY_FAILED") || dateByStatus.get("CANCELED")), done: idx >= 4 },
+          { status: "Livré", date: formatStepDate(dateByStatus.get("DELIVERED")), done: idx >= 5 }
         ]
       });
     } catch (err) {
@@ -207,7 +221,7 @@ export default function OrderTracking() {
                 </p>
               </div>
 
-              <motion.form
+              <Motion.form
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 onSubmit={handleTrack}
@@ -230,13 +244,13 @@ export default function OrderTracking() {
                     {isLoading ? "..." : "Suivre"}
                   </button>
                 </div>
-              </motion.form>
+              </Motion.form>
             </div>
           </div>
 
           <AnimatePresence mode="wait">
             {trackingData && (
-              <motion.div
+              <Motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -16 }}
@@ -256,9 +270,12 @@ export default function OrderTracking() {
                       {trackingData.status === "processing" && "Préparation en cours"}
                       {trackingData.status === "shipped" && "Expédiée"}
                       {trackingData.status === "out_for_delivery" && "En livraison"}
+                      {trackingData.status === "delivery_issue" && "Problème de livraison"}
                       {trackingData.status === "delivered" && "Livrée"}
+                      {trackingData.status === "refunded" && "Remboursée"}
                     </div>
                     <p className="text-xs text-neutral-500">{trackingData.location}</p>
+                    {trackingData.note && <p className="mt-1 text-xs text-neutral-500">{trackingData.note}</p>}
                   </div>
                   <div className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 dark:border-neutral-800 dark:bg-neutral-900">
                     <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Estimation</p>
@@ -327,7 +344,9 @@ export default function OrderTracking() {
                       onClick={() => {
                         try {
                           timelineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                        } catch {}
+                        } catch (e) {
+                          void e;
+                        }
                       }}
                       className="inline-flex items-center gap-2 text-sm font-semibold text-[#6aa200] hover:gap-3 transition-all"
                     >
@@ -340,10 +359,10 @@ export default function OrderTracking() {
                     <div
                       className="absolute left-0 top-4 h-1 rounded-full bg-[#6aa200] transition-all"
                       style={{
-                        width: `${(statusIndexFromKey(trackingData.status) / 4) * 100}%`,
+                        width: `${(statusIndexFromKey(trackingData.status) / Math.max(1, steps.length - 1)) * 100}%`,
                       }}
                     />
-                    <div className="grid grid-cols-5 gap-3 relative">
+                    <div className="grid grid-cols-6 gap-3 relative">
                       {steps.map((step, idx) => {
                         const done = idx <= statusIndexFromKey(trackingData.status);
                         const Icon = step.icon;
@@ -383,7 +402,7 @@ export default function OrderTracking() {
                     ))}
                   </div>
                 </div>
-              </motion.div>
+              </Motion.div>
             )}
           </AnimatePresence>
         </div>

@@ -384,7 +384,6 @@ export default function Seller() {
   const applyPartnerDataToForm = useCallback((profile, aggregate) => {
     const step1 = aggregate?.step1 || {};
     const step2 = aggregate?.step2 || {};
-    const step3 = aggregate?.step3 || {};
     const step4 = aggregate?.step4 || {};
     const shop = profile?.shop || {};
 

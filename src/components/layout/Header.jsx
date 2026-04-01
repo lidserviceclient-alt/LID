@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '@/features/theme/theme-provider.jsx';
 import { cn } from '@/utils/cn';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { 
   ShoppingCart, User, Search, ChevronDown, 
   Zap, Sun, Moon, Globe, Menu as MenuIcon, Phone, AlignLeft, X,
@@ -73,19 +73,15 @@ export default function Header() {
     return latest;
   };
 
-  const computeUnread = (products) => {
+  const notifState = useMemo(() => {
     const lastSeen = Math.max(getLastSeenProductsTs(), notifSeenAt);
-    const list = Array.isArray(products) ? products : [];
+    const list = Array.isArray(latestProducts) ? latestProducts : [];
     const fresh = list.filter((p) => {
       const t = p?.dateCreation ? new Date(p.dateCreation).getTime() : 0;
       return Number.isFinite(t) && t > lastSeen;
     });
-    return {
-      unreadCount: fresh.length,
-      products: fresh.slice(0, 8),
-    };
-  };
-  const notifState = useMemo(() => computeUnread(Array.isArray(latestProducts) ? latestProducts : []), [latestProducts, notifSeenAt]);
+    return { unreadCount: fresh.length, products: fresh.slice(0, 8) };
+  }, [latestProducts, notifSeenAt]);
   const notifProducts = notifState.products;
   const notifUnreadCount = notifState.unreadCount;
 
@@ -215,13 +211,12 @@ export default function Header() {
                             </div>
                         </Link>
 
-                        {/* Orders - Detailed */}
-                        <Link to="/returns" className="flex items-center gap-3 group">
+                        <Link to={isAuthenticated ? "/profile?tab=orders" : "/tracking"} className="flex items-center gap-3 group">
                             <div className="p-2.5 rounded-full bg-neutral-50 dark:bg-neutral-900 group-hover:bg-[#6aa200]/10 transition-colors">
                                 <Package size={22} strokeWidth={1.5} className="text-neutral-700 dark:text-neutral-300 group-hover:text-[#6aa200] transition-colors" />
                             </div>
                             <div className="flex flex-col items-start leading-none gap-1">
-                                <span className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">Retours &</span>
+                                <span className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">Mes</span>
                                 <span className="text-sm font-bold text-neutral-900 dark:text-white group-hover:text-[#6aa200] transition-colors">Commandes</span>
                             </div>
                         </Link>
@@ -324,7 +319,7 @@ export default function Header() {
                     {/* Search Dropdown (Floating Card) */}
                     <AnimatePresence>
                         {isSearchOpen && (
-                            <motion.div 
+                            <Motion.div 
                                 initial={{ opacity: 0, scale: 0.95, y: -20, filter: "blur(10px)" }}
                                 animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
                                 exit={{ opacity: 0, scale: 0.95, y: -10, filter: "blur(10px)" }}
@@ -332,7 +327,7 @@ export default function Header() {
                                 className="pointer-events-auto w-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-3xl rounded-[2rem] shadow-2xl border border-neutral-200/50 dark:border-neutral-800/50 overflow-hidden p-2"
                             >
                                 <SearchBar variant="mobile" onSearch={() => setIsSearchOpen(false)} />
-                            </motion.div>
+                            </Motion.div>
                         )}
                     </AnimatePresence>
 
@@ -434,14 +429,14 @@ export default function Header() {
         <AnimatePresence>
           {isNotifOpen && (
             <>
-              <motion.div
+              <Motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsNotifOpen(false)}
                 className="fixed inset-0 bg-neutral-950/30 backdrop-blur-sm z-[120]"
               />
-              <motion.div
+              <Motion.div
                 initial={{ opacity: 0, y: -10, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10, scale: 0.98 }}
@@ -482,7 +477,7 @@ export default function Header() {
                     </div>
                   )}
                 </div>
-              </motion.div>
+              </Motion.div>
             </>
           )}
         </AnimatePresence>
@@ -490,14 +485,14 @@ export default function Header() {
         <AnimatePresence>
             {showOffer && hasFlashSale && (
               <>
-                <motion.div
+                <Motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onClick={() => setShowOffer(false)}
                   className="fixed inset-0 bg-neutral-950/80 backdrop-blur-sm z-[100]"
                 />
-                <motion.div
+                <Motion.div
                   initial={{ opacity: 0, scale: 0.9, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -507,7 +502,7 @@ export default function Header() {
                   <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto pointer-events-auto no-scrollbar">
                     <Offer onClose={() => setShowOffer(false)} />
                   </div>
-                </motion.div>
+                </Motion.div>
               </>
             )}
         </AnimatePresence>

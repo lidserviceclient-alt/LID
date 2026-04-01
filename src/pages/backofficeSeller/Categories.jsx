@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, Tag, Layers, Folder, ChevronRight, ChevronDown, Shirt, Smartphone, Home, Sparkles, Dumbbell, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Papa from 'papaparse';

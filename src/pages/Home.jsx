@@ -1,5 +1,5 @@
 import { motion, MotionConfig } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, ShieldCheck, Zap, Truck, ArrowUpRight } from "lucide-react";
 import Hero from "../components/Hero";
@@ -100,7 +100,6 @@ const BentoCard = ({ title, image_url, count, slug, className, large = false, en
   );
 };
 export default function Home() {
-  const [mobileCategory, setMobileCategory] = useState("");
   const { data: flashSaleProduct } = useFlashSaleProduct(1);
   const hasFlashSale = Boolean(flashSaleProduct);
   const bootstrap = useCatalogBootstrap();
@@ -179,43 +178,9 @@ export default function Home() {
     return list.sort(() => 0.5 - Math.random()).slice(0, 4);
   }, [catalogProducts]);
 
-  const mobileCategoryOptions = useMemo(() => {
-    if (rootCategories.length > 0) {
-      return [{ slug: "", label: "Tous" }, ...rootCategories.slice(0, 8)];
-    }
-    const options = new Map();
-    (normalizedFeaturedProducts.length > 0 ? normalizedFeaturedProducts : catalogProducts).forEach((product) => {
-      const slug = `${product?.categorySlug || ""}`.trim();
-      const label = `${product?.categoryName || ""}`.trim();
-      if (slug && label && !options.has(slug)) {
-        options.set(slug, { slug, label });
-      }
-    });
-    return [{ slug: "", label: "Tous" }, ...Array.from(options.values()).slice(0, 8)];
-  }, [rootCategories, normalizedFeaturedProducts, catalogProducts]);
+  const mobileFeaturedProducts = useMemo(() => normalizedFeaturedProducts.slice(0, 8), [normalizedFeaturedProducts]);
 
-  const filterByMobileCategory = (list) => {
-    if (!mobileCategory) return list;
-    return list.filter((product) => {
-      const slug = `${product?.categorySlug || ""}`.trim();
-      if (slug) return slug === mobileCategory;
-      const name = `${product?.categoryName || ""}`.trim().toLowerCase();
-      const target = `${mobileCategory || ""}`.trim().toLowerCase();
-      return name && target && name === target;
-    });
-  };
-
-  const mobileFeaturedProducts = useMemo(() => {
-    const filtered = normalizedFeaturedProducts.filter((product) => product?.name);
-    return filterByMobileCategory(filtered).slice(0, 8);
-  }, [normalizedFeaturedProducts, mobileCategory]);
-
-  const mobileBestSellers = useMemo(() => {
-    const filtered = normalizedBestSellerProducts.filter((product) => product?.name);
-    const byCategory = filterByMobileCategory(filtered);
-    const slice = byCategory.slice(8, 16);
-    return slice.length > 0 ? slice : filtered.slice(0, 8);
-  }, [normalizedBestSellerProducts, mobileCategory]);
+  const mobileBestSellers = useMemo(() => normalizedBestSellerProducts.slice(0, 8), [normalizedBestSellerProducts]);
 
   const featuredBento = useMemo(() => {
     const resolveCategoryImage = (slug, imageUrl) => {
