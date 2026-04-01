@@ -1,1 +1,0 @@
-import{b as a}from"./index-BXWelDNp.js";const e="/api/v1/backoffice/partners/me/settings";async function s(){return(await a.get(`${e}/collection`))?.data}async function i(t){return(await a.put(e,t))?.data}export{s as g,i as u};

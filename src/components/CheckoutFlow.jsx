@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, CreditCard, Smartphone, User, MapPin, Phone, Mail, ArrowRight, ShieldCheck, Lock, ChevronLeft, Loader2, LocateFixed } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -659,613 +658,638 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
 
   return (
     <AnimatePresence>
-      {isOpen && (
+      {isOpen ? (
         <motion.div
+          key="checkout-overlay"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-stretch sm:items-center justify-center p-0 sm:p-6 overflow-y-auto"
+          transition={{ duration: 0.16, ease: "easeOut" }}
+          className="fixed inset-0 z-[200]"
         >
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute inset-0 bg-neutral-950/70 backdrop-blur-[6px]"
+            aria-label="Fermer le checkout"
+          />
+
           <motion.div
-            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            initial={{ opacity: 0, y: 22, scale: 0.985 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 18, scale: 0.98 }}
-            transition={{ type: "spring", damping: 28, stiffness: 260 }}
-            className="relative w-full min-h-screen sm:min-h-0 sm:h-[calc(100vh-3rem)] max-w-6xl bg-neutral-50 dark:bg-neutral-950 sm:rounded-3xl overflow-hidden border border-white/10 shadow-2xl flex flex-col lg:flex-row"
+            exit={{ opacity: 0, y: 22, scale: 0.985 }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            className="relative mx-auto w-full max-w-6xl min-h-screen sm:min-h-0 sm:h-[calc(100vh-3rem)] sm:mt-6 bg-white dark:bg-neutral-950 sm:rounded-[28px] overflow-hidden border border-white/10 shadow-[0_30px_120px_rgba(0,0,0,0.55)]"
           >
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 z-[210] p-2 rounded-full bg-white/80 dark:bg-white/10 backdrop-blur text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-white/20 transition-colors"
-              aria-label="Fermer"
-            >
-              <X size={20} />
-            </button>
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,121,0,0.12),transparent_52%),radial-gradient(ellipse_at_bottom,rgba(106,162,0,0.10),transparent_55%)] pointer-events-none" />
 
-          {/* LEFT PANEL: Order Summary (Dark/Brand side) */}
-          <div className="w-full lg:w-[42%] bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-white p-6 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden order-1 lg:order-2 shrink-0 min-h-[420px] lg:min-h-0">
-            {/* Background effects */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,121,0,0.22),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(106,162,0,0.18),transparent_55%)] pointer-events-none" />
-            <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/10 blur-[110px] rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-            
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-8 md:mb-12 opacity-80">
-                <ShieldCheck className="text-green-400" />
-                <span className="text-sm font-medium tracking-wide">PAIEMENT SÉCURISÉ 256-BIT SSL</span>
-              </div>
-
-              <div className="space-y-6">
-                 {isCartCheckout ? (
-                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                     {cartItems.map((item, index) => (
-                       <div key={`${item.id}-${index}`} className="flex gap-4 items-center">
-                          <div className="w-16 h-16 bg-white rounded-lg p-1 shadow-md flex items-center justify-center relative flex-shrink-0">
-                           <img
-                             src={resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png"}
-                             alt={item.name}
-                             className="w-full h-full object-contain mix-blend-multiply"
-                             onError={(e) => {
-                               e.currentTarget.onerror = null;
-                               e.currentTarget.src = "/imgs/logo.png";
-                             }}
-                           />
-                            <span className="absolute -top-2 -right-2 w-5 h-5 bg-neutral-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-neutral-900">
-                              {item.quantity}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-sm leading-tight truncate">{item.name}</h4>
-                            <p className="text-neutral-400 text-xs truncate">{item.size} • {item.color}</p>
-                             <p className="text-orange-500 font-bold text-sm">{formatMoney((Number(item?.price) || 0) * (Number(item?.quantity) || 0))} FCFA</p>
-                          </div>
-                       </div>
-                     ))}
-                   </div>
-                 ) : (
-                   <div className="flex gap-6 items-start">
-                      <div className="w-24 h-24 bg-white rounded-xl p-2 shadow-xl flex items-center justify-center relative group">
-                        <img
-                          src={resolveBackendAssetUrl(product?.image || product?.imageUrl) || "/imgs/logo.png"}
-                          alt={product?.name}
-                          className="w-full h-full object-contain mix-blend-multiply"
-                          onError={(e) => {
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src = "/imgs/logo.png";
-                          }}
-                        />
-                        <span className="absolute -top-2 -right-2 w-6 h-6 bg-neutral-500 text-white text-xs font-bold flex items-center justify-center rounded-full border-2 border-neutral-900">
-                          {quantity}
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold leading-tight mb-2">{product?.name}</h3>
-                        <p className="text-neutral-400 text-sm mb-1">Taille: {selectedSize} • Couleur: {selectedColor}</p>
-                         <p className="text-2xl font-bold text-orange-500">{formatMoney(product?.price)} FCFA</p>
-                      </div>
-                   </div>
-                 )}
-
-                  <div className="bg-white/5 rounded-2xl p-6 backdrop-blur-sm border border-white/10 space-y-3">
-                     <div className="flex justify-between text-neutral-300">
-                       <span>Sous-total</span>
-                       <span>{formatMoney(itemsTotal)} FCFA</span>
-                     </div>
-                     <div className="flex justify-between text-neutral-300">
-                       <span>Livraison ({shippingMethodLabel})</span>
-                       {normalizedShippingCost === 0 ? (
-                         <span className="text-green-400 font-bold">GRATUIT</span>
-                       ) : (
-                        <span>{formatMoney(normalizedShippingCost)} FCFA</span>
-                       )}
-                     </div>
-                     {normalizedDiscountAmount > 0 && (
-                       <div className="flex justify-between text-green-400">
-                         <span>Réduction</span>
-                         <span>-{formatMoney(normalizedDiscountAmount)} FCFA</span>
-                       </div>
-                     )}
-                     {normalizedLoyaltyDiscountAmount > 0 && (
-                       <div className="flex justify-between text-green-400">
-                         <span>{loyaltyTier ? `Réduction VIP (${loyaltyTier})` : "Réduction VIP"}</span>
-                         <span>-{formatMoney(normalizedLoyaltyDiscountAmount)} FCFA</span>
-                       </div>
-                     )}
-                     <div className="flex justify-between text-neutral-300">
-                       <span>Dont TVA (18%)</span>
-                       <span>{formatMoney(taxAmount)} FCFA</span>
-                     </div>
-                     <div className="h-px bg-white/10 my-4" />
-                     <div className="flex justify-between text-2xl font-bold">
-                       <span>Total TTC</span>
-                       <span>{formatMoney(finalTotal)} FCFA</span>
-                     </div>
+            <header className="relative z-10 border-b border-neutral-200/70 dark:border-neutral-800/70 bg-white/80 dark:bg-neutral-950/70 backdrop-blur">
+              <div className="px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-orange-600 to-[#6aa200] text-white flex items-center justify-center shadow-sm shrink-0">
+                    <Lock className="h-5 w-5" />
                   </div>
-              </div>
-            </div>
-
-            <div className="relative z-10 mt-8 md:mt-0 text-xs text-neutral-500 flex gap-4">
-              <span>Conditions Générales</span>
-              <span>Politique de Confidentialité</span>
-            </div>
-          </div>
-
-          {/* RIGHT PANEL: Form (Light/Input side) */}
-          <div className="w-full lg:w-[58%] bg-white dark:bg-neutral-950 p-6 sm:p-8 lg:p-10 overflow-y-auto order-2 lg:order-1 relative">
-             <button 
-              onClick={onClose}
-              className="hidden lg:flex absolute top-6 left-6 items-center gap-2 text-neutral-500 hover:text-black dark:hover:text-white transition-colors"
-            >
-              <ChevronLeft size={20} /> Retour à la boutique
-            </button>
-
-            <div className="max-w-xl mx-auto lg:mt-12">
-              {/* Step 3: PROCESSING STATE OVERLAY */}
-              {step === 3 && (
-                 <div className="absolute inset-0 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center text-center p-8">
-                    <div className="w-24 h-24 relative mb-8">
-                       <motion.div 
-                         className="absolute inset-0 border-4 border-neutral-200 dark:border-neutral-800 rounded-full"
-                       />
-                       <motion.div 
-                         className="absolute inset-0 border-4 border-orange-500 rounded-full border-t-transparent"
-                         animate={{ rotate: 360 }}
-                         transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                       />
-                       <div className="absolute inset-0 flex items-center justify-center">
-                          <Lock className="text-orange-500" size={32} />
-                       </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-black tracking-[0.22em] text-neutral-500 dark:text-neutral-400 uppercase">
+                      Checkout sécurisé
                     </div>
-                    
-                    <h3 className="text-2xl font-bold mb-2">
-                      {loadingStep === 1 && "Connexion à la banque..."}
-                      {loadingStep === 2 && "Vérification 3D Secure..."}
-                      {loadingStep === 3 && "Paiement approuvé !"}
-                    </h3>
-                    <p className="text-neutral-500 max-w-sm mx-auto">
-                      Veuillez ne pas fermer cette fenêtre. Nous sécurisons votre transaction.
-                    </p>
-                 </div>
-              )}
+                    <div className="text-lg sm:text-xl font-black text-neutral-900 dark:text-white truncate">
+                      {step === 1 ? "Livraison" : step === 2 ? "Paiement" : step === 3 ? "Traitement" : "Confirmation"}
+                    </div>
+                  </div>
+                </div>
 
-              {/* Step 4: SUCCESS STATE */}
-              {step === 4 ? (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="text-center py-12"
-                >
-                  <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Check className="w-12 h-12 text-green-600 dark:text-green-400" strokeWidth={3} />
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-2 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/50 px-3 py-1 text-xs font-bold text-neutral-600 dark:text-neutral-300">
+                    <ShieldCheck className="h-4 w-4 text-[#6aa200]" />
+                    256‑bit SSL
                   </div>
-                  <h2 className="text-3xl font-black mb-4">Commande Confirmée !</h2>
-                  <p className="text-neutral-600 dark:text-neutral-400 mb-8 max-w-md mx-auto">
-                    Merci {formData.firstName}. Votre commande a été acceptée et est en cours de préparation. Un email de confirmation a été envoyé à {formData.email}.
-                  </p>
-                  <div className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 mb-8 text-left">
-                     <div className="flex justify-between items-center mb-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
-                        <span className="text-neutral-500">N° de commande</span>
-                        <span className="font-mono font-bold">LID-{orderNumber}</span>
-                     </div>
-                     <div className="flex justify-between items-center">
-                        <span className="text-neutral-500">Date estimée</span>
-                        <span className="font-bold">Demain, 5 Janvier</span>
-                     </div>
-                  </div>
-                  <button 
+                  <button
                     onClick={onClose}
-                    className="px-8 py-4 bg-black dark:bg-white text-white dark:text-black rounded-full font-bold hover:scale-105 transition-transform"
+                    className="h-11 w-11 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition flex items-center justify-center"
+                    aria-label="Fermer"
                   >
-                    Continuer mes achats
+                    <X className="h-5 w-5" />
                   </button>
-                </motion.div>
-              ) : (
-                /* FORM STEPS */
-                <>
-                  <div className="flex flex-col gap-3 mb-7">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-orange-600 to-[#6aa200] text-white flex items-center justify-center shadow-sm font-black">
-                          {step > 1 ? <Check size={18} /> : "1"}
-                        </div>
-                        <div className="space-y-0.5">
-                          <div className="text-[11px] font-bold tracking-[0.18em] text-neutral-500 dark:text-neutral-400 uppercase">
-                            Checkout
-                          </div>
-                          <div className="text-lg font-black text-neutral-900 dark:text-white leading-tight">
-                            Livraison & paiement
-                          </div>
+                </div>
+              </div>
+
+              <div className="px-4 sm:px-6 pb-4">
+                <div className="flex items-center justify-between text-xs font-bold text-neutral-500 dark:text-neutral-400">
+                  <span className={step >= 1 ? "text-neutral-900 dark:text-white" : ""}>Livraison</span>
+                  <span className={step >= 2 ? "text-neutral-900 dark:text-white" : ""}>Paiement</span>
+                </div>
+                <div className="mt-2 h-2 w-full rounded-full bg-neutral-100 dark:bg-neutral-900 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${step <= 1 ? 50 : 100}%` }}
+                    transition={{ duration: 0.35, ease: "easeOut" }}
+                    className="h-full bg-gradient-to-r from-orange-600 to-[#6aa200]"
+                  />
+                </div>
+              </div>
+            </header>
+
+            <div className="relative z-10 grid lg:grid-cols-12 h-[calc(100vh-7.5rem)] sm:h-[calc(100vh-3rem-7.5rem)]">
+              <main className="lg:col-span-7 order-1 px-4 sm:px-6 py-6 overflow-y-auto">
+                <div className="max-w-xl mx-auto relative">
+                  {step === 3 ? (
+                    <div className="absolute inset-0 z-50 rounded-3xl bg-white/90 dark:bg-neutral-950/85 backdrop-blur flex flex-col items-center justify-center text-center p-6">
+                      <div className="relative h-20 w-20 mb-6">
+                        <motion.div className="absolute inset-0 rounded-full border-4 border-neutral-200 dark:border-neutral-800" />
+                        <motion.div
+                          className="absolute inset-0 rounded-full border-4 border-orange-500 border-t-transparent"
+                          animate={{ rotate: 360 }}
+                          transition={{ repeat: Infinity, duration: 0.95, ease: "linear" }}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Lock className="h-7 w-7 text-orange-600" />
                         </div>
                       </div>
-                      <div className="hidden sm:flex items-center gap-2">
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold border transition-colors",
-                            step === 1
-                              ? "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/10 dark:text-orange-200 dark:border-orange-900/50"
-                              : "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/10 dark:text-green-200 dark:border-green-900/50"
-                          )}
-                        >
-                          {step > 1 ? <Check size={14} /> : null}
-                          Livraison
-                        </span>
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold border transition-colors",
-                            step === 2
-                              ? "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/10 dark:text-orange-200 dark:border-orange-900/50"
-                              : "bg-neutral-50 text-neutral-500 border-neutral-200 dark:bg-neutral-900 dark:text-neutral-400 dark:border-neutral-800"
-                          )}
-                        >
-                          Paiement
-                        </span>
+                      <div className="text-xl font-black text-neutral-900 dark:text-white">
+                        {loadingStep === 1 ? "Connexion…" : loadingStep === 2 ? "Vérification…" : "Paiement approuvé"}
+                      </div>
+                      <div className="mt-2 text-sm text-neutral-500 dark:text-neutral-400 max-w-sm">
+                        Ne ferme pas cette fenêtre, on sécurise ta transaction.
                       </div>
                     </div>
-                    <div className="sm:hidden flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold border transition-colors",
-                          step === 1
-                            ? "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/10 dark:text-orange-200 dark:border-orange-900/50"
-                            : "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/10 dark:text-green-200 dark:border-green-900/50"
-                        )}
-                      >
-                        {step > 1 ? <Check size={14} /> : null}
-                        Livraison
-                      </span>
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold border transition-colors",
-                          step === 2
-                            ? "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/10 dark:text-orange-200 dark:border-orange-900/50"
-                            : "bg-neutral-50 text-neutral-500 border-neutral-200 dark:bg-neutral-900 dark:text-neutral-400 dark:border-neutral-800"
-                        )}
-                      >
-                        Paiement
-                      </span>
-                    </div>
-                  </div>
+                  ) : null}
 
-                  <AnimatePresence mode="wait">
-                    {step === 1 && (
-                      <motion.form
-                        key="step1"
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 20 }}
-                        onSubmit={handleSubmitInfo}
-                        className="space-y-6"
-                      >
-                        <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-5 sm:p-6">
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <h1 className="text-2xl sm:text-3xl font-black text-neutral-900 dark:text-white">
-                                Détails de livraison
-                              </h1>
-                              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                                Où devons-nous envoyer votre commande ?
-                              </p>
-                            </div>
-                            <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-3 py-2 text-xs font-bold text-neutral-600 dark:text-neutral-300">
-                              <ShieldCheck className="h-4 w-4 text-[#6aa200]" />
-                              Données sécurisées
-                            </div>
-                          </div>
-
-                          <div className="mt-6 grid gap-4">
-                            <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-4">
-                              <div className="flex items-center gap-2 text-sm font-black text-neutral-900 dark:text-white">
-                                <User className="h-4 w-4 text-orange-600" />
-                                Informations du compte
-                              </div>
-                              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                                <div className="space-y-1.5">
-                                  <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
-                                    Prénom
-                                  </label>
-                                  <input
-                                    required
-                                    name="firstName"
-                                    value={formData.firstName}
-                                    readOnly
-                                    className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-950/60 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none opacity-80 cursor-not-allowed"
-                                    placeholder="Votre prénom"
-                                  />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
-                                    Nom
-                                  </label>
-                                  <input
-                                    required
-                                    name="lastName"
-                                    value={formData.lastName}
-                                    readOnly
-                                    className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-950/60 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none opacity-80 cursor-not-allowed"
-                                    placeholder="Votre nom"
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="mt-4 space-y-1.5">
-                                <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
-                                  Email
-                                </label>
-                                <div className="relative">
-                                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-                                  <input
-                                    required
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    readOnly
-                                    className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-950/60 pl-11 pr-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none opacity-80 cursor-not-allowed"
-                                    placeholder="exemple@email.com"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-4">
-                              <div className="flex items-center gap-2 text-sm font-black text-neutral-900 dark:text-white">
-                                <MapPin className="h-4 w-4 text-orange-600" />
-                                Adresse de livraison
-                              </div>
-
-                              <div className="mt-4 space-y-4">
-                                <div className="space-y-1.5">
-                                  <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
-                                    Téléphone
-                                  </label>
-                                  <div className="relative">
-                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-                                    <input
-                                      required
-                                      type="tel"
-                                      name="phone"
-                                      value={formData.phone}
-                                      onChange={handleInputChange}
-                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 pl-11 pr-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
-                                      placeholder="+2250102030405"
-                                    />
-                                  </div>
-                                </div>
-
-                                {loadingAddresses ? (
-                                  <div className="text-sm text-neutral-500 dark:text-neutral-400">
-                                    Chargement des adresses...
-                                  </div>
-                                ) : savedAddresses.length > 0 ? (
-                                  <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
-                                      Adresse sauvegardée
-                                    </label>
-                                    <select
-                                      value={selectedAddressId}
-                                      onChange={handleAddressSelect}
-                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
-                                    >
-                                      <option value="">Nouvelle adresse</option>
-                                      {savedAddresses.map((addr) => (
-                                        <option key={addr.id} value={addr.id}>
-                                          {[addr.type, addr.addressLine, addr.city].filter(Boolean).join(' · ')}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                ) : null}
-
-                                <div className="space-y-1.5">
-                                  <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
-                                    Adresse
-                                  </label>
-                                  <div className="relative">
-                                    <input
-                                      required
-                                      name="address"
-                                      value={formData.address}
-                                      onChange={handleInputChange}
-                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 pr-12 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
-                                      placeholder="Numéro et nom de rue"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={setAddressFromPosition}
-                                      disabled={isResolvingCurrentAddress}
-                                      className="absolute right-2.5 top-1/2 -translate-y-1/2 h-10 w-10 rounded-2xl bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-200 hover:border-orange-300 hover:text-orange-600 transition disabled:opacity-60"
-                                      aria-label="Utiliser ma position"
-                                    >
-                                      {isResolvingCurrentAddress ? <Loader2 size={18} className="animate-spin" /> : <LocateFixed size={18} />}
-                                    </button>
-                                  </div>
-                                </div>
-
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                  <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
-                                      Ville
-                                    </label>
-                                    <input
-                                      required
-                                      name="city"
-                                      value={formData.city}
-                                      onChange={handleInputChange}
-                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
-                                      placeholder="Ville"
-                                    />
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
-                                      Code postal
-                                    </label>
-                                    <input
-                                      required
-                                      name="zip"
-                                      value={formData.zip}
-                                      onChange={handleInputChange}
-                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
-                                      placeholder="00000"
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <button
-                            type="submit"
-                            className="w-full mt-6 rounded-2xl bg-gradient-to-r from-orange-600 to-[#6aa200] text-white py-4 font-black text-base shadow-lg shadow-orange-600/15 hover:shadow-orange-600/25 transition flex items-center justify-center gap-2 active:scale-[0.99]"
-                          >
-                            Continuer vers le paiement <ArrowRight size={20} />
-                          </button>
+                  {step === 4 ? (
+                    <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="py-4">
+                      <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-6 sm:p-8 text-center">
+                        <div className="mx-auto h-16 w-16 rounded-2xl bg-green-500/15 border border-green-500/25 flex items-center justify-center">
+                          <Check className="h-9 w-9 text-green-600 dark:text-green-400" strokeWidth={3} />
                         </div>
-                      </motion.form>
-                    )}
+                        <div className="mt-5 text-2xl sm:text-3xl font-black text-neutral-900 dark:text-white">
+                          Commande confirmée
+                        </div>
+                        <div className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                          Un email de confirmation a été envoyé à <span className="font-bold">{formData.email}</span>.
+                        </div>
 
-                    {step === 2 && (
-                      <motion.form
-                        key="step2"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        onSubmit={handlePayment}
-                        className="space-y-6"
-                      >
-                         <h1 className="text-3xl font-black mb-2">Paiement</h1>
-                         <p className="text-neutral-500 mb-8">Toutes les transactions sont sécurisées et cryptées.</p>
+                        <div className="mt-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-5 text-left">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-xs font-bold tracking-widest uppercase text-neutral-500 dark:text-neutral-400">
+                              Numéro de commande
+                            </div>
+                            <div className="font-mono font-black text-neutral-900 dark:text-white">LID-{orderNumber}</div>
+                          </div>
+                        </div>
 
-                         {/* Payment Method Selector */}
-                         <div className="flex gap-4 p-1 bg-neutral-100 dark:bg-neutral-900 rounded-xl mb-8">
-                            <button
-                              type="button"
-                              onClick={() => setFormData(p => ({...p, paymentMethod: 'card'}))}
-                              className={cn("flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all", formData.paymentMethod === 'card' ? "bg-white dark:bg-neutral-800 shadow-sm text-black dark:text-white" : "text-neutral-500")}
-                            >
-                              <CreditCard size={18} /> Carte Bancaire
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setFormData(p => ({...p, paymentMethod: 'mobile'}))}
-                              className={cn("flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all", formData.paymentMethod === 'mobile' ? "bg-white dark:bg-neutral-800 shadow-sm text-black dark:text-white" : "text-neutral-500")}
-                            >
-                              <Smartphone size={18} /> Mobile Money
-                            </button>
-                         </div>
+                        <button
+                          onClick={onClose}
+                          className="mt-6 w-full rounded-2xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 py-4 font-black hover:opacity-95 transition"
+                        >
+                          Continuer mes achats
+                        </button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <AnimatePresence mode="wait">
+                      {step === 1 ? (
+                        <motion.form
+                          key="delivery"
+                          initial={{ opacity: 0, x: -16 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 16 }}
+                          onSubmit={handleSubmitInfo}
+                          className="space-y-5"
+                        >
+                          <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-5 sm:p-6">
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <div className="text-[11px] font-black tracking-[0.22em] uppercase text-neutral-500 dark:text-neutral-400">
+                                  Étape 1/2
+                                </div>
+                                <h1 className="mt-1 text-2xl sm:text-3xl font-black text-neutral-900 dark:text-white">
+                                  Livraison
+                                </h1>
+                                <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                                  Adresse et contact pour la réception.
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={onClose}
+                                className="hidden sm:inline-flex items-center gap-2 text-sm font-bold text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition"
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                                Retour
+                              </button>
+                            </div>
 
-                         {formData.paymentMethod === 'card' ? (
-                           <div className="space-y-6">
-                              <CardPreview
-                                number={formData.cardNumber}
-                                expiry={formData.cardExpiry}
-                                cvc={formData.cardCvc}
-                                name={formData.cardName}
-                                focus={cardFocus}
-                                supportPhone={supportPhone}
-                              />
-
-                              <div className="space-y-4">
-                                <div className="group">
-                                  <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block">Numéro de carte</label>
-                                  <div className="relative">
-                                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
-                                    <input 
-                                      required 
-                                      name="cardNumber"
-                                      value={formData.cardNumber}
-                                      onChange={handleInputChange}
-                                      maxLength={19}
-                                      onFocus={() => setCardFocus('number')}
-                                      className="w-full pl-10 p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none font-mono text-lg" 
-                                      placeholder="0000 0000 0000 0000" 
+                            <div className="mt-6 grid gap-4">
+                              <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-4">
+                                <div className="flex items-center gap-2 text-sm font-black text-neutral-900 dark:text-white">
+                                  <User className="h-4 w-4 text-orange-600" />
+                                  Compte
+                                </div>
+                                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-black tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                      Prénom
+                                    </label>
+                                    <input
+                                      required
+                                      name="firstName"
+                                      value={formData.firstName}
+                                      readOnly
+                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-950/60 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none opacity-80 cursor-not-allowed"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-black tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                      Nom
+                                    </label>
+                                    <input
+                                      required
+                                      name="lastName"
+                                      value={formData.lastName}
+                                      readOnly
+                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-950/60 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none opacity-80 cursor-not-allowed"
                                     />
                                   </div>
                                 </div>
+                                <div className="mt-4 space-y-1.5">
+                                  <label className="text-[11px] font-black tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                    Email
+                                  </label>
+                                  <div className="relative">
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                                    <input
+                                      required
+                                      type="email"
+                                      name="email"
+                                      value={formData.email}
+                                      readOnly
+                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-950/60 pl-11 pr-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none opacity-80 cursor-not-allowed"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                   <div className="group">
-                                      <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block">Expiration</label>
-                                      <input 
-                                        required 
+                              <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-4">
+                                <div className="flex items-center gap-2 text-sm font-black text-neutral-900 dark:text-white">
+                                  <MapPin className="h-4 w-4 text-orange-600" />
+                                  Adresse de livraison
+                                </div>
+
+                                <div className="mt-4 space-y-4">
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-black tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                      Téléphone
+                                    </label>
+                                    <div className="relative">
+                                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                                      <input
+                                        required
+                                        type="tel"
+                                        name="phone"
+                                        value={formData.phone}
+                                        onChange={handleInputChange}
+                                        className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 pl-11 pr-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                        placeholder="+2250102030405"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {loadingAddresses ? (
+                                    <div className="text-sm text-neutral-500 dark:text-neutral-400">Chargement des adresses…</div>
+                                  ) : savedAddresses.length > 0 ? (
+                                    <div className="space-y-1.5">
+                                      <label className="text-[11px] font-black tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                        Adresse sauvegardée
+                                      </label>
+                                      <select
+                                        value={selectedAddressId}
+                                        onChange={handleAddressSelect}
+                                        className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                      >
+                                        <option value="">Nouvelle adresse</option>
+                                        {savedAddresses.map((addr) => (
+                                          <option key={addr.id} value={addr.id}>
+                                            {[addr.type, addr.addressLine, addr.city].filter(Boolean).join(' · ')}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  ) : null}
+
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-black tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                      Adresse
+                                    </label>
+                                    <div className="relative">
+                                      <input
+                                        required
+                                        name="address"
+                                        value={formData.address}
+                                        onChange={handleInputChange}
+                                        className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 pr-12 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                        placeholder="Numéro et nom de rue"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={setAddressFromPosition}
+                                        disabled={isResolvingCurrentAddress}
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 h-10 w-10 rounded-2xl bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-200 hover:border-orange-300 hover:text-orange-600 transition disabled:opacity-60"
+                                        aria-label="Utiliser ma position"
+                                      >
+                                        {isResolvingCurrentAddress ? <Loader2 size={18} className="animate-spin" /> : <LocateFixed size={18} />}
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="space-y-1.5">
+                                      <label className="text-[11px] font-black tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                        Ville
+                                      </label>
+                                      <input
+                                        required
+                                        name="city"
+                                        value={formData.city}
+                                        onChange={handleInputChange}
+                                        className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                        placeholder="Ville"
+                                      />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <label className="text-[11px] font-black tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                        Code postal
+                                      </label>
+                                      <input
+                                        required
+                                        name="zip"
+                                        value={formData.zip}
+                                        onChange={handleInputChange}
+                                        className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                        placeholder="00000"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="submit"
+                              className="mt-6 w-full rounded-2xl bg-gradient-to-r from-orange-600 to-[#6aa200] text-white py-4 font-black shadow-lg shadow-orange-600/15 hover:shadow-orange-600/25 transition flex items-center justify-center gap-2 active:scale-[0.99]"
+                            >
+                              Continuer <ArrowRight size={20} />
+                            </button>
+                          </div>
+                        </motion.form>
+                      ) : (
+                        <motion.form
+                          key="payment"
+                          initial={{ opacity: 0, x: 16 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -16 }}
+                          onSubmit={handlePayment}
+                          className="space-y-5"
+                        >
+                          <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-5 sm:p-6">
+                            <div className="text-[11px] font-black tracking-[0.22em] uppercase text-neutral-500 dark:text-neutral-400">
+                              Étape 2/2
+                            </div>
+                            <h1 className="mt-1 text-2xl sm:text-3xl font-black text-neutral-900 dark:text-white">
+                              Paiement
+                            </h1>
+                            <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                              Transactions sécurisées et cryptées.
+                            </p>
+
+                            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                              <button
+                                type="button"
+                                onClick={() => setFormData((p) => ({ ...p, paymentMethod: 'card' }))}
+                                className={cn(
+                                  "rounded-2xl border p-4 text-left transition",
+                                  formData.paymentMethod === 'card'
+                                    ? "border-orange-500 bg-orange-50 dark:bg-orange-900/10"
+                                    : "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700"
+                                )}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className={cn("h-10 w-10 rounded-2xl flex items-center justify-center", formData.paymentMethod === 'card' ? "bg-orange-600 text-white" : "bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-200")}>
+                                    <CreditCard className="h-5 w-5" />
+                                  </div>
+                                  <div>
+                                    <div className="text-sm font-black text-neutral-900 dark:text-white">Carte</div>
+                                    <div className="text-xs text-neutral-500 dark:text-neutral-400">Visa, Mastercard…</div>
+                                  </div>
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setFormData((p) => ({ ...p, paymentMethod: 'mobile' }))}
+                                className={cn(
+                                  "rounded-2xl border p-4 text-left transition",
+                                  formData.paymentMethod === 'mobile'
+                                    ? "border-orange-500 bg-orange-50 dark:bg-orange-900/10"
+                                    : "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700"
+                                )}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className={cn("h-10 w-10 rounded-2xl flex items-center justify-center", formData.paymentMethod === 'mobile' ? "bg-orange-600 text-white" : "bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-200")}>
+                                    <Smartphone className="h-5 w-5" />
+                                  </div>
+                                  <div>
+                                    <div className="text-sm font-black text-neutral-900 dark:text-white">Mobile Money</div>
+                                    <div className="text-xs text-neutral-500 dark:text-neutral-400">Validation sur téléphone</div>
+                                  </div>
+                                </div>
+                              </button>
+                            </div>
+
+                            {formData.paymentMethod === 'card' ? (
+                              <div className="mt-6 space-y-5">
+                                <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-4 sm:p-5">
+                                  <CardPreview
+                                    number={formData.cardNumber}
+                                    expiry={formData.cardExpiry}
+                                    cvc={formData.cardCvc}
+                                    name={formData.cardName}
+                                    focus={cardFocus}
+                                    supportPhone={supportPhone}
+                                  />
+                                </div>
+
+                                <div className="grid gap-4">
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-black tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                      Numéro de carte
+                                    </label>
+                                    <div className="relative">
+                                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                                      <input
+                                        required
+                                        name="cardNumber"
+                                        value={formData.cardNumber}
+                                        onChange={handleInputChange}
+                                        maxLength={19}
+                                        onFocus={() => setCardFocus('number')}
+                                        className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 pl-11 pr-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                        placeholder="0000 0000 0000 0000"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="space-y-1.5">
+                                      <label className="text-[11px] font-black tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                        Expiration
+                                      </label>
+                                      <input
+                                        required
                                         name="cardExpiry"
                                         value={formData.cardExpiry}
                                         onChange={handleInputChange}
                                         maxLength={5}
                                         onFocus={() => setCardFocus('expiry')}
-                                        className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none font-mono text-center text-lg" 
-                                        placeholder="MM/YY" 
+                                        className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                        placeholder="MM/YY"
                                       />
-                                   </div>
-                                   <div className="group">
-                                      <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block">CVC</label>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <label className="text-[11px] font-black tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                        CVC
+                                      </label>
                                       <div className="relative">
-                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
-                                        <input 
-                                          required 
+                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                                        <input
+                                          required
                                           name="cardCvc"
                                           value={formData.cardCvc}
                                           onChange={handleInputChange}
                                           maxLength={3}
                                           onFocus={() => setCardFocus('cvc')}
-                                          className="w-full pl-10 p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none font-mono text-center text-lg" 
-                                          placeholder="123" 
+                                          className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 pl-11 pr-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                          placeholder="123"
                                         />
                                       </div>
-                                   </div>
-                                </div>
+                                    </div>
+                                  </div>
 
-                                <div className="group">
-                                   <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block">Nom sur la carte</label>
-                                   <input 
-                                      required 
+                                  <div className="space-y-1.5">
+                                    <label className="text-[11px] font-black tracking-widest text-neutral-500 dark:text-neutral-400 uppercase">
+                                      Nom sur la carte
+                                    </label>
+                                    <input
+                                      required
                                       name="cardName"
                                       value={formData.cardName}
                                       onChange={handleInputChange}
                                       onFocus={() => setCardFocus('name')}
-                                      className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none uppercase font-medium" 
-                                      placeholder="NOM PRENOM" 
-                                   />
+                                      className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition uppercase"
+                                      placeholder="NOM PRÉNOM"
+                                    />
+                                  </div>
                                 </div>
                               </div>
-                           </div>
-                         ) : (
-                           <div className="bg-neutral-50 dark:bg-neutral-900 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 text-center py-12">
-                              <Smartphone className="w-12 h-12 mx-auto text-neutral-400 mb-4" />
-                              <h3 className="font-bold mb-2">Paiement Mobile</h3>
-                              <p className="text-sm text-neutral-500 mb-6">Un message de validation sera envoyé sur votre téléphone après confirmation.</p>
-                              <div className="max-w-xs mx-auto">
-                                 <input 
-                                   required
-                                   type="tel"
-                                   name="mobilePhone"
-                                   value={formData.mobilePhone}
-                                   onChange={handleInputChange}
-                                   placeholder="07 00 00 00 00"
-                                   className="w-full p-4 text-center text-xl font-bold tracking-wider bg-white dark:bg-black border-2 border-neutral-200 dark:border-neutral-800 rounded-xl outline-none focus:border-orange-500"
-                                 />
+                            ) : (
+                              <div className="mt-6 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-6 text-center">
+                                <div className="mx-auto h-12 w-12 rounded-2xl bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-200">
+                                  <Smartphone className="h-6 w-6" />
+                                </div>
+                                <div className="mt-4 text-lg font-black text-neutral-900 dark:text-white">
+                                  Validation sur téléphone
+                                </div>
+                                <div className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                                  Tu recevras une demande de confirmation après avoir cliqué sur payer.
+                                </div>
+                                <div className="mt-5 max-w-xs mx-auto">
+                                  <input
+                                    required
+                                    type="tel"
+                                    name="mobilePhone"
+                                    value={formData.mobilePhone}
+                                    onChange={handleInputChange}
+                                    placeholder="07 00 00 00 00"
+                                    className="w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 py-4 text-center text-lg font-black text-neutral-900 dark:text-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/10 transition"
+                                  />
+                                </div>
                               </div>
-                           </div>
-                         )}
+                            )}
 
-                         <button type="submit" className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2 mt-8 shadow-lg shadow-orange-500/20">
-                           <Lock size={20} /> Payer {Number(finalTotal).toLocaleString()} FCFA
-                         </button>
-                         
-                         <button 
-                           type="button" 
-                           onClick={() => setStep(1)}
-                           className="w-full py-3 text-sm font-medium text-neutral-500 hover:text-black dark:hover:text-white transition-colors"
-                         >
-                           Retour aux informations
-                         </button>
-                      </motion.form>
-                    )}
-                  </AnimatePresence>
-                </>
-              )}
+                            <button
+                              type="submit"
+                              className="mt-6 w-full rounded-2xl bg-neutral-900 hover:bg-black dark:bg-white dark:hover:opacity-95 text-white dark:text-neutral-900 py-4 font-black shadow-lg shadow-black/10 transition flex items-center justify-center gap-2"
+                            >
+                              <Lock size={18} /> Payer {formatMoney(finalTotal)} FCFA
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setStep(1)}
+                              className="mt-3 w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 py-3 text-sm font-bold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition"
+                            >
+                              Retour à la livraison
+                            </button>
+                          </div>
+                        </motion.form>
+                      )}
+                    </AnimatePresence>
+                  )}
+                </div>
+              </main>
+
+              <aside className="lg:col-span-5 order-2 border-t lg:border-t-0 lg:border-l border-neutral-200/70 dark:border-neutral-800/70 bg-neutral-50/70 dark:bg-neutral-900/35 px-4 sm:px-6 py-6 overflow-y-auto">
+                <div className="max-w-xl mx-auto space-y-4">
+                  <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-black text-neutral-900 dark:text-white">Récapitulatif</div>
+                      <div className="text-xs font-bold text-neutral-500 dark:text-neutral-400">
+                        {isCartCheckout ? `${cartItems.length} article(s)` : `${normalizedQuantity} article(s)`}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-3 max-h-[240px] overflow-y-auto pr-1">
+                      {isCartCheckout ? (
+                        cartItems.map((item, idx) => (
+                          <div key={`${item?.id}-${idx}`} className="flex items-center gap-3">
+                            <div className="relative h-14 w-14 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center overflow-hidden shrink-0">
+                              <img
+                                src={resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png"}
+                                alt={item?.name || ""}
+                                className="h-full w-full object-contain p-2 mix-blend-multiply dark:mix-blend-normal"
+                                onError={(e) => {
+                                  e.currentTarget.onerror = null;
+                                  e.currentTarget.src = "/imgs/logo.png";
+                                }}
+                              />
+                              <div className="absolute -top-2 -right-2 h-6 min-w-6 px-1 rounded-full bg-neutral-900 text-white text-[11px] font-black flex items-center justify-center border-2 border-white dark:border-neutral-950">
+                                {item?.quantity}
+                              </div>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-bold text-sm text-neutral-900 dark:text-white truncate">{item?.name || "Produit"}</div>
+                              <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{[item?.size, item?.color].filter(Boolean).join(" • ")}</div>
+                            </div>
+                            <div className="text-sm font-black text-neutral-900 dark:text-white">
+                              {formatMoney((Number(item?.price) || 0) * (Number(item?.quantity) || 0))} FCFA
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <div className="relative h-14 w-14 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center overflow-hidden shrink-0">
+                            <img
+                              src={resolveBackendAssetUrl(product?.image || product?.imageUrl) || "/imgs/logo.png"}
+                              alt={product?.name || ""}
+                              className="h-full w-full object-contain p-2 mix-blend-multiply dark:mix-blend-normal"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = "/imgs/logo.png";
+                              }}
+                            />
+                            <div className="absolute -top-2 -right-2 h-6 min-w-6 px-1 rounded-full bg-neutral-900 text-white text-[11px] font-black flex items-center justify-center border-2 border-white dark:border-neutral-950">
+                              {normalizedQuantity}
+                            </div>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-sm text-neutral-900 dark:text-white truncate">{product?.name || "Produit"}</div>
+                            <div className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{[selectedSize, selectedColor].filter(Boolean).join(" • ")}</div>
+                          </div>
+                          <div className="text-sm font-black text-neutral-900 dark:text-white">
+                            {formatMoney(itemsTotal)} FCFA
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-5">
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-300">
+                        <span>Sous-total</span>
+                        <span className="font-bold">{formatMoney(itemsTotal)} FCFA</span>
+                      </div>
+                      <div className="flex items-center justify-between text-neutral-600 dark:text-neutral-300">
+                        <span>Livraison ({shippingMethodLabel})</span>
+                        <span className="font-bold">{normalizedShippingCost === 0 ? "Gratuit" : `${formatMoney(normalizedShippingCost)} FCFA`}</span>
+                      </div>
+                      {normalizedDiscountAmount > 0 ? (
+                        <div className="flex items-center justify-between text-green-700 dark:text-green-400">
+                          <span>Réduction</span>
+                          <span className="font-bold">-{formatMoney(normalizedDiscountAmount)} FCFA</span>
+                        </div>
+                      ) : null}
+                      {normalizedLoyaltyDiscountAmount > 0 ? (
+                        <div className="flex items-center justify-between text-green-700 dark:text-green-400">
+                          <span>{loyaltyTier ? `VIP (${loyaltyTier})` : "VIP"}</span>
+                          <span className="font-bold">-{formatMoney(normalizedLoyaltyDiscountAmount)} FCFA</span>
+                        </div>
+                      ) : null}
+                      <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400 text-xs">
+                        <span>Dont TVA (18%)</span>
+                        <span className="font-bold">{formatMoney(taxAmount)} FCFA</span>
+                      </div>
+                      <div className="pt-4 mt-4 border-t border-neutral-200/70 dark:border-neutral-800/70 flex items-end justify-between">
+                        <span className="text-base font-black text-neutral-900 dark:text-white">Total</span>
+                        <span className="text-xl font-black text-neutral-900 dark:text-white">{formatMoney(finalTotal)} FCFA</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 p-5">
+                    <div className="flex items-start gap-3">
+                      <ShieldCheck className="h-5 w-5 text-[#6aa200] mt-0.5" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-black text-neutral-900 dark:text-white">Paiement sécurisé</div>
+                        <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                          Données chiffrées, redirection vers la page de paiement si nécessaire.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </aside>
             </div>
-          </div>
+          </motion.div>
         </motion.div>
-        </motion.div>
-      )}
+      ) : null}
     </AnimatePresence>
   );
 }
