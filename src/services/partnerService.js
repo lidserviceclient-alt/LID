@@ -48,7 +48,6 @@ export const registerPartnerStep4 = async (dto) => {
     const { data } = await api.post('/api/v1/partners/register/step-4', dto);
     return data;
 };
-
 export const getPartnerRegistrationAggregate = async () => {
     const { data } = await api.get('/api/v1/partners/register/aggregate');
     return data;

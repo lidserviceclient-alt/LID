@@ -28,7 +28,7 @@ export const loginWithGoogle = async (idToken) => {
 };
 
 export const loginPartnerLocal = async ({ email, password }) => {
-  const { data } = await api.post("/api/v1/auth/login/local/partner", { email, password });
+  const { data } = await api.post("/api/v1/auth/login/local/partner", { email, password }, { timeout: 30000 });
   if (data?.accessToken) {
     setAccessToken(data.accessToken);
   }
@@ -38,7 +38,6 @@ export const loginPartnerLocal = async ({ email, password }) => {
 export const storeAccessToken = (token) => {
   setAccessToken(token);
 };
-
 /**
  * Déconnecte l'utilisateur : appel API pour invalider la session serveur
  * puis nettoyage du token local.
