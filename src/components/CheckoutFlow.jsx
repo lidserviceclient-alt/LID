@@ -365,6 +365,26 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
   const taxAmount = Math.round(finalTotal - (finalTotal / (1 + TAX_RATE)));
 
   useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const body = document.body;
+    if (!body) return;
+    const prevOverflow = body.style.overflow;
+
+    if (isOpen) {
+      body.classList.add('checkout-open');
+      body.style.overflow = 'hidden';
+    } else {
+      body.classList.remove('checkout-open');
+      body.style.overflow = prevOverflow;
+    }
+
+    return () => {
+      body.classList.remove('checkout-open');
+      body.style.overflow = prevOverflow;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
     if (!isOpen) return;
     const payload = getCurrentUserPayload();
     if (!payload?.sub) return;
@@ -641,24 +661,32 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={{ opacity: 0, y: "100%" }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: "100%" }}
-          transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="fixed inset-0 z-[200] bg-neutral-50 dark:bg-neutral-950 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-stretch sm:items-center justify-center p-0 sm:p-6 overflow-y-auto"
         >
-          {/* Close Button Mobile */}
-          <button 
-            onClick={onClose}
-            className="md:hidden fixed top-4 right-4 z-[210] p-2 bg-black/10 dark:bg-white/10 backdrop-blur-md rounded-full text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+          <motion.div
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.98 }}
+            transition={{ type: "spring", damping: 28, stiffness: 260 }}
+            className="relative w-full min-h-screen sm:min-h-0 sm:h-[calc(100vh-3rem)] max-w-6xl bg-neutral-50 dark:bg-neutral-950 sm:rounded-3xl overflow-hidden border border-white/10 shadow-2xl flex flex-col lg:flex-row"
           >
-            <X size={24} />
-          </button>
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 z-[210] p-2 rounded-full bg-white/80 dark:bg-white/10 backdrop-blur text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-white/20 transition-colors"
+              aria-label="Fermer"
+            >
+              <X size={20} />
+            </button>
 
           {/* LEFT PANEL: Order Summary (Dark/Brand side) */}
-          <div className="w-full md:w-[45%] lg:w-[40%] bg-neutral-900 text-white p-6 md:p-12 flex flex-col justify-between relative overflow-hidden order-1 md:order-2 shrink-0 md:h-full min-h-[400px] md:min-h-0">
+          <div className="w-full lg:w-[42%] bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-white p-6 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden order-1 lg:order-2 shrink-0 min-h-[420px] lg:min-h-0">
             {/* Background effects */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/20 blur-[100px] rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,121,0,0.22),transparent_55%),radial-gradient(ellipse_at_bottom,rgba(106,162,0,0.18),transparent_55%)] pointer-events-none" />
+            <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/10 blur-[110px] rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none" />
             
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-8 md:mb-12 opacity-80">
@@ -762,15 +790,15 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
           </div>
 
           {/* RIGHT PANEL: Form (Light/Input side) */}
-          <div className="w-full md:w-[55%] lg:w-[60%] bg-white dark:bg-neutral-950 p-6 md:p-12 overflow-y-auto order-2 md:order-1 relative">
+          <div className="w-full lg:w-[58%] bg-white dark:bg-neutral-950 p-6 sm:p-8 lg:p-10 overflow-y-auto order-2 lg:order-1 relative">
              <button 
               onClick={onClose}
-              className="hidden md:flex absolute top-8 left-8 items-center gap-2 text-neutral-500 hover:text-black dark:hover:text-white transition-colors"
+              className="hidden lg:flex absolute top-6 left-6 items-center gap-2 text-neutral-500 hover:text-black dark:hover:text-white transition-colors"
             >
               <ChevronLeft size={20} /> Retour à la boutique
             </button>
 
-            <div className="max-w-xl mx-auto md:mt-16">
+            <div className="max-w-xl mx-auto lg:mt-12">
               {/* Step 3: PROCESSING STATE OVERLAY */}
               {step === 3 && (
                  <div className="absolute inset-0 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center text-center p-8">
@@ -1078,6 +1106,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
               )}
             </div>
           </div>
+        </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

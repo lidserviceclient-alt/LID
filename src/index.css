@@ -18,6 +18,10 @@
     position: relative;
   }
 }
+
+body.checkout-open footer {
+  display: none;
+}
 *{
   margin: 0;
   padding: 0;

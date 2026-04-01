@@ -1,1 +1,0 @@
-import{b as n}from"./index-DWGrmixT.js";async function o({page:a=0,size:t=100,q:r}={}){return(await n.get("/api/v1/catalog/partners",{params:{page:a,size:t,q:r||void 0}}))?.data}async function c(a,{page:t=0,size:r=20,sortKey:e}={}){return(await n.get(`/api/v1/catalog/partners/${a}/collection`,{params:{page:t,size:r,sortKey:e||void 0}}))?.data}export{c as g,o as l};
