@@ -14,6 +14,7 @@ import { subscribeFrontendRealtime } from '@/services/realtimeService'
 export default function Layout() {
   const location = useLocation();
   const isHomeRoute = location.pathname === '/';
+  const hideFooter = location.pathname === '/cart';
   const {
     data: globalCollection,
     isLoading: isGlobalCollectionLoading,
@@ -163,7 +164,7 @@ export default function Layout() {
               </main>
 
               {/* Footer global */}
-              <Footer />
+              {hideFooter ? null : <Footer />}
             </div>
           </CatalogBootstrapProvider>
         </WishlistProvider>
