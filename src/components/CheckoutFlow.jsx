@@ -1,551 +1,1085 @@
 import { useState, useEffect } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  X, Check, CreditCard, Smartphone, MapPin,
-  Phone, Mail, ArrowRight, ShieldCheck, Lock,
-  Loader2, Package, Truck, Star, ChevronRight
-} from 'lucide-react';
+import { X, Check, CreditCard, Smartphone, User, MapPin, Phone, Mail, ArrowRight, ShieldCheck, Lock, ChevronLeft, Loader2, LocateFixed } from 'lucide-react';
+import { cn } from '@/utils/cn';
+import { toast } from 'sonner';
+import { getCurrentUserPayload, getUserProfile } from '@/services/authService.js';
+import { checkout } from '@/services/orderService.js';
+import { getCustomerAddresses } from '@/services/customerService.js';
+import { getMyCheckoutCollection } from '@/services/customerProfileService';
+import { resolveBackendAssetUrl } from '@/services/categoryService';
+import { useAppConfig } from '@/features/appConfig/useAppConfig';
 
-/* ─── Helpers ─────────────────────────────────────────────── */
-const fmt4 = v => v.replace(/\s+/g,'').replace(/[^0-9]/gi,'').match(/.{1,4}/g)?.join(' ') ?? v;
-const fmtExp = v =>
-  v.replace(/[^0-9]/g,'')
-   .replace(/^([2-9])$/,'0$1')
-   .replace(/^(1)([3-9])$/,'0$1/$2')
-   .replace(/^0{1,}/,'0')
-   .replace(/^([0-1][0-9])([0-9]{1,2}).*/,'$1/$2');
-const fmtMoney = v => {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return '0';
-  const dec = Math.abs(n - Math.trunc(n)) > 0.000001;
-  return n.toLocaleString('fr-FR',{minimumFractionDigits:dec?2:0,maximumFractionDigits:dec?2:0});
-};
-const fmtExpLong = v => {
-  const s = `${v||''}`.trim();
-  const norm = s.includes('/') ? s : s.length>=4 ? `${s.slice(0,2)}/${s.slice(2,4)}` : s;
-  const m = norm.match(/^(\d{2})\/(\d{2})$/);
-  return m ? `${m[1]}/20${m[2]}` : norm || 'MM/YY';
+const formatCardNumber = (value) => {
+  const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+  const matches = v.match(/\d{4,16}/g);
+  const match = matches && matches[0] || '';
+  const parts = [];
+  for (let i=0, len=match.length; i<len; i+=4) {
+    parts.push(match.substring(i, i+4));
+  }
+  if (parts.length) {
+    return parts.join(' ');
+  } else {
+    return value;
+  }
 };
 
-/* ─── Card 3D ─────────────────────────────────────────────── */
-function Card3D({ number, name, expiry, cvc, focusField }) {
-  const [clicked, setClicked] = useState(false);
-  const flipped = clicked || focusField === 'cvc';
-  const disp = number ? fmt4(number.replace(/\D/g,'')) : '•••• •••• •••• ••••';
-  const raw = `${cvc||''}`.replace(/\D/g,'').padEnd(3,'•').slice(0,3);
+const formatExpires = (value) => {
+  return value
+    .replace(
+      /[^0-9]/g, '' // To allow only numbers
+    ).replace(
+      /^([2-9])$/g, '0$1' // To handle 3 > 03
+    ).replace(
+      /^(1{1})([3-9]{1})$/g, '0$1/$2' // 13 > 01/3
+    ).replace(
+      /^0{1,}/g, '0' // To handle 00 > 0
+    ).replace(
+      /^([0-1]{1}[0-9]{1})([0-9]{1,2}).*/g, '$1/$2' // To handle 113 > 11/3
+    );
+};
 
-  return (
-    <div style={{perspective:1100, cursor:'pointer', userSelect:'none'}} onClick={()=>setClicked(f=>!f)}>
-      <motion.div
-        animate={{rotateY: flipped ? 180 : 0}}
-        transition={{duration:0.65, ease:[0.4,0.2,0.2,1]}}
-        style={{transformStyle:'preserve-3d', position:'relative', width:'100%', aspectRatio:'1.586'}}
-      >
-        <div style={{
-          position:'absolute', inset:0, backfaceVisibility:'hidden', WebkitBackfaceVisibility:'hidden',
-          borderRadius:18, overflow:'hidden',
-          background:'linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%)',
-          boxShadow:'0 20px 60px rgba(99,102,241,0.35)',
-        }}>
-          <svg style={{position:'absolute',inset:0,width:'100%',height:'100%',opacity:0.04}} viewBox="0 0 200 126">
-            {Array.from({length:14}).map((_,i)=><line key={i} x1={i*15} y1="0" x2={i*15} y2="126" stroke="#fff" strokeWidth="0.5"/>)}
-            {Array.from({length:9}).map((_,i)=><line key={i} x1="0" y1={i*15} x2="200" y2={i*15} stroke="#fff" strokeWidth="0.5"/>)}
-          </svg>
-          <div style={{position:'absolute',top:-40,right:-20,width:160,height:160,borderRadius:'50%',background:'radial-gradient(circle,rgba(167,139,250,0.4) 0%,transparent 70%)'}}/>
-          <div style={{position:'absolute',top:22,left:22}}>
-            <svg width="42" height="33" viewBox="0 0 42 33" fill="none">
-              <rect width="42" height="33" rx="4" fill="#c9a227"/>
-              <rect x="0.5" y="0.5" width="41" height="32" rx="3.5" stroke="rgba(255,220,80,0.4)" strokeWidth="0.7"/>
-              {[12,21].map(x=><line key={x} x1={x} y1="0" x2={x} y2="33" stroke="rgba(0,0,0,0.25)" strokeWidth="0.6"/>)}
-              {[11,22].map(y=><line key={y} x1="0" y1={y} x2="42" y2={y} stroke="rgba(0,0,0,0.25)" strokeWidth="0.6"/>)}
-              <rect x="12" y="11" width="18" height="11" fill="rgba(0,0,0,0.12)"/>
-            </svg>
-          </div>
-          <div style={{position:'absolute',top:22,right:22,opacity:0.5}}>
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-              <path d="M4 11Q4 4 11 4" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
-              <path d="M7 11Q7 7 11 7" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
-              <path d="M10 11Q10 9.5 11 9.5" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
-              <circle cx="11" cy="11" r="1.8" fill="#fff"/>
-            </svg>
-          </div>
-          <div style={{position:'absolute',top:'50%',left:22,transform:'translateY(-50%)',fontFamily:'monospace',fontSize:17,fontWeight:700,letterSpacing:'0.14em',color:'rgba(255,255,255,0.9)'}}>
-            {disp.replace(/ /g,'\u2007')}
-          </div>
-          <div style={{position:'absolute',bottom:20,left:22,right:22,display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
-            <div>
-              <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:5}}>
-                <span style={{color:'rgba(255,255,255,0.3)',fontSize:7,textTransform:'uppercase',letterSpacing:'0.1em',lineHeight:1.5}}>GOOD<br/>THRU</span>
-                <span style={{color:'rgba(255,255,255,0.85)',fontFamily:'monospace',fontSize:12,fontWeight:700,letterSpacing:'0.1em'}}>{fmtExpLong(expiry)}</span>
-              </div>
-              <div style={{color:'rgba(255,255,255,0.8)',fontFamily:'monospace',fontSize:11,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase'}}>
-                {`${name||'VOTRE NOM'}`.toUpperCase().slice(0,22)}
-              </div>
-            </div>
-            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-              <div style={{display:'flex'}}>
-                <div style={{width:28,height:28,borderRadius:'50%',background:'rgba(218,35,35,0.88)',marginRight:-8,zIndex:1,boxShadow:'0 2px 6px rgba(0,0,0,0.4)'}}/>
-                <div style={{width:28,height:28,borderRadius:'50%',background:'rgba(232,155,22,0.88)',boxShadow:'0 2px 6px rgba(0,0,0,0.4)'}}/>
-              </div>
-              <span style={{color:'rgba(255,255,255,0.7)',fontSize:7,fontWeight:700,letterSpacing:'0.04em'}}>mastercard</span>
-            </div>
-          </div>
-          <div style={{position:'absolute',inset:0,borderRadius:18,background:'linear-gradient(135deg,rgba(255,255,255,0.06) 0%,transparent 55%)',pointerEvents:'none'}}/>
-        </div>
-        <div style={{
-          position:'absolute', inset:0, backfaceVisibility:'hidden', WebkitBackfaceVisibility:'hidden',
-          borderRadius:18, overflow:'hidden', transform:'rotateY(180deg)',
-          background:'linear-gradient(135deg, #1e1b4b, #312e81)',
-          boxShadow:'0 20px 60px rgba(99,102,241,0.35)',
-        }}>
-          <div style={{position:'absolute',top:38,left:0,right:0,height:42,background:'#000'}}/>
-          <div style={{position:'absolute',top:98,left:20,right:20,display:'flex',alignItems:'center',gap:8}}>
-            <div style={{flex:1,height:36,borderRadius:4,background:'repeating-linear-gradient(90deg,#f5f0e8 0,#f5f0e8 8px,#e2d9cb 8px,#e2d9cb 16px)',display:'flex',alignItems:'center',paddingLeft:10}}>
-              <span style={{fontFamily:'cursive',fontSize:12,color:'#555',opacity:0.5}}>{`${name||''}`.toUpperCase().slice(0,16)}</span>
-            </div>
-            <div style={{textAlign:'center'}}>
-              <div style={{fontSize:7,color:'rgba(255,255,255,0.3)',letterSpacing:'0.1em',marginBottom:2}}>CVV</div>
-              <div style={{width:48,height:36,background:'#fff',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <span style={{fontFamily:'monospace',fontSize:14,fontWeight:700,color:'#111',letterSpacing:3}}>{raw}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-      <p style={{textAlign:'center',fontSize:10,color:'#94a3b8',marginTop:6,fontStyle:'italic'}}>Cliquer pour retourner la carte</p>
+const formatMoney = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "0";
+  const hasDecimals = Math.abs(num - Math.trunc(num)) > 0.000001;
+  return num.toLocaleString("fr-FR", {
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: hasDecimals ? 2 : 0
+  });
+};
+
+const getCardBrand = (rawNumber) => {
+  const n = `${rawNumber || ''}`.replace(/\D/g, '');
+  if (!n) return { label: 'CARTE', color: 'text-white/80' };
+  if (n.startsWith('4')) return { label: 'VISA', color: 'text-[#b6d7ff]' };
+  const first2 = Number(n.slice(0, 2));
+  const first4 = Number(n.slice(0, 4));
+  if ((first2 >= 51 && first2 <= 55) || (first4 >= 2221 && first4 <= 2720)) return { label: 'MASTERCARD', color: 'text-[#ffd6c2]' };
+  if (n.startsWith('34') || n.startsWith('37')) return { label: 'AMEX', color: 'text-[#c7ffe2]' };
+  if (n.startsWith('6011') || n.startsWith('65')) return { label: 'DISCOVER', color: 'text-[#ffe7b6]' };
+  return { label: 'CARTE', color: 'text-white/80' };
+};
+
+const normalizeExpiry = (value) => {
+  const v = `${value || ''}`.trim();
+  if (!v) return 'MM/YY';
+  if (v.includes('/')) return v;
+  if (v.length >= 4) return `${v.slice(0, 2)}/${v.slice(2, 4)}`;
+  return v;
+};
+
+const formatExpiryLong = (value) => {
+  const short = normalizeExpiry(value);
+  const match = short.match(/^(\d{2})\/(\d{2})$/);
+  if (!match) return short;
+  return `${match[1]}/20${match[2]}`;
+};
+
+const CardChip = () => (
+  <svg width="52" height="42" viewBox="0 0 52 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="52" height="42" rx="6" fill="url(#chipGrad)" />
+    <rect x="1" y="1" width="50" height="40" rx="5" stroke="rgba(255,220,80,0.3)" strokeWidth="0.5" />
+    <line x1="0" y1="14" x2="52" y2="14" stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
+    <line x1="0" y1="28" x2="52" y2="28" stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
+    <line x1="17" y1="0" x2="17" y2="42" stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
+    <line x1="35" y1="0" x2="35" y2="42" stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
+    <rect x="17" y="14" width="18" height="14" fill="rgba(0,0,0,0.18)" stroke="rgba(255,200,50,0.2)" strokeWidth="0.5" />
+    <defs>
+      <linearGradient id="chipGrad" x1="0" y1="0" x2="52" y2="42" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#d4a843" />
+        <stop offset="30%" stopColor="#f5d060" />
+        <stop offset="60%" stopColor="#b07828" />
+        <stop offset="100%" stopColor="#e8c048" />
+      </linearGradient>
+    </defs>
+  </svg>
+);
+
+const NfcIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M5 13 Q5 5 13 5" stroke="rgba(255,255,255,0.4)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+    <path d="M8.5 13 Q8.5 8.5 13 8.5" stroke="rgba(255,255,255,0.55)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+    <path d="M12 13 Q12 11.5 13 11.5" stroke="rgba(255,255,255,0.75)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+    <circle cx="13" cy="13" r="2" fill="rgba(255,255,255,0.85)" />
+  </svg>
+);
+
+const MastercardLogo = () => (
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          background: 'rgba(218,35,35,0.92)',
+          marginRight: -13,
+          zIndex: 1,
+          boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
+        }}
+      />
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          background: 'rgba(232,155,22,0.92)',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
+        }}
+      />
     </div>
-  );
-}
-
-/* ─── Progress Rail ──────────────────────────────────────── */
-function ProgressRail({ step }) {
-  const steps = [
-    { id:1, icon:Package, label:'Livraison', sub:'Adresse & contact' },
-    { id:2, icon:CreditCard, label:'Paiement', sub:'Carte ou mobile' },
-    { id:3, icon:Check, label:'Confirmation', sub:'Commande validée' },
-  ];
-  return (
-    <div style={{display:'flex',flexDirection:'column',gap:0}}>
-      {steps.map((s,i)=>{
-        const done = step > s.id;
-        const active = step === s.id;
-        return (
-          <div key={s.id} style={{display:'flex',gap:16,alignItems:'flex-start'}}>
-            <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
-              <motion.div
-                animate={{
-                  background: done ? '#6366f1' : active ? '#fff' : '#f1f5f9',
-                  border: `2px solid ${done||active ? '#6366f1' : '#e2e8f0'}`,
-                }}
-                style={{width:40,height:40,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,position:'relative'}}
-              >
-                {done
-                  ? <Check size={16} color="#fff" strokeWidth={3}/>
-                  : <s.icon size={16} color={active?'#6366f1':'#94a3b8'}/>
-                }
-                {active && (
-                  <motion.div
-                    animate={{scale:[1,1.3,1]}}
-                    transition={{repeat:Infinity,duration:2}}
-                    style={{position:'absolute',inset:-4,borderRadius:'50%',border:'2px solid rgba(99,102,241,0.2)'}}
-                  />
-                )}
-              </motion.div>
-              {i < steps.length-1 && (
-                <motion.div
-                  animate={{background: done ? '#6366f1' : '#e2e8f0'}}
-                  style={{width:2,height:40,marginTop:4,marginBottom:4,borderRadius:2}}
-                />
-              )}
-            </div>
-            <div style={{paddingTop:8,paddingBottom: i<steps.length-1 ? 32 : 0}}>
-              <div style={{fontSize:13,fontWeight:700,color: active?'#1e293b':done?'#6366f1':'#94a3b8',transition:'color 0.2s'}}>{s.label}</div>
-              <div style={{fontSize:11,color:'#94a3b8',marginTop:1}}>{s.sub}</div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ─── Input Field ─────────────────────────────────────────── */
-function Field({label, icon:Icon, hint, ...props}) {
-  const [focus, setFocus] = useState(false);
-  return (
-    <div>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-        <label style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'#64748b'}}>{label}</label>
-        {hint && <span style={{fontSize:10,color:'#94a3b8'}}>{hint}</span>}
-      </div>
-      <div style={{position:'relative'}}>
-        {Icon && <Icon size={14} style={{position:'absolute',left:13,top:'50%',transform:'translateY(-50%)',color:focus?'#6366f1':'#94a3b8',transition:'color 0.2s',pointerEvents:'none'}}/>}
-        <input
-          {...props}
-          onFocus={e=>{setFocus(true);props.onFocus?.(e);}}
-          onBlur={e=>{setFocus(false);props.onBlur?.(e);}}
-          style={{
-            width:'100%', boxSizing:'border-box',
-            background: props.readOnly ? '#f8fafc' : '#fff',
-            border:`1.5px solid ${focus ? '#6366f1' : '#e2e8f0'}`,
-            borderRadius:10,
-            paddingLeft: Icon ? 38 : 13, paddingRight:13,
-            paddingTop:11, paddingBottom:11,
-            fontSize:13, fontWeight:600,
-            color: props.readOnly ? '#94a3b8' : '#1e293b',
-            outline:'none', transition:'all 0.2s',
-            fontFamily:'inherit',
-            boxShadow: focus ? '0 0 0 3px rgba(99,102,241,0.1)' : 'none',
-            cursor: props.readOnly ? 'not-allowed' : 'text',
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
-/* ─── Method Button ───────────────────────────────────────── */
-function MethodBtn({active, icon:Icon, label, sub, onClick}) {
-  return (
-    <motion.button
-      type="button" onClick={onClick}
-      whileHover={{y:-2}} whileTap={{scale:0.98}}
+    <span
       style={{
-        padding:'14px 16px', borderRadius:12, cursor:'pointer', textAlign:'left', width:'100%',
-        background: active ? 'linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.06))' : '#f8fafc',
-        border:`1.5px solid ${active ? '#6366f1' : '#e2e8f0'}`,
-        transition:'all 0.2s', boxShadow: active ? '0 0 0 3px rgba(99,102,241,0.1)' : 'none',
+        fontFamily: 'Arial, sans-serif',
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#fff',
+        letterSpacing: '0.04em',
+        textShadow: '0 1px 5px rgba(0,0,0,0.9)',
       }}
     >
-      <div style={{display:'flex',alignItems:'center',gap:10}}>
-        <div style={{width:38,height:38,borderRadius:10,background:active?'linear-gradient(135deg,#6366f1,#8b5cf6)':'#e2e8f0',display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.2s'}}>
-          <Icon size={16} color={active?'#fff':'#94a3b8'}/>
+      MasterCard
+    </span>
+  </div>
+);
+
+const SpiralBg = () => (
+  <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 500 315" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="sg" cx="68%" cy="43%" r="58%">
+        <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.75" />
+        <stop offset="55%" stopColor="#38bdf8" stopOpacity="0.18" />
+        <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+      </radialGradient>
+      <radialGradient id="blob" cx="68%" cy="43%" r="42%">
+        <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.1" />
+        <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+      </radialGradient>
+      <pattern id="dots" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
+        <circle cx="2" cy="2" r="0.9" fill="#7dd3fc" opacity="0.18" />
+      </pattern>
+    </defs>
+    <rect width="500" height="315" fill="url(#dots)" />
+    <ellipse cx="355" cy="145" rx="190" ry="140" fill="url(#blob)" />
+    {[
+      [36, 21, 0],
+      [60, 35, 9],
+      [84, 51, 17],
+      [110, 66, 24],
+      [138, 84, 30],
+      [168, 104, 34],
+      [199, 125, 37],
+      [232, 148, 39],
+      [267, 172, 41],
+      [304, 198, 42],
+    ].map(([rx, ry, rot], i) => (
+      <ellipse key={i} cx="355" cy="145" rx={rx} ry={ry} fill="none" stroke="url(#sg)" strokeWidth="1" opacity={0.95 - i * 0.09} transform={`rotate(${rot} 355 145)`} />
+    ))}
+  </svg>
+);
+
+function CardPreview({ number, name, expiry, cvc, focus, supportPhone }) {
+  const [flipped, setFlipped] = useState(false);
+  const cardNumberRaw = `${number || ''}`.replace(/\D/g, '');
+  const displayNumber = cardNumberRaw ? formatCardNumber(cardNumberRaw) : '5213 2821 1583 5635';
+  const displayExpiry = formatExpiryLong(expiry) || '11/2026';
+  const displayName = `${name || ''}`.trim().toUpperCase() || 'BALLOUD-ROUSSELLE';
+  const displayCvc = `${cvc || ''}`.replace(/\D/g, '').padEnd(3, '•').slice(0, 3);
+  const phone = `${supportPhone || ''}`.trim() || '+33 1 70 36 38 00';
+  const effectiveFlipped = flipped || focus === 'cvc';
+
+  return (
+    <div className="w-full max-w-[420px] mx-auto select-none">
+      <div style={{ perspective: 1400, cursor: 'pointer' }} onClick={() => setFlipped((f) => !f)}>
+        <div
+          style={{
+            width: '100%',
+            aspectRatio: '500 / 315',
+            position: 'relative',
+            transformStyle: 'preserve-3d',
+            transition: 'transform 0.75s cubic-bezier(0.4,0.2,0.2,1)',
+            transform: effectiveFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              borderRadius: 20,
+              overflow: 'hidden',
+              background: 'linear-gradient(148deg,#202020 0%,#2e2e2e 45%,#131313 100%)',
+            }}
+          >
+            <SpiralBg />
+
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.13),transparent)' }} />
+
+            <div style={{ position: 'absolute', top: 30, left: 30, right: 30, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <CardChip />
+              <NfcIcon />
+            </div>
+
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: 30,
+                transform: 'translateY(-50%)',
+                color: '#fff',
+                fontSize: 22,
+                fontWeight: 700,
+                letterSpacing: '0em',
+                fontFamily: "'Courier New',monospace",
+                textShadow: '0 2px 12px rgba(0,0,0,0.7)',
+                filter: 'drop-shadow(0 0 10px rgba(56,189,248,0.18))',
+              }}
+            >
+              {displayNumber.replace(/ /g, '\u00A0\u00A0')}
+            </div>
+
+            <div style={{ position: 'absolute', bottom: 26, left: 30, right: 30, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div style={{ color: '#666', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.12em', lineHeight: 1.5, fontFamily: 'Arial' }}>
+                    GOOD
+                    <br />
+                    THRU
+                  </div>
+                  <div style={{ color: '#e0e0e0', fontSize: 15, fontWeight: 700, fontFamily: "'Courier New',monospace", letterSpacing: '0.14em' }}>{displayExpiry}</div>
+                </div>
+                <div
+                  style={{
+                    color: '#f0f0f0',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    letterSpacing: '0.13em',
+                    fontFamily: "'Courier New',monospace",
+                    textTransform: 'uppercase',
+                    textShadow: '0 1px 5px rgba(0,0,0,0.6)',
+                  }}
+                >
+                  {displayName}
+                </div>
+              </div>
+              <MastercardLogo />
+            </div>
+
+            <div style={{ position: 'absolute', inset: 0, borderRadius: 20, pointerEvents: 'none', background: 'linear-gradient(135deg,rgba(255,255,255,0.05) 0%,transparent 55%)' }} />
+          </div>
+
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              borderRadius: 20,
+              overflow: 'hidden',
+              transform: 'rotateY(180deg)',
+              background: 'linear-gradient(148deg,#1b1b1b 0%,#262626 55%,#0f0f0f 100%)',
+            }}
+          >
+            <div style={{ position: 'absolute', top: 46, left: 0, right: 0, height: 52, background: 'linear-gradient(180deg,#111 0%,#000 50%,#111 100%)' }} />
+
+            <div style={{ position: 'absolute', top: 120, left: 30, right: 30, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div
+                style={{
+                  flex: 1,
+                  height: 46,
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  background: 'repeating-linear-gradient(90deg,#f5f0e8 0px,#f5f0e8 8px,#e2d9cb 8px,#e2d9cb 16px)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  paddingLeft: 14,
+                }}
+              >
+                <span style={{ fontFamily: 'cursive', fontSize: 17, color: '#444', opacity: 0.55 }}>{displayName}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <span className="absolute" style={{ color: '#666', fontSize: 8, fontFamily: 'Arial', letterSpacing: '0.1em', marginBottom: 3 }}>CVV</span>
+                <div style={{ width: 60, height: 46, borderRadius: 4, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontFamily: "'Courier New',monospace", fontSize: 17, fontWeight: 700, color: '#111', letterSpacing: 3 }}>{displayCvc}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ position: 'absolute', top: 188, left: 30, right: 30, color: '#3a3a3a', fontSize: 8, fontFamily: 'Arial', lineHeight: 1.7 }}>
+              Cette carte est la propriété exclusive de la banque émettrice. Son utilisation est soumise aux conditions générales du contrat porteur. En cas de perte ou de vol, contactez immédiatement le service client.
+            </div>
+
+            <div style={{ position: 'absolute', bottom: 26, left: 30, right: 30, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div>
+                <div style={{ color: '#444', fontSize: 9, fontFamily: 'Arial', letterSpacing: '0.12em', marginBottom: 5, textTransform: 'uppercase' }}>Service Client 24h/24</div>
+                <div style={{ color: '#666', fontSize: 13, fontFamily: "'Courier New',monospace", letterSpacing: '0.12em' }}>{phone}</div>
+              </div>
+              <MastercardLogo />
+            </div>
+
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent)' }} />
+          </div>
         </div>
-        <div>
-          <div style={{fontSize:13,fontWeight:700,color:'#1e293b'}}>{label}</div>
-          <div style={{fontSize:11,color:'#94a3b8'}}>{sub}</div>
-        </div>
-        {active && <ChevronRight size={14} color="#6366f1" style={{marginLeft:'auto'}}/>}
       </div>
-    </motion.button>
+    </div>
   );
 }
 
-/* ─── Main ────────────────────────────────────────────────── */
-export default function CheckoutFlow({
-  isOpen, onClose, product, selectedColor, selectedSize, quantity,
-  cartItems, onSuccess, shippingCost=0, discountAmount=0,
-  loyaltyDiscountAmount=0, loyaltyTier='', shippingMethodLabel='Standard'
-}) {
-  const [step, setStep] = useState(1);
-  const [processing, setProcessing] = useState(false);
-  const [cardFocus, setCardFocus] = useState('');
-  const [orderNumber] = useState(()=>Math.random().toString(36).slice(2,10).toUpperCase());
-
-  const [form, setForm] = useState({
-    firstName:'', lastName:'', email:'', phone:'',
-    address:'', city:'', zip:'',
-    method:'card',
-    cardNumber:'', cardExpiry:'', cardCvc:'', cardName:'',
-    mobilePhone:'',
+export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, selectedSize, quantity, cartItems, onSuccess, shippingCost = 0, discountAmount = 0, loyaltyDiscountAmount = 0, loyaltyTier = "", promoCode = "", shippingMethodLabel = "Standard" }) {
+  const [step, setStep] = useState(1); // 1: Info, 2: Payment, 3: Processing, 4: Success
+  const [loadingStep, setLoadingStep] = useState(0); // 0: Init, 1: Connecting, 2: Verifying, 3: Approved
+  const [orderNumber, setOrderNumber] = useState('');
+  
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    zip: '',
+    paymentMethod: 'card', // 'card' | 'mobile'
+    cardNumber: '',
+    cardExpiry: '',
+    cardCvc: '',
+    cardName: '',
+    mobilePhone: ''
   });
 
-  const isCart = cartItems && cartItems.length > 0;
-  const qty = Number.isFinite(Number(quantity)) ? Number(quantity) : 1;
-  const ship = Number.isFinite(Number(shippingCost)) ? Number(shippingCost) : 0;
-  const disc = Number.isFinite(Number(discountAmount)) ? Number(discountAmount) : 0;
-  const ldisc = Number.isFinite(Number(loyaltyDiscountAmount)) ? Number(loyaltyDiscountAmount) : 0;
-  const itemsTotal = isCart
-    ? cartItems.reduce((a,i)=>a+(Number(i?.price)||0)*(Number(i?.quantity)||1),0)
-    : (Number(product?.price)||0)*qty;
-  const total = Math.max(0, itemsTotal + ship - disc - ldisc);
-  const tax = Math.round(total - total/1.18);
+  const [cardFocus, setCardFocus] = useState('');
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [isResolvingCurrentAddress, setIsResolvingCurrentAddress] = useState(false);
+  const { data: appConfig } = useAppConfig();
+  const supportPhone = `${appConfig?.contactPhone || ''}`.trim();
+ 
+  const isCartCheckout = cartItems && cartItems.length > 0;
 
-  useEffect(()=>{
-    if(typeof document==='undefined') return;
-    document.body.style.overflow = isOpen ? 'hidden' : '';
-    return ()=>{ document.body.style.overflow=''; };
-  },[isOpen]);
+  const normalizedShippingCost = Number.isFinite(Number(shippingCost)) ? Number(shippingCost) : 0;
+  const normalizedDiscountAmount = Number.isFinite(Number(discountAmount)) ? Number(discountAmount) : 0;
+  const normalizedLoyaltyDiscountAmount = Number.isFinite(Number(loyaltyDiscountAmount)) ? Number(loyaltyDiscountAmount) : 0;
+  const normalizedQuantity = Number.isFinite(Number(quantity)) ? Number(quantity) : 1;
+  
+  // Calculate items total
+  const itemsTotal = isCartCheckout 
+    ? cartItems.reduce((acc, item) => acc + (Number(item?.price) || 0) * (Number(item?.quantity) || 0), 0)
+    : (Number(product?.price) || 0) * normalizedQuantity;
 
-  const upd = e => {
-    const {name,value} = e.target;
-    let v = value;
-    if(name==='cardNumber') v = fmt4(value);
-    if(name==='cardExpiry') v = fmtExp(value);
-    if(name==='cardCvc') v = value.replace(/\D/g,'').slice(0,3);
-    setForm(p=>({...p,[name]:v}));
+  // Calculate final total with shipping and discount
+  const finalTotal = Math.max(0, itemsTotal + normalizedShippingCost - normalizedDiscountAmount - normalizedLoyaltyDiscountAmount);
+
+  const TAX_RATE = 0.18; // 18% TVA Côte d'Ivoire
+  // Calculate tax based on final total
+  const taxAmount = Math.round(finalTotal - (finalTotal / (1 + TAX_RATE)));
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const payload = getCurrentUserPayload();
+    if (!payload?.sub) return;
+    let active = true;
+    setLoadingAddresses(true);
+    (async () => {
+      try {
+        const [checkoutCollection, profile] = await Promise.all([
+          getMyCheckoutCollection(),
+          getUserProfile(payload.sub).catch(() => null)
+        ]);
+        if (!active) return;
+
+        const customer = checkoutCollection?.customer || profile || null;
+        const firstName = `${customer?.firstName || payload?.firstName || ''}`.trim();
+        const lastName = `${customer?.lastName || payload?.lastName || ''}`.trim();
+        const email = `${customer?.email || payload?.email || ''}`.trim();
+        setFormData((prev) => ({
+          ...prev,
+          firstName: firstName || prev.firstName,
+          lastName: lastName || prev.lastName,
+          email: email || prev.email
+        }));
+
+        const addresses = Array.isArray(checkoutCollection?.addresses)
+          ? checkoutCollection.addresses
+          : await getCustomerAddresses(payload.sub).catch(() => []);
+
+        if (!active) return;
+        setSavedAddresses(Array.isArray(addresses) ? addresses : []);
+        const defaultAddress = (Array.isArray(addresses) ? addresses : []).find((addr) => addr?.isDefault);
+        if (defaultAddress) {
+          setSelectedAddressId(defaultAddress.id);
+          setFormData((prev) => ({
+            ...prev,
+            address: defaultAddress.addressLine || '',
+            city: defaultAddress.city || '',
+            zip: defaultAddress.postalCode || '',
+            phone: defaultAddress.phone || prev.phone
+          }));
+        }
+      } catch {
+        if (active) setSavedAddresses([]);
+      } finally {
+        if (active) setLoadingAddresses(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
+
+  const setAddressFromPosition = async () => {
+    if (isResolvingCurrentAddress) return;
+    if (typeof window === 'undefined' || !navigator?.geolocation?.getCurrentPosition) {
+      toast.error("Géolocalisation indisponible sur cet appareil.");
+      return;
+    }
+    setIsResolvingCurrentAddress(true);
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 0
+        });
+      });
+      const lat = position?.coords?.latitude;
+      const lon = position?.coords?.longitude;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        throw new Error("Position invalide.");
+      }
+
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&addressdetails=1`;
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) {
+        throw new Error("Impossible de récupérer votre adresse.");
+      }
+      const data = await res.json();
+      const addr = data?.address || {};
+      const line1 = [addr.house_number, addr.road].filter(Boolean).join(' ').trim();
+      const city = `${addr.city || addr.town || addr.village || addr.suburb || addr.county || ''}`.trim();
+      const zip = `${addr.postcode || ''}`.trim();
+      const addressLine = line1 || `${data?.display_name || ''}`.trim() || `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+
+      setFormData((prev) => ({
+        ...prev,
+        address: addressLine,
+        city: city || prev.city,
+        zip: zip || prev.zip
+      }));
+      toast.success("Adresse mise à jour depuis votre position.");
+    } catch (err) {
+      const code = err?.code;
+      if (code === 1) toast.error("Autorisation GPS refusée.");
+      else if (code === 2) toast.error("Position indisponible.");
+      else if (code === 3) toast.error("Délai GPS dépassé.");
+      else toast.error(err?.message || "Impossible de déterminer votre adresse.");
+    } finally {
+      setIsResolvingCurrentAddress(false);
+    }
   };
 
-  const handleStep1 = e => { e.preventDefault(); setStep(2); };
-  const handlePay = async e => {
+  useEffect(() => {
+    if (!isOpen) return;
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('paymentMethods');
+      if (!raw) return;
+      const methods = JSON.parse(raw);
+      if (!Array.isArray(methods) || methods.length === 0) return;
+      const method = methods[0];
+      if (method.type === 'mobile') {
+        setFormData((prev) => ({
+          ...prev,
+          paymentMethod: 'mobile',
+          mobilePhone: method.phone || prev.mobilePhone
+        }));
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          paymentMethod: 'card',
+          cardNumber: method.cardNumber || prev.cardNumber,
+          cardExpiry: method.expiry || prev.cardExpiry,
+          cardName: method.cardName || prev.cardName
+        }));
+      }
+    } catch {
+      return;
+    }
+  }, [isOpen]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    let formattedValue = value;
+
+    if (name === 'cardNumber') formattedValue = formatCardNumber(value);
+    if (name === 'cardExpiry') formattedValue = formatExpires(value);
+    if (name === 'cardCvc') formattedValue = value.replace(/\D/g, '').slice(0, 3); // Max 3 digits
+
+    setFormData(prev => ({ ...prev, [name]: formattedValue }));
+  };
+
+  const handleAddressSelect = (e) => {
+    const addressId = e.target.value;
+    setSelectedAddressId(addressId);
+    const address = savedAddresses.find((addr) => `${addr?.id}` === `${addressId}`);
+    if (!address) return;
+    setFormData((prev) => ({
+      ...prev,
+      address: address.addressLine || '',
+      city: address.city || '',
+      zip: address.postalCode || '',
+      phone: address.phone || prev.phone
+    }));
+  };
+
+  const handleSubmitInfo = (e) => {
     e.preventDefault();
-    setProcessing(true);
-    await new Promise(r=>setTimeout(r,2000));
-    setProcessing(false);
-    setStep(3);
-    onSuccess?.();
+    setStep(2);
   };
 
-  if(!isOpen) return null;
+  const handlePayment = async (e) => {
+    e.preventDefault();
+    const payload = getCurrentUserPayload();
+    if (!payload?.sub) {
+      toast.error("Veuillez vous connecter pour payer.");
+      return;
+    }
+    const currentEmail = `${payload?.email || ''}`.trim() || `${formData.email || ''}`.trim();
+    if (!currentEmail) {
+      toast.error("Email requis.");
+      return;
+    }
+
+    const paymentProvider = `${import.meta.env.VITE_PAYMENT_PROVIDER || (import.meta.env.DEV ? 'LOCAL' : 'PAYDUNYA')}`.trim();
+
+    const contactPhone =
+      (formData.paymentMethod === 'mobile' ? formData.mobilePhone : formData.phone) ||
+      formData.phone ||
+      formData.mobilePhone ||
+      '';
+
+    if (!`${contactPhone}`.trim()) {
+      toast.error("Numéro de téléphone requis.");
+      return;
+    }
+
+    const toArticleId = (value) => {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric) || numeric <= 0) return null;
+      return Math.trunc(numeric);
+    };
+
+    const buildItem = (item, qtyOverride) => {
+      const quantityValue = Number.isFinite(Number(qtyOverride)) ? Number(qtyOverride) : Number(item?.quantity);
+      if (!quantityValue || quantityValue <= 0) return null;
+      const referenceProduitPartenaire = item?.referenceProduitPartenaire || item?.referencePartenaire || item?.sku;
+      const articleId = item?.articleId ?? toArticleId(item?.id);
+      if (!articleId && !referenceProduitPartenaire) return null;
+      return { articleId: articleId ?? undefined, referenceProduitPartenaire: referenceProduitPartenaire ?? undefined, quantity: quantityValue };
+    };
+
+    const rawItems = isCartCheckout
+      ? cartItems.map((item) => buildItem(item))
+      : [buildItem(product, normalizedQuantity)];
+    const invalidCount = rawItems.filter((item) => !item).length;
+    const items = rawItems.filter(Boolean);
+
+    if (invalidCount > 0 || items.length === 0) {
+      toast.error("Panier invalide.");
+      return;
+    }
+
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const returnUrl = `${origin}/payment/success`;
+    const cancelUrl = `${origin}/payment/cancel`;
+
+    const shippingAddress = [formData.address, formData.city, formData.zip].filter(Boolean).join(', ');
+
+    setStep(3);
+    setLoadingStep(1);
+
+    try {
+      const res = await checkout(payload.sub, {
+        amount: finalTotal,
+        currency: 'XOF',
+        email: currentEmail,
+        phone: contactPhone,
+        shippingAddress,
+        notes: '',
+        shippingCost: normalizedShippingCost,
+        promoCode: (promoCode || "").trim() || null,
+        items,
+        returnUrl,
+        cancelUrl,
+        paymentProvider
+      });
+
+      const url = res?.paymentUrl;
+      setLoadingStep(3);
+      if (typeof window !== 'undefined') {
+        if (url && paymentProvider.toUpperCase() !== 'LOCAL') {
+          window.location.href = url;
+          return;
+        }
+        const token = `${res?.invoiceToken || ''}`.trim();
+        if (!token) {
+          throw new Error("Token de paiement introuvable.");
+        }
+        window.location.href = `${origin}/payment/success?token=${encodeURIComponent(token)}`;
+      }
+    } catch (err) {
+      setStep(2);
+      setLoadingStep(0);
+      toast.error(err?.response?.data?.message || err?.message || "Paiement impossible.");
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          key="overlay"
-          initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
-          style={{
-            position:'fixed', inset:0, zIndex:300,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            padding:'16px',
-            fontFamily:"'DM Sans','Helvetica Neue',sans-serif",
-          }}
+          initial={{ opacity: 0, y: "100%" }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: "100%" }}
+          transition={{ type: "spring", damping: 25, stiffness: 200 }}
+          className="fixed inset-0 z-[200] bg-neutral-50 dark:bg-neutral-950 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden"
         >
-          <motion.div
-            initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+          {/* Close Button Mobile */}
+          <button 
             onClick={onClose}
-            style={{position:'absolute',inset:0,background:'rgba(15,23,42,0.6)',backdropFilter:'blur(8px)'}}
-          />
-
-          <motion.div
-            initial={{opacity:0, scale:0.96, y:20}}
-            animate={{opacity:1, scale:1, y:0}}
-            exit={{opacity:0, scale:0.96, y:20}}
-            transition={{type:'spring',damping:28,stiffness:260}}
-            style={{
-              position:'relative', width:'100%', maxWidth:900,
-              maxHeight:'92vh', borderRadius:24,
-              background:'#f8fafc',
-              boxShadow:'0 40px 100px rgba(15,23,42,0.25), 0 0 0 1px rgba(15,23,42,0.06)',
-              display:'flex', flexDirection:'column',
-              overflow:'hidden',
-            }}
+            className="md:hidden fixed top-4 right-4 z-[210] p-2 bg-black/10 dark:bg-white/10 backdrop-blur-md rounded-full text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
           >
-            {/* TOP HEADER */}
-            <div style={{background:'#fff',borderBottom:'1px solid #e2e8f0',padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
-              <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <div style={{width:36,height:36,borderRadius:10,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <Lock size={15} color="#fff"/>
-                </div>
-                <div>
-                  <div style={{fontSize:10,fontWeight:700,letterSpacing:'0.16em',textTransform:'uppercase',color:'#94a3b8'}}>Checkout sécurisé</div>
-                  <div style={{fontSize:15,fontWeight:800,color:'#1e293b',marginTop:1}}>
-                    {step===1?'Informations de livraison':step===2?'Méthode de paiement':'Commande confirmée'}
-                  </div>
-                </div>
+            <X size={24} />
+          </button>
+
+          {/* LEFT PANEL: Order Summary (Dark/Brand side) */}
+          <div className="w-full md:w-[45%] lg:w-[40%] bg-neutral-900 text-white p-6 md:p-12 flex flex-col justify-between relative overflow-hidden order-1 md:order-2 shrink-0 md:h-full min-h-[400px] md:min-h-0">
+            {/* Background effects */}
+            <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/20 blur-[100px] rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+            
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-8 md:mb-12 opacity-80">
+                <ShieldCheck className="text-green-400" />
+                <span className="text-sm font-medium tracking-wide">PAIEMENT SÉCURISÉ 256-BIT SSL</span>
               </div>
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{display:'flex',alignItems:'center',gap:6,background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:20,padding:'5px 12px'}}>
-                  <ShieldCheck size={13} color="#16a34a"/>
-                  <span style={{fontSize:11,fontWeight:700,color:'#16a34a'}}>SSL 256-bit</span>
-                </div>
-                <button onClick={onClose} style={{width:36,height:36,borderRadius:10,background:'#f1f5f9',border:'none',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#64748b'}}>
-                  <X size={16}/>
-                </button>
+
+              <div className="space-y-6">
+                 {isCartCheckout ? (
+                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                     {cartItems.map((item, index) => (
+                       <div key={`${item.id}-${index}`} className="flex gap-4 items-center">
+                          <div className="w-16 h-16 bg-white rounded-lg p-1 shadow-md flex items-center justify-center relative flex-shrink-0">
+                           <img
+                             src={resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png"}
+                             alt={item.name}
+                             className="w-full h-full object-contain mix-blend-multiply"
+                             onError={(e) => {
+                               e.currentTarget.onerror = null;
+                               e.currentTarget.src = "/imgs/logo.png";
+                             }}
+                           />
+                            <span className="absolute -top-2 -right-2 w-5 h-5 bg-neutral-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-neutral-900">
+                              {item.quantity}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-sm leading-tight truncate">{item.name}</h4>
+                            <p className="text-neutral-400 text-xs truncate">{item.size} • {item.color}</p>
+                             <p className="text-orange-500 font-bold text-sm">{formatMoney((Number(item?.price) || 0) * (Number(item?.quantity) || 0))} FCFA</p>
+                          </div>
+                       </div>
+                     ))}
+                   </div>
+                 ) : (
+                   <div className="flex gap-6 items-start">
+                      <div className="w-24 h-24 bg-white rounded-xl p-2 shadow-xl flex items-center justify-center relative group">
+                        <img
+                          src={resolveBackendAssetUrl(product?.image || product?.imageUrl) || "/imgs/logo.png"}
+                          alt={product?.name}
+                          className="w-full h-full object-contain mix-blend-multiply"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = "/imgs/logo.png";
+                          }}
+                        />
+                        <span className="absolute -top-2 -right-2 w-6 h-6 bg-neutral-500 text-white text-xs font-bold flex items-center justify-center rounded-full border-2 border-neutral-900">
+                          {quantity}
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold leading-tight mb-2">{product?.name}</h3>
+                        <p className="text-neutral-400 text-sm mb-1">Taille: {selectedSize} • Couleur: {selectedColor}</p>
+                         <p className="text-2xl font-bold text-orange-500">{formatMoney(product?.price)} FCFA</p>
+                      </div>
+                   </div>
+                 )}
+
+                  <div className="bg-white/5 rounded-2xl p-6 backdrop-blur-sm border border-white/10 space-y-3">
+                     <div className="flex justify-between text-neutral-300">
+                       <span>Sous-total</span>
+                       <span>{formatMoney(itemsTotal)} FCFA</span>
+                     </div>
+                     <div className="flex justify-between text-neutral-300">
+                       <span>Livraison ({shippingMethodLabel})</span>
+                       {normalizedShippingCost === 0 ? (
+                         <span className="text-green-400 font-bold">GRATUIT</span>
+                       ) : (
+                        <span>{formatMoney(normalizedShippingCost)} FCFA</span>
+                       )}
+                     </div>
+                     {normalizedDiscountAmount > 0 && (
+                       <div className="flex justify-between text-green-400">
+                         <span>Réduction</span>
+                         <span>-{formatMoney(normalizedDiscountAmount)} FCFA</span>
+                       </div>
+                     )}
+                     {normalizedLoyaltyDiscountAmount > 0 && (
+                       <div className="flex justify-between text-green-400">
+                         <span>{loyaltyTier ? `Réduction VIP (${loyaltyTier})` : "Réduction VIP"}</span>
+                         <span>-{formatMoney(normalizedLoyaltyDiscountAmount)} FCFA</span>
+                       </div>
+                     )}
+                     <div className="flex justify-between text-neutral-300">
+                       <span>Dont TVA (18%)</span>
+                       <span>{formatMoney(taxAmount)} FCFA</span>
+                     </div>
+                     <div className="h-px bg-white/10 my-4" />
+                     <div className="flex justify-between text-2xl font-bold">
+                       <span>Total TTC</span>
+                       <span>{formatMoney(finalTotal)} FCFA</span>
+                     </div>
+                  </div>
               </div>
             </div>
 
-            {/* BODY: 3-COL */}
-            <div style={{display:'flex',flex:1,overflow:'hidden',minHeight:0}}>
+            <div className="relative z-10 mt-8 md:mt-0 text-xs text-neutral-500 flex gap-4">
+              <span>Conditions Générales</span>
+              <span>Politique de Confidentialité</span>
+            </div>
+          </div>
 
-              {/* LEFT: progress rail */}
-              <div style={{width:220,background:'#fff',borderRight:'1px solid #e2e8f0',padding:'32px 24px',flexShrink:0,display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
-                <div>
-                  <div style={{fontSize:10,fontWeight:700,letterSpacing:'0.14em',textTransform:'uppercase',color:'#94a3b8',marginBottom:24}}>Étapes</div>
-                  <ProgressRail step={step}/>
-                </div>
-                <div style={{background:'linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.06))',border:'1px solid rgba(99,102,241,0.12)',borderRadius:14,padding:'14px 16px'}}>
-                  <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#6366f1',marginBottom:8}}>Total commande</div>
-                  <div style={{fontSize:22,fontWeight:800,color:'#1e293b'}}>{fmtMoney(total)}</div>
-                  <div style={{fontSize:11,color:'#94a3b8',marginTop:2}}>FCFA TTC</div>
-                </div>
-              </div>
+          {/* RIGHT PANEL: Form (Light/Input side) */}
+          <div className="w-full md:w-[55%] lg:w-[60%] bg-white dark:bg-neutral-950 p-6 md:p-12 overflow-y-auto order-2 md:order-1 relative">
+             <button 
+              onClick={onClose}
+              className="hidden md:flex absolute top-8 left-8 items-center gap-2 text-neutral-500 hover:text-black dark:hover:text-white transition-colors"
+            >
+              <ChevronLeft size={20} /> Retour à la boutique
+            </button>
 
-              {/* CENTRE: main form */}
-              <div style={{flex:1,overflowY:'auto',padding:'28px 32px'}}>
-                <AnimatePresence mode="wait">
+            <div className="max-w-xl mx-auto md:mt-16">
+              {/* Step 3: PROCESSING STATE OVERLAY */}
+              {step === 3 && (
+                 <div className="absolute inset-0 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center text-center p-8">
+                    <div className="w-24 h-24 relative mb-8">
+                       <motion.div 
+                         className="absolute inset-0 border-4 border-neutral-200 dark:border-neutral-800 rounded-full"
+                       />
+                       <motion.div 
+                         className="absolute inset-0 border-4 border-orange-500 rounded-full border-t-transparent"
+                         animate={{ rotate: 360 }}
+                         transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                       />
+                       <div className="absolute inset-0 flex items-center justify-center">
+                          <Lock className="text-orange-500" size={32} />
+                       </div>
+                    </div>
+                    
+                    <h3 className="text-2xl font-bold mb-2">
+                      {loadingStep === 1 && "Connexion à la banque..."}
+                      {loadingStep === 2 && "Vérification 3D Secure..."}
+                      {loadingStep === 3 && "Paiement approuvé !"}
+                    </h3>
+                    <p className="text-neutral-500 max-w-sm mx-auto">
+                      Veuillez ne pas fermer cette fenêtre. Nous sécurisons votre transaction.
+                    </p>
+                 </div>
+              )}
 
-                  {step===1 && (
-                    <motion.form key="s1" initial={{opacity:0,x:-16}} animate={{opacity:1,x:0}} exit={{opacity:0,x:16}} onSubmit={handleStep1}>
-                      <div style={{marginBottom:24}}>
-                        <h2 style={{fontSize:20,fontWeight:800,color:'#1e293b',margin:'0 0 4px'}}>Où livrer votre commande ?</h2>
-                        <p style={{fontSize:12,color:'#94a3b8',margin:0}}>Vos informations de contact et d'expédition</p>
-                      </div>
-                      <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:20,marginBottom:14}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8,fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#64748b',marginBottom:14}}>
-                          <div style={{width:20,height:20,borderRadius:6,background:'#ede9fe',display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:9,color:'#6366f1'}}>👤</span></div>
-                          Identité
-                        </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
-                          <Field label="Prénom" name="firstName" value={form.firstName} onChange={upd} readOnly placeholder="Jean"/>
-                          <Field label="Nom" name="lastName" value={form.lastName} onChange={upd} readOnly placeholder="Dupont"/>
-                        </div>
-                        <Field label="Email" icon={Mail} name="email" type="email" value={form.email} onChange={upd} readOnly placeholder="jean@exemple.fr"/>
-                      </div>
-                      <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:20,marginBottom:20}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8,fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#64748b',marginBottom:14}}>
-                          <div style={{width:20,height:20,borderRadius:6,background:'#fce7f3',display:'flex',alignItems:'center',justifyContent:'center'}}><MapPin size={10} color="#ec4899"/></div>
-                          Adresse de livraison
-                        </div>
-                        <div style={{marginBottom:10}}><Field label="Téléphone" icon={Phone} name="phone" type="tel" value={form.phone} onChange={upd} placeholder="+225 07 00 00 00" required/></div>
-                        <div style={{marginBottom:10}}><Field label="Adresse" icon={MapPin} name="address" value={form.address} onChange={upd} placeholder="Numéro et nom de rue" required/></div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                          <Field label="Ville" name="city" value={form.city} onChange={upd} placeholder="Abidjan" required/>
-                          <Field label="Code postal" name="zip" value={form.zip} onChange={upd} placeholder="00000" required/>
-                        </div>
-                      </div>
-                      <div style={{display:'flex',alignItems:'center',gap:12,background:'#fff',border:'1px solid #e2e8f0',borderRadius:12,padding:'12px 16px',marginBottom:20}}>
-                        <div style={{width:36,height:36,borderRadius:10,background:'#eff6ff',display:'flex',alignItems:'center',justifyContent:'center'}}><Truck size={16} color="#3b82f6"/></div>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:12,fontWeight:700,color:'#1e293b'}}>Livraison {shippingMethodLabel}</div>
-                          <div style={{fontSize:11,color:'#94a3b8'}}>{ship===0?'Gratuite':`${fmtMoney(ship)} FCFA`}</div>
-                        </div>
-                        <Check size={14} color="#6366f1"/>
-                      </div>
-                      <motion.button whileHover={{scale:1.01}} whileTap={{scale:0.98}} type="submit"
-                        style={{width:'100%',padding:'14px',background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:700,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:'0 8px 24px rgba(99,102,241,0.3)'}}>
-                        Continuer vers le paiement <ArrowRight size={16}/>
-                      </motion.button>
-                    </motion.form>
-                  )}
+              {/* Step 4: SUCCESS STATE */}
+              {step === 4 ? (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-center py-12"
+                >
+                  <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Check className="w-12 h-12 text-green-600 dark:text-green-400" strokeWidth={3} />
+                  </div>
+                  <h2 className="text-3xl font-black mb-4">Commande Confirmée !</h2>
+                  <p className="text-neutral-600 dark:text-neutral-400 mb-8 max-w-md mx-auto">
+                    Merci {formData.firstName}. Votre commande a été acceptée et est en cours de préparation. Un email de confirmation a été envoyé à {formData.email}.
+                  </p>
+                  <div className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-6 mb-8 text-left">
+                     <div className="flex justify-between items-center mb-4 pb-4 border-b border-neutral-200 dark:border-neutral-800">
+                        <span className="text-neutral-500">N° de commande</span>
+                        <span className="font-mono font-bold">LID-{orderNumber}</span>
+                     </div>
+                     <div className="flex justify-between items-center">
+                        <span className="text-neutral-500">Date estimée</span>
+                        <span className="font-bold">Demain, 5 Janvier</span>
+                     </div>
+                  </div>
+                  <button 
+                    onClick={onClose}
+                    className="px-8 py-4 bg-black dark:bg-white text-white dark:text-black rounded-full font-bold hover:scale-105 transition-transform"
+                  >
+                    Continuer mes achats
+                  </button>
+                </motion.div>
+              ) : (
+                /* FORM STEPS */
+                <>
+                  <div className="flex items-center gap-3 mb-8">
+                     <span className={cn("w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors", step === 1 ? "bg-black text-white dark:bg-white dark:text-black" : "bg-green-500 text-white")}>
+                       {step > 1 ? <Check size={16} /> : "1"}
+                     </span>
+                     <span className={cn("text-sm font-bold uppercase tracking-wider", step === 1 ? "text-black dark:text-white" : "text-neutral-400")}>Information</span>
+                     <div className="w-12 h-px bg-neutral-200 dark:bg-neutral-800" />
+                     <span className={cn("w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors", step === 2 ? "bg-black text-white dark:bg-white dark:text-black" : "bg-neutral-100 dark:bg-neutral-800 text-neutral-400")}>
+                       2
+                     </span>
+                     <span className={cn("text-sm font-bold uppercase tracking-wider", step === 2 ? "text-black dark:text-white" : "text-neutral-400")}>Paiement</span>
+                  </div>
 
-                  {step===2 && (
-                    <motion.form key="s2" initial={{opacity:0,x:16}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-16}} onSubmit={handlePay}>
-                      <div style={{marginBottom:20}}>
-                        <h2 style={{fontSize:20,fontWeight:800,color:'#1e293b',margin:'0 0 4px'}}>Comment souhaitez-vous payer ?</h2>
-                        <p style={{fontSize:12,color:'#94a3b8',margin:0}}>Transactions chiffrées et sécurisées</p>
-                      </div>
-                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:20}}>
-                        <MethodBtn active={form.method==='card'} icon={CreditCard} label="Carte bancaire" sub="Visa, Mastercard…" onClick={()=>setForm(p=>({...p,method:'card'}))}/>
-                        <MethodBtn active={form.method==='mobile'} icon={Smartphone} label="Mobile Money" sub="Orange, MTN, Wave" onClick={()=>setForm(p=>({...p,method:'mobile'}))}/>
-                      </div>
-                      {form.method==='card' ? (
-                        <>
-                          <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:20,marginBottom:16}}>
-                            <Card3D number={form.cardNumber} name={form.cardName} expiry={form.cardExpiry} cvc={form.cardCvc} focusField={cardFocus}/>
+                  <AnimatePresence mode="wait">
+                    {step === 1 && (
+                      <motion.form
+                        key="step1"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        onSubmit={handleSubmitInfo}
+                        className="space-y-6"
+                      >
+                        <h1 className="text-3xl font-black mb-2">Détails de livraison</h1>
+                        <p className="text-neutral-500 mb-8">Où devons-nous envoyer votre commande ?</p>
+
+                        <div className="grid grid-cols-2 gap-4">
+                           <div className="group">
+                             <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Prénom</label>
+                             <input required name="firstName" value={formData.firstName} readOnly className="w-full p-3 bg-neutral-100 dark:bg-neutral-900 border-2 border-transparent rounded-xl outline-none transition-all font-medium cursor-not-allowed opacity-80" placeholder="Votre prénom" />
+                           </div>
+                           <div className="group">
+                             <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Nom</label>
+                             <input required name="lastName" value={formData.lastName} readOnly className="w-full p-3 bg-neutral-100 dark:bg-neutral-900 border-2 border-transparent rounded-xl outline-none transition-all font-medium cursor-not-allowed opacity-80" placeholder="Votre nom" />
+                           </div>
+                        </div>
+
+                     <div className="group">
+                        <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Email</label>
+                        <input required type="email" name="email" value={formData.email} readOnly className="w-full p-3 bg-neutral-100 dark:bg-neutral-900 border-2 border-transparent rounded-xl outline-none transition-all font-medium cursor-not-allowed opacity-80" placeholder="exemple@email.com" />
+                     </div>
+
+                     <div className="group">
+                       <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Téléphone</label>
+                       <input
+                         required
+                         type="tel"
+                         name="phone"
+                         value={formData.phone}
+                         onChange={handleInputChange}
+                         className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium"
+                         placeholder="+2250102030405"
+                       />
+                     </div>
+
+                        {loadingAddresses ? (
+                          <div className="text-sm text-neutral-500">Chargement des adresses...</div>
+                        ) : savedAddresses.length > 0 ? (
+                          <div className="group">
+                            <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Adresse sauvegardée</label>
+                            <select value={selectedAddressId} onChange={handleAddressSelect} className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium">
+                              <option value="">Nouvelle adresse</option>
+                              {savedAddresses.map((addr) => (
+                                <option key={addr.id} value={addr.id}>
+                                  {[addr.type, addr.addressLine, addr.city].filter(Boolean).join(' · ')}
+                                </option>
+                              ))}
+                            </select>
                           </div>
-                          <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:20,marginBottom:20}}>
-                            <div style={{display:'flex',flexDirection:'column',gap:12}}>
-                              <Field label="Numéro de carte" icon={CreditCard} name="cardNumber" value={form.cardNumber} onChange={upd} maxLength={19} placeholder="0000 0000 0000 0000" onFocus={()=>setCardFocus('number')} required/>
-                              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-                                <Field label="Expiration" name="cardExpiry" value={form.cardExpiry} onChange={upd} maxLength={5} placeholder="MM/YY" onFocus={()=>setCardFocus('expiry')} required hint="MM/YY"/>
-                                <Field label="CVC" icon={Lock} name="cardCvc" value={form.cardCvc} onChange={upd} maxLength={3} placeholder="•••" onFocus={()=>setCardFocus('cvc')} required hint="3 chiffres"/>
+                        ) : null}
+
+                        <div className="group">
+                           <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Adresse</label>
+                           <div className="relative">
+                             <input required name="address" value={formData.address} onChange={handleInputChange} className="w-full p-3 pr-12 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium" placeholder="Numéro et nom de rue" />
+                             <button
+                               type="button"
+                               onClick={setAddressFromPosition}
+                               disabled={isResolvingCurrentAddress}
+                               className="absolute right-2.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg bg-white/80 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 hover:text-orange-600 transition-colors disabled:opacity-60"
+                               aria-label="Utiliser ma position"
+                             >
+                               {isResolvingCurrentAddress ? <Loader2 size={18} className="animate-spin" /> : <LocateFixed size={18} />}
+                             </button>
+                           </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                           <div className="group">
+                             <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Ville</label>
+                             <input required name="city" value={formData.city} onChange={handleInputChange} className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium" placeholder="Ville" />
+                           </div>
+                           <div className="group">
+                             <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block group-focus-within:text-orange-600 transition-colors">Code Postal</label>
+                             <input required name="zip" value={formData.zip} onChange={handleInputChange} className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none transition-all font-medium" placeholder="00000" />
+                           </div>
+                        </div>
+
+                        <button type="submit" className="w-full py-4 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold text-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2 mt-8">
+                          Continuer vers le paiement <ArrowRight size={20} />
+                        </button>
+                      </motion.form>
+                    )}
+
+                    {step === 2 && (
+                      <motion.form
+                        key="step2"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        onSubmit={handlePayment}
+                        className="space-y-6"
+                      >
+                         <h1 className="text-3xl font-black mb-2">Paiement</h1>
+                         <p className="text-neutral-500 mb-8">Toutes les transactions sont sécurisées et cryptées.</p>
+
+                         {/* Payment Method Selector */}
+                         <div className="flex gap-4 p-1 bg-neutral-100 dark:bg-neutral-900 rounded-xl mb-8">
+                            <button
+                              type="button"
+                              onClick={() => setFormData(p => ({...p, paymentMethod: 'card'}))}
+                              className={cn("flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all", formData.paymentMethod === 'card' ? "bg-white dark:bg-neutral-800 shadow-sm text-black dark:text-white" : "text-neutral-500")}
+                            >
+                              <CreditCard size={18} /> Carte Bancaire
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFormData(p => ({...p, paymentMethod: 'mobile'}))}
+                              className={cn("flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all", formData.paymentMethod === 'mobile' ? "bg-white dark:bg-neutral-800 shadow-sm text-black dark:text-white" : "text-neutral-500")}
+                            >
+                              <Smartphone size={18} /> Mobile Money
+                            </button>
+                         </div>
+
+                         {formData.paymentMethod === 'card' ? (
+                           <div className="space-y-6">
+                              <CardPreview
+                                number={formData.cardNumber}
+                                expiry={formData.cardExpiry}
+                                cvc={formData.cardCvc}
+                                name={formData.cardName}
+                                focus={cardFocus}
+                                supportPhone={supportPhone}
+                              />
+
+                              <div className="space-y-4">
+                                <div className="group">
+                                  <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block">Numéro de carte</label>
+                                  <div className="relative">
+                                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+                                    <input 
+                                      required 
+                                      name="cardNumber"
+                                      value={formData.cardNumber}
+                                      onChange={handleInputChange}
+                                      maxLength={19}
+                                      onFocus={() => setCardFocus('number')}
+                                      className="w-full pl-10 p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none font-mono text-lg" 
+                                      placeholder="0000 0000 0000 0000" 
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                   <div className="group">
+                                      <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block">Expiration</label>
+                                      <input 
+                                        required 
+                                        name="cardExpiry"
+                                        value={formData.cardExpiry}
+                                        onChange={handleInputChange}
+                                        maxLength={5}
+                                        onFocus={() => setCardFocus('expiry')}
+                                        className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none font-mono text-center text-lg" 
+                                        placeholder="MM/YY" 
+                                      />
+                                   </div>
+                                   <div className="group">
+                                      <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block">CVC</label>
+                                      <div className="relative">
+                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
+                                        <input 
+                                          required 
+                                          name="cardCvc"
+                                          value={formData.cardCvc}
+                                          onChange={handleInputChange}
+                                          maxLength={3}
+                                          onFocus={() => setCardFocus('cvc')}
+                                          className="w-full pl-10 p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none font-mono text-center text-lg" 
+                                          placeholder="123" 
+                                        />
+                                      </div>
+                                   </div>
+                                </div>
+
+                                <div className="group">
+                                   <label className="text-xs font-bold text-neutral-500 uppercase mb-1.5 block">Nom sur la carte</label>
+                                   <input 
+                                      required 
+                                      name="cardName"
+                                      value={formData.cardName}
+                                      onChange={handleInputChange}
+                                      onFocus={() => setCardFocus('name')}
+                                      className="w-full p-3 bg-neutral-50 dark:bg-neutral-900 border-2 border-transparent focus:border-orange-500 rounded-xl outline-none uppercase font-medium" 
+                                      placeholder="NOM PRENOM" 
+                                   />
+                                </div>
                               </div>
-                              <Field label="Nom sur la carte" name="cardName" value={form.cardName} onChange={upd} placeholder="JEAN DUPONT" onFocus={()=>setCardFocus('name')} required/>
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:28,textAlign:'center',marginBottom:20}}>
-                          <div style={{width:56,height:56,borderRadius:16,background:'linear-gradient(135deg,rgba(99,102,241,0.1),rgba(139,92,246,0.1))',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}><Smartphone size={24} color="#6366f1"/></div>
-                          <div style={{fontSize:15,fontWeight:700,color:'#1e293b',marginBottom:4}}>Validation sur mobile</div>
-                          <div style={{fontSize:12,color:'#94a3b8',marginBottom:18,lineHeight:1.6}}>Vous recevrez une notification après avoir cliqué sur Payer.</div>
-                          <input required name="mobilePhone" type="tel" value={form.mobilePhone} onChange={upd} placeholder="07 00 00 00 00"
-                            style={{width:'100%',maxWidth:220,boxSizing:'border-box',background:'#f8fafc',border:'1.5px solid #e2e8f0',borderRadius:10,padding:'12px 16px',fontSize:16,fontWeight:700,color:'#1e293b',outline:'none',textAlign:'center',fontFamily:'monospace'}}/>
-                        </div>
-                      )}
-                      <motion.button whileHover={{scale:1.01}} whileTap={{scale:0.98}} type="submit" disabled={processing}
-                        style={{width:'100%',padding:'14px',background:processing?'#a5b4fc':'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:12,cursor:processing?'not-allowed':'pointer',fontSize:14,fontWeight:700,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:'0 8px 24px rgba(99,102,241,0.3)',transition:'all 0.2s'}}>
-                        {processing ? <><Loader2 size={16} style={{animation:'spin 1s linear infinite'}}/> Traitement…</> : <><Lock size={15}/> Payer {fmtMoney(total)} FCFA</>}
-                      </motion.button>
-                      <button type="button" onClick={()=>setStep(1)} style={{width:'100%',marginTop:10,padding:'11px',background:'transparent',border:'1.5px solid #e2e8f0',borderRadius:10,color:'#64748b',fontSize:12,fontWeight:600,cursor:'pointer'}}>← Retour à la livraison</button>
-                    </motion.form>
-                  )}
+                           </div>
+                         ) : (
+                           <div className="bg-neutral-50 dark:bg-neutral-900 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 text-center py-12">
+                              <Smartphone className="w-12 h-12 mx-auto text-neutral-400 mb-4" />
+                              <h3 className="font-bold mb-2">Paiement Mobile</h3>
+                              <p className="text-sm text-neutral-500 mb-6">Un message de validation sera envoyé sur votre téléphone après confirmation.</p>
+                              <div className="max-w-xs mx-auto">
+                                 <input 
+                                   required
+                                   type="tel"
+                                   name="mobilePhone"
+                                   value={formData.mobilePhone}
+                                   onChange={handleInputChange}
+                                   placeholder="07 00 00 00 00"
+                                   className="w-full p-4 text-center text-xl font-bold tracking-wider bg-white dark:bg-black border-2 border-neutral-200 dark:border-neutral-800 rounded-xl outline-none focus:border-orange-500"
+                                 />
+                              </div>
+                           </div>
+                         )}
 
-                  {step===3 && (
-                    <motion.div key="s3" initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} style={{textAlign:'center',padding:'32px 20px'}}>
-                      <motion.div initial={{scale:0,rotate:-20}} animate={{scale:1,rotate:0}} transition={{type:'spring',damping:14,stiffness:180,delay:0.1}}
-                        style={{width:80,height:80,borderRadius:24,background:'linear-gradient(135deg,#dcfce7,#bbf7d0)',border:'1px solid #86efac',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 24px'}}>
-                        <Check size={36} color="#16a34a" strokeWidth={3}/>
-                      </motion.div>
-                      <motion.div initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{delay:0.2}}>
-                        <h2 style={{fontSize:26,fontWeight:800,color:'#1e293b',margin:'0 0 8px'}}>Commande confirmée !</h2>
-                        <p style={{color:'#64748b',fontSize:13,marginBottom:24,lineHeight:1.6}}>Merci pour votre achat. Un email de confirmation vous a été envoyé.</p>
-                        <div style={{display:'inline-flex',alignItems:'center',gap:12,background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:12,padding:'12px 20px',marginBottom:28}}>
-                          <div>
-                            <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.12em',color:'#94a3b8'}}>Numéro de commande</div>
-                            <div style={{fontFamily:'monospace',fontSize:16,fontWeight:800,color:'#6366f1',marginTop:2}}>#{orderNumber}</div>
-                          </div>
-                        </div>
-                        <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap',marginBottom:28}}>
-                          {['Préparation','Expédition','Livraison'].map((s,i)=>(
-                            <motion.div key={s} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{delay:0.3+i*0.08}}
-                              style={{display:'flex',alignItems:'center',gap:6,background:'#fff',border:'1px solid #e2e8f0',borderRadius:20,padding:'6px 12px'}}>
-                              <div style={{width:6,height:6,borderRadius:'50%',background:i===0?'#6366f1':'#e2e8f0'}}/>
-                              <span style={{fontSize:11,fontWeight:600,color:i===0?'#6366f1':'#94a3b8'}}>{s}</span>
-                            </motion.div>
-                          ))}
-                        </div>
-                        <motion.button whileHover={{scale:1.02}} whileTap={{scale:0.98}} onClick={onClose}
-                          style={{padding:'13px 32px',background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:12,fontSize:14,fontWeight:700,color:'#fff',cursor:'pointer',boxShadow:'0 8px 24px rgba(99,102,241,0.25)'}}>
-                          Continuer mes achats
-                        </motion.button>
-                      </motion.div>
-                    </motion.div>
-                  )}
-
-                </AnimatePresence>
-              </div>
-
-              {/* RIGHT: order summary */}
-              <div style={{width:260,borderLeft:'1px solid #e2e8f0',background:'#fff',padding:'28px 20px',overflowY:'auto',flexShrink:0}}>
-                <div style={{fontSize:10,fontWeight:700,letterSpacing:'0.14em',textTransform:'uppercase',color:'#94a3b8',marginBottom:16}}>Votre commande</div>
-                <div style={{marginBottom:16}}>
-                  {isCart ? cartItems.map((item,i)=>(
-                    <div key={i} style={{display:'flex',gap:10,marginBottom:12,alignItems:'center'}}>
-                      <div style={{width:44,height:44,borderRadius:10,background:'#f1f5f9',flexShrink:0,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',border:'1px solid #e2e8f0'}}>
-                        {item?.image && <img src={item.image} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}}/>}
-                        <div style={{position:'absolute',top:-4,right:-4,width:17,height:17,borderRadius:'50%',background:'#6366f1',fontSize:9,fontWeight:800,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>{item?.quantity}</div>
-                      </div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:12,fontWeight:700,color:'#1e293b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item?.name||'Produit'}</div>
-                        <div style={{fontSize:11,color:'#6366f1',fontWeight:700}}>{fmtMoney((Number(item?.price)||0)*(Number(item?.quantity)||1))} FCFA</div>
-                      </div>
-                    </div>
-                  )) : (
-                    <div style={{display:'flex',gap:10,marginBottom:12,alignItems:'center'}}>
-                      <div style={{width:44,height:44,borderRadius:10,background:'#f1f5f9',flexShrink:0,border:'1px solid #e2e8f0'}}/>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:12,fontWeight:700,color:'#1e293b'}}>{product?.name||'Produit'}</div>
-                        <div style={{fontSize:11,color:'#64748b'}}>×{qty}</div>
-                        <div style={{fontSize:11,color:'#6366f1',fontWeight:700}}>{fmtMoney(itemsTotal)} FCFA</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div style={{borderTop:'1px solid #f1f5f9',paddingTop:14}}>
-                  {[
-                    {label:'Sous-total', value:`${fmtMoney(itemsTotal)} FCFA`},
-                    {label:`Livraison (${shippingMethodLabel})`, value:ship===0?'Gratuit':`${fmtMoney(ship)} FCFA`},
-                    ...(disc>0?[{label:'Réduction', value:`-${fmtMoney(disc)} FCFA`, accent:true}]:[]),
-                    ...(ldisc>0?[{label:`VIP${loyaltyTier?` (${loyaltyTier})`:''} `, value:`-${fmtMoney(ldisc)} FCFA`, accent:true}]:[]),
-                    {label:'TVA (18%)', value:`${fmtMoney(tax)} FCFA`, muted:true},
-                  ].map(l=>(
-                    <div key={l.label} style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
-                      <span style={{fontSize:11,color:l.muted?'#94a3b8':'#64748b'}}>{l.label}</span>
-                      <span style={{fontSize:11,fontWeight:700,color:l.accent?'#16a34a':l.muted?'#94a3b8':'#1e293b'}}>{l.value}</span>
-                    </div>
-                  ))}
-                  <div style={{borderTop:'1px solid #e2e8f0',paddingTop:12,marginTop:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <span style={{fontSize:13,fontWeight:800,color:'#1e293b'}}>Total</span>
-                    <div style={{textAlign:'right'}}>
-                      <div style={{fontSize:18,fontWeight:800,color:'#6366f1'}}>{fmtMoney(total)}</div>
-                      <div style={{fontSize:10,color:'#94a3b8'}}>FCFA TTC</div>
-                    </div>
-                  </div>
-                </div>
-                <div style={{marginTop:16,background:'#f8fafc',borderRadius:10,padding:'12px 14px'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
-                    <Star size={11} color="#f59e0b" fill="#f59e0b"/>
-                    <span style={{fontSize:10,fontWeight:700,color:'#1e293b'}}>Paiement sécurisé</span>
-                  </div>
-                  <p style={{fontSize:10,color:'#94a3b8',margin:0,lineHeight:1.6}}>Données chiffrées 256-bit. Aucune info bancaire stockée.</p>
-                </div>
-              </div>
-
+                         <button type="submit" className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2 mt-8 shadow-lg shadow-orange-500/20">
+                           <Lock size={20} /> Payer {Number(finalTotal).toLocaleString()} FCFA
+                         </button>
+                         
+                         <button 
+                           type="button" 
+                           onClick={() => setStep(1)}
+                           className="w-full py-3 text-sm font-medium text-neutral-500 hover:text-black dark:hover:text-white transition-colors"
+                         >
+                           Retour aux informations
+                         </button>
+                      </motion.form>
+                    )}
+                  </AnimatePresence>
+                </>
+              )}
             </div>
-          </motion.div>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
