@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, Check, CreditCard, Smartphone, User, MapPin,
+  X, Check, CreditCard, Smartphone, MapPin,
   Phone, Mail, ArrowRight, ShieldCheck, Lock,
-  ChevronLeft, Loader2, LocateFixed
+  Loader2, Package, Truck, Star, ChevronRight
 } from 'lucide-react';
 
-/* ─── Helpers ───────────────────────────────────────────────── */
+/* ─── Helpers ─────────────────────────────────────────────── */
 const fmt4 = v => v.replace(/\s+/g,'').replace(/[^0-9]/gi,'').match(/.{1,4}/g)?.join(' ') ?? v;
 const fmtExp = v =>
   v.replace(/[^0-9]/g,'')
@@ -18,136 +18,150 @@ const fmtMoney = v => {
   const n = Number(v);
   if (!Number.isFinite(n)) return '0';
   const dec = Math.abs(n - Math.trunc(n)) > 0.000001;
-  return n.toLocaleString('fr-FR', { minimumFractionDigits: dec?2:0, maximumFractionDigits: dec?2:0 });
-};
-const normExp = v => {
-  const s = `${v||''}`.trim();
-  if (!s) return 'MM/YY';
-  if (s.includes('/')) return s;
-  if (s.length >= 4) return `${s.slice(0,2)}/${s.slice(2,4)}`;
-  return s;
+  return n.toLocaleString('fr-FR',{minimumFractionDigits:dec?2:0,maximumFractionDigits:dec?2:0});
 };
 const fmtExpLong = v => {
-  const m = normExp(v).match(/^(\d{2})\/(\d{2})$/);
-  return m ? `${m[1]}/20${m[2]}` : normExp(v);
+  const s = `${v||''}`.trim();
+  const norm = s.includes('/') ? s : s.length>=4 ? `${s.slice(0,2)}/${s.slice(2,4)}` : s;
+  const m = norm.match(/^(\d{2})\/(\d{2})$/);
+  return m ? `${m[1]}/20${m[2]}` : norm || 'MM/YY';
 };
 
-/* ─── Card Visual ───────────────────────────────────────────── */
-function CardFace({ number, name, expiry, cvc, flipped }) {
-  const num = `${number||''}`.replace(/\D/g,'');
-  const disp = num ? fmt4(num) : '4242 4242 4242 4242';
+/* ─── Card 3D ─────────────────────────────────────────────── */
+function Card3D({ number, name, expiry, cvc, focusField }) {
+  const [clicked, setClicked] = useState(false);
+  const flipped = clicked || focusField === 'cvc';
+  const disp = number ? fmt4(number.replace(/\D/g,'')) : '•••• •••• •••• ••••';
   const raw = `${cvc||''}`.replace(/\D/g,'').padEnd(3,'•').slice(0,3);
 
   return (
-    <div style={{ perspective: 1200, width: '100%', maxWidth: 380, margin: '0 auto' }}>
+    <div style={{perspective:1100, cursor:'pointer', userSelect:'none'}} onClick={()=>setClicked(f=>!f)}>
       <motion.div
-        animate={{ rotateY: flipped ? 180 : 0 }}
-        transition={{ duration: 0.7, ease: [0.4,0.2,0.2,1] }}
-        style={{ transformStyle: 'preserve-3d', position: 'relative', aspectRatio: '1.586', width: '100%' }}
+        animate={{rotateY: flipped ? 180 : 0}}
+        transition={{duration:0.65, ease:[0.4,0.2,0.2,1]}}
+        style={{transformStyle:'preserve-3d', position:'relative', width:'100%', aspectRatio:'1.586'}}
       >
-        {/* FRONT */}
         <div style={{
-          position: 'absolute', inset: 0, backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden',
-          borderRadius: 20, overflow: 'hidden',
-          background: 'linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 50%, #0f0f0f 100%)',
-          boxShadow: '0 32px 64px rgba(0,0,0,0.5)',
+          position:'absolute', inset:0, backfaceVisibility:'hidden', WebkitBackfaceVisibility:'hidden',
+          borderRadius:18, overflow:'hidden',
+          background:'linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4338ca 100%)',
+          boxShadow:'0 20px 60px rgba(99,102,241,0.35)',
         }}>
-          {/* grid lines */}
-          <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0.06 }} viewBox="0 0 400 252">
-            {Array.from({length:20}).map((_,i)=><line key={i} x1={i*22} y1="0" x2={i*22} y2="252" stroke="#fff" strokeWidth="0.5"/>)}
-            {Array.from({length:12}).map((_,i)=><line key={i} x1="0" y1={i*22} x2="400" y2={i*22} stroke="#fff" strokeWidth="0.5"/>)}
+          <svg style={{position:'absolute',inset:0,width:'100%',height:'100%',opacity:0.04}} viewBox="0 0 200 126">
+            {Array.from({length:14}).map((_,i)=><line key={i} x1={i*15} y1="0" x2={i*15} y2="126" stroke="#fff" strokeWidth="0.5"/>)}
+            {Array.from({length:9}).map((_,i)=><line key={i} x1="0" y1={i*15} x2="200" y2={i*15} stroke="#fff" strokeWidth="0.5"/>)}
           </svg>
-          {/* glow */}
-          <div style={{ position:'absolute', top:-60, right:-40, width:220, height:220, borderRadius:'50%', background:'radial-gradient(circle, rgba(99,102,241,0.35) 0%, transparent 70%)' }}/>
-          {/* chip */}
-          <div style={{ position:'absolute', top:28, left:28 }}>
-            <svg width="46" height="36" viewBox="0 0 46 36" fill="none">
-              <rect width="46" height="36" rx="5" fill="#c9a227"/>
-              <rect x="1" y="1" width="44" height="34" rx="4" stroke="rgba(255,220,80,0.4)" strokeWidth="0.5"/>
-              {[13,23].map(x=><line key={x} x1={x} y1="0" x2={x} y2="36" stroke="rgba(0,0,0,0.3)" strokeWidth="0.7"/>)}
-              {[12,24].map(y=><line key={y} x1="0" y1={y} x2="46" y2={y} stroke="rgba(0,0,0,0.3)" strokeWidth="0.7"/>)}
-              <rect x="13" y="12" width="20" height="12" fill="rgba(0,0,0,0.15)"/>
+          <div style={{position:'absolute',top:-40,right:-20,width:160,height:160,borderRadius:'50%',background:'radial-gradient(circle,rgba(167,139,250,0.4) 0%,transparent 70%)'}}/>
+          <div style={{position:'absolute',top:22,left:22}}>
+            <svg width="42" height="33" viewBox="0 0 42 33" fill="none">
+              <rect width="42" height="33" rx="4" fill="#c9a227"/>
+              <rect x="0.5" y="0.5" width="41" height="32" rx="3.5" stroke="rgba(255,220,80,0.4)" strokeWidth="0.7"/>
+              {[12,21].map(x=><line key={x} x1={x} y1="0" x2={x} y2="33" stroke="rgba(0,0,0,0.25)" strokeWidth="0.6"/>)}
+              {[11,22].map(y=><line key={y} x1="0" y1={y} x2="42" y2={y} stroke="rgba(0,0,0,0.25)" strokeWidth="0.6"/>)}
+              <rect x="12" y="11" width="18" height="11" fill="rgba(0,0,0,0.12)"/>
             </svg>
           </div>
-          {/* number */}
-          <div style={{
-            position:'absolute', top:'50%', left:28, transform:'translateY(-50%)',
-            fontFamily:'monospace', fontSize:19, fontWeight:700, letterSpacing:'0.15em',
-            color:'rgba(255,255,255,0.92)', textShadow:'0 2px 8px rgba(0,0,0,0.5)',
-          }}>
-            {disp.replace(/ /g,'\u2007\u2007')}
+          <div style={{position:'absolute',top:22,right:22,opacity:0.5}}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+              <path d="M4 11Q4 4 11 4" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+              <path d="M7 11Q7 7 11 7" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+              <path d="M10 11Q10 9.5 11 9.5" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+              <circle cx="11" cy="11" r="1.8" fill="#fff"/>
+            </svg>
           </div>
-          {/* bottom row */}
-          <div style={{ position:'absolute', bottom:24, left:28, right:28, display:'flex', justifyContent:'space-between', alignItems:'flex-end' }}>
+          <div style={{position:'absolute',top:'50%',left:22,transform:'translateY(-50%)',fontFamily:'monospace',fontSize:17,fontWeight:700,letterSpacing:'0.14em',color:'rgba(255,255,255,0.9)'}}>
+            {disp.replace(/ /g,'\u2007')}
+          </div>
+          <div style={{position:'absolute',bottom:20,left:22,right:22,display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
             <div>
-              <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
-                <span style={{ color:'rgba(255,255,255,0.3)', fontSize:7, textTransform:'uppercase', letterSpacing:'0.12em', lineHeight:1.5 }}>VALID<br/>THRU</span>
-                <span style={{ color:'rgba(255,255,255,0.85)', fontFamily:'monospace', fontSize:13, fontWeight:700, letterSpacing:'0.12em' }}>{fmtExpLong(expiry)||'11/2027'}</span>
+              <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:5}}>
+                <span style={{color:'rgba(255,255,255,0.3)',fontSize:7,textTransform:'uppercase',letterSpacing:'0.1em',lineHeight:1.5}}>GOOD<br/>THRU</span>
+                <span style={{color:'rgba(255,255,255,0.85)',fontFamily:'monospace',fontSize:12,fontWeight:700,letterSpacing:'0.1em'}}>{fmtExpLong(expiry)}</span>
               </div>
-              <div style={{ color:'rgba(255,255,255,0.8)', fontFamily:'monospace', fontSize:12, fontWeight:700, letterSpacing:'0.14em', textTransform:'uppercase' }}>
+              <div style={{color:'rgba(255,255,255,0.8)',fontFamily:'monospace',fontSize:11,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase'}}>
                 {`${name||'VOTRE NOM'}`.toUpperCase().slice(0,22)}
               </div>
             </div>
-            {/* visa-style */}
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
-              <div style={{ display:'flex' }}>
-                <div style={{ width:34, height:34, borderRadius:'50%', background:'rgba(218,35,35,0.88)', marginRight:-10, zIndex:1, boxShadow:'0 2px 8px rgba(0,0,0,0.5)' }}/>
-                <div style={{ width:34, height:34, borderRadius:'50%', background:'rgba(232,155,22,0.88)', boxShadow:'0 2px 8px rgba(0,0,0,0.5)' }}/>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+              <div style={{display:'flex'}}>
+                <div style={{width:28,height:28,borderRadius:'50%',background:'rgba(218,35,35,0.88)',marginRight:-8,zIndex:1,boxShadow:'0 2px 6px rgba(0,0,0,0.4)'}}/>
+                <div style={{width:28,height:28,borderRadius:'50%',background:'rgba(232,155,22,0.88)',boxShadow:'0 2px 6px rgba(0,0,0,0.4)'}}/>
               </div>
-              <span style={{ color:'#fff', fontSize:8, fontWeight:700, letterSpacing:'0.04em' }}>mastercard</span>
+              <span style={{color:'rgba(255,255,255,0.7)',fontSize:7,fontWeight:700,letterSpacing:'0.04em'}}>mastercard</span>
             </div>
           </div>
-          {/* shine */}
-          <div style={{ position:'absolute', inset:0, borderRadius:20, background:'linear-gradient(135deg,rgba(255,255,255,0.04) 0%,transparent 60%)', pointerEvents:'none' }}/>
+          <div style={{position:'absolute',inset:0,borderRadius:18,background:'linear-gradient(135deg,rgba(255,255,255,0.06) 0%,transparent 55%)',pointerEvents:'none'}}/>
         </div>
-
-        {/* BACK */}
         <div style={{
           position:'absolute', inset:0, backfaceVisibility:'hidden', WebkitBackfaceVisibility:'hidden',
-          borderRadius:20, overflow:'hidden', transform:'rotateY(180deg)',
-          background:'linear-gradient(135deg, #0f0f0f, #1a1a2e)',
-          boxShadow:'0 32px 64px rgba(0,0,0,0.5)',
+          borderRadius:18, overflow:'hidden', transform:'rotateY(180deg)',
+          background:'linear-gradient(135deg, #1e1b4b, #312e81)',
+          boxShadow:'0 20px 60px rgba(99,102,241,0.35)',
         }}>
-          <div style={{ position:'absolute', top:40, left:0, right:0, height:48, background:'#000' }}/>
-          <div style={{ position:'absolute', top:108, left:24, right:24, display:'flex', alignItems:'center', gap:8 }}>
-            <div style={{ flex:1, height:40, background:'repeating-linear-gradient(90deg,#e8e0d0 0,#e8e0d0 8px,#d4ccc0 8px,#d4ccc0 16px)', borderRadius:4, display:'flex', alignItems:'center', paddingLeft:12 }}>
-              <span style={{ fontFamily:'cursive', fontSize:14, color:'#555', opacity:0.6 }}>{`${name||''}`.toUpperCase().slice(0,20)}</span>
+          <div style={{position:'absolute',top:38,left:0,right:0,height:42,background:'#000'}}/>
+          <div style={{position:'absolute',top:98,left:20,right:20,display:'flex',alignItems:'center',gap:8}}>
+            <div style={{flex:1,height:36,borderRadius:4,background:'repeating-linear-gradient(90deg,#f5f0e8 0,#f5f0e8 8px,#e2d9cb 8px,#e2d9cb 16px)',display:'flex',alignItems:'center',paddingLeft:10}}>
+              <span style={{fontFamily:'cursive',fontSize:12,color:'#555',opacity:0.5}}>{`${name||''}`.toUpperCase().slice(0,16)}</span>
             </div>
-            <div style={{ textAlign:'center' }}>
-              <div style={{ fontSize:8, color:'rgba(255,255,255,0.3)', letterSpacing:'0.1em', marginBottom:2 }}>CVV</div>
-              <div style={{ width:54, height:40, background:'#fff', borderRadius:4, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <span style={{ fontFamily:'monospace', fontSize:15, fontWeight:700, color:'#111', letterSpacing:3 }}>{raw}</span>
+            <div style={{textAlign:'center'}}>
+              <div style={{fontSize:7,color:'rgba(255,255,255,0.3)',letterSpacing:'0.1em',marginBottom:2}}>CVV</div>
+              <div style={{width:48,height:36,background:'#fff',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <span style={{fontFamily:'monospace',fontSize:14,fontWeight:700,color:'#111',letterSpacing:3}}>{raw}</span>
               </div>
             </div>
           </div>
         </div>
       </motion.div>
+      <p style={{textAlign:'center',fontSize:10,color:'#94a3b8',marginTop:6,fontStyle:'italic'}}>Cliquer pour retourner la carte</p>
     </div>
   );
 }
 
-/* ─── Step Indicator ────────────────────────────────────────── */
-function Steps({ current }) {
-  const steps = ['Livraison', 'Paiement', 'Confirmation'];
+/* ─── Progress Rail ──────────────────────────────────────── */
+function ProgressRail({ step }) {
+  const steps = [
+    { id:1, icon:Package, label:'Livraison', sub:'Adresse & contact' },
+    { id:2, icon:CreditCard, label:'Paiement', sub:'Carte ou mobile' },
+    { id:3, icon:Check, label:'Confirmation', sub:'Commande validée' },
+  ];
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:0 }}>
-      {steps.map((s, i) => {
-        const done = i < current - 1;
-        const active = i === current - 1;
+    <div style={{display:'flex',flexDirection:'column',gap:0}}>
+      {steps.map((s,i)=>{
+        const done = step > s.id;
+        const active = step === s.id;
         return (
-          <div key={s} style={{ display:'flex', alignItems:'center' }}>
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+          <div key={s.id} style={{display:'flex',gap:16,alignItems:'flex-start'}}>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
               <motion.div
-                animate={{ background: done ? '#6366f1' : active ? '#fff' : 'transparent', borderColor: done||active ? '#6366f1' : 'rgba(255,255,255,0.15)' }}
-                style={{ width:28, height:28, borderRadius:'50%', border:'2px solid', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color: active ? '#0f0f0f' : done ? '#fff' : 'rgba(255,255,255,0.3)' }}
+                animate={{
+                  background: done ? '#6366f1' : active ? '#fff' : '#f1f5f9',
+                  border: `2px solid ${done||active ? '#6366f1' : '#e2e8f0'}`,
+                }}
+                style={{width:40,height:40,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,position:'relative'}}
               >
-                {done ? <Check size={12} strokeWidth={3}/> : i+1}
+                {done
+                  ? <Check size={16} color="#fff" strokeWidth={3}/>
+                  : <s.icon size={16} color={active?'#6366f1':'#94a3b8'}/>
+                }
+                {active && (
+                  <motion.div
+                    animate={{scale:[1,1.3,1]}}
+                    transition={{repeat:Infinity,duration:2}}
+                    style={{position:'absolute',inset:-4,borderRadius:'50%',border:'2px solid rgba(99,102,241,0.2)'}}
+                  />
+                )}
               </motion.div>
-              <span style={{ fontSize:10, fontWeight:600, letterSpacing:'0.08em', color: active ? '#fff' : done ? '#6366f1' : 'rgba(255,255,255,0.3)', textTransform:'uppercase' }}>{s}</span>
+              {i < steps.length-1 && (
+                <motion.div
+                  animate={{background: done ? '#6366f1' : '#e2e8f0'}}
+                  style={{width:2,height:40,marginTop:4,marginBottom:4,borderRadius:2}}
+                />
+              )}
             </div>
-            {i < steps.length - 1 && (
-              <div style={{ width:60, height:1, background: done ? '#6366f1' : 'rgba(255,255,255,0.1)', margin:'0 8px', marginBottom:18 }}/>
-            )}
+            <div style={{paddingTop:8,paddingBottom: i<steps.length-1 ? 32 : 0}}>
+              <div style={{fontSize:13,fontWeight:700,color: active?'#1e293b':done?'#6366f1':'#94a3b8',transition:'color 0.2s'}}>{s.label}</div>
+              <div style={{fontSize:11,color:'#94a3b8',marginTop:1}}>{s.sub}</div>
+            </div>
           </div>
         );
       })}
@@ -155,26 +169,34 @@ function Steps({ current }) {
   );
 }
 
-/* ─── Input ─────────────────────────────────────────────────── */
-function Field({ label, icon: Icon, ...props }) {
+/* ─── Input Field ─────────────────────────────────────────── */
+function Field({label, icon:Icon, hint, ...props}) {
   const [focus, setFocus] = useState(false);
   return (
     <div>
-      <label style={{ display:'block', fontSize:10, fontWeight:700, letterSpacing:'0.14em', textTransform:'uppercase', color:'rgba(255,255,255,0.4)', marginBottom:8 }}>{label}</label>
-      <div style={{ position:'relative' }}>
-        {Icon && <Icon size={15} style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color: focus ? '#6366f1' : 'rgba(255,255,255,0.25)', transition:'color 0.2s' }}/>}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+        <label style={{fontSize:11,fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'#64748b'}}>{label}</label>
+        {hint && <span style={{fontSize:10,color:'#94a3b8'}}>{hint}</span>}
+      </div>
+      <div style={{position:'relative'}}>
+        {Icon && <Icon size={14} style={{position:'absolute',left:13,top:'50%',transform:'translateY(-50%)',color:focus?'#6366f1':'#94a3b8',transition:'color 0.2s',pointerEvents:'none'}}/>}
         <input
           {...props}
-          onFocus={e => { setFocus(true); props.onFocus?.(e); }}
-          onBlur={e => { setFocus(false); props.onBlur?.(e); }}
+          onFocus={e=>{setFocus(true);props.onFocus?.(e);}}
+          onBlur={e=>{setFocus(false);props.onBlur?.(e);}}
           style={{
             width:'100%', boxSizing:'border-box',
-            background: focus ? 'rgba(99,102,241,0.06)' : 'rgba(255,255,255,0.04)',
-            border: `1px solid ${focus ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.08)'}`,
-            borderRadius:12, paddingLeft: Icon ? 42 : 16, paddingRight:16, paddingTop:13, paddingBottom:13,
-            fontSize:14, fontWeight:600, color:'#fff', outline:'none',
-            transition:'all 0.2s', fontFamily:'inherit',
-            ...(props.readOnly ? { opacity:0.45, cursor:'not-allowed' } : {}),
+            background: props.readOnly ? '#f8fafc' : '#fff',
+            border:`1.5px solid ${focus ? '#6366f1' : '#e2e8f0'}`,
+            borderRadius:10,
+            paddingLeft: Icon ? 38 : 13, paddingRight:13,
+            paddingTop:11, paddingBottom:11,
+            fontSize:13, fontWeight:600,
+            color: props.readOnly ? '#94a3b8' : '#1e293b',
+            outline:'none', transition:'all 0.2s',
+            fontFamily:'inherit',
+            boxShadow: focus ? '0 0 0 3px rgba(99,102,241,0.1)' : 'none',
+            cursor: props.readOnly ? 'not-allowed' : 'text',
           }}
         />
       </div>
@@ -182,36 +204,50 @@ function Field({ label, icon: Icon, ...props }) {
   );
 }
 
-/* ─── Summary Line ──────────────────────────────────────────── */
-function SumLine({ label, value, accent, small }) {
+/* ─── Method Button ───────────────────────────────────────── */
+function MethodBtn({active, icon:Icon, label, sub, onClick}) {
   return (
-    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
-      <span style={{ fontSize: small?11:13, color: accent ? '#4ade80' : 'rgba(255,255,255,0.45)' }}>{label}</span>
-      <span style={{ fontSize: small?11:13, fontWeight:700, color: accent ? '#4ade80' : 'rgba(255,255,255,0.75)' }}>{value}</span>
-    </div>
+    <motion.button
+      type="button" onClick={onClick}
+      whileHover={{y:-2}} whileTap={{scale:0.98}}
+      style={{
+        padding:'14px 16px', borderRadius:12, cursor:'pointer', textAlign:'left', width:'100%',
+        background: active ? 'linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.06))' : '#f8fafc',
+        border:`1.5px solid ${active ? '#6366f1' : '#e2e8f0'}`,
+        transition:'all 0.2s', boxShadow: active ? '0 0 0 3px rgba(99,102,241,0.1)' : 'none',
+      }}
+    >
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <div style={{width:38,height:38,borderRadius:10,background:active?'linear-gradient(135deg,#6366f1,#8b5cf6)':'#e2e8f0',display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.2s'}}>
+          <Icon size={16} color={active?'#fff':'#94a3b8'}/>
+        </div>
+        <div>
+          <div style={{fontSize:13,fontWeight:700,color:'#1e293b'}}>{label}</div>
+          <div style={{fontSize:11,color:'#94a3b8'}}>{sub}</div>
+        </div>
+        {active && <ChevronRight size={14} color="#6366f1" style={{marginLeft:'auto'}}/>}
+      </div>
+    </motion.button>
   );
 }
 
-/* ─── Main Export ───────────────────────────────────────────── */
+/* ─── Main ────────────────────────────────────────────────── */
 export default function CheckoutFlow({
-  isOpen, onClose, product, selectedColor: _selectedColor, selectedSize: _selectedSize, quantity,
-  cartItems, onSuccess, shippingCost = 0, discountAmount = 0,
-  loyaltyDiscountAmount = 0, loyaltyTier = '', promoCode: _promoCode = '',
-  shippingMethodLabel = 'Standard'
+  isOpen, onClose, product, selectedColor, selectedSize, quantity,
+  cartItems, onSuccess, shippingCost=0, discountAmount=0,
+  loyaltyDiscountAmount=0, loyaltyTier='', shippingMethodLabel='Standard'
 }) {
   const [step, setStep] = useState(1);
-  const [cardFlipped, setCardFlipped] = useState(false);
-  const [cardFocus, setCardFocus] = useState('');
   const [processing, setProcessing] = useState(false);
-  const [_done, setDone] = useState(false);
-  const [orderNumber] = useState(() => Math.random().toString(36).slice(2,10).toUpperCase());
+  const [cardFocus, setCardFocus] = useState('');
+  const [orderNumber] = useState(()=>Math.random().toString(36).slice(2,10).toUpperCase());
 
   const [form, setForm] = useState({
-    firstName: '', lastName: '', email: '', phone: '',
-    address: '', city: '', zip: '',
-    method: 'card',
-    cardNumber: '', cardExpiry: '', cardCvc: '', cardName: '',
-    mobilePhone: '',
+    firstName:'', lastName:'', email:'', phone:'',
+    address:'', city:'', zip:'',
+    method:'card',
+    cardNumber:'', cardExpiry:'', cardCvc:'', cardName:'',
+    mobilePhone:'',
   });
 
   const isCart = cartItems && cartItems.length > 0;
@@ -219,356 +255,296 @@ export default function CheckoutFlow({
   const ship = Number.isFinite(Number(shippingCost)) ? Number(shippingCost) : 0;
   const disc = Number.isFinite(Number(discountAmount)) ? Number(discountAmount) : 0;
   const ldisc = Number.isFinite(Number(loyaltyDiscountAmount)) ? Number(loyaltyDiscountAmount) : 0;
-
   const itemsTotal = isCart
-    ? cartItems.reduce((a, i) => a + (Number(i?.price)||0)*(Number(i?.quantity)||1), 0)
-    : (Number(product?.price)||0) * qty;
+    ? cartItems.reduce((a,i)=>a+(Number(i?.price)||0)*(Number(i?.quantity)||1),0)
+    : (Number(product?.price)||0)*qty;
   const total = Math.max(0, itemsTotal + ship - disc - ldisc);
-  const tax = Math.round(total - total / 1.18);
+  const tax = Math.round(total - total/1.18);
 
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
+  useEffect(()=>{
+    if(typeof document==='undefined') return;
     document.body.style.overflow = isOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [isOpen]);
+    return ()=>{ document.body.style.overflow=''; };
+  },[isOpen]);
 
   const upd = e => {
-    const { name, value } = e.target;
+    const {name,value} = e.target;
     let v = value;
-    if (name === 'cardNumber') v = fmt4(value);
-    if (name === 'cardExpiry') v = fmtExp(value);
-    if (name === 'cardCvc') v = value.replace(/\D/g,'').slice(0,3);
-    setForm(p => ({ ...p, [name]: v }));
+    if(name==='cardNumber') v = fmt4(value);
+    if(name==='cardExpiry') v = fmtExp(value);
+    if(name==='cardCvc') v = value.replace(/\D/g,'').slice(0,3);
+    setForm(p=>({...p,[name]:v}));
   };
 
   const handleStep1 = e => { e.preventDefault(); setStep(2); };
   const handlePay = async e => {
     e.preventDefault();
     setProcessing(true);
-    await new Promise(r => setTimeout(r, 2200));
+    await new Promise(r=>setTimeout(r,2000));
     setProcessing(false);
-    setDone(true);
     setStep(3);
     onSuccess?.();
   };
 
-  if (!isOpen) return null;
-
-  const isCvcFocused = cardFocus === 'cvc';
+  if(!isOpen) return null;
 
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
           key="overlay"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          style={{ position:'fixed', inset:0, zIndex:300, display:'flex', alignItems:'flex-end', justifyContent:'center' }}
+          initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+          style={{
+            position:'fixed', inset:0, zIndex:300,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            padding:'16px',
+            fontFamily:"'DM Sans','Helvetica Neue',sans-serif",
+          }}
         >
-          {/* backdrop */}
           <motion.div
-            initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+            initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
             onClick={onClose}
-            style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.85)', backdropFilter:'blur(12px)' }}
+            style={{position:'absolute',inset:0,background:'rgba(15,23,42,0.6)',backdropFilter:'blur(8px)'}}
           />
 
-          {/* panel */}
           <motion.div
-            initial={{ y: '100%', opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: '100%', opacity: 0 }}
-            transition={{ type:'spring', damping:32, stiffness:280 }}
+            initial={{opacity:0, scale:0.96, y:20}}
+            animate={{opacity:1, scale:1, y:0}}
+            exit={{opacity:0, scale:0.96, y:20}}
+            transition={{type:'spring',damping:28,stiffness:260}}
             style={{
-              position:'relative', width:'100%', maxWidth:960,
-              maxHeight:'94vh', borderRadius:'24px 24px 0 0',
-              background:'#0a0a0f',
-              border:'1px solid rgba(255,255,255,0.08)',
-              borderBottom:'none',
+              position:'relative', width:'100%', maxWidth:900,
+              maxHeight:'92vh', borderRadius:24,
+              background:'#f8fafc',
+              boxShadow:'0 40px 100px rgba(15,23,42,0.25), 0 0 0 1px rgba(15,23,42,0.06)',
               display:'flex', flexDirection:'column',
               overflow:'hidden',
-              fontFamily:"'DM Sans', 'Helvetica Neue', sans-serif",
             }}
           >
-            {/* ambient glow */}
-            <div style={{ position:'absolute', top:-120, left:'50%', transform:'translateX(-50%)', width:600, height:300, background:'radial-gradient(ellipse, rgba(99,102,241,0.15) 0%, transparent 70%)', pointerEvents:'none' }}/>
-
-            {/* header */}
-            <div style={{ padding:'20px 28px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:16 }}>
-                <div style={{ width:40, height:40, borderRadius:12, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <Lock size={16} color="#fff"/>
+            {/* TOP HEADER */}
+            <div style={{background:'#fff',borderBottom:'1px solid #e2e8f0',padding:'16px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:36,height:36,borderRadius:10,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <Lock size={15} color="#fff"/>
                 </div>
                 <div>
-                  <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.2em', textTransform:'uppercase', color:'rgba(255,255,255,0.3)' }}>Paiement sécurisé</div>
-                  <div style={{ fontSize:17, fontWeight:700, color:'#fff', marginTop:1 }}>
-                    {step===1?'Livraison':step===2?'Paiement':'Confirmation'}
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:'0.16em',textTransform:'uppercase',color:'#94a3b8'}}>Checkout sécurisé</div>
+                  <div style={{fontSize:15,fontWeight:800,color:'#1e293b',marginTop:1}}>
+                    {step===1?'Informations de livraison':step===2?'Méthode de paiement':'Commande confirmée'}
                   </div>
                 </div>
               </div>
-              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                <Steps current={step}/>
-                <button onClick={onClose} style={{ width:36, height:36, borderRadius:10, background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.08)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'rgba(255,255,255,0.6)' }}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{display:'flex',alignItems:'center',gap:6,background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:20,padding:'5px 12px'}}>
+                  <ShieldCheck size={13} color="#16a34a"/>
+                  <span style={{fontSize:11,fontWeight:700,color:'#16a34a'}}>SSL 256-bit</span>
+                </div>
+                <button onClick={onClose} style={{width:36,height:36,borderRadius:10,background:'#f1f5f9',border:'none',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#64748b'}}>
                   <X size={16}/>
                 </button>
               </div>
             </div>
 
-            {/* body */}
-            <div style={{ display:'flex', flex:1, overflow:'hidden', minHeight:0 }}>
+            {/* BODY: 3-COL */}
+            <div style={{display:'flex',flex:1,overflow:'hidden',minHeight:0}}>
 
-              {/* ── LEFT ── */}
-              <div style={{ flex:1, overflowY:'auto', padding:28 }}>
+              {/* LEFT: progress rail */}
+              <div style={{width:220,background:'#fff',borderRight:'1px solid #e2e8f0',padding:'32px 24px',flexShrink:0,display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
+                <div>
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:'0.14em',textTransform:'uppercase',color:'#94a3b8',marginBottom:24}}>Étapes</div>
+                  <ProgressRail step={step}/>
+                </div>
+                <div style={{background:'linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.06))',border:'1px solid rgba(99,102,241,0.12)',borderRadius:14,padding:'14px 16px'}}>
+                  <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#6366f1',marginBottom:8}}>Total commande</div>
+                  <div style={{fontSize:22,fontWeight:800,color:'#1e293b'}}>{fmtMoney(total)}</div>
+                  <div style={{fontSize:11,color:'#94a3b8',marginTop:2}}>FCFA TTC</div>
+                </div>
+              </div>
 
+              {/* CENTRE: main form */}
+              <div style={{flex:1,overflowY:'auto',padding:'28px 32px'}}>
                 <AnimatePresence mode="wait">
 
-                  {/* STEP 1 */}
-                  {step === 1 && (
-                    <motion.form key="s1" initial={{opacity:0,x:-20}} animate={{opacity:1,x:0}} exit={{opacity:0,x:20}} onSubmit={handleStep1}>
-                      <div style={{ marginBottom:24 }}>
-                        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.18em', textTransform:'uppercase', color:'#6366f1', marginBottom:6 }}>01 / Livraison</div>
-                        <h2 style={{ fontSize:26, fontWeight:800, color:'#fff', margin:0 }}>Où livrer ?</h2>
+                  {step===1 && (
+                    <motion.form key="s1" initial={{opacity:0,x:-16}} animate={{opacity:1,x:0}} exit={{opacity:0,x:16}} onSubmit={handleStep1}>
+                      <div style={{marginBottom:24}}>
+                        <h2 style={{fontSize:20,fontWeight:800,color:'#1e293b',margin:'0 0 4px'}}>Où livrer votre commande ?</h2>
+                        <p style={{fontSize:12,color:'#94a3b8',margin:0}}>Vos informations de contact et d'expédition</p>
                       </div>
-
-                      <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:16, padding:20, marginBottom:16 }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:16, fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.12em', color:'rgba(255,255,255,0.35)' }}>
-                          <User size={12}/> Compte
+                      <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:20,marginBottom:14}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#64748b',marginBottom:14}}>
+                          <div style={{width:20,height:20,borderRadius:6,background:'#ede9fe',display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:9,color:'#6366f1'}}>👤</span></div>
+                          Identité
                         </div>
-                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
                           <Field label="Prénom" name="firstName" value={form.firstName} onChange={upd} readOnly placeholder="Jean"/>
                           <Field label="Nom" name="lastName" value={form.lastName} onChange={upd} readOnly placeholder="Dupont"/>
                         </div>
                         <Field label="Email" icon={Mail} name="email" type="email" value={form.email} onChange={upd} readOnly placeholder="jean@exemple.fr"/>
                       </div>
-
-                      <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:16, padding:20, marginBottom:24 }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:16, fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.12em', color:'rgba(255,255,255,0.35)' }}>
-                          <MapPin size={12}/> Adresse
+                      <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:20,marginBottom:20}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#64748b',marginBottom:14}}>
+                          <div style={{width:20,height:20,borderRadius:6,background:'#fce7f3',display:'flex',alignItems:'center',justifyContent:'center'}}><MapPin size={10} color="#ec4899"/></div>
+                          Adresse de livraison
                         </div>
-                        <div style={{ marginBottom:12 }}>
-                          <Field label="Téléphone" icon={Phone} name="phone" type="tel" value={form.phone} onChange={upd} placeholder="+225 07 00 00 00 00" required/>
-                        </div>
-                        <div style={{ marginBottom:12 }}>
-                          <Field label="Adresse" name="address" value={form.address} onChange={upd} placeholder="Numéro et rue" required/>
-                        </div>
-                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                        <div style={{marginBottom:10}}><Field label="Téléphone" icon={Phone} name="phone" type="tel" value={form.phone} onChange={upd} placeholder="+225 07 00 00 00" required/></div>
+                        <div style={{marginBottom:10}}><Field label="Adresse" icon={MapPin} name="address" value={form.address} onChange={upd} placeholder="Numéro et nom de rue" required/></div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                           <Field label="Ville" name="city" value={form.city} onChange={upd} placeholder="Abidjan" required/>
                           <Field label="Code postal" name="zip" value={form.zip} onChange={upd} placeholder="00000" required/>
                         </div>
                       </div>
-
-                      <motion.button
-                        whileHover={{ scale:1.01 }} whileTap={{ scale:0.98 }}
-                        type="submit"
-                        style={{
-                          width:'100%', padding:'15px 24px',
-                          background:'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                          border:'none', borderRadius:14, cursor:'pointer',
-                          fontSize:14, fontWeight:700, color:'#fff',
-                          display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                          letterSpacing:'0.02em',
-                        }}
-                      >
+                      <div style={{display:'flex',alignItems:'center',gap:12,background:'#fff',border:'1px solid #e2e8f0',borderRadius:12,padding:'12px 16px',marginBottom:20}}>
+                        <div style={{width:36,height:36,borderRadius:10,background:'#eff6ff',display:'flex',alignItems:'center',justifyContent:'center'}}><Truck size={16} color="#3b82f6"/></div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:12,fontWeight:700,color:'#1e293b'}}>Livraison {shippingMethodLabel}</div>
+                          <div style={{fontSize:11,color:'#94a3b8'}}>{ship===0?'Gratuite':`${fmtMoney(ship)} FCFA`}</div>
+                        </div>
+                        <Check size={14} color="#6366f1"/>
+                      </div>
+                      <motion.button whileHover={{scale:1.01}} whileTap={{scale:0.98}} type="submit"
+                        style={{width:'100%',padding:'14px',background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:12,cursor:'pointer',fontSize:14,fontWeight:700,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:'0 8px 24px rgba(99,102,241,0.3)'}}>
                         Continuer vers le paiement <ArrowRight size={16}/>
                       </motion.button>
                     </motion.form>
                   )}
 
-                  {/* STEP 2 */}
-                  {step === 2 && (
-                    <motion.form key="s2" initial={{opacity:0,x:20}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-20}} onSubmit={handlePay}>
-                      <div style={{ marginBottom:24 }}>
-                        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.18em', textTransform:'uppercase', color:'#6366f1', marginBottom:6 }}>02 / Paiement</div>
-                        <h2 style={{ fontSize:26, fontWeight:800, color:'#fff', margin:0 }}>Comment payer ?</h2>
+                  {step===2 && (
+                    <motion.form key="s2" initial={{opacity:0,x:16}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-16}} onSubmit={handlePay}>
+                      <div style={{marginBottom:20}}>
+                        <h2 style={{fontSize:20,fontWeight:800,color:'#1e293b',margin:'0 0 4px'}}>Comment souhaitez-vous payer ?</h2>
+                        <p style={{fontSize:12,color:'#94a3b8',margin:0}}>Transactions chiffrées et sécurisées</p>
                       </div>
-
-                      {/* method toggle */}
-                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:20 }}>
-                        {[{id:'card', icon:CreditCard, label:'Carte', sub:'Visa, Mastercard'},{id:'mobile', icon:Smartphone, label:'Mobile Money', sub:'Orange, MTN, Wave'}].map(m => (
-                          <motion.button
-                            key={m.id} type="button"
-                            whileHover={{ scale:1.02 }} whileTap={{ scale:0.98 }}
-                            onClick={() => setForm(p=>({...p, method:m.id}))}
-                            style={{
-                              padding:'14px 16px', borderRadius:14, cursor:'pointer', textAlign:'left',
-                              background: form.method===m.id ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.03)',
-                              border: `1px solid ${form.method===m.id ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.07)'}`,
-                              transition:'all 0.2s',
-                            }}
-                          >
-                            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                              <div style={{ width:36, height:36, borderRadius:10, background: form.method===m.id ? '#6366f1' : 'rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.2s' }}>
-                                <m.icon size={16} color={form.method===m.id?'#fff':'rgba(255,255,255,0.4)'}/>
-                              </div>
-                              <div>
-                                <div style={{ fontSize:13, fontWeight:700, color:'#fff' }}>{m.label}</div>
-                                <div style={{ fontSize:11, color:'rgba(255,255,255,0.3)' }}>{m.sub}</div>
-                              </div>
-                            </div>
-                          </motion.button>
-                        ))}
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:20}}>
+                        <MethodBtn active={form.method==='card'} icon={CreditCard} label="Carte bancaire" sub="Visa, Mastercard…" onClick={()=>setForm(p=>({...p,method:'card'}))}/>
+                        <MethodBtn active={form.method==='mobile'} icon={Smartphone} label="Mobile Money" sub="Orange, MTN, Wave" onClick={()=>setForm(p=>({...p,method:'mobile'}))}/>
                       </div>
-
-                      {form.method === 'card' ? (
+                      {form.method==='card' ? (
                         <>
-                          {/* card preview */}
-                          <div style={{ marginBottom:20 }}
-                            onClick={() => setCardFlipped(f => !f)}
-                          >
-                            <CardFace
-                              number={form.cardNumber} name={form.cardName}
-                              expiry={form.cardExpiry} cvc={form.cardCvc}
-                              flipped={cardFlipped || isCvcFocused}
-                            />
-                            <p style={{ textAlign:'center', fontSize:11, color:'rgba(255,255,255,0.25)', marginTop:8 }}>Cliquer pour retourner la carte</p>
+                          <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:20,marginBottom:16}}>
+                            <Card3D number={form.cardNumber} name={form.cardName} expiry={form.cardExpiry} cvc={form.cardCvc} focusField={cardFocus}/>
                           </div>
-
-                          <div style={{ display:'flex', flexDirection:'column', gap:12, marginBottom:24 }}>
-                            <Field label="Numéro de carte" icon={CreditCard}
-                              name="cardNumber" value={form.cardNumber} onChange={upd}
-                              maxLength={19} placeholder="0000 0000 0000 0000"
-                              onFocus={()=>setCardFocus('number')} required
-                            />
-                            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                              <Field label="Expiration" name="cardExpiry" value={form.cardExpiry} onChange={upd}
-                                maxLength={5} placeholder="MM/YY" onFocus={()=>setCardFocus('expiry')} required
-                              />
-                              <Field label="CVC" icon={Lock} name="cardCvc" value={form.cardCvc} onChange={upd}
-                                maxLength={3} placeholder="123" onFocus={()=>setCardFocus('cvc')} required
-                              />
+                          <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:20,marginBottom:20}}>
+                            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                              <Field label="Numéro de carte" icon={CreditCard} name="cardNumber" value={form.cardNumber} onChange={upd} maxLength={19} placeholder="0000 0000 0000 0000" onFocus={()=>setCardFocus('number')} required/>
+                              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                                <Field label="Expiration" name="cardExpiry" value={form.cardExpiry} onChange={upd} maxLength={5} placeholder="MM/YY" onFocus={()=>setCardFocus('expiry')} required hint="MM/YY"/>
+                                <Field label="CVC" icon={Lock} name="cardCvc" value={form.cardCvc} onChange={upd} maxLength={3} placeholder="•••" onFocus={()=>setCardFocus('cvc')} required hint="3 chiffres"/>
+                              </div>
+                              <Field label="Nom sur la carte" name="cardName" value={form.cardName} onChange={upd} placeholder="JEAN DUPONT" onFocus={()=>setCardFocus('name')} required/>
                             </div>
-                            <Field label="Nom sur la carte" name="cardName" value={form.cardName} onChange={upd}
-                              placeholder="JEAN DUPONT" onFocus={()=>setCardFocus('name')} required
-                            />
                           </div>
                         </>
                       ) : (
-                        <div style={{ textAlign:'center', padding:'32px 20px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:16, marginBottom:24 }}>
-                          <div style={{ width:52, height:52, borderRadius:16, background:'rgba(99,102,241,0.15)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
-                            <Smartphone size={22} color="#6366f1"/>
-                          </div>
-                          <div style={{ fontSize:16, fontWeight:700, color:'#fff', marginBottom:6 }}>Validation sur mobile</div>
-                          <div style={{ fontSize:13, color:'rgba(255,255,255,0.4)', marginBottom:20 }}>Tu recevras une confirmation après le paiement</div>
-                          <input
-                            required name="mobilePhone" type="tel"
-                            value={form.mobilePhone} onChange={upd}
-                            placeholder="07 00 00 00 00"
-                            style={{
-                              width:'100%', maxWidth:240, boxSizing:'border-box',
-                              background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)',
-                              borderRadius:12, padding:'13px 16px', fontSize:17, fontWeight:700,
-                              color:'#fff', outline:'none', textAlign:'center', fontFamily:'monospace',
-                            }}
-                          />
+                        <div style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:14,padding:28,textAlign:'center',marginBottom:20}}>
+                          <div style={{width:56,height:56,borderRadius:16,background:'linear-gradient(135deg,rgba(99,102,241,0.1),rgba(139,92,246,0.1))',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}><Smartphone size={24} color="#6366f1"/></div>
+                          <div style={{fontSize:15,fontWeight:700,color:'#1e293b',marginBottom:4}}>Validation sur mobile</div>
+                          <div style={{fontSize:12,color:'#94a3b8',marginBottom:18,lineHeight:1.6}}>Vous recevrez une notification après avoir cliqué sur Payer.</div>
+                          <input required name="mobilePhone" type="tel" value={form.mobilePhone} onChange={upd} placeholder="07 00 00 00 00"
+                            style={{width:'100%',maxWidth:220,boxSizing:'border-box',background:'#f8fafc',border:'1.5px solid #e2e8f0',borderRadius:10,padding:'12px 16px',fontSize:16,fontWeight:700,color:'#1e293b',outline:'none',textAlign:'center',fontFamily:'monospace'}}/>
                         </div>
                       )}
-
-                      <motion.button
-                        whileHover={{ scale:1.01 }} whileTap={{ scale:0.98 }}
-                        type="submit" disabled={processing}
-                        style={{
-                          width:'100%', padding:'15px 24px',
-                          background: processing ? 'rgba(99,102,241,0.4)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                          border:'none', borderRadius:14, cursor: processing ? 'not-allowed' : 'pointer',
-                          fontSize:14, fontWeight:700, color:'#fff',
-                          display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                          letterSpacing:'0.02em', transition:'all 0.2s',
-                        }}
-                      >
-                        {processing ? (
-                          <><Loader2 size={16} style={{animation:'spin 1s linear infinite'}}/> Traitement…</>
-                        ) : (
-                          <><Lock size={16}/> Payer {fmtMoney(total)} FCFA</>
-                        )}
+                      <motion.button whileHover={{scale:1.01}} whileTap={{scale:0.98}} type="submit" disabled={processing}
+                        style={{width:'100%',padding:'14px',background:processing?'#a5b4fc':'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:12,cursor:processing?'not-allowed':'pointer',fontSize:14,fontWeight:700,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:'0 8px 24px rgba(99,102,241,0.3)',transition:'all 0.2s'}}>
+                        {processing ? <><Loader2 size={16} style={{animation:'spin 1s linear infinite'}}/> Traitement…</> : <><Lock size={15}/> Payer {fmtMoney(total)} FCFA</>}
                       </motion.button>
-                      <button type="button" onClick={()=>setStep(1)} style={{ width:'100%', marginTop:10, padding:'12px', background:'transparent', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, color:'rgba(255,255,255,0.4)', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                        ← Retour
-                      </button>
+                      <button type="button" onClick={()=>setStep(1)} style={{width:'100%',marginTop:10,padding:'11px',background:'transparent',border:'1.5px solid #e2e8f0',borderRadius:10,color:'#64748b',fontSize:12,fontWeight:600,cursor:'pointer'}}>← Retour à la livraison</button>
                     </motion.form>
                   )}
 
-                  {/* STEP 3 */}
-                  {step === 3 && (
-                    <motion.div key="s3" initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} style={{ textAlign:'center', padding:'40px 20px' }}>
-                      <motion.div
-                        initial={{ scale:0 }} animate={{ scale:1 }}
-                        transition={{ type:'spring', damping:15, stiffness:200, delay:0.1 }}
-                        style={{ width:80, height:80, borderRadius:24, background:'rgba(74,222,128,0.12)', border:'1px solid rgba(74,222,128,0.25)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 24px' }}
-                      >
-                        <Check size={36} color="#4ade80" strokeWidth={3}/>
+                  {step===3 && (
+                    <motion.div key="s3" initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} style={{textAlign:'center',padding:'32px 20px'}}>
+                      <motion.div initial={{scale:0,rotate:-20}} animate={{scale:1,rotate:0}} transition={{type:'spring',damping:14,stiffness:180,delay:0.1}}
+                        style={{width:80,height:80,borderRadius:24,background:'linear-gradient(135deg,#dcfce7,#bbf7d0)',border:'1px solid #86efac',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 24px'}}>
+                        <Check size={36} color="#16a34a" strokeWidth={3}/>
                       </motion.div>
-                      <h2 style={{ fontSize:28, fontWeight:800, color:'#fff', margin:'0 0 8px' }}>Commande confirmée</h2>
-                      <p style={{ color:'rgba(255,255,255,0.4)', fontSize:14, marginBottom:28 }}>Un email de confirmation a été envoyé.</p>
-                      <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, padding:'16px 20px', display:'inline-flex', alignItems:'center', gap:12, marginBottom:32 }}>
-                        <span style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.12em', color:'rgba(255,255,255,0.3)' }}>Commande</span>
-                        <span style={{ fontFamily:'monospace', fontSize:15, fontWeight:800, color:'#6366f1', letterSpacing:'0.1em' }}>#{orderNumber}</span>
-                      </div>
-                      <motion.button
-                        whileHover={{scale:1.02}} whileTap={{scale:0.98}}
-                        onClick={onClose}
-                        style={{ display:'block', width:'100%', maxWidth:300, margin:'0 auto', padding:'14px 24px', background:'#fff', borderRadius:14, border:'none', fontSize:14, fontWeight:700, color:'#0a0a0f', cursor:'pointer' }}
-                      >
-                        Continuer mes achats
-                      </motion.button>
+                      <motion.div initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{delay:0.2}}>
+                        <h2 style={{fontSize:26,fontWeight:800,color:'#1e293b',margin:'0 0 8px'}}>Commande confirmée !</h2>
+                        <p style={{color:'#64748b',fontSize:13,marginBottom:24,lineHeight:1.6}}>Merci pour votre achat. Un email de confirmation vous a été envoyé.</p>
+                        <div style={{display:'inline-flex',alignItems:'center',gap:12,background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:12,padding:'12px 20px',marginBottom:28}}>
+                          <div>
+                            <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.12em',color:'#94a3b8'}}>Numéro de commande</div>
+                            <div style={{fontFamily:'monospace',fontSize:16,fontWeight:800,color:'#6366f1',marginTop:2}}>#{orderNumber}</div>
+                          </div>
+                        </div>
+                        <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap',marginBottom:28}}>
+                          {['Préparation','Expédition','Livraison'].map((s,i)=>(
+                            <motion.div key={s} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{delay:0.3+i*0.08}}
+                              style={{display:'flex',alignItems:'center',gap:6,background:'#fff',border:'1px solid #e2e8f0',borderRadius:20,padding:'6px 12px'}}>
+                              <div style={{width:6,height:6,borderRadius:'50%',background:i===0?'#6366f1':'#e2e8f0'}}/>
+                              <span style={{fontSize:11,fontWeight:600,color:i===0?'#6366f1':'#94a3b8'}}>{s}</span>
+                            </motion.div>
+                          ))}
+                        </div>
+                        <motion.button whileHover={{scale:1.02}} whileTap={{scale:0.98}} onClick={onClose}
+                          style={{padding:'13px 32px',background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:12,fontSize:14,fontWeight:700,color:'#fff',cursor:'pointer',boxShadow:'0 8px 24px rgba(99,102,241,0.25)'}}>
+                          Continuer mes achats
+                        </motion.button>
+                      </motion.div>
                     </motion.div>
                   )}
 
                 </AnimatePresence>
               </div>
 
-              {/* ── RIGHT: SUMMARY ── */}
-              <div style={{ width:300, borderLeft:'1px solid rgba(255,255,255,0.06)', padding:24, overflowY:'auto', flexShrink:0, background:'rgba(255,255,255,0.015)' }}>
-                <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.16em', textTransform:'uppercase', color:'rgba(255,255,255,0.3)', marginBottom:16 }}>Récapitulatif</div>
-
-                {/* items */}
-                <div style={{ marginBottom:16 }}>
+              {/* RIGHT: order summary */}
+              <div style={{width:260,borderLeft:'1px solid #e2e8f0',background:'#fff',padding:'28px 20px',overflowY:'auto',flexShrink:0}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:'0.14em',textTransform:'uppercase',color:'#94a3b8',marginBottom:16}}>Votre commande</div>
+                <div style={{marginBottom:16}}>
                   {isCart ? cartItems.map((item,i)=>(
-                    <div key={i} style={{ display:'flex', gap:10, marginBottom:12 }}>
-                      <div style={{ width:46, height:46, borderRadius:10, background:'rgba(255,255,255,0.06)', flexShrink:0, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', position:'relative' }}>
-                        {item?.image && <img src={item.image} alt="" style={{ width:'100%', height:'100%', objectFit:'contain' }}/>}
-                        <div style={{ position:'absolute', top:-4, right:-4, width:18, height:18, borderRadius:'50%', background:'#6366f1', fontSize:9, fontWeight:800, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>{item?.quantity}</div>
+                    <div key={i} style={{display:'flex',gap:10,marginBottom:12,alignItems:'center'}}>
+                      <div style={{width:44,height:44,borderRadius:10,background:'#f1f5f9',flexShrink:0,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',border:'1px solid #e2e8f0'}}>
+                        {item?.image && <img src={item.image} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}}/>}
+                        <div style={{position:'absolute',top:-4,right:-4,width:17,height:17,borderRadius:'50%',background:'#6366f1',fontSize:9,fontWeight:800,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>{item?.quantity}</div>
                       </div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:12, fontWeight:700, color:'#fff', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item?.name}</div>
-                        <div style={{ fontSize:11, color:'rgba(255,255,255,0.3)' }}>{fmtMoney((Number(item?.price)||0)*(Number(item?.quantity)||1))} FCFA</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:700,color:'#1e293b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item?.name||'Produit'}</div>
+                        <div style={{fontSize:11,color:'#6366f1',fontWeight:700}}>{fmtMoney((Number(item?.price)||0)*(Number(item?.quantity)||1))} FCFA</div>
                       </div>
                     </div>
                   )) : (
-                    <div style={{ display:'flex', gap:10, marginBottom:12 }}>
-                      <div style={{ width:46, height:46, borderRadius:10, background:'rgba(255,255,255,0.06)', flexShrink:0 }}/>
-                      <div style={{ flex:1 }}>
-                        <div style={{ fontSize:12, fontWeight:700, color:'#fff' }}>{product?.name||'Produit'}</div>
-                        <div style={{ fontSize:11, color:'rgba(255,255,255,0.3)' }}>×{qty} — {fmtMoney(itemsTotal)} FCFA</div>
+                    <div style={{display:'flex',gap:10,marginBottom:12,alignItems:'center'}}>
+                      <div style={{width:44,height:44,borderRadius:10,background:'#f1f5f9',flexShrink:0,border:'1px solid #e2e8f0'}}/>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,fontWeight:700,color:'#1e293b'}}>{product?.name||'Produit'}</div>
+                        <div style={{fontSize:11,color:'#64748b'}}>×{qty}</div>
+                        <div style={{fontSize:11,color:'#6366f1',fontWeight:700}}>{fmtMoney(itemsTotal)} FCFA</div>
                       </div>
                     </div>
                   )}
                 </div>
-
-                <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:12 }}>
-                  <SumLine label="Sous-total" value={`${fmtMoney(itemsTotal)} FCFA`}/>
-                  <SumLine label={`Livraison (${shippingMethodLabel})`} value={ship===0?'Gratuit':`${fmtMoney(ship)} FCFA`}/>
-                  {disc > 0 && <SumLine label="Réduction" value={`-${fmtMoney(disc)} FCFA`} accent/>}
-                  {ldisc > 0 && <SumLine label={loyaltyTier?`VIP (${loyaltyTier})`:'VIP'} value={`-${fmtMoney(ldisc)} FCFA`} accent/>}
-                  <SumLine label="Dont TVA (18%)" value={`${fmtMoney(tax)} FCFA`} small/>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:14, marginTop:4 }}>
-                    <span style={{ fontSize:13, fontWeight:800, color:'#fff' }}>Total</span>
-                    <span style={{ fontSize:20, fontWeight:800, color:'#fff' }}>{fmtMoney(total)} <span style={{ fontSize:13, color:'rgba(255,255,255,0.4)' }}>FCFA</span></span>
+                <div style={{borderTop:'1px solid #f1f5f9',paddingTop:14}}>
+                  {[
+                    {label:'Sous-total', value:`${fmtMoney(itemsTotal)} FCFA`},
+                    {label:`Livraison (${shippingMethodLabel})`, value:ship===0?'Gratuit':`${fmtMoney(ship)} FCFA`},
+                    ...(disc>0?[{label:'Réduction', value:`-${fmtMoney(disc)} FCFA`, accent:true}]:[]),
+                    ...(ldisc>0?[{label:`VIP${loyaltyTier?` (${loyaltyTier})`:''} `, value:`-${fmtMoney(ldisc)} FCFA`, accent:true}]:[]),
+                    {label:'TVA (18%)', value:`${fmtMoney(tax)} FCFA`, muted:true},
+                  ].map(l=>(
+                    <div key={l.label} style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                      <span style={{fontSize:11,color:l.muted?'#94a3b8':'#64748b'}}>{l.label}</span>
+                      <span style={{fontSize:11,fontWeight:700,color:l.accent?'#16a34a':l.muted?'#94a3b8':'#1e293b'}}>{l.value}</span>
+                    </div>
+                  ))}
+                  <div style={{borderTop:'1px solid #e2e8f0',paddingTop:12,marginTop:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{fontSize:13,fontWeight:800,color:'#1e293b'}}>Total</span>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontSize:18,fontWeight:800,color:'#6366f1'}}>{fmtMoney(total)}</div>
+                      <div style={{fontSize:10,color:'#94a3b8'}}>FCFA TTC</div>
+                    </div>
                   </div>
                 </div>
-
-                {/* trust badge */}
-                <div style={{ marginTop:20, padding:'12px 14px', background:'rgba(99,102,241,0.07)', border:'1px solid rgba(99,102,241,0.15)', borderRadius:12, display:'flex', alignItems:'flex-start', gap:10 }}>
-                  <ShieldCheck size={16} color="#6366f1" style={{flexShrink:0, marginTop:1}}/>
-                  <div>
-                    <div style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.7)', marginBottom:2 }}>Paiement sécurisé</div>
-                    <div style={{ fontSize:10, color:'rgba(255,255,255,0.3)', lineHeight:1.5 }}>Données chiffrées 256-bit SSL</div>
+                <div style={{marginTop:16,background:'#f8fafc',borderRadius:10,padding:'12px 14px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                    <Star size={11} color="#f59e0b" fill="#f59e0b"/>
+                    <span style={{fontSize:10,fontWeight:700,color:'#1e293b'}}>Paiement sécurisé</span>
                   </div>
+                  <p style={{fontSize:10,color:'#94a3b8',margin:0,lineHeight:1.6}}>Données chiffrées 256-bit. Aucune info bancaire stockée.</p>
                 </div>
               </div>
 
             </div>
           </motion.div>
-
           <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </motion.div>
       )}

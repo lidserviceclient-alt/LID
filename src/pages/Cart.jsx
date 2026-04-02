@@ -1,22 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion as Motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { 
-  Trash2,
-  Minus,
-  Plus,
-  ShoppingBag,
   ArrowRight,
   ArrowLeft,
-  Truck,
   ShieldCheck,
-  Tag,
-  CreditCard,
-  Sparkles,
-  Package,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp
+  Tag
 } from "lucide-react";
 import { useCart } from "@/features/cart/CartContext";
 import { toast } from "sonner";
@@ -28,16 +16,70 @@ import { resolveBackendAssetUrl } from "@/services/categoryService";
 import { useAppConfig } from "@/features/appConfig/useAppConfig";
 
 export default function Cart() {
-  const { cartItems, addToCart, removeFromCart, updateQuantity, cartTotal, clearCart } = useCart();
+  const { cartItems, addToCart, removeFromCart, updateQuantity, clearCart } = useCart();
   const { data: appConfig } = useAppConfig();
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [loyaltyPricing, setLoyaltyPricing] = useState({ applied: false, tier: "", percent: 0, discountAmount: 0, points: 0 });
   const [shippingMethod, setShippingMethod] = useState("STANDARD");
   const [showCheckout, setShowCheckout] = useState(false);
+  const [checkoutItems, setCheckoutItems] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const navigate = useNavigate();
+  const [savedForLater, setSavedForLater] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem("lid_saved_for_later");
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const getLineKey = (item) => `${item?.id || ""}::${item?.color || ""}::${item?.size || ""}`;
+  const allLineKeys = useMemo(() => (Array.isArray(cartItems) ? cartItems : []).map(getLineKey), [cartItems]);
+  const [selectedKeys, setSelectedKeys] = useState(() => new Set());
+
+  useEffect(() => {
+    setSelectedKeys((prev) => {
+      const prevSet = prev instanceof Set ? prev : new Set();
+      const next = new Set();
+      const selectAll = prevSet.size === 0;
+      for (const key of allLineKeys) {
+        if (selectAll || prevSet.has(key)) {
+          next.add(key);
+        }
+      }
+      if (next.size === 0 && allLineKeys.length > 0) {
+        for (const key of allLineKeys) next.add(key);
+      }
+      return next;
+    });
+  }, [allLineKeys]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem("lid_saved_for_later", JSON.stringify(savedForLater || []));
+    } catch {
+      return;
+    }
+  }, [savedForLater]);
+
+  const selectedCartItems = useMemo(() => {
+    const set = selectedKeys;
+    return (Array.isArray(cartItems) ? cartItems : []).filter((item) => set.has(getLineKey(item)));
+  }, [cartItems, selectedKeys]);
+
+  const selectedSubtotal = useMemo(() => {
+    return selectedCartItems.reduce((acc, item) => acc + (Number(item?.price) || 0) * (Number(item?.quantity) || 0), 0);
+  }, [selectedCartItems]);
+
+  const selectedQuantity = useMemo(() => {
+    return selectedCartItems.reduce((acc, item) => acc + (Number(item?.quantity) || 0), 0);
+  }, [selectedCartItems]);
 
   const freeShipping = appConfig?.freeShipping;
   const configuredShippingMethods = useMemo(() => {
@@ -79,7 +121,7 @@ export default function Cart() {
   }, [selectedShippingMethod?.costAmount]);
   const isStandardSelected = `${selectedShippingMethod?.code || ""}`.toUpperCase() === "STANDARD";
   const shippingCost =
-    isStandardSelected && isFreeShippingEnabled && cartTotal >= freeShippingThreshold
+    isStandardSelected && isFreeShippingEnabled && selectedSubtotal >= freeShippingThreshold
       ? 0
       : selectedBaseCost;
   
@@ -88,11 +130,24 @@ export default function Cart() {
       navigate('/login', { state: { from: { pathname: '/cart' } } });
       return;
     }
+    if (!selectedCartItems.length) {
+      toast.error("Sélectionnez au moins un article.");
+      return;
+    }
+    setCheckoutItems(selectedCartItems);
     setShowCheckout(true);
   };
   
   const handlePaymentSuccess = () => {
-    clearCart();
+    const itemsToRemove = Array.isArray(checkoutItems) && checkoutItems.length > 0 ? checkoutItems : cartItems;
+    if (Array.isArray(itemsToRemove) && itemsToRemove.length > 0) {
+      itemsToRemove.forEach((item) => {
+        removeFromCart(item.id, item.color, item.size);
+      });
+    } else {
+      clearCart();
+    }
+    setCheckoutItems([]);
     setShowCheckout(false);
     toast.success("Commande effectuée avec succès !");
     navigate('/profile?tab=orders');
@@ -102,6 +157,10 @@ export default function Cart() {
     const code = (promoCode || "").trim().toUpperCase();
     if (!code) {
       setAppliedPromo(null);
+      return;
+    }
+    if (!selectedCartItems.length) {
+      toast.error("Sélectionnez au moins un article.");
       return;
     }
     if (!isAuthenticated()) {
@@ -119,7 +178,7 @@ export default function Cart() {
         if (!Number.isFinite(numeric) || numeric <= 0) return null;
         return Math.trunc(numeric);
       };
-      const items = cartItems
+      const items = selectedCartItems
         .map((item) => {
           const quantity = Number(item?.quantity) || 0;
           if (quantity <= 0) return null;
@@ -158,19 +217,19 @@ export default function Cart() {
 
   const discountAmount = appliedPromo ? (Number(appliedPromo.discountAmount) || 0) : 0;
   const loyaltyDiscountAmount = appliedPromo ? 0 : (Number(loyaltyPricing?.discountAmount) || 0);
-  const finalTotal = cartTotal - discountAmount - loyaltyDiscountAmount + shippingCost;
+  const finalTotal = selectedSubtotal - discountAmount - loyaltyDiscountAmount + shippingCost;
   const safeFinalTotal = Math.max(Number(finalTotal) || 0, 0);
-  const remainingToFreeShipping = isFreeShippingEnabled ? Math.max(freeShippingThreshold - cartTotal, 0) : 0;
+  const remainingToFreeShipping = isFreeShippingEnabled ? Math.max(freeShippingThreshold - selectedSubtotal, 0) : 0;
   const freeShippingMessage = useMemo(() => {
     if (!isFreeShippingEnabled) return "";
     const remaining = remainingToFreeShipping.toLocaleString();
     const threshold = freeShippingThreshold.toLocaleString();
-    if (cartTotal >= freeShippingThreshold) {
+    if (selectedSubtotal >= freeShippingThreshold) {
       return `${freeShipping?.unlockedMessage || "Livraison gratuite débloquée ! 🎉"}`.trim();
     }
     const tpl = `${freeShipping?.progressMessageTemplate || "Plus que {remaining} FCFA pour la livraison gratuite"}`.trim();
     return tpl.replaceAll("{remaining}", remaining).replaceAll("{threshold}", threshold);
-  }, [cartTotal, freeShipping?.progressMessageTemplate, freeShipping?.unlockedMessage, freeShippingThreshold, isFreeShippingEnabled, remainingToFreeShipping]);
+  }, [freeShipping?.progressMessageTemplate, freeShipping?.unlockedMessage, freeShippingThreshold, isFreeShippingEnabled, remainingToFreeShipping, selectedSubtotal]);
 
   useEffect(() => {
     let cancelled = false;
@@ -231,7 +290,7 @@ export default function Cart() {
           if (!Number.isFinite(numeric) || numeric <= 0) return null;
           return Math.trunc(numeric);
         };
-        const items = cartItems
+        const items = selectedCartItems
           .map((item) => {
             const quantity = Number(item?.quantity) || 0;
             if (quantity <= 0) return null;
@@ -267,7 +326,7 @@ export default function Cart() {
     return () => {
       cancelled = true;
     };
-  }, [cartItems, appliedPromo]);
+  }, [selectedCartItems, appliedPromo]);
 
   const recommendedProducts = useMemo(() => {
     const cartIdSet = new Set((cartItems || []).map((item) => `${item?.id || ""}`));
@@ -281,11 +340,52 @@ export default function Cart() {
     if (!Number.isFinite(num)) return "0";
     return num.toLocaleString("fr-FR", { maximumFractionDigits: 0 });
   };
-  const totalItems = useMemo(() => {
-    return (Array.isArray(cartItems) ? cartItems : []).reduce((acc, item) => acc + (Number(item?.quantity) || 0), 0);
-  }, [cartItems]);
 
-  /* */
+  const isAllSelected = allLineKeys.length > 0 && selectedKeys.size === allLineKeys.length;
+
+  const toggleAll = () => {
+    setSelectedKeys(() => {
+      if (isAllSelected) return new Set();
+      return new Set(allLineKeys);
+    });
+  };
+
+  const toggleOne = (key) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const saveForLaterItem = (item) => {
+    if (!item) return;
+    const key = getLineKey(item);
+    setSavedForLater((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+      if (list.some((x) => getLineKey(x) === key)) return list;
+      return [item, ...list];
+    });
+    removeFromCart(item.id, item.color, item.size);
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  };
+
+  const removeSavedItem = (item) => {
+    if (!item) return;
+    const key = getLineKey(item);
+    setSavedForLater((prev) => (Array.isArray(prev) ? prev.filter((x) => getLineKey(x) !== key) : []));
+  };
+
+  const moveToCart = (item) => {
+    if (!item) return;
+    addToCart({ ...item, quantity: Number(item?.quantity) || 1 });
+    removeSavedItem(item);
+  };
 
   if (cartItems.length === 0) {
     return (
@@ -339,8 +439,8 @@ export default function Cart() {
                     Shopping Cart
                   </h1>
                   <div className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-                    Sous-total ({totalItems} article(s)) :{" "}
-                    <span className="font-black text-neutral-900 dark:text-white">{formatMoney(cartTotal)} FCFA</span>
+                    Sous-total ({selectedQuantity} article(s) sélectionné(s)) :{" "}
+                    <span className="font-black text-neutral-900 dark:text-white">{formatMoney(selectedSubtotal)} FCFA</span>
                   </div>
                 </div>
                 <button
@@ -351,11 +451,24 @@ export default function Cart() {
                 </button>
               </div>
 
-              <div className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Prix</div>
+              <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+                <label className="flex items-center gap-2 text-neutral-700 dark:text-neutral-200 font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    onChange={toggleAll}
+                    className="h-4 w-4"
+                  />
+                  Sélectionner tout
+                </label>
+                <div className="text-neutral-500 dark:text-neutral-400">Prix</div>
+              </div>
             </div>
 
             <div className="divide-y divide-neutral-200/70 dark:divide-neutral-800/70">
               {cartItems.map((item) => {
+                const lineKey = getLineKey(item);
+                const checked = selectedKeys.has(lineKey);
                 const imgSrc = resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png";
                 const unitPrice = Number(item?.price) || 0;
                 const qty = Number(item?.quantity) || 0;
@@ -364,8 +477,16 @@ export default function Cart() {
                 const colorLabel = `${item?.color || ""}`.trim();
 
                 return (
-                  <div key={`${item.id}-${item.color}-${item.size}`} className="p-4 sm:p-6">
+                  <div key={lineKey} className="p-4 sm:p-6">
                     <div className="flex gap-3">
+                      <div className="pt-1">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleOne(lineKey)}
+                          className="h-4 w-4"
+                        />
+                      </div>
                       <Link to={`/product/${item.id}`} className="h-20 w-20 sm:h-24 sm:w-24 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex items-center justify-center overflow-hidden shrink-0">
                         <img
                           src={imgSrc}
@@ -418,7 +539,14 @@ export default function Cart() {
                               >
                                 Supprimer
                               </button>
-                              {/* sauvegarde désactivée */}
+                              <span className="text-neutral-300 dark:text-neutral-700">|</span>
+                              <button
+                                type="button"
+                                onClick={() => saveForLaterItem(item)}
+                                className="text-sm font-bold text-blue-700 dark:text-blue-400 hover:underline"
+                              >
+                                Sauvegarder
+                              </button>
                             </div>
                           </div>
 
@@ -438,13 +566,13 @@ export default function Cart() {
               })}
             </div>
 
-              <div className="p-4 sm:p-6 border-t border-neutral-200/70 dark:border-neutral-800/70 flex flex-wrap items-center justify-between gap-3">
+            <div className="p-4 sm:p-6 border-t border-neutral-200/70 dark:border-neutral-800/70 flex flex-wrap items-center justify-between gap-3">
               <Link to="/shop" className="text-sm font-bold text-blue-700 dark:text-blue-400 hover:underline inline-flex items-center gap-2">
                 <ArrowLeft size={16} />
                 Continuer vos achats
               </Link>
               <div className="text-base sm:text-lg font-black text-neutral-900 dark:text-white">
-                Sous-total ({totalItems}) : {formatMoney(cartTotal)} FCFA
+                Sous-total ({selectedQuantity}) : {formatMoney(selectedSubtotal)} FCFA
               </div>
             </div>
           </div>
@@ -453,7 +581,7 @@ export default function Cart() {
             <div className="bg-white dark:bg-neutral-950 border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-4 sm:p-5">
               {isFreeShippingEnabled ? (
                 <div className="text-xs text-neutral-600 dark:text-neutral-300">
-                  {cartTotal >= freeShippingThreshold ? (
+                  {selectedSubtotal >= freeShippingThreshold ? (
                     <span className="font-bold text-green-700 dark:text-green-400">Livraison gratuite débloquée.</span>
                   ) : (
                     <span>{freeShippingMessage}</span>
@@ -462,7 +590,7 @@ export default function Cart() {
               ) : null}
 
               <div className="mt-3 text-lg font-black text-neutral-900 dark:text-white">
-                Sous-total ({totalItems}) : {formatMoney(cartTotal)} FCFA
+                Sous-total ({selectedQuantity}) : {formatMoney(selectedSubtotal)} FCFA
               </div>
 
               <div className="mt-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-4 text-sm space-y-2">
@@ -490,6 +618,7 @@ export default function Cart() {
 
               <button
                 onClick={handleCheckout}
+                disabled={!selectedCartItems.length}
                 className="mt-4 w-full rounded-xl bg-[#ffd814] hover:bg-[#f7ca00] disabled:opacity-60 text-neutral-900 py-3.5 font-black transition flex items-center justify-center gap-2"
               >
                 Procéder au paiement
@@ -561,7 +690,59 @@ export default function Cart() {
           </div>
         </div>
 
-        {/* */}
+        {savedForLater.length > 0 ? (
+          <div className="mt-6 bg-white dark:bg-neutral-950 border border-neutral-200/80 dark:border-neutral-800 rounded-2xl overflow-hidden">
+            <div className="p-4 sm:p-6 border-b border-neutral-200/70 dark:border-neutral-800/70">
+              <div className="text-xl font-black text-neutral-900 dark:text-white">Saved for later</div>
+            </div>
+            <div className="divide-y divide-neutral-200/70 dark:divide-neutral-800/70">
+              {savedForLater.map((item) => {
+                const key = getLineKey(item);
+                const imgSrc = resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png";
+                const unitPrice = Number(item?.price) || 0;
+                return (
+                  <div key={key} className="p-4 sm:p-6 flex gap-4">
+                    <div className="h-20 w-20 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex items-center justify-center overflow-hidden shrink-0">
+                      <img
+                        src={imgSrc}
+                        alt={item?.name || ""}
+                        className="h-full w-full object-contain p-3 mix-blend-multiply dark:mix-blend-normal"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = "/imgs/logo.png";
+                        }}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-bold text-neutral-900 dark:text-white line-clamp-2">{item?.name || "Produit"}</div>
+                          <div className="mt-1 text-sm font-black text-neutral-900 dark:text-white">{formatMoney(unitPrice)} FCFA</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => moveToCart(item)}
+                            className="rounded-xl bg-[#ffd814] hover:bg-[#f7ca00] text-neutral-900 px-4 py-2 text-sm font-black transition"
+                          >
+                            Ajouter au panier
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeSavedItem(item)}
+                            className="rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white px-4 py-2 text-sm font-black hover:bg-neutral-50 dark:hover:bg-neutral-800 transition"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-6 bg-white dark:bg-neutral-950 border border-neutral-200/80 dark:border-neutral-800 rounded-2xl overflow-hidden">
           <div className="p-4 sm:p-6 border-b border-neutral-200/70 dark:border-neutral-800/70 flex items-center justify-between gap-3">
@@ -640,6 +821,7 @@ export default function Cart() {
           </div>
           <button
             onClick={handleCheckout}
+            disabled={!selectedCartItems.length}
             className="rounded-xl bg-[#ffd814] hover:bg-[#f7ca00] disabled:opacity-60 text-neutral-900 px-4 py-3 font-black transition inline-flex items-center gap-2"
           >
             Paiement
@@ -650,8 +832,11 @@ export default function Cart() {
       
       <CheckoutFlow 
         isOpen={showCheckout}
-        onClose={() => setShowCheckout(false)}
-        cartItems={cartItems}
+        onClose={() => {
+          setShowCheckout(false);
+          setCheckoutItems([]);
+        }}
+        cartItems={checkoutItems}
         onSuccess={handlePaymentSuccess}
         shippingCost={shippingCost}
         shippingMethodLabel={selectedShippingMethod?.label || "Standard"}

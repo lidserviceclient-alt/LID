@@ -1,1 +1,0 @@
-import{b as a}from"./index-DkGZR5PA.js";const e="/api/v1/backoffice/partners/me/categories-crud";async function o(){return(await a.get(`${e}/collection`))?.data}async function c(t){return(await a.post(e,t))?.data}async function i(t,r){return(await a.put(`${e}/${t}`,r))?.data}async function u(t){await a.delete(`${e}/${t}`)}export{c,u as d,o as g,i as u};
