@@ -1,1 +1,0 @@
-import{b as t}from"./index-gbqfz218.js";const s="/api/v1/backoffice/partners/me/orders-crud";async function c({page:r=0,size:a=50}={}){return(await t.get(s,{params:{page:r,size:a}}))?.data}async function o(r){return(await t.get(`${s}/${r}`))?.data}async function i(r,a){return(await t.put(`${s}/${r}`,a))?.data}export{o as g,c as l,i as u};
