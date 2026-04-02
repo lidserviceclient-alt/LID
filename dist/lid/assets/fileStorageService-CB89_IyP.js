@@ -1,0 +1,1 @@
+import{b as o}from"./index-gbqfz218.js";async function n(e,{folder:t}={}){const a=new FormData;return a.append("file",e),t&&a.append("folder",t),(await o.post("/api/v1/storage/upload",a,{headers:{"Content-Type":"multipart/form-data"}}))?.data}export{n as u};
