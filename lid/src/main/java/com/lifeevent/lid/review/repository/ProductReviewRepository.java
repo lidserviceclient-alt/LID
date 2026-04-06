@@ -55,7 +55,7 @@ public interface ProductReviewRepository extends JpaRepository<ProductReview, Lo
           AND r.deletedAt IS NULL
         ORDER BY r.createdAt DESC
     """)
-    @EntityGraph(attributePaths = {"article", "customer"})
+    @EntityGraph(attributePaths = {"article", "customer", "customer.user"})
     Page<ProductReview> findPublicByArticleId(
             @Param("articleId") Long articleId,
             Pageable pageable

@@ -29,6 +29,7 @@ public record BackOfficePartnerSettingsDto(
         String businessRegistrationDocumentUrl,
         String idDocumentUrl,
         String nineaDocumentUrl,
-        PartnerRegistrationStatus registrationStatus
+        PartnerRegistrationStatus registrationStatus,
+        String registrationReviewComment
 ) {
 }

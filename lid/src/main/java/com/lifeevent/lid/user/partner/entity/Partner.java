@@ -12,7 +12,12 @@ import lombok.experimental.SuperBuilder;
  * Ajoute uniquement les champs spécifiques au Partner
  */
 @Entity
-@Table(name = "partner_profile")
+@Table(
+        name = "partner_profile",
+        indexes = {
+                @Index(name = "idx_partner_registration_status_created_at", columnList = "registration_status, created_at")
+        }
+)
 @Getter
 @Setter
 @ToString(callSuper = true, exclude = {"user", "shop"})
@@ -97,6 +102,9 @@ public class Partner extends BaseEntity {
 
     @Column(length = 1000)
     private String supportingDocumentsZipUrl;
+
+    @Column(length = 2000)
+    private String registrationReviewComment;
     
     /**
      * Statut d'enregistrement pour tracker la progression du Partner

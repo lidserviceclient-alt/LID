@@ -1,6 +1,7 @@
 package com.lifeevent.lid.payment.repository;
 
 import com.lifeevent.lid.payment.entity.Payment;
+import com.lifeevent.lid.payment.enums.PaymentOperator;
 import com.lifeevent.lid.payment.enums.PaymentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -17,6 +18,11 @@ import java.util.Optional;
  */
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
+
+    interface OperatorAmountView {
+        PaymentOperator getOperator();
+        BigDecimal getAmount();
+    }
     
     Optional<Payment> findByInvoiceToken(String invoiceToken);
     
@@ -42,6 +48,29 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
           AND COALESCE(p.paymentDate, p.createdAt) >= :from
     """)
     BigDecimal sumAmountByStatusFrom(
+            @Param("status") PaymentStatus status,
+            @Param("from") LocalDateTime from
+    );
+
+    @Query("""
+        SELECT p.operator AS operator, COALESCE(SUM(COALESCE(p.amount, 0)), 0) AS amount
+        FROM Payment p
+        WHERE p.status = :status
+          AND COALESCE(p.paymentDate, p.createdAt) >= :from
+        GROUP BY p.operator
+    """)
+    List<OperatorAmountView> sumAmountByStatusGroupedByOperatorFrom(
+            @Param("status") PaymentStatus status,
+            @Param("from") LocalDateTime from
+    );
+
+    @Query("""
+        SELECT COUNT(p)
+        FROM Payment p
+        WHERE p.status = :status
+          AND COALESCE(p.paymentDate, p.createdAt) >= :from
+    """)
+    long countByStatusFrom(
             @Param("status") PaymentStatus status,
             @Param("from") LocalDateTime from
     );

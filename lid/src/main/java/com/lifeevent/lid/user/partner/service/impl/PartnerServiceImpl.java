@@ -164,7 +164,7 @@ public class PartnerServiceImpl implements PartnerService {
         partner.setNineaDocumentUrl(normalize(dto.getNineaDocumentUrl()));
         partner.setSupportingDocumentsZipUrl(normalize(dto.getSupportingDocumentsZipUrl()));
         // TODO : En attente de vérification (KYC)
-        partner.setRegistrationStatus(PartnerRegistrationStatus.VERIFIED);
+        partner.setRegistrationStatus(PartnerRegistrationStatus.UNDER_REVIEW);
         Partner saved = partnerRepository.save(partner);
         userService.upsertPartnerProfile(saved);
         return partnerMapper.toResponseDto(saved);

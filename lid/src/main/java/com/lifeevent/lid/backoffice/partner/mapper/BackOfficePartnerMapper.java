@@ -87,7 +87,8 @@ public class BackOfficePartnerMapper {
                 partner.getBusinessRegistrationDocumentUrl(),
                 partner.getIdDocumentUrl(),
                 partner.getNineaDocumentUrl(),
-                partner.getRegistrationStatus()
+                partner.getRegistrationStatus(),
+                partner.getRegistrationReviewComment()
         );
     }
 

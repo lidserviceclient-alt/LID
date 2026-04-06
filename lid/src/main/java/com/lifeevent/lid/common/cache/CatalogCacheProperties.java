@@ -32,6 +32,7 @@ public class CatalogCacheProperties {
     private long partnerPreferencesTtlMinutes = 240;
     private long backofficeOverviewDashboardTtlMinutes = 1;
     private long backofficeOverviewCollectionTtlMinutes = 1;
+    private long backofficeAnalyticsCollectionTtlMinutes = 1;
     private long backofficeFinanceOverviewTtlMinutes = 1;
     private long backofficeFinanceTransactionsTtlMinutes = 1;
     private long backofficeMarketingOverviewTtlMinutes = 2;
@@ -66,6 +67,7 @@ public class CatalogCacheProperties {
     private long partnerPreferencesMaxSize = 1_000;
     private long backofficeOverviewDashboardMaxSize = 200;
     private long backofficeOverviewCollectionMaxSize = 200;
+    private long backofficeAnalyticsCollectionMaxSize = 200;
     private long backofficeFinanceOverviewMaxSize = 200;
     private long backofficeFinanceTransactionsMaxSize = 500;
     private long backofficeMarketingOverviewMaxSize = 200;

@@ -9,6 +9,7 @@ public enum Status {
     PROCESSING,          // En traitement
     READY_TO_DELIVER,    // Prêt à livrer
     DELIVERY_IN_PROGRESS,// En cours de livraison
+    DELIVERY_FAILED,     // Tentative de livraison échouée
     DELIVERED,           // Livré
     CANCELED,            // Annulé
     REFUNDED             // Remboursé

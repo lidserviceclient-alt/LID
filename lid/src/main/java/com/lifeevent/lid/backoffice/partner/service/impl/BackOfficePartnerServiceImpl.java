@@ -43,6 +43,7 @@ import com.lifeevent.lid.stock.repository.StockRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.partner.entity.Partner;
+import com.lifeevent.lid.user.partner.entity.PartnerRegistrationStatus;
 import com.lifeevent.lid.user.partner.entity.Shop;
 import com.lifeevent.lid.user.partner.entity.ShopStatusEnum;
 import com.lifeevent.lid.user.partner.repository.PartnerRepository;
@@ -78,6 +79,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static org.springframework.http.HttpStatus.FORBIDDEN;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @Service
@@ -573,8 +575,12 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
     }
 
     private Partner requirePartner(String partnerId) {
-        return partnerRepository.findByUserIdWithShop(partnerId)
+        Partner partner = partnerRepository.findByUserIdWithShop(partnerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Partner non trouvé", "partnerId", partnerId));
+        if (partner.getRegistrationStatus() != PartnerRegistrationStatus.VERIFIED) {
+            throw new ResponseStatusException(FORBIDDEN, "Compte partenaire en attente de validation");
+        }
+        return partner;
     }
 
     private String requireCurrentPartnerId() {

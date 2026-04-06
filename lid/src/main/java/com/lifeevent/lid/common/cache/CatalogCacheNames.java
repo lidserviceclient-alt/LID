@@ -30,6 +30,7 @@ public final class CatalogCacheNames {
 
     public static final String BACKOFFICE_OVERVIEW_DASHBOARD = "backoffice_overview_dashboard";
     public static final String BACKOFFICE_OVERVIEW_COLLECTION = "backoffice_overview_collection";
+    public static final String BACKOFFICE_ANALYTICS_COLLECTION = "backoffice_analytics_collection";
     public static final String BACKOFFICE_FINANCE_OVERVIEW = "backoffice_finance_overview";
     public static final String BACKOFFICE_FINANCE_TRANSACTIONS = "backoffice_finance_transactions";
     public static final String BACKOFFICE_MARKETING_OVERVIEW = "backoffice_marketing_overview";

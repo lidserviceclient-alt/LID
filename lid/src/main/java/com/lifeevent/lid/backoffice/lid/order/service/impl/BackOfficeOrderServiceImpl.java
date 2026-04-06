@@ -388,6 +388,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
             case PROCESSING -> BackOfficeOrderStatus.CREEE;
             case READY_TO_DELIVER -> BackOfficeOrderStatus.EXPEDIEE;
             case DELIVERY_IN_PROGRESS -> BackOfficeOrderStatus.EXPEDIEE;
+            case DELIVERY_FAILED -> BackOfficeOrderStatus.EXPEDIEE;
             case DELIVERED -> BackOfficeOrderStatus.LIVREE;
             case CANCELED -> BackOfficeOrderStatus.ANNULEE;
             case REFUNDED -> BackOfficeOrderStatus.REMBOURSEE;

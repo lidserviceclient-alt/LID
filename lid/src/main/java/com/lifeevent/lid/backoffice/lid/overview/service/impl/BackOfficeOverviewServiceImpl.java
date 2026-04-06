@@ -8,6 +8,9 @@ import com.lifeevent.lid.article.enumeration.ArticleStatus;
 import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.backoffice.lid.order.dto.BackOfficeOrderSummaryDto;
 import com.lifeevent.lid.backoffice.lid.order.service.BackOfficeOrderService;
+import com.lifeevent.lid.backoffice.lid.overview.dto.BackOfficeAnalyticsChannelMixDto;
+import com.lifeevent.lid.backoffice.lid.overview.dto.BackOfficeAnalyticsCollectionDto;
+import com.lifeevent.lid.backoffice.lid.overview.dto.BackOfficeAnalyticsConversionFunnelDto;
 import com.lifeevent.lid.backoffice.lid.overview.dto.BackOfficeDashboardResponseDto;
 import com.lifeevent.lid.backoffice.lid.overview.dto.BackOfficeOverviewDto;
 import com.lifeevent.lid.backoffice.lid.overview.dto.BackOfficeOverviewLowStockItemDto;
@@ -28,6 +31,9 @@ import com.lifeevent.lid.logistics.repository.ShipmentRepository;
 import com.lifeevent.lid.order.enumeration.Status;
 import com.lifeevent.lid.order.repository.OrderArticleRepository;
 import com.lifeevent.lid.order.repository.OrderRepository;
+import com.lifeevent.lid.payment.enums.PaymentOperator;
+import com.lifeevent.lid.payment.enums.PaymentStatus;
+import com.lifeevent.lid.payment.repository.PaymentRepository;
 import com.lifeevent.lid.stock.entity.Stock;
 import com.lifeevent.lid.stock.repository.StockRepository;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
@@ -77,6 +83,7 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
     private final CustomerRepository customerRepository;
     private final BackOfficePromoCodeService backOfficePromoCodeService;
     private final AuthenticationRepository authenticationRepository;
+    private final PaymentRepository paymentRepository;
     private final PlatformTransactionManager transactionManager;
     @Resource(name = "aggregatorExecutor")
     private Executor aggregatorExecutor;
@@ -118,12 +125,41 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
     @Override
     @Transactional(readOnly = true)
     @Cacheable(
+            cacheNames = CatalogCacheNames.BACKOFFICE_ANALYTICS_COLLECTION,
+            key = "#days == null ? 12 : #days",
+            sync = true
+    )
+    public BackOfficeAnalyticsCollectionDto getAnalyticsCollection(Integer days) {
+        int seriesDays = normalizeDays(days);
+        LocalDateTime from = LocalDateTime.now().minusDays(seriesDays);
+        CompletableFuture<List<BackOfficeAnalyticsChannelMixDto>> channelMixFuture =
+                supplyOverviewAsync(() -> buildChannelMix(from));
+        CompletableFuture<BackOfficeAnalyticsConversionFunnelDto> conversionFunnelFuture =
+                supplyOverviewAsync(() -> buildConversionFunnel(from));
+        BackOfficeOverviewDto overview = buildOverview(seriesDays);
+        CompletableFuture.allOf(channelMixFuture, conversionFunnelFuture).join();
+        return new BackOfficeAnalyticsCollectionDto(
+                overview,
+                overview == null ? null : overview.getAnalyticsSeries(),
+                channelMixFuture.join(),
+                conversionFunnelFuture.join(),
+                null
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(
             cacheNames = CatalogCacheNames.BACKOFFICE_OVERVIEW_COLLECTION,
             key = "#days == null ? 12 : #days",
             sync = true
     )
     public BackOfficeOverviewDto getOverview(Integer days) {
         int seriesDays = normalizeDays(days);
+        return buildOverview(seriesDays);
+    }
+
+    private BackOfficeOverviewDto buildOverview(int seriesDays) {
         CompletableFuture<BackOfficeDashboardResponseDto> dashboardFuture = supplyOverviewAsync(this::getDashboard);
         CompletableFuture<List<BackOfficeOverviewOrderSummaryDto>> recentOrdersFuture = supplyOverviewAsync(this::buildRecentOrders);
         CompletableFuture<List<BackOfficeOverviewOrderPipelineStepDto>> orderPipelineFuture = supplyOverviewAsync(this::buildOrderPipeline);
@@ -173,6 +209,86 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
             return SERIES_DAYS_DEFAULT;
         }
         return Math.max(1, Math.min(days, SERIES_DAYS_MAX));
+    }
+
+    private List<BackOfficeAnalyticsChannelMixDto> buildChannelMix(LocalDateTime from) {
+        List<PaymentRepository.OperatorAmountView> sums = paymentRepository
+                .sumAmountByStatusGroupedByOperatorFrom(PaymentStatus.COMPLETED, from);
+        if (sums == null || sums.isEmpty()) {
+            return List.of();
+        }
+
+        BigDecimal total = sums.stream()
+                .map(row -> row == null || row.getAmount() == null ? BigDecimal.ZERO : row.getAmount())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (total.signum() <= 0) {
+            return List.of();
+        }
+
+        List<PaymentRepository.OperatorAmountView> sorted = sums.stream()
+                .filter(row -> row != null && row.getOperator() != null)
+                .sorted(Comparator.comparing(
+                        (PaymentRepository.OperatorAmountView row) -> row.getAmount() == null ? BigDecimal.ZERO : row.getAmount()
+                ).reversed())
+                .toList();
+        if (sorted.isEmpty()) {
+            return List.of();
+        }
+
+        int limit = Math.min(6, sorted.size());
+        List<BackOfficeAnalyticsChannelMixDto> items = new ArrayList<>(limit);
+        int allocated = 0;
+        for (int i = 0; i < limit; i += 1) {
+            PaymentRepository.OperatorAmountView row = sorted.get(i);
+            BigDecimal amount = row.getAmount() == null ? BigDecimal.ZERO : row.getAmount();
+            int pct;
+            if (i == limit - 1) {
+                pct = Math.max(0, 100 - allocated);
+            } else {
+                pct = amount.multiply(BigDecimal.valueOf(100))
+                        .divide(total, 0, RoundingMode.HALF_UP)
+                        .intValue();
+                allocated += pct;
+            }
+            items.add(new BackOfficeAnalyticsChannelMixDto(
+                    resolveOperatorLabel(row.getOperator()),
+                    pct,
+                    resolveOperatorColor(row.getOperator())
+            ));
+        }
+        return items;
+    }
+
+    private BackOfficeAnalyticsConversionFunnelDto buildConversionFunnel(LocalDateTime from) {
+        long purchases = paymentRepository.countByStatusFrom(PaymentStatus.COMPLETED, from);
+        long pending = paymentRepository.countByStatusFrom(PaymentStatus.PENDING, from);
+        long checkout = purchases + pending;
+        return new BackOfficeAnalyticsConversionFunnelDto(
+                null,
+                null,
+                checkout > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) checkout,
+                purchases > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) purchases
+        );
+    }
+
+    private String resolveOperatorLabel(PaymentOperator operator) {
+        if (operator == null) {
+            return "Inconnu";
+        }
+        String label = operator.getDisplayName();
+        return label == null || label.isBlank() ? operator.name() : label;
+    }
+
+    private String resolveOperatorColor(PaymentOperator operator) {
+        if (operator == null) {
+            return "#94a3b8";
+        }
+        return switch (operator) {
+            case ORANGE_MONEY_CI, ORANGE_MONEY_SENEGAL -> "#f97316";
+            case MTN_MONEY_CI, MTN_MONEY_SENEGAL -> "#facc15";
+            case WAVE_CI, WAVE_SENEGAL -> "#38bdf8";
+            case CARD_CI, CARD_SENEGAL, CARD -> "#94a3b8";
+        };
     }
 
     private List<BackOfficeOverviewOrderSummaryDto> buildRecentOrders() {

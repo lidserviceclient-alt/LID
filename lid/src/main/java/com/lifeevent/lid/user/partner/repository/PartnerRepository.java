@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -49,7 +50,7 @@ public interface PartnerRepository extends JpaRepository<Partner, String> {
     @Query("SELECT p FROM Partner p WHERE p.userId = :userId")
     Optional<Partner> findByUserIdWithShop(@Param("userId") String userId);
 
-    @EntityGraph(attributePaths = {"shop", "shop.mainCategory"})
+    @EntityGraph(attributePaths = {"user", "shop", "shop.mainCategory"})
     @Query("""
         SELECT p
         FROM Partner p
@@ -71,7 +72,30 @@ public interface PartnerRepository extends JpaRepository<Partner, String> {
             Pageable pageable
     );
 
-    @EntityGraph(attributePaths = {"shop", "shop.mainCategory"})
+    @EntityGraph(attributePaths = {"user", "shop", "shop.mainCategory"})
     @Query("SELECT p FROM Partner p WHERE p.userId = :userId AND p.registrationStatus = :status")
     Optional<Partner> findVerifiedByUserIdWithShop(@Param("userId") String userId, @Param("status") PartnerRegistrationStatus status);
+
+    @EntityGraph(attributePaths = {"user", "shop", "shop.mainCategory"})
+    @Query("""
+        SELECT p
+        FROM Partner p
+        LEFT JOIN p.shop s
+        WHERE (:statusEmpty = true OR p.registrationStatus IN :statuses)
+          AND (
+            :queryEmpty = true OR
+            LOWER(COALESCE(p.user.firstName, '')) LIKE :queryPattern OR
+            LOWER(COALESCE(p.user.lastName, '')) LIKE :queryPattern OR
+            LOWER(COALESCE(p.user.email, '')) LIKE :queryPattern OR
+            LOWER(COALESCE(s.shopName, '')) LIKE :queryPattern
+          )
+        ORDER BY p.createdAt DESC
+    """)
+    Page<Partner> searchBackofficePartners(
+            @Param("statuses") List<PartnerRegistrationStatus> statuses,
+            @Param("statusEmpty") boolean statusEmpty,
+            @Param("queryPattern") String queryPattern,
+            @Param("queryEmpty") boolean queryEmpty,
+            Pageable pageable
+    );
 }

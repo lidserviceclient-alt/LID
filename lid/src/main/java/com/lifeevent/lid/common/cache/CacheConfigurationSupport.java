@@ -32,6 +32,7 @@ final class CacheConfigurationSupport {
                 new CacheSpec(CatalogCacheNames.PARTNER_PREFERENCES, properties.getPartnerPreferencesTtlMinutes(), properties.getPartnerPreferencesMaxSize()),
                 new CacheSpec(CatalogCacheNames.BACKOFFICE_OVERVIEW_DASHBOARD, properties.getBackofficeOverviewDashboardTtlMinutes(), properties.getBackofficeOverviewDashboardMaxSize()),
                 new CacheSpec(CatalogCacheNames.BACKOFFICE_OVERVIEW_COLLECTION, properties.getBackofficeOverviewCollectionTtlMinutes(), properties.getBackofficeOverviewCollectionMaxSize()),
+                new CacheSpec(CatalogCacheNames.BACKOFFICE_ANALYTICS_COLLECTION, properties.getBackofficeAnalyticsCollectionTtlMinutes(), properties.getBackofficeAnalyticsCollectionMaxSize()),
                 new CacheSpec(CatalogCacheNames.BACKOFFICE_FINANCE_OVERVIEW, properties.getBackofficeFinanceOverviewTtlMinutes(), properties.getBackofficeFinanceOverviewMaxSize()),
                 new CacheSpec(CatalogCacheNames.BACKOFFICE_FINANCE_TRANSACTIONS, properties.getBackofficeFinanceTransactionsTtlMinutes(), properties.getBackofficeFinanceTransactionsMaxSize()),
                 new CacheSpec(CatalogCacheNames.BACKOFFICE_MARKETING_OVERVIEW, properties.getBackofficeMarketingOverviewTtlMinutes(), properties.getBackofficeMarketingOverviewMaxSize()),

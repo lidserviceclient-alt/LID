@@ -18,14 +18,7 @@ public class BackOfficeOverviewController implements IBackOfficeOverviewControll
 
     @Override
     public ResponseEntity<BackOfficeAnalyticsCollectionDto> getAnalyticsCollection(Integer days) {
-        BackOfficeOverviewDto overview = backOfficeOverviewService.getOverview(days);
-        return ResponseEntity.ok(new BackOfficeAnalyticsCollectionDto(
-                overview,
-                overview != null ? overview.getAnalyticsSeries() : null,
-                null,
-                null,
-                null
-        ));
+        return ResponseEntity.ok(backOfficeOverviewService.getAnalyticsCollection(days));
     }
 
     @Override

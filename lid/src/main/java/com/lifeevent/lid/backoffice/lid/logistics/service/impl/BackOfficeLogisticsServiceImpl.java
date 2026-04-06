@@ -604,7 +604,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         }
 
         return switch (order.getCurrentStatus()) {
-            case PAID, PROCESSING, READY_TO_DELIVER, DELIVERY_IN_PROGRESS, DELIVERED, REFUNDED -> true;
+            case PAID, PROCESSING, READY_TO_DELIVER, DELIVERY_IN_PROGRESS, DELIVERY_FAILED, DELIVERED, REFUNDED -> true;
             case PENDING, CANCELED -> false;
         };
     }
@@ -650,7 +650,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             return;
         }
 
-        Status targetStatus = mapToOrderStatus(shipmentStatus);
+        Status targetStatus = mapShipmentStatusToOrderStatus(shipmentStatus);
         if (targetStatus == null) {
             return;
         }
@@ -664,21 +664,31 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             return;
         }
 
-        if (currentStatus != null) {
-            if (targetStatus == Status.CANCELED) {
-                if (currentStatus == Status.DELIVERED || currentStatus == Status.CANCELED) {
-                    return;
-                }
-            } else if (rankOrderStatus(targetStatus) <= rankOrderStatus(currentStatus)) {
-                return;
-            }
+        if (!canTransitionOrderStatus(currentStatus, targetStatus)) {
+            return;
         }
 
         order.setCurrentStatus(targetStatus);
-        appendOrderHistory(order, targetStatus);
+        appendOrderHistory(order, targetStatus, buildOrderHistoryComment(targetStatus));
     }
 
-    private void appendOrderHistory(Order order, Status status) {
+    private boolean canTransitionOrderStatus(Status currentStatus, Status targetStatus) {
+        if (currentStatus == null) {
+            return true;
+        }
+
+        if (targetStatus == Status.CANCELED) {
+            return currentStatus != Status.DELIVERED && currentStatus != Status.CANCELED;
+        }
+
+        if (currentStatus == Status.DELIVERY_FAILED && targetStatus == Status.DELIVERY_IN_PROGRESS) {
+            return true;
+        }
+
+        return rankOrderStatus(targetStatus) > rankOrderStatus(currentStatus);
+    }
+
+    private void appendOrderHistory(Order order, Status status, String comment) {
         if (order.getStatusHistory() == null) {
             order.setStatusHistory(new ArrayList<>());
         }
@@ -686,17 +696,24 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         order.getStatusHistory().add(StatusHistory.builder()
                 .order(order)
                 .status(status)
-                .comment("Statut synchronisé depuis logistique back-office")
+                .comment(comment)
                 .changedAt(LocalDateTime.now())
                 .build());
     }
 
-    private Status mapToOrderStatus(ShipmentStatus shipmentStatus) {
+    private String buildOrderHistoryComment(Status status) {
+        if (status == Status.DELIVERY_FAILED) {
+            return "Tentative de livraison échouée";
+        }
+        return "Statut synchronisé depuis logistique back-office";
+    }
+
+    private Status mapShipmentStatusToOrderStatus(ShipmentStatus shipmentStatus) {
         return switch (shipmentStatus) {
             case EN_PREPARATION -> Status.PROCESSING;
             case EN_COURS -> Status.DELIVERY_IN_PROGRESS;
             case LIVREE -> Status.DELIVERED;
-            case ECHEC -> Status.CANCELED;
+            case ECHEC -> Status.DELIVERY_FAILED;
         };
     }
 
@@ -710,9 +727,10 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             case PROCESSING -> 2;
             case READY_TO_DELIVER -> 3;
             case DELIVERY_IN_PROGRESS -> 4;
-            case DELIVERED -> 5;
-            case CANCELED -> 6;
-            case REFUNDED -> 7;
+            case DELIVERY_FAILED -> 5;
+            case DELIVERED -> 6;
+            case CANCELED -> 7;
+            case REFUNDED -> 8;
         };
     }
 
