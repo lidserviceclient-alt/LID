@@ -27,4 +27,6 @@ public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
      * Supprimer un article de la wishlist
      */
     void deleteByCustomer_UserIdAndArticleId(String customerId, Long articleId);
+
+    void deleteByCustomer_UserId(String customerId);
 }

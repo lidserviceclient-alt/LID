@@ -84,6 +84,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findByCustomer_UserId(String customerId);
 
     long countByCustomer_UserIdAndCurrentStatus(String customerId, Status status);
+
+    long countByCustomer_UserId(String customerId);
     
     /**
      * Commandes par statut

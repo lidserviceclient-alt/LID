@@ -155,6 +155,7 @@ config:
       file-path: ${LOG_ADMIN_FILE_PATH:${logging.file.name:logs/lid.log}}
       max-read-bytes: ${LOG_ADMIN_MAX_READ_BYTES:2097152}
       include-archives-read: ${LOG_ADMIN_INCLUDE_ARCHIVES_READ:false}
+      max-raw-chars: ${LOG_ADMIN_MAX_RAW_CHARS:20000}
   alerts:
     internal-error:
       enabled: ${INTERNAL_ERROR_ALERT_ENABLED:true}
@@ -172,6 +173,15 @@ config:
     messages:
       default-recipients: ${BACKOFFICE_MESSAGES_DEFAULT_RECIPIENTS}
       retry-delay-ms: ${BACKOFFICE_MESSAGES_RETRY_DELAY_MS:60000}
+  notifications:
+    retention:
+      notifications-purge-delay-ms: ${BACKOFFICE_NOTIFICATIONS_PURGE_DELAY_MS:300000}
+      notifications-batch-size: ${BACKOFFICE_NOTIFICATIONS_BATCH_SIZE:500}
+      notifications-max-batches-per-run: ${BACKOFFICE_NOTIFICATIONS_MAX_BATCHES_PER_RUN:10}
+      security-activity-purge-delay-ms: ${BACKOFFICE_SECURITY_ACTIVITY_PURGE_DELAY_MS:21600000}
+      security-activity-batch-size: ${BACKOFFICE_SECURITY_ACTIVITY_BATCH_SIZE:500}
+      security-activity-max-age-days: ${BACKOFFICE_SECURITY_ACTIVITY_MAX_AGE_DAYS:30}
+      security-activity-max-batches-per-run: ${BACKOFFICE_SECURITY_ACTIVITY_MAX_BATCHES_PER_RUN:10}
   marketing:
     dispatch:
       delay-ms: ${MARKETING_DISPATCH_DELAY_MS:30000}

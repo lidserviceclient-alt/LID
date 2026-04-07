@@ -44,7 +44,7 @@ public class BackOfficeLogServiceImpl implements BackOfficeLogService {
     @Value("${config.logs.admin.include-archives-read:false}")
     private boolean includeArchivesRead;
 
-    @Value("${config.logs.admin.max-raw-chars:2000}")
+    @Value("${config.logs.admin.max-raw-chars:20000}")
     private int maxRawChars;
 
     private final Object ioLock = new Object();
@@ -192,8 +192,14 @@ public class BackOfficeLogServiceImpl implements BackOfficeLogService {
         if (toDt != null && entry.timestamp.isAfter(toDt)) {
             return false;
         }
-        if (levelNorm != null && !levelNorm.equalsIgnoreCase(entry.level)) {
-            return false;
+        if (levelNorm != null) {
+            if ("IMPORTANT".equalsIgnoreCase(levelNorm)) {
+                if (!"ERROR".equalsIgnoreCase(entry.level) && !"WARN".equalsIgnoreCase(entry.level)) {
+                    return false;
+                }
+            } else if (!levelNorm.equalsIgnoreCase(entry.level)) {
+                return false;
+            }
         }
         if (loggerNorm != null && !containsIgnoreCase(entry.logger, loggerNorm) && !containsIgnoreCase(entry.raw, loggerNorm)) {
             return false;

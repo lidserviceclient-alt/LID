@@ -44,4 +44,6 @@ public interface CartArticleRepository extends JpaRepository<CartArticle, Long> 
      * Supprimer tous les CartArticles d'un panier
      */
     void deleteByCart(Cart cart);
+
+    void deleteByCart_Customer_UserId(String customerId);
 }

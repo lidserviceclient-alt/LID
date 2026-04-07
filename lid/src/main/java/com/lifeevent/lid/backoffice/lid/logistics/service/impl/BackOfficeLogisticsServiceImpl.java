@@ -1,5 +1,11 @@
 package com.lifeevent.lid.backoffice.lid.logistics.service.impl;
 
+import com.lifeevent.lid.backoffice.lid.notification.dto.CreateBackOfficeNotificationRequest;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationScope;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationSeverity;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationTargetRole;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationType;
+import com.lifeevent.lid.backoffice.lid.notification.service.BackOfficeNotificationService;
 import com.lifeevent.lid.backoffice.lid.logistics.dto.BackOfficeShipmentDeliveryConfirmRequest;
 import com.lifeevent.lid.backoffice.lid.logistics.dto.BackOfficeShipmentDetailDto;
 import com.lifeevent.lid.backoffice.lid.logistics.dto.BackOfficeShipmentDto;
@@ -55,6 +61,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     private final ApplicationEventPublisher eventPublisher;
     private final EmailService emailService;
     private final RealtimeEventPublisher realtimeEventPublisher;
+    private final BackOfficeNotificationService backOfficeNotificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -670,6 +677,23 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
         order.setCurrentStatus(targetStatus);
         appendOrderHistory(order, targetStatus, buildOrderHistoryComment(targetStatus));
+        if (targetStatus == Status.DELIVERY_FAILED && order.getId() != null) {
+            backOfficeNotificationService.create(CreateBackOfficeNotificationRequest.builder()
+                    .type(BackOfficeNotificationType.DELIVERY_ANOMALY)
+                    .scope(BackOfficeNotificationScope.DELIVERY)
+                    .targetRole(BackOfficeNotificationTargetRole.LIVREUR)
+                    .title("Anomalie de livraison")
+                    .body("Échec de livraison sur la commande ORD-" + order.getId())
+                    .actionPath("/deliveries")
+                    .actionLabel("Ouvrir")
+                    .severity(BackOfficeNotificationSeverity.WARNING)
+                    .dedupeKey("DELIVERY_ANOMALY:" + order.getId())
+                    .payload(java.util.Map.of(
+                            "orderId", order.getId(),
+                            "status", targetStatus.name()
+                    ))
+                    .build());
+        }
     }
 
     private boolean canTransitionOrderStatus(Status currentStatus, Status targetStatus) {

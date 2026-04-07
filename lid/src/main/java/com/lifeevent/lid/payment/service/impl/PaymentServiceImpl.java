@@ -3,6 +3,12 @@ package com.lifeevent.lid.payment.service.impl;
 import com.paydunya.neptune.PaydunyaCheckoutInvoice;
 import com.paydunya.neptune.PaydunyaSetup;
 import com.paydunya.neptune.PaydunyaCheckoutStore;
+import com.lifeevent.lid.backoffice.lid.notification.dto.CreateBackOfficeNotificationRequest;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationScope;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationSeverity;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationTargetRole;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationType;
+import com.lifeevent.lid.backoffice.lid.notification.service.BackOfficeNotificationService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.payment.config.PaydunyaProperties;
 import com.lifeevent.lid.payment.dto.CreatePaymentRequestDto;
@@ -49,6 +55,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaydunyaCheckoutStore paydunyaStore;
     private final PaymentMapper paymentMapper;
     private final RealtimeEventPublisher realtimeEventPublisher;
+    private final BackOfficeNotificationService backOfficeNotificationService;
     
     @Override
     public PaymentResponseDto createPayment(CreatePaymentRequestDto request) {
@@ -111,6 +118,7 @@ public class PaymentServiceImpl implements PaymentService {
                 "Paiement local confirmé",
                 "LOCAL"
         );
+        createNotificationForPaymentStatus(savedPayment, null);
         return paymentMapper.toDto(savedPayment);
     }
     
@@ -155,6 +163,7 @@ public class PaymentServiceImpl implements PaymentService {
             return buildStatusResponse(payment, invoice);
         }
 
+        PaymentStatus previousStatus = payment.getStatus();
         applyInvoiceStatus(payment, invoice);
         paymentRepository.save(payment);
         saveTransaction(
@@ -165,6 +174,7 @@ public class PaymentServiceImpl implements PaymentService {
                 "API"
         );
         realtimeEventPublisher.publishPaymentStatusUpdated(payment, "verify_api");
+        createNotificationForPaymentStatus(payment, previousStatus);
         return buildStatusResponse(payment, invoice);
     }
     
@@ -201,6 +211,7 @@ public class PaymentServiceImpl implements PaymentService {
             return;
         }
 
+        PaymentStatus previousStatus = payment.getStatus();
         applyInvoiceStatus(payment, invoice);
         paymentRepository.save(payment);
         saveTransaction(
@@ -211,6 +222,7 @@ public class PaymentServiceImpl implements PaymentService {
                 "WEBHOOK"
         );
         realtimeEventPublisher.publishPaymentStatusUpdated(payment, "webhook");
+        createNotificationForPaymentStatus(payment, previousStatus);
     }
     
     @Override
@@ -433,5 +445,48 @@ public class PaymentServiceImpl implements PaymentService {
             .customerEmail(payment.getCustomerEmail())
             .customerPhone(payment.getCustomerPhone())
             .build();
+    }
+
+    private void createNotificationForPaymentStatus(Payment payment, PaymentStatus previousStatus) {
+        if (payment == null || payment.getOrderId() == null || payment.getStatus() == null) {
+            return;
+        }
+        if (payment.getStatus() == PaymentStatus.COMPLETED) {
+            backOfficeNotificationService.create(CreateBackOfficeNotificationRequest.builder()
+                    .type(BackOfficeNotificationType.NEW_ORDER)
+                    .scope(BackOfficeNotificationScope.BACKOFFICE)
+                    .targetRole(BackOfficeNotificationTargetRole.ADMIN)
+                    .title("Nouvelle commande validée")
+                    .body("Commande ORD-" + payment.getOrderId() + " payée avec succès")
+                    .actionPath("/orders")
+                    .actionLabel("Ouvrir")
+                    .severity(BackOfficeNotificationSeverity.SUCCESS)
+                    .dedupeKey("NEW_ORDER:" + payment.getOrderId())
+                    .payload(java.util.Map.of(
+                            "orderId", payment.getOrderId(),
+                            "paymentId", payment.getId(),
+                            "status", payment.getStatus().name()
+                    ))
+                    .build());
+            return;
+        }
+        if (payment.getStatus() == PaymentStatus.FAILED && previousStatus != PaymentStatus.FAILED) {
+            backOfficeNotificationService.create(CreateBackOfficeNotificationRequest.builder()
+                    .type(BackOfficeNotificationType.PAYMENT_FAILED)
+                    .scope(BackOfficeNotificationScope.BACKOFFICE)
+                    .targetRole(BackOfficeNotificationTargetRole.ADMIN)
+                    .title("Paiement échoué")
+                    .body("Le paiement de la commande ORD-" + payment.getOrderId() + " a échoué")
+                    .actionPath("/finance")
+                    .actionLabel("Ouvrir")
+                    .severity(BackOfficeNotificationSeverity.ERROR)
+                    .dedupeKey("PAYMENT_FAILED:" + payment.getOrderId())
+                    .payload(java.util.Map.of(
+                            "orderId", payment.getOrderId(),
+                            "paymentId", payment.getId(),
+                            "status", payment.getStatus().name()
+                    ))
+                    .build());
+        }
     }
 }

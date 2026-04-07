@@ -20,6 +20,8 @@ public interface ProductReviewRepository extends JpaRepository<ProductReview, Lo
         Long getReviews();
     }
 
+    long countByCustomer_UserId(String customerUserId);
+
     @Query("""
         SELECT r
         FROM ProductReview r

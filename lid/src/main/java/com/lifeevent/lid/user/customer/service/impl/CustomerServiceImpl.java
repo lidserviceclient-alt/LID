@@ -1,8 +1,19 @@
 package com.lifeevent.lid.user.customer.service.impl;
 
 import com.lifeevent.lid.cart.service.CartService;
+import com.lifeevent.lid.cart.repository.CartArticleRepository;
+import com.lifeevent.lid.cart.repository.CartRepository;
 import com.lifeevent.lid.auth.repository.AuthenticationRepository;
+import com.lifeevent.lid.backoffice.lid.notification.dto.CreateBackOfficeNotificationRequest;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationScope;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationSeverity;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationTargetRole;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationType;
+import com.lifeevent.lid.backoffice.lid.notification.service.BackOfficeNotificationService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.loyalty.repository.LoyaltyPointAdjustmentRepository;
+import com.lifeevent.lid.order.repository.OrderRepository;
+import com.lifeevent.lid.review.repository.ProductReviewRepository;
 import com.lifeevent.lid.user.customer.dto.CustomerAddressDto;
 import com.lifeevent.lid.user.customer.dto.CustomerDto;
 import com.lifeevent.lid.user.customer.entity.CustomerAddress;
@@ -15,12 +26,15 @@ import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.customer.service.CustomerService;
 import com.lifeevent.lid.user.common.service.UserService;
+import com.lifeevent.lid.wishlist.repository.WishlistRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +58,13 @@ public class CustomerServiceImpl implements CustomerService {
     private final AuthenticationRepository authenticationRepository;
     private final UserService userService;
     private final CartService cartService;
+    private final CartArticleRepository cartArticleRepository;
+    private final CartRepository cartRepository;
+    private final WishlistRepository wishlistRepository;
+    private final OrderRepository orderRepository;
+    private final ProductReviewRepository productReviewRepository;
+    private final LoyaltyPointAdjustmentRepository loyaltyPointAdjustmentRepository;
+    private final BackOfficeNotificationService backOfficeNotificationService;
     
     @Override
     public CustomerDto createCustomer(CustomerDto dto) {
@@ -74,6 +95,7 @@ public class CustomerServiceImpl implements CustomerService {
         Customer saved = customerRepository.save(customer);
         userService.upsertCustomerProfile(saved);
         cartService.createCart(saved.getUserId());
+        createNewCustomerNotification(saved.getUserId(), saved.getEmail());
         return customerMapper.toDto(saved);
     }
     
@@ -118,9 +140,26 @@ public class CustomerServiceImpl implements CustomerService {
         if (!customerRepository.existsById(id)) {
             throw new ResourceNotFoundException("Customer", "id", id);
         }
+        ensureCustomerHasNoBusinessHistory(id);
+        wishlistRepository.deleteByCustomer_UserId(id);
+        customerAddressRepository.deleteByCustomer_UserId(id);
+        cartArticleRepository.deleteByCart_Customer_UserId(id);
+        cartRepository.deleteByCustomer_UserId(id);
         customerRepository.deleteById(id);
         authenticationRepository.findById(id).ifPresent(authenticationRepository::delete);
         userEntityRepository.findById(id).ifPresent(userEntityRepository::delete);
+    }
+
+    private void ensureCustomerHasNoBusinessHistory(String customerId) {
+        long orderCount = orderRepository.countByCustomer_UserId(customerId);
+        long reviewCount = productReviewRepository.countByCustomer_UserId(customerId);
+        long loyaltyAdjustmentCount = loyaltyPointAdjustmentRepository.countByCustomer_UserId(customerId);
+        if (orderCount > 0 || reviewCount > 0 || loyaltyAdjustmentCount > 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Impossible de supprimer ce client: il possède un historique métier. Bloquez le compte ou anonymisez-le."
+            );
+        }
     }
     
     @Override
@@ -169,6 +208,24 @@ public class CustomerServiceImpl implements CustomerService {
         }
         CustomerAddress saved = customerAddressRepository.save(entity);
         return customerAddressMapper.toDto(saved);
+    }
+
+    private void createNewCustomerNotification(String customerId, String email) {
+        backOfficeNotificationService.create(CreateBackOfficeNotificationRequest.builder()
+                .type(BackOfficeNotificationType.NEW_CUSTOMER)
+                .scope(BackOfficeNotificationScope.BACKOFFICE)
+                .targetRole(BackOfficeNotificationTargetRole.ADMIN)
+                .title("Nouveau client")
+                .body(email == null || email.isBlank() ? "Un nouveau client a été créé" : "Nouveau client créé: " + email)
+                .actionPath("/customers")
+                .actionLabel("Ouvrir")
+                .severity(BackOfficeNotificationSeverity.INFO)
+                .dedupeKey("NEW_CUSTOMER:" + customerId)
+                .payload(java.util.Map.of(
+                        "customerId", customerId == null ? "" : customerId,
+                        "email", email == null ? "" : email
+                ))
+                .build());
     }
 
     @Override

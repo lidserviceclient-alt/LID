@@ -10,4 +10,5 @@ import java.util.List;
 public interface CustomerAddressRepository extends JpaRepository<CustomerAddress, String> {
     List<CustomerAddress> findByCustomer_UserIdOrderByCreatedAtDesc(String customerId);
     List<CustomerAddress> findByCustomer_UserIdAndIsDefaultTrue(String customerId);
+    void deleteByCustomer_UserId(String customerId);
 }

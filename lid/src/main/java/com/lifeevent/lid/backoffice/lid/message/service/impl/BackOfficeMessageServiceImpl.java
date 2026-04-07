@@ -1,5 +1,11 @@
 package com.lifeevent.lid.backoffice.lid.message.service.impl;
 
+import com.lifeevent.lid.backoffice.lid.notification.dto.CreateBackOfficeNotificationRequest;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationScope;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationSeverity;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationTargetRole;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationType;
+import com.lifeevent.lid.backoffice.lid.notification.service.BackOfficeNotificationService;
 import com.lifeevent.lid.backoffice.lid.message.dto.BackOfficeMessageDto;
 import com.lifeevent.lid.backoffice.lid.message.dto.CreateBackOfficeMessageRequest;
 import com.lifeevent.lid.backoffice.lid.message.mapper.BackOfficeMessageMapper;
@@ -36,6 +42,7 @@ public class BackOfficeMessageServiceImpl implements BackOfficeMessageService {
 
     private final EmailMessageRepository emailMessageRepository;
     private final BackOfficeMessageMapper backOfficeMessageMapper;
+    private final BackOfficeNotificationService backOfficeNotificationService;
     private final JavaMailSender mailSender;
     @Resource(name = "externalIoExecutor")
     private Executor externalIoExecutor;
@@ -65,6 +72,13 @@ public class BackOfficeMessageServiceImpl implements BackOfficeMessageService {
         processSending(entity);
         EmailMessage saved = emailMessageRepository.save(entity);
         return backOfficeMessageMapper.toDto(saved);
+    }
+
+    @Override
+    public BackOfficeMessageDto createPublicContactMessage(CreateBackOfficeMessageRequest request) {
+        BackOfficeMessageDto dto = create(request);
+        createNewContactNotification(dto);
+        return dto;
     }
 
     @Override
@@ -225,6 +239,24 @@ public class BackOfficeMessageServiceImpl implements BackOfficeMessageService {
             if (isNotBlank(v)) out.add(v);
         }
         return out;
+    }
+
+    private void createNewContactNotification(BackOfficeMessageDto dto) {
+        if (dto == null || dto.getId() == null) {
+            return;
+        }
+        backOfficeNotificationService.create(CreateBackOfficeNotificationRequest.builder()
+                .type(BackOfficeNotificationType.NEW_CONTACT)
+                .scope(BackOfficeNotificationScope.BACKOFFICE)
+                .targetRole(BackOfficeNotificationTargetRole.ADMIN)
+                .title("Nouveau message de contact")
+                .body(safeTrim(dto.getSubject()) == null ? "Un nouveau message de contact a été reçu" : dto.getSubject())
+                .actionPath("/messages")
+                .actionLabel("Ouvrir")
+                .severity(BackOfficeNotificationSeverity.INFO)
+                .dedupeKey("NEW_CONTACT:" + dto.getId())
+                .payload(java.util.Map.of("messageId", dto.getId()))
+                .build());
     }
 
     private String safeTrim(String value) {

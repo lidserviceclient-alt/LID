@@ -3,6 +3,12 @@ package com.lifeevent.lid.backoffice.lid.customer.service.impl;
 import com.lifeevent.lid.backoffice.lid.customer.dto.BackOfficeCustomerCollectionDto;
 import com.lifeevent.lid.backoffice.lid.customer.dto.BackOfficeCustomerDto;
 import com.lifeevent.lid.backoffice.lid.customer.mapper.BackOfficeCustomerMapper;
+import com.lifeevent.lid.backoffice.lid.notification.dto.CreateBackOfficeNotificationRequest;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationScope;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationSeverity;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationTargetRole;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationType;
+import com.lifeevent.lid.backoffice.lid.notification.service.BackOfficeNotificationService;
 import com.lifeevent.lid.backoffice.lid.customer.service.BackOfficeCustomerService;
 import com.lifeevent.lid.common.cache.CatalogCacheNames;
 import com.lifeevent.lid.common.dto.PageResponse;
@@ -42,6 +48,7 @@ public class BackOfficeCustomerServiceImpl implements BackOfficeCustomerService 
     private final UserService userService;
     private final OrderRepository orderRepository;
     private final BackOfficeCustomerMapper backOfficeCustomerMapper;
+    private final BackOfficeNotificationService backOfficeNotificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -107,7 +114,26 @@ public class BackOfficeCustomerServiceImpl implements BackOfficeCustomerService 
         out.setOrders(0);
         out.setSpent(0d);
         out.setLastOrder(null);
+        createNewCustomerNotification(saved.getUserId(), saved.getEmail());
         return out;
+    }
+
+    private void createNewCustomerNotification(String customerId, String email) {
+        backOfficeNotificationService.create(CreateBackOfficeNotificationRequest.builder()
+                .type(BackOfficeNotificationType.NEW_CUSTOMER)
+                .scope(BackOfficeNotificationScope.BACKOFFICE)
+                .targetRole(BackOfficeNotificationTargetRole.ADMIN)
+                .title("Nouveau client")
+                .body(email == null || email.isBlank() ? "Un nouveau client a été ajouté" : "Nouveau client ajouté: " + email)
+                .actionPath("/customers")
+                .actionLabel("Ouvrir")
+                .severity(BackOfficeNotificationSeverity.INFO)
+                .dedupeKey("NEW_CUSTOMER:" + customerId)
+                .payload(Map.of(
+                        "customerId", customerId == null ? "" : customerId,
+                        "email", email == null ? "" : email
+                ))
+                .build());
     }
 
     private String normalizeEmail(BackOfficeCustomerDto dto) {

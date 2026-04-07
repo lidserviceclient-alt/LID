@@ -2,6 +2,7 @@ package com.lifeevent.lid.backoffice.lid.setting.service.impl;
 
 import com.lifeevent.lid.auth.constant.UserRole;
 import com.lifeevent.lid.backoffice.lid.setting.dto.*;
+import com.lifeevent.lid.backoffice.lid.setting.config.BackOfficeNotificationPreferencesInitConfig;
 import com.lifeevent.lid.backoffice.lid.setting.entity.*;
 import com.lifeevent.lid.backoffice.lid.setting.repository.*;
 import com.lifeevent.lid.backoffice.lid.setting.service.BackOfficeSettingService;
@@ -549,7 +550,14 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
     public List<BackOfficeSettingNotificationPreferenceDto> updateNotificationPreferences(
             BackOfficeSettingNotificationPreferencesUpdateDto dto
     ) {
-        notificationPreferenceRepository.deleteAllInBatch();
+        Map<String, String> defaultLabels = BackOfficeNotificationPreferencesInitConfig.supported();
+        Map<String, BackOfficeNotificationPreferenceEntity> existingByKey = notificationPreferenceRepository.findAll().stream()
+                .filter(entity -> entity.getKey() != null)
+                .collect(java.util.stream.Collectors.toMap(
+                        BackOfficeNotificationPreferenceEntity::getKey,
+                        entity -> entity,
+                        (left, right) -> left
+                ));
         List<BackOfficeNotificationPreferenceEntity> toSave = new ArrayList<>();
         List<BackOfficeSettingNotificationPreferencesUpdateDto.Item> items = dto != null ? dto.getItems() : null;
         if (items != null) {
@@ -557,11 +565,25 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 if (item == null || trimToEmpty(item.getKey()).isBlank()) {
                     continue;
                 }
-                toSave.add(BackOfficeNotificationPreferenceEntity.builder()
-                        .key(trimToEmpty(item.getKey()))
-                        .label(trimToNull(item.getLabel()))
-                        .enabled(Boolean.TRUE.equals(item.getEnabled()))
-                        .build());
+                String key = trimToEmpty(item.getKey());
+                BackOfficeNotificationPreferenceEntity entity = existingByKey.get(key);
+                if (entity == null) {
+                    entity = new BackOfficeNotificationPreferenceEntity();
+                    entity.setKey(key);
+                }
+                String resolvedLabel = trimToNull(item.getLabel());
+                if (resolvedLabel == null) {
+                    resolvedLabel = trimToNull(entity.getLabel());
+                }
+                if (resolvedLabel == null) {
+                    resolvedLabel = trimToNull(defaultLabels.get(key));
+                }
+                if (resolvedLabel == null) {
+                    resolvedLabel = key;
+                }
+                entity.setLabel(resolvedLabel);
+                entity.setEnabled(Boolean.TRUE.equals(item.getEnabled()));
+                toSave.add(entity);
             }
         }
         if (!toSave.isEmpty()) {
@@ -729,9 +751,14 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
     }
 
     private BackOfficeSettingNotificationPreferenceDto toNotificationPreferenceDto(BackOfficeNotificationPreferenceEntity entity) {
+        String key = entity.getKey();
+        String label = trimToNull(entity.getLabel());
+        if (label == null) {
+            label = trimToNull(BackOfficeNotificationPreferencesInitConfig.supported().get(key));
+        }
         return BackOfficeSettingNotificationPreferenceDto.builder()
-                .key(entity.getKey())
-                .label(entity.getLabel())
+                .key(key)
+                .label(label)
                 .enabled(entity.getEnabled())
                 .build();
     }

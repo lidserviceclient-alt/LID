@@ -12,6 +12,23 @@ import java.util.Map;
 @Configuration
 public class BackOfficeNotificationPreferencesInitConfig {
 
+    public static Map<String, String> supported() {
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put("STOCK_ALERTS", "Alertes stock");
+        m.put("LOW_STOCK", "Stock faible");
+        m.put("PAYMENT_FAILED", "Paiements échoués");
+        m.put("NEW_ORDER", "Nouvelles commandes");
+        m.put("RETURN_REQUEST", "Demandes de retour");
+        m.put("NEW_CUSTOMER", "Nouveaux clients");
+        m.put("NEW_CONTACT", "Nouveaux messages contact");
+        m.put("DELIVERY_ANOMALY", "Anomalies logistiques");
+        m.put("NEW_PARTNER_UNDER_REVIEW", "Partenaires à valider");
+        m.put("NEW_TICKET", "Nouveaux tickets support");
+        m.put("SECURITY_LOGIN", "Connexions admin");
+        m.put("PROMO_EXPIRING", "Promos qui expirent");
+        return m;
+    }
+
     @Bean
     CommandLineRunner initBackOfficeNotificationPreferences(
             BackOfficeNotificationPreferenceRepository notificationPreferenceRepository
@@ -34,19 +51,4 @@ public class BackOfficeNotificationPreferencesInitConfig {
         };
     }
 
-    private static Map<String, String> supported() {
-        Map<String, String> m = new LinkedHashMap<>();
-        m.put("STOCK_ALERTS", "Alertes stock");
-        m.put("LOW_STOCK", "Stock faible");
-        m.put("PAYMENT_FAILED", "Paiements échoués");
-        m.put("NEW_ORDER", "Nouvelles commandes");
-        m.put("RETURN_REQUEST", "Demandes de retour");
-        m.put("NEW_CUSTOMER", "Nouveaux clients");
-        m.put("NEW_CONTACT", "Nouveaux messages contact");
-        m.put("DELIVERY_ANOMALY", "Anomalies logistiques");
-        m.put("NEW_TICKET", "Nouveaux tickets support");
-        m.put("SECURITY_LOGIN", "Connexions admin");
-        m.put("PROMO_EXPIRING", "Promos qui expirent");
-        return m;
-    }
 }

@@ -29,7 +29,7 @@ public class PublicContactController {
             body.append("Téléphone: ").append(request.getPhone().trim()).append("\n");
         }
         body.append("\n").append(request.getMessage().trim());
-        return backOfficeMessageService.create(
+        return backOfficeMessageService.createPublicContactMessage(
                 CreateBackOfficeMessageRequest.builder()
                         .subject(subject)
                         .body(body.toString())

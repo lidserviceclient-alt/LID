@@ -9,23 +9,32 @@ import com.lifeevent.lid.backoffice.lid.user.dto.BackOfficeUserDto;
 import com.lifeevent.lid.backoffice.lid.user.dto.CreateBackOfficeCourierRequest;
 import com.lifeevent.lid.backoffice.lid.user.mapper.BackOfficeUserMapper;
 import com.lifeevent.lid.backoffice.lid.user.service.BackOfficeUserService;
+import com.lifeevent.lid.cart.repository.CartArticleRepository;
+import com.lifeevent.lid.cart.repository.CartRepository;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.loyalty.repository.LoyaltyPointAdjustmentRepository;
+import com.lifeevent.lid.order.repository.OrderRepository;
+import com.lifeevent.lid.review.repository.ProductReviewRepository;
 import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.customer.entity.Customer;
+import com.lifeevent.lid.user.customer.repository.CustomerAddressRepository;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import com.lifeevent.lid.user.deliverydriver.entity.DelivryDriverProfileEntity;
 import com.lifeevent.lid.user.deliverydriver.repository.DelivryDriverProfileRepository;
 import com.lifeevent.lid.user.partner.entity.Partner;
 import com.lifeevent.lid.user.partner.repository.PartnerRepository;
+import com.lifeevent.lid.wishlist.repository.WishlistRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +57,13 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
     private final AuthService authService;
     private final UserService userService;
     private final DelivryDriverProfileRepository livreurProfileRepository;
+    private final CartArticleRepository cartArticleRepository;
+    private final CartRepository cartRepository;
+    private final WishlistRepository wishlistRepository;
+    private final CustomerAddressRepository customerAddressRepository;
+    private final OrderRepository orderRepository;
+    private final ProductReviewRepository productReviewRepository;
+    private final LoyaltyPointAdjustmentRepository loyaltyPointAdjustmentRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -193,9 +209,29 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
         // Shared-PK profiles must be deleted before the base user row.
         livreurProfileRepository.findById(id).ifPresent(livreurProfileRepository::delete);
         partnerRepository.findById(id).ifPresent(partnerRepository::delete);
-        customerRepository.findById(id).ifPresent(customerRepository::delete);
+        if (customerRepository.existsById(id)) {
+            deleteCustomerProfileIfAllowed(id);
+        }
         authenticationRepository.findById(id).ifPresent(authenticationRepository::delete);
         userEntityRepository.deleteById(id);
+    }
+
+    private void deleteCustomerProfileIfAllowed(String userId) {
+        long orderCount = orderRepository.countByCustomer_UserId(userId);
+        long reviewCount = productReviewRepository.countByCustomer_UserId(userId);
+        long loyaltyAdjustmentCount = loyaltyPointAdjustmentRepository.countByCustomer_UserId(userId);
+        if (orderCount > 0 || reviewCount > 0 || loyaltyAdjustmentCount > 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Impossible de supprimer ce client: il possède un historique métier. Bloquez le compte ou anonymisez-le."
+            );
+        }
+
+        wishlistRepository.deleteByCustomer_UserId(userId);
+        customerAddressRepository.deleteByCustomer_UserId(userId);
+        cartArticleRepository.deleteByCart_Customer_UserId(userId);
+        cartRepository.deleteByCustomer_UserId(userId);
+        customerRepository.deleteById(userId);
     }
 
     private void synchronizeRoleProfiles(String userId, BackOfficeUserDto dto, Authentication auth) {

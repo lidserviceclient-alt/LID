@@ -2,6 +2,12 @@ package com.lifeevent.lid.user.partner.service.impl;
 
 import com.lifeevent.lid.article.entity.Category;
 import com.lifeevent.lid.article.repository.CategoryRepository;
+import com.lifeevent.lid.backoffice.lid.notification.dto.CreateBackOfficeNotificationRequest;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationScope;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationSeverity;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationTargetRole;
+import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationType;
+import com.lifeevent.lid.backoffice.lid.notification.service.BackOfficeNotificationService;
 import com.lifeevent.lid.auth.service.AuthService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
@@ -47,6 +53,7 @@ public class PartnerServiceImpl implements PartnerService {
     private final AuthService authService;
     private final CategoryRepository categoryRepository;
     private final UserEntityRepository userEntityRepository;
+    private final BackOfficeNotificationService backOfficeNotificationService;
     
     @Override
     public PartnerRegisterStep1ResponseDto registerStep1(PartnerRegisterStep1RequestDto dto) {
@@ -167,6 +174,18 @@ public class PartnerServiceImpl implements PartnerService {
         partner.setRegistrationStatus(PartnerRegistrationStatus.UNDER_REVIEW);
         Partner saved = partnerRepository.save(partner);
         userService.upsertPartnerProfile(saved);
+        backOfficeNotificationService.create(CreateBackOfficeNotificationRequest.builder()
+                .type(BackOfficeNotificationType.NEW_PARTNER_UNDER_REVIEW)
+                .scope(BackOfficeNotificationScope.BACKOFFICE)
+                .targetRole(BackOfficeNotificationTargetRole.ADMIN)
+                .title("Nouveau partenaire à valider")
+                .body("Le partenaire " + saved.getUserId() + " est en attente de revue")
+                .actionPath("/partners")
+                .actionLabel("Ouvrir")
+                .severity(BackOfficeNotificationSeverity.INFO)
+                .dedupeKey("PARTNER_UNDER_REVIEW:" + saved.getUserId())
+                .payload(java.util.Map.of("partnerId", saved.getUserId()))
+                .build());
         return partnerMapper.toResponseDto(saved);
     }
 
