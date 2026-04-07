@@ -3,7 +3,6 @@ import { backofficeApi } from "../services/api.js";
 import { subscribeBackofficeRealtime } from "../services/realtime.js";
 
 const NotificationsContext = createContext(null);
-const NOTIFICATIONS_LAST_SEEN_KEY = "lid_backoffice_notifications_last_seen";
 
 export function NotificationsProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
@@ -13,19 +12,9 @@ export function NotificationsProvider({ children }) {
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const realtimeRefreshTimerRef = useRef(null);
 
-  const markNotificationsSeen = useCallback(() => {
-    if (typeof window === "undefined") return;
-    const now = new Date().toISOString();
-    window.localStorage.setItem(NOTIFICATIONS_LAST_SEEN_KEY, now);
-    setHasUnreadNotifications(false);
-    setUnreadNotificationsCount(0);
-  }, []);
-
   const refreshNotificationsCount = useCallback(async () => {
-    if (typeof window === "undefined") return;
     try {
-      const since = window.localStorage.getItem(NOTIFICATIONS_LAST_SEEN_KEY) || "";
-      const count = await backofficeApi.notificationsCount(since);
+      const count = await backofficeApi.notificationsCount();
       const next = Number(count) || 0;
       setUnreadNotificationsCount(next);
       setHasUnreadNotifications(next > 0);
@@ -42,7 +31,9 @@ export function NotificationsProvider({ children }) {
       const data = await backofficeApi.notifications(0, 20);
       const list = Array.isArray(data) ? data : Array.isArray(data?.content) ? data.content : [];
       setNotifications(list);
-      markNotificationsSeen();
+      await backofficeApi.readAllNotifications();
+      setHasUnreadNotifications(false);
+      setUnreadNotificationsCount(0);
       return list;
     } catch (err) {
       setNotificationsError(err?.message || "Impossible de charger les notifications.");
@@ -50,14 +41,9 @@ export function NotificationsProvider({ children }) {
     } finally {
       setNotificationsLoading(false);
     }
-  }, [markNotificationsSeen]);
+  }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const existing = window.localStorage.getItem(NOTIFICATIONS_LAST_SEEN_KEY);
-    if (!existing) {
-      window.localStorage.setItem(NOTIFICATIONS_LAST_SEEN_KEY, new Date().toISOString());
-    }
     refreshNotificationsCount();
   }, [refreshNotificationsCount]);
 
@@ -92,13 +78,11 @@ export function NotificationsProvider({ children }) {
       hasUnreadNotifications,
       unreadNotificationsCount,
       loadNotifications,
-      refreshNotificationsCount,
-      markNotificationsSeen
+      refreshNotificationsCount
     }),
     [
       hasUnreadNotifications,
       loadNotifications,
-      markNotificationsSeen,
       notifications,
       notificationsError,
       notificationsLoading,

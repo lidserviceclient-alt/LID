@@ -113,6 +113,13 @@ export default function Settings() {
   const [securityExporting, setSecurityExporting] = useState(false);
   const [securityModalOpen, setSecurityModalOpen] = useState(false);
   const [securityError, setSecurityError] = useState("");
+  const [logPage, setLogPage] = useState({ items: [], page: 0, size: 20, total: 0, hasMore: false });
+  const [logLoading, setLogLoading] = useState(false);
+  const [logError, setLogError] = useState("");
+  const [logQuery, setLogQuery] = useState("");
+  const [logLevel, setLogLevel] = useState("IMPORTANT");
+  const [logPurging, setLogPurging] = useState(false);
+  const [expandedLogKeys, setExpandedLogKeys] = useState(() => new Set());
   const [securityLastExportAt, setSecurityLastExportAt] = useState(() => {
     try {
       const raw = localStorage.getItem("lid_backoffice_security_last_export_at");
@@ -505,6 +512,10 @@ export default function Settings() {
     }
   }, [settingsEntry.data, settingsEntry.error, settingsEntry.loading, settingsEntry.loaded]);
 
+  useEffect(() => {
+    loadLogs({ page: 0, append: false });
+  }, [logLevel]);
+
   const toggleNotificationPref = (key) => {
     setNotificationPrefs((prev) => {
       const list = Array.isArray(prev) ? prev : [];
@@ -520,9 +531,13 @@ export default function Settings() {
     try {
       const items = (notificationPrefs || [])
         .filter((p) => p?.key)
-        .map((p) => ({ key: p.key, enabled: Boolean(p.enabled) }));
+        .map((p) => ({ key: p.key, label: p.label, enabled: Boolean(p.enabled) }));
       const updated = await backofficeApi.updateNotificationPreferences({ items });
-      setNotificationPrefs(Array.isArray(updated) ? updated : []);
+      if (Array.isArray(updated)) {
+        setNotificationPrefs(updated);
+      } else {
+        await loadNotificationPreferences();
+      }
       setNotificationSuccess("Notifications sauvegardées.");
     } catch (err) {
       setNotificationError(err?.message || "Impossible de sauvegarder les notifications.");
@@ -1109,6 +1124,83 @@ export default function Settings() {
     }
   };
 
+  const formatLogTimestamp = (value) => {
+    if (!value) return "-";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return `${value}`;
+    return d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "medium" });
+  };
+
+  const logEntryKey = (entry, index) => `${entry?.timestamp || "log"}-${entry?.level || "level"}-${index}`;
+
+  const toggleLogDetails = (key) => {
+    setExpandedLogKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const copyLogEntry = async (entry) => {
+    const text = entry?.raw || entry?.message || "";
+    if (!text) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      }
+    } catch {
+      // The copy action is best-effort and must not block log inspection.
+    }
+  };
+
+  const loadLogs = async ({ page = 0, append = false } = {}) => {
+    try {
+      setLogLoading(true);
+      setLogError("");
+      const data = await backofficeApi.logs({
+        page,
+        size: 50,
+        level: logLevel,
+        q: logQuery
+      });
+      const items = Array.isArray(data?.items) ? data.items : [];
+      setLogPage((prev) => ({
+        items: append ? [...(prev?.items || []), ...items] : items,
+        page: Number(data?.page) || page,
+        size: Number(data?.size) || 50,
+        total: Number(data?.total) || 0,
+        hasMore: Boolean(data?.hasMore)
+      }));
+    } catch (err) {
+      setLogError(err?.message || "Impossible de charger les logs.");
+      if (!append) {
+        setLogPage({ items: [], page: 0, size: 20, total: 0, hasMore: false });
+      }
+    } finally {
+      setLogLoading(false);
+    }
+  };
+
+  const purgeLogs = async () => {
+    if (logPurging) return;
+    const confirm = window.confirm("Purger tous les logs applicatifs ?");
+    if (!confirm) return;
+    try {
+      setLogPurging(true);
+      setLogError("");
+      await backofficeApi.purgeLogs();
+      await loadLogs({ page: 0, append: false });
+    } catch (err) {
+      setLogError(err?.message || "Impossible de purger les logs.");
+    } finally {
+      setLogPurging(false);
+    }
+  };
+
   const canSaveIntegration = (() => {
     if (!integrationTarget) return false;
     if (integrationTarget === "PAYDUNYA") {
@@ -1419,6 +1511,106 @@ export default function Settings() {
                 {securityExporting ? "Export…" : "Exporter"}
               </Button>
             </div>
+          </div>
+          <div className="hidden md:block rounded-2xl border border-border/70 bg-muted/20 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-foreground">Monitoring serveur</div>
+                <div className="text-xs text-muted-foreground">Flux branché sur `/api/v1/backoffice/logs`</div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  value={logQuery}
+                  onChange={(e) => setLogQuery(e.target.value)}
+                  placeholder="Rechercher un message ou logger"
+                  className="w-[240px]"
+                />
+                <Select
+                  value={logLevel}
+                  onChange={(e) => setLogLevel(e.target.value)}
+                  options={[
+                    { value: "IMPORTANT", label: "Erreurs + alertes" },
+                    { value: "ERROR", label: "ERROR" },
+                    { value: "WARN", label: "WARN" },
+                    { value: "INFO", label: "INFO" },
+                    { value: "DEBUG", label: "DEBUG" },
+                    { value: "", label: "Tous niveaux" }
+                  ]}
+                  className="w-[180px]"
+                />
+                <Button variant="outline" size="sm" onClick={() => loadLogs({ page: 0, append: false })} disabled={logLoading}>
+                  {logLoading ? "Chargement…" : "Actualiser"}
+                </Button>
+                <Button variant="destructive" size="sm" onClick={purgeLogs} disabled={logPurging}>
+                  {logPurging ? "Purge…" : "Purger"}
+                </Button>
+              </div>
+            </div>
+            {logError ? <div className="mt-3 text-sm text-red-600">{logError}</div> : null}
+            <div className="mt-4 grid gap-2 max-h-[420px] overflow-auto pr-1">
+              {logPage.items.length === 0 && !logLoading ? (
+                <div className="rounded-xl border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">
+                  Aucun log disponible.
+                </div>
+              ) : (
+                logPage.items.map((entry, index) => {
+                  const key = logEntryKey(entry, index);
+                  const expanded = expandedLogKeys.has(key);
+                  const raw = entry?.raw || "";
+                  const hasDetails = Boolean(raw && raw !== entry?.message);
+                  return (
+                  <div key={key} className="rounded-xl border border-border/60 bg-background/80 px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Badge
+                          label={entry?.level || "LOG"}
+                          variant={
+                            entry?.level === "ERROR"
+                              ? "destructive"
+                              : entry?.level === "WARN"
+                                ? "warning"
+                                : entry?.level === "INFO"
+                                  ? "success"
+                                  : "outline"
+                          }
+                        />
+                        <span className="truncate text-xs font-medium text-muted-foreground">{entry?.logger || "-"}</span>
+                      </div>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">{formatLogTimestamp(entry?.timestamp)}</span>
+                    </div>
+                    <div className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground">{entry?.message || entry?.raw || "-"}</div>
+                    {hasDetails ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => toggleLogDetails(key)}>
+                          {expanded ? "Masquer le détail" : "Voir l'erreur complète"}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => copyLogEntry(entry)}>
+                          Copier
+                        </Button>
+                      </div>
+                    ) : null}
+                    {expanded ? (
+                      <pre className="mt-3 max-h-[520px] overflow-auto rounded-xl bg-slate-950 p-4 text-xs leading-relaxed text-slate-100 whitespace-pre-wrap">
+                        {raw || entry?.message || "-"}
+                      </pre>
+                    ) : null}
+                  </div>
+                  );
+                })
+              )}
+            </div>
+            {logPage.hasMore ? (
+              <div className="mt-3 flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadLogs({ page: (logPage.page || 0) + 1, append: true })}
+                  disabled={logLoading}
+                >
+                  {logLoading ? "Chargement…" : "Charger plus"}
+                </Button>
+              </div>
+            ) : null}
           </div>
         </Card>
       </div>
