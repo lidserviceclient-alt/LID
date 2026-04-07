@@ -10,7 +10,6 @@ import lombok.*;
 @Builder
 public class BackOfficeCategoryDto {
     private Integer id;
-    private String businessId;
     private String nom;
     private String slug;
     private CategoryLevel niveau;

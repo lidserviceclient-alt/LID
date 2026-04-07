@@ -33,8 +33,7 @@ public class BackOfficeProductDto {
      * Le front envoie parfois "category" au lieu de "categoryId".
      */
     private String categoryId;
-    @JsonAlias({"categoryBusinessId", "category_business_id"})
-    private String categoryBusinessId;
+    private String categorySlug;
 
     /**
      * Libellé de la catégorie (affichage).

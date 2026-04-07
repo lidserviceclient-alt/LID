@@ -218,7 +218,7 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
         Category cat = resolvePrimaryCategory(entity);
         if (cat != null) {
             dto.setCategoryId(cat.getId() != null ? String.valueOf(cat.getId()) : null);
-            dto.setCategoryBusinessId(cat.getBusinessId());
+            dto.setCategorySlug(cat.getSlug());
             dto.setCategory(cat.getName());
         }
         dto.setStock(stock);
@@ -308,12 +308,12 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
     private Category resolveCategory(BackOfficeProductDto dto) {
         if (dto == null) return null;
         String rawCategoryId = normalize(dto.getCategoryId());
-        String rawCategoryBusinessId = normalize(dto.getCategoryBusinessId());
+        String rawCategorySlug = normalize(dto.getCategorySlug());
         String rawCategory = normalize(dto.getCategory());
 
         List<String> candidates = new ArrayList<>();
         if (rawCategoryId != null) candidates.add(rawCategoryId);
-        if (rawCategoryBusinessId != null) candidates.add(rawCategoryBusinessId);
+        if (rawCategorySlug != null) candidates.add(rawCategorySlug);
         if (rawCategory != null) candidates.add(rawCategory);
 
         for (String candidate : candidates) {
@@ -332,8 +332,6 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
             Optional<Category> byId = categoryRepository.findById(id);
             if (byId.isPresent()) return byId.get();
         }
-        Optional<Category> byBusinessId = categoryRepository.findByBusinessIdIgnoreCase(raw);
-        if (byBusinessId.isPresent()) return byBusinessId.get();
         Optional<Category> bySlug = categoryRepository.findBySlugIgnoreCase(raw);
         if (bySlug.isPresent()) return bySlug.get();
         return categoryRepository.findByNameIgnoreCase(raw).orElse(null);

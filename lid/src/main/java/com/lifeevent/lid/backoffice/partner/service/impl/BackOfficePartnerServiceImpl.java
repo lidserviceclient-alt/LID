@@ -670,7 +670,7 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
             Category category = article.getCategories().get(0);
             if (category != null) {
                 dto.setCategoryId(category.getId() == null ? null : String.valueOf(category.getId()));
-                dto.setCategoryBusinessId(category.getBusinessId());
+                dto.setCategorySlug(category.getSlug());
                 dto.setCategory(category.getName());
             }
         }
@@ -764,10 +764,10 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
         if (dto == null) return null;
         List<String> candidates = new ArrayList<>();
         String categoryId = normalizeOrNull(dto.getCategoryId());
-        String categoryBusinessId = normalizeOrNull(dto.getCategoryBusinessId());
+        String categorySlug = normalizeOrNull(dto.getCategorySlug());
         String category = normalizeOrNull(dto.getCategory());
         if (categoryId != null) candidates.add(categoryId);
-        if (categoryBusinessId != null) candidates.add(categoryBusinessId);
+        if (categorySlug != null) candidates.add(categorySlug);
         if (category != null) candidates.add(category);
 
         for (String candidate : candidates) {
@@ -784,8 +784,6 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
             Optional<Category> byId = categoryRepository.findById(id);
             if (byId.isPresent()) return byId.get();
         }
-        Optional<Category> byBusinessId = categoryRepository.findByBusinessIdIgnoreCase(raw);
-        if (byBusinessId.isPresent()) return byBusinessId.get();
         Optional<Category> bySlug = categoryRepository.findBySlugIgnoreCase(raw);
         if (bySlug.isPresent()) return bySlug.get();
         return categoryRepository.findByNameIgnoreCase(raw).orElse(null);

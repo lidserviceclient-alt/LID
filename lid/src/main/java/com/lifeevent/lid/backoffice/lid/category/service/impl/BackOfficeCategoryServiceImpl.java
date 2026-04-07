@@ -34,15 +34,13 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
     @Override
     @Transactional(readOnly = true)
     public List<BackOfficeCategoryDto> getAll() {
-        return backOfficeCategoryMapper.toDtoList(categoryRepository.findAllByOrderByOrderIdxAsc()).stream()
-                .map(this::withBusinessIdFallback)
-                .toList();
+        return backOfficeCategoryMapper.toDtoList(categoryRepository.findAllByOrderByOrderIdxAsc());
     }
 
     @Override
     @Transactional(readOnly = true)
     public BackOfficeCategoryDto getById(Integer id) {
-        return withBusinessIdFallback(backOfficeCategoryMapper.toDto(findCategoryOrThrow(id)));
+        return backOfficeCategoryMapper.toDto(findCategoryOrThrow(id));
     }
 
     @Override
@@ -51,7 +49,7 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
         applyDefaults(entity, dto);
         Category saved = categoryRepository.save(entity);
         eventPublisher.publishEvent(new CategoryCatalogChangedEvent());
-        return withBusinessIdFallback(backOfficeCategoryMapper.toDto(saved));
+        return backOfficeCategoryMapper.toDto(saved);
     }
 
     @Override
@@ -62,7 +60,7 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
         applyDefaults(entity, dto);
         Category saved = categoryRepository.save(entity);
         eventPublisher.publishEvent(new CategoryCatalogChangedEvent());
-        return withBusinessIdFallback(backOfficeCategoryMapper.toDto(saved));
+        return backOfficeCategoryMapper.toDto(saved);
     }
 
     @Override
@@ -166,16 +164,6 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
                 && dto != null && dto.getNom() != null && !dto.getNom().trim().isEmpty()) {
             entity.setSlug(slugify(dto.getNom()));
         }
-        if ((entity.getBusinessId() == null || entity.getBusinessId().trim().isEmpty())) {
-            String candidate = dto != null ? dto.getBusinessId() : null;
-            if (candidate == null || candidate.trim().isEmpty()) {
-                candidate = entity.getSlug();
-            }
-            if (candidate == null || candidate.trim().isEmpty()) {
-                candidate = dto != null ? slugify(dto.getNom()) : null;
-            }
-            entity.setBusinessId(candidate == null ? null : candidate.trim());
-        }
     }
 
     private String slugify(String value) {
@@ -186,15 +174,5 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
                 .replaceAll("(^-+|-+$)", "")
                 .replaceAll("-{2,}", "-");
         return slug.isEmpty() ? null : slug;
-    }
-
-    private BackOfficeCategoryDto withBusinessIdFallback(BackOfficeCategoryDto dto) {
-        if (dto == null) {
-            return null;
-        }
-        if (dto.getBusinessId() == null || dto.getBusinessId().trim().isEmpty()) {
-            dto.setBusinessId(dto.getSlug());
-        }
-        return dto;
     }
 }
