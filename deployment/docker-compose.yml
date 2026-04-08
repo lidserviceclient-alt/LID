@@ -54,6 +54,8 @@ services:
   lid-api:
     image: ${LID_API_IMAGE}
     restart: unless-stopped
+    volumes:
+      - ./storage:${LOCAL_STORAGE_BASE_PATH}
 
     depends_on:
       lid-db:
