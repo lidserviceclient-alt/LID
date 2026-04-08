@@ -38,6 +38,22 @@ const statusUi = (status) => {
   return { label: s || "-", variant: "outline" };
 };
 
+function DocumentPreview({ label, url }) {
+  if (!url) {
+    return <div className="text-muted-foreground">{label}: -</div>;
+  }
+  return (
+    <div className="rounded-xl border border-border bg-muted/20 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-foreground">{label}</div>
+        <a className="text-xs font-medium text-primary underline" href={url} target="_blank" rel="noreferrer">
+          Ouvrir
+        </a>
+      </div>
+    </div>
+  );
+}
+
 export default function Partners() {
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(20);
@@ -331,28 +347,10 @@ export default function Partners() {
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">Documents</div>
-                <div className="space-y-1 text-sm">
-                  {detail.businessRegistrationDocumentUrl ? (
-                    <a className="text-primary underline" href={detail.businessRegistrationDocumentUrl} target="_blank" rel="noreferrer">
-                      Registre commerce
-                    </a>
-                  ) : (
-                    <div className="text-muted-foreground">Registre commerce: -</div>
-                  )}
-                  {detail.idDocumentUrl ? (
-                    <a className="text-primary underline" href={detail.idDocumentUrl} target="_blank" rel="noreferrer">
-                      Pièce identité
-                    </a>
-                  ) : (
-                    <div className="text-muted-foreground">Pièce identité: -</div>
-                  )}
-                  {detail.nineaDocumentUrl ? (
-                    <a className="text-primary underline" href={detail.nineaDocumentUrl} target="_blank" rel="noreferrer">
-                      NINEA
-                    </a>
-                  ) : (
-                    <div className="text-muted-foreground">NINEA: -</div>
-                  )}
+                <div className="mt-2 grid gap-3">
+                  <DocumentPreview label="Registre commerce" url={detail.businessRegistrationDocumentUrl} />
+                  <DocumentPreview label="Pièce identité" url={detail.idDocumentUrl} />
+                  <DocumentPreview label="NINEA" url={detail.nineaDocumentUrl} />
                 </div>
               </div>
             </div>

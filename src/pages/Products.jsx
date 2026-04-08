@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, Filter, Edit2, Trash2, AlertCircle, Upload, Star, TrendingUp } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
@@ -98,6 +98,9 @@ export default function Products() {
   const [flashProductId, setFlashProductId] = useState("");
   const [flashSavingId, setFlashSavingId] = useState("");
   const [flashError, setFlashError] = useState("");
+  const mainImageInputRef = useRef(null);
+  const secondaryImagesInputRef = useRef(null);
+  const [imageUploading, setImageUploading] = useState(false);
 
   const reload = async () => {
     setLoading(true);
@@ -306,6 +309,58 @@ export default function Products() {
       setIsFormOpen(false);
     } catch (e2) {
       setError(e2?.message || "Impossible de mettre à jour le produit.");
+    }
+  };
+
+  const uploadMainImage = async (file) => {
+    if (!file || imageUploading) return;
+    setImageUploading(true);
+    setError("");
+    try {
+      let res;
+      try {
+        res = await backofficeApi.uploadMedia(file, "products");
+      } catch (err) {
+        const message = err?.message || "";
+        if (!message.toLowerCase().includes("existe déjà") || !window.confirm(`${message}\n\nVoulez-vous écraser cette image ?`)) {
+          throw err;
+        }
+        res = await backofficeApi.uploadMedia(file, "products", { overwrite: true });
+      }
+      const url = `${res?.url || ""}`.trim();
+      if (!url) throw new Error("Upload terminé, mais URL manquante.");
+      setFormData((prev) => ({ ...prev, mainImageUrl: url }));
+    } catch (err) {
+      setError(err?.message || "Upload de l'image impossible.");
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const uploadSecondaryImages = async (files) => {
+    const selected = Array.from(files || []).filter(Boolean);
+    if (!selected.length || imageUploading) return;
+    setImageUploading(true);
+    setError("");
+    try {
+      let res = await backofficeApi.uploadMediaBulk(selected, "products");
+      const duplicateCount = (Array.isArray(res?.files) ? res.files : [])
+        .filter((item) => `${item?.errorMessage || ""}`.toLowerCase().includes("existe déjà")).length;
+      if (duplicateCount > 0 && window.confirm(`${duplicateCount} image(s) portent déjà le même nom. Voulez-vous les écraser ?`)) {
+        res = await backofficeApi.uploadMediaBulk(selected, "products", { overwrite: true });
+      }
+      const urls = (Array.isArray(res?.files) ? res.files : [])
+        .filter((item) => item?.success && item?.file?.url)
+        .map((item) => item.file.url);
+      if (!urls.length) throw new Error("Aucune image n'a été uploadée.");
+      setFormData((prev) => {
+        const current = parseSecondaryImageUrls(prev.secondaryImageUrls);
+        return { ...prev, secondaryImageUrls: [...current, ...urls].join("|") };
+      });
+    } catch (err) {
+      setError(err?.message || "Upload des images impossible.");
+    } finally {
+      setImageUploading(false);
     }
   };
 
@@ -569,7 +624,7 @@ export default function Products() {
                 { value: "", label: "Toutes catégories" },
                 ...categories.map((c) => ({
                   value: c.id,
-                  label: c.businessId ? `${c.nom} (${c.businessId})` : c.nom
+                  label: c.slug ? `${c.nom} (${c.slug})` : c.nom
                 }))
               ]}
             />
@@ -740,7 +795,7 @@ export default function Products() {
                 onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
                 options={categories.map((c) => ({
                   value: c.id,
-                  label: c.businessId ? `${c.nom} (${c.businessId})` : c.nom
+                  label: c.slug ? `${c.nom} (${c.slug})` : c.nom
                 }))}
               />
             </div>
@@ -758,13 +813,29 @@ export default function Products() {
 
           <div className="space-y-2">
             <Label htmlFor="mainImageUrl">Lien de l'image principale</Label>
-            <Input
-              id="mainImageUrl"
-              type="url"
-              value={formData.mainImageUrl}
-              onChange={(e) => setFormData({ ...formData, mainImageUrl: e.target.value })}
-              placeholder="https://raw.githubusercontent.com/.../image.jpg"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="mainImageUrl"
+                type="url"
+                value={formData.mainImageUrl}
+                onChange={(e) => setFormData({ ...formData, mainImageUrl: e.target.value })}
+                placeholder="https://cdn.exemple.com/image.jpg"
+              />
+              <Button type="button" variant="outline" onClick={() => mainImageInputRef.current?.click()} disabled={imageUploading}>
+                <Upload className="mr-2 h-4 w-4" />
+                {imageUploading ? "Upload..." : "Uploader"}
+              </Button>
+              <input
+                ref={mainImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  uploadMainImage(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </div>
             {formData.mainImageUrl ? (
               <div className="rounded-xl border border-border bg-muted/20 p-3">
                 <img
@@ -783,13 +854,30 @@ export default function Products() {
 
           <div className="space-y-2">
             <Label htmlFor="secondaryImageUrls">Images secondaires</Label>
-            <Input
-              id="secondaryImageUrls"
-              type="text"
-              value={formData.secondaryImageUrls}
-              onChange={(e) => setFormData({ ...formData, secondaryImageUrls: e.target.value })}
-              placeholder="https://cdn.exemple.com/a.jpg|https://cdn.exemple.com/b.jpg"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="secondaryImageUrls"
+                type="text"
+                value={formData.secondaryImageUrls}
+                onChange={(e) => setFormData({ ...formData, secondaryImageUrls: e.target.value })}
+                placeholder="https://cdn.exemple.com/a.jpg|https://cdn.exemple.com/b.jpg"
+              />
+              <Button type="button" variant="outline" onClick={() => secondaryImagesInputRef.current?.click()} disabled={imageUploading}>
+                <Upload className="mr-2 h-4 w-4" />
+                Ajouter
+              </Button>
+              <input
+                ref={secondaryImagesInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  uploadSecondaryImages(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

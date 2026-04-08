@@ -216,13 +216,47 @@ export const backofficeApi = {
     request(`/api/v1/backoffice/categories/${id}`, {
       method: "DELETE"
     }),
-  uploadCategoryImage: (file) => {
+  uploadCategoryImage: (file, { overwrite = false } = {}) => {
     const formData = new FormData();
     formData.append("file", file);
-    return requestForm("/api/v1/backoffice/categories/upload-image", {
+    formData.append("folder", "categories");
+    formData.append("overwrite", `${overwrite}`);
+    return requestForm("/api/v1/storage/upload", {
       method: "POST",
       body: formData
     });
+  },
+  uploadMedia: (file, folder = "uploads", { overwrite = false } = {}) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("folder", folder);
+    formData.append("overwrite", `${overwrite}`);
+    return requestForm("/api/v1/storage/upload", {
+      method: "POST",
+      body: formData
+    });
+  },
+  uploadMediaBulk: (files, folder = "uploads", { overwrite = false } = {}) => {
+    const formData = new FormData();
+    for (const file of Array.from(files || [])) {
+      formData.append("files", file);
+    }
+    formData.append("folder", folder);
+    formData.append("overwrite", `${overwrite}`);
+    return requestForm("/api/v1/storage/upload-bulk", {
+      method: "POST",
+      body: formData
+    });
+  },
+  listMedia: ({ ownerScope = "LID", ownerUserId = "", folder = "", q = "", page = 0, size = 24 } = {}) => {
+    const params = new URLSearchParams();
+    if (ownerScope) params.set("ownerScope", ownerScope);
+    if (ownerUserId) params.set("ownerUserId", ownerUserId);
+    if (folder) params.set("folder", folder);
+    if (q) params.set("q", q);
+    params.set("page", `${page}`);
+    params.set("size", `${size}`);
+    return request(`/api/v1/storage/media?${params.toString()}`);
   },
   boutiques: () => request("/api/v1/backoffice/shops"),
   promoCodes: () => request("/api/v1/backoffice/promo-codes"),
