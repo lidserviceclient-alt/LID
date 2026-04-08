@@ -107,7 +107,7 @@ public class MediaAssetServiceImpl implements MediaAssetService {
                         filter.scope(),
                         filter.ownerUserId(),
                         trimToNull(folder) == null ? null : StoragePathUtils.normalizeFolder(folder),
-                        normalizeQuery(query),
+                        buildQueryPattern(query),
                         pageable
                 )
                 .map(this::toDto);
@@ -189,9 +189,9 @@ public class MediaAssetServiceImpl implements MediaAssetService {
         return safeFolder + "/" + LID_STORAGE_SEGMENT;
     }
 
-    private String normalizeQuery(String query) {
+    private String buildQueryPattern(String query) {
         String normalized = trimToNull(query);
-        return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
+        return normalized == null ? null : "%" + normalized.toLowerCase(Locale.ROOT) + "%";
     }
 
     private String filenameFromObjectKey(String objectKey) {

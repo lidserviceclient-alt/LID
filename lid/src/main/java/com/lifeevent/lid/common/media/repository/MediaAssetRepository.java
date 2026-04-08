@@ -20,9 +20,9 @@ public interface MediaAssetRepository extends JpaRepository<MediaAssetEntity, Lo
           and (:ownerUserId is null or m.ownerUserId = :ownerUserId)
           and (:folder is null or m.folder = :folder)
           and (
-              :query is null
-              or lower(m.originalFilename) like concat('%', :query, '%')
-              or lower(m.objectKey) like concat('%', :query, '%')
+              :queryPattern is null
+              or lower(m.originalFilename) like :queryPattern
+              or lower(m.objectKey) like :queryPattern
           )
         order by m.createdAt desc, m.id desc
     """)
@@ -30,7 +30,7 @@ public interface MediaAssetRepository extends JpaRepository<MediaAssetEntity, Lo
             @Param("ownerScope") MediaOwnerScope ownerScope,
             @Param("ownerUserId") String ownerUserId,
             @Param("folder") String folder,
-            @Param("query") String query,
+            @Param("queryPattern") String queryPattern,
             Pageable pageable
     );
 
