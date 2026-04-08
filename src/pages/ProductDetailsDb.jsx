@@ -25,7 +25,7 @@ import CheckoutFlow from "@/components/CheckoutFlow";
 
 import { useAppConfig } from "@/features/appConfig/useAppConfig";
 
-const FALLBACK_IMAGE = "https://cdn.pixabay.com/photo/2016/11/21/06/53/beautiful-natural-image-1844362_1280.jpg";
+const FALLBACK_IMAGE = "/imgs/logo.png";
 const FREE_SHIPPING_THRESHOLD = 10000;
 // const STANDARD_SHIPPING_COST = 3250; // Removed constant, now from AppConfig
 const TAX_RATE = 0.18;
@@ -724,7 +724,7 @@ La livraison comprend différentes modalités.
         onClose={() => setShowCheckout(false)}
         product={{
           ...product,
-          imageUrl: resolveBackendAssetUrl(product?.mainImageUrl) || ""
+          imageUrl: resolveImageSrc(product?.mainImageUrl) || ""
         }}
         selectedColor="Standard"
         selectedSize="Unique"

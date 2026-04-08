@@ -1,5 +1,6 @@
 import api from './api';
 import { setAccessToken, clearAccessToken, getAccessTokenPayload, hasValidAccessToken } from './auth';
+import { clearCustomerSessionCache } from './sessionCleanup';
 
 const profileCache = new Map();
 const PROFILE_CACHE_TTL_MS = 60 * 1000;
@@ -50,6 +51,7 @@ export const logout = async () => {
     console.warn('Erreur lors de la déconnexion serveur (token peut-être déjà expiré):', error);
   } finally {
     profileCache.clear();
+    clearCustomerSessionCache();
     clearAccessToken();
   }
 };

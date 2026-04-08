@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Search, Ticket, MapPin, Calendar, Star, TrendingUp, Music, Globe, Trophy, ShieldCheck, Mail, ArrowRight, Zap } from "lucide-react";
 import Barcode from "react-barcode";
-import { getTicketEvents } from "@/services/ticketService";
+import { getTicketEvents, normalizeTicketEvent } from "@/services/ticketService";
 import { useCart } from "@/features/cart/CartContext";
 import { useTheme } from "@/features/theme/theme-provider";
 import { toast } from "sonner";
@@ -218,9 +218,14 @@ export default function TicketCatalog() {
   const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
   const scale = useTransform(scrollYProgress, [0, 0.2], [1, 0.95]);
   const bootstrap = useCatalogBootstrap();
-  const initialTickets = Array.isArray(bootstrap?.globalCollection?.tickets)
-    ? bootstrap.globalCollection.tickets
-    : null;
+  const initialTickets = useMemo(() => {
+    if (!Array.isArray(bootstrap?.globalCollection?.tickets)) {
+      return null;
+    }
+    return bootstrap.globalCollection.tickets
+      .map(normalizeTicketEvent)
+      .filter((ticket) => ticket?.id && ticket?.title);
+  }, [bootstrap?.globalCollection?.tickets]);
   const isBootstrapLoading = Boolean(bootstrap?.isGlobalCollectionLoading);
   const isBootstrapResolved = Boolean(bootstrap?.isGlobalCollectionResolved);
   const refreshControlRef = useRef({ inFlight: false, timer: null, lastAt: 0 });
@@ -302,7 +307,8 @@ export default function TicketCatalog() {
     };
 
     const unsubscribe = subscribeFrontendRealtime((event) => {
-      if (event?.topic !== "catalog.updated") {
+      const topic = `${event?.topic || ""}`.trim();
+      if (topic !== "catalog.updated" && topic !== "connection.ack") {
         return;
       }
       const now = Date.now();
@@ -319,7 +325,7 @@ export default function TicketCatalog() {
         control.lastAt = Date.now();
         runRefresh();
       }, minGapMs - elapsed);
-    }, ["catalog.updated"]);
+    }, ["catalog.updated", "connection.ack"]);
 
     return () => {
       if (control.timer) {

@@ -19,9 +19,24 @@ export function resolveBackendAssetUrl(url) {
   const raw = `${url || ""}`.trim();
   if (!raw) return "";
   if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
-  const base = import.meta.env.VITE_API_URL || "http://localhost:9000";
-  if (raw.startsWith("/")) return `${base}${raw}`;
-  return `${base}/${raw}`;
+
+  const apiBase = `${import.meta.env.VITE_API_URL || "http://localhost:9000"}`.replace(/\/+$/, "");
+  const normalized = raw.replace(/^\/+/, "");
+
+  if (raw.startsWith("/imgs/") || raw.startsWith("/favicon") || raw.startsWith("/manifest")) {
+    return raw;
+  }
+  if (normalized.startsWith("api/v1/cdn/")) {
+    return `${apiBase}/${normalized}`;
+  }
+  if (normalized.startsWith("cdn/")) {
+    return `${apiBase}/api/v1/${normalized}`;
+  }
+  if (/^(products|categories|partners|blog|tickets|media)\//i.test(normalized)) {
+    return `${apiBase}/api/v1/cdn/${normalized}`;
+  }
+  if (raw.startsWith("/")) return `${apiBase}${raw}`;
+  return `${apiBase}/${normalized}`;
 }
 
 export function buildCategoryTree(list) {

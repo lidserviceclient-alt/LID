@@ -29,7 +29,7 @@ import { toast } from "sonner";
 import { isAuthenticated, getCurrentUserPayload, logout, getUserProfile, refreshSession, loginPartnerLocal, storeAccessToken } from "@/services/authService";
 import { uploadFile } from "@/services/fileStorageService";
 import { getPartnerRegistrationAggregate, upgradeToPartner, registerPartnerStep1, registerPartnerStep2, registerPartnerStep3, registerPartnerStep4 } from "@/services/partnerService";
-import { getCatalogCategories } from "@/services/categoryService";
+import { getCatalogCategories, resolveBackendAssetUrl } from "@/services/categoryService";
 import ResetPasswordForm from "@/components/ResetPasswordForm";
 
 const BRAND = "#6aa200";
@@ -58,6 +58,19 @@ const buildCdnPreviewUrl = (cdnBaseUrl, path) => {
   const objectPath = `${path || ""}`.trim().replace(/^\/+/, "");
   if (!base || !objectPath) return "";
   return `${base}/${objectPath}`;
+};
+
+const hydrateUploadedAsset = (value, fallbackName = "document") => {
+  const path = `${value || ""}`.trim();
+  if (!path) return null;
+  const segments = path.split("/").filter(Boolean);
+  const name = segments[segments.length - 1] || fallbackName;
+  return {
+    name,
+    path,
+    previewUrl: resolveBackendAssetUrl(path),
+    objectKey: path,
+  };
 };
 
 // Animation variants
@@ -316,9 +329,9 @@ export default function Seller() {
     storeName: "", mainCategoryId: "", description: "",
     address: "", city: "", region: "Côte d'Ivoire",
     // 3. Branding
-    logo: null, banner: null,
+    logo: null, banner: null, businessRegistrationDocument: null,
     // 4. Contrat
-    contractAccepted: false
+    contractAccepted: false, idDocument: null, nineaDocument: null
   });
 
   useEffect(() => {
@@ -363,7 +376,16 @@ export default function Seller() {
 
   const handleUploadedAsset = async (field, file) => {
     if (!file) return;
-    const upload = await uploadFile(file, { folder: "partners" });
+    let upload;
+    try {
+      upload = await uploadFile(file, { folder: "partners" });
+    } catch (error) {
+      const message = error?.response?.data?.message || error?.message || "";
+      if (!message.toLowerCase().includes("existe déjà") || !window.confirm(`${message}\n\nVoulez-vous écraser cette image ?`)) {
+        throw error;
+      }
+      upload = await uploadFile(file, { folder: "partners", overwrite: true });
+    }
     const path = `${upload?.path || ""}`.trim();
     const previewUrl = buildCdnPreviewUrl(upload?.cdnBaseUrl, path) || `${upload?.url || ""}`.trim();
     if (!path || !previewUrl) {
@@ -384,6 +406,7 @@ export default function Seller() {
   const applyPartnerDataToForm = useCallback((profile, aggregate) => {
     const step1 = aggregate?.step1 || {};
     const step2 = aggregate?.step2 || {};
+    const step3 = aggregate?.step3 || {};
     const step4 = aggregate?.step4 || {};
     const shop = profile?.shop || {};
 
@@ -400,8 +423,11 @@ export default function Seller() {
       city: step2.city || profile?.city || prev.city,
       region: step2.country || profile?.country || prev.region,
       contractAccepted: Boolean(step4.contractAccepted ?? profile?.contractAccepted ?? prev.contractAccepted),
-      logo: prev.logo,
-      banner: prev.banner,
+      logo: prev.logo || hydrateUploadedAsset(step3.logoUrl || shop.logoUrl, "logo"),
+      banner: prev.banner || hydrateUploadedAsset(step3.bannerUrl || shop.backgroundUrl, "banner"),
+      businessRegistrationDocument: prev.businessRegistrationDocument || hydrateUploadedAsset(step3.businessRegistrationDocumentUrl, "registre-commerce"),
+      idDocument: prev.idDocument || hydrateUploadedAsset(step4.idDocumentUrl, "piece-identite"),
+      nineaDocument: prev.nineaDocument || hydrateUploadedAsset(step4.nineaDocumentUrl, "ninea"),
     }));
   }, [categoryOptions, currentUserEmail, currentUserFirstName, currentUserLastName]);
 
@@ -642,7 +668,7 @@ export default function Seller() {
         await registerPartnerStep3({
           logoUrl: formData.logo?.path || null,
           bannerUrl: formData.banner?.path || null,
-          businessRegistrationDocumentUrl: null
+          businessRegistrationDocumentUrl: formData.businessRegistrationDocument?.path || null
         });
         setStep(4);
         return;
@@ -671,7 +697,11 @@ export default function Seller() {
     if (isLockedPartnerStatus(partnerStatus)) return;
     setStepLoading(true);
     try {
-      const response = await registerPartnerStep4({ contractAccepted: true });
+      const response = await registerPartnerStep4({
+        contractAccepted: true,
+        idDocumentUrl: formData.idDocument?.path || null,
+        nineaDocumentUrl: formData.nineaDocument?.path || null,
+      });
       const normalizedStatus = normalizePartnerStatus(response?.registrationStatus);
       setPartnerStatus(normalizedStatus);
 
@@ -1123,6 +1153,22 @@ export default function Seller() {
                         />
                      </div>
 
+                     <div className="grid grid-cols-1 gap-8">
+                        <FileUploadZone
+                          label="Registre de commerce"
+                          accept="image/*"
+                          value={formData.businessRegistrationDocument}
+                          onChange={async (file) => {
+                            try {
+                              await handleUploadedAsset("businessRegistrationDocument", file);
+                              toast.success("Document du registre uploadé.");
+                            } catch (error) {
+                              toast.error(error?.response?.data?.message || error?.message || "Upload du registre impossible.");
+                            }
+                          }}
+                        />
+                     </div>
+
                      <div className="mt-8 pt-8 border-t border-neutral-100">
                        <div className="flex items-center justify-between mb-4">
                          <h4 className="text-sm font-black uppercase text-neutral-400 tracking-wider">Aperçu en temps réel</h4>
@@ -1214,6 +1260,34 @@ export default function Seller() {
                        </div>
                      ) : null}
                      <div className="space-y-4">
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                         <FileUploadZone
+                           label="Pièce d'identité"
+                           accept="image/*"
+                           value={formData.idDocument}
+                           onChange={async (file) => {
+                             try {
+                               await handleUploadedAsset("idDocument", file);
+                               toast.success("Pièce d'identité uploadée.");
+                             } catch (error) {
+                               toast.error(error?.response?.data?.message || error?.message || "Upload de la pièce d'identité impossible.");
+                             }
+                           }}
+                         />
+                         <FileUploadZone
+                           label="Document NINEA"
+                           accept="image/*"
+                           value={formData.nineaDocument}
+                           onChange={async (file) => {
+                             try {
+                               await handleUploadedAsset("nineaDocument", file);
+                               toast.success("Document NINEA uploadé.");
+                             } catch (error) {
+                               toast.error(error?.response?.data?.message || error?.message || "Upload du NINEA impossible.");
+                             }
+                           }}
+                         />
+                       </div>
                        <div className="flex items-center gap-2 mb-2">
                          <div className="h-8 w-8 rounded-full bg-[#6aa200] text-white flex items-center justify-center font-bold text-sm">1</div>
                          <h3 className="font-bold text-lg">Contrat de Partenariat</h3>
