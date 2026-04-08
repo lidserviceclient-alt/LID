@@ -1,9 +1,7 @@
 package com.lifeevent.lid.catalog.service;
 
-import com.lifeevent.lid.catalog.dto.ArticleCatalogDto;
 import com.lifeevent.lid.catalog.dto.CatalogCategoryDto;
 import com.lifeevent.lid.catalog.dto.CatalogCollectionDto;
-import com.lifeevent.lid.catalog.dto.CatalogLayoutCollectionDto;
 import com.lifeevent.lid.catalog.dto.CatalogProductDetailsDto;
 import com.lifeevent.lid.catalog.dto.CatalogProductPageCollectionDto;
 import com.lifeevent.lid.catalog.dto.CatalogProductDto;
@@ -12,7 +10,6 @@ import com.lifeevent.lid.catalog.dto.ProductReviewDto;
 import com.lifeevent.lid.catalog.dto.ProductReviewsResponse;
 import com.lifeevent.lid.catalog.dto.ReportProductReviewRequest;
 import org.springframework.data.domain.Page;
-
 import java.util.List;
 
 /**
@@ -20,41 +17,6 @@ import java.util.List;
  */
 public interface CatalogService {
     
-    /**
-     * Récupérer tous les articles featured (lid choice)
-     */
-    Page<ArticleCatalogDto> getFeaturedArticles(int page, int size);
-    
-    /**
-     * Récupérer les meilleures ventes
-     */
-    Page<ArticleCatalogDto> getBestSellers(int page, int size);
-    
-    /**
-     * Récupérer les articles en vente flash
-     */
-    Page<ArticleCatalogDto> getFlashSales(int page, int size);
-    
-    /**
-     * Récupérer les articles récemment ajoutés
-     */
-    Page<ArticleCatalogDto> getNewArticles(int page, int size);
-    
-    /**
-     * Recherche avancée avec filtres
-     */
-    Page<ArticleCatalogDto> search(
-        String name,
-        Integer categoryId,
-        Double minPrice,
-        Double maxPrice,
-        Boolean featured,
-        Boolean flashSale,
-        Boolean bestSeller,
-        int page,
-        int size
-    );
-
     Page<CatalogProductDto> listProducts(int page, int size, String q, String category, String sortKey);
 
     List<CatalogProductDto> listFeaturedProducts(Integer limit);
@@ -63,7 +25,6 @@ public interface CatalogService {
 
     List<CatalogProductDto> listLatestProducts(Integer limit);
 
-    CatalogProductDto getProduct(Long id);
     CatalogProductDto getProduct(String idOrReference);
 
     CatalogProductDetailsDto getProductDetails(Long id);
@@ -99,8 +60,6 @@ public interface CatalogService {
             String category,
             String sortKey
     );
-
-    CatalogLayoutCollectionDto getLayoutCollection(Integer latestLimit);
 
     CatalogProductPageCollectionDto getProductPageCollection(Long id, int page, int size, Integer relatedLimit, String sortKey);
     CatalogProductPageCollectionDto getProductPageCollection(String idOrReference, int page, int size, Integer relatedLimit, String sortKey);

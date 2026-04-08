@@ -5,15 +5,20 @@ import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerCustomerDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerOrderDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerProductDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
+import com.lifeevent.lid.common.service.PublicAssetUrlResolver;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.repository.OrderRepository;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.partner.entity.Partner;
 import com.lifeevent.lid.user.partner.entity.Shop;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class BackOfficePartnerMapper {
+
+    private final PublicAssetUrlResolver publicAssetUrlResolver;
 
     public BackOfficePartnerProductDto toProductDto(Article article, int stock) {
         return new BackOfficePartnerProductDto(
@@ -21,6 +26,7 @@ public class BackOfficePartnerMapper {
                 article.getName(),
                 article.getSku(),
                 article.getEan(),
+                resolveAssetUrl(article.getMainImageUrl()),
                 article.getPrice(),
                 stock,
                 article.getStatus(),
@@ -71,8 +77,8 @@ public class BackOfficePartnerMapper {
                 shop == null ? null : shop.getShopName(),
                 shop == null ? null : shop.getShopDescription(),
                 shop == null ? null : shop.getDescription(),
-                shop == null ? null : shop.getLogoUrl(),
-                shop == null ? null : shop.getBackgroundUrl(),
+                resolveAssetUrl(shop == null ? null : shop.getLogoUrl()),
+                resolveAssetUrl(shop == null ? null : shop.getBackgroundUrl()),
                 shop == null ? null : shop.getStatus(),
                 shop == null || shop.getMainCategory() == null ? null : shop.getMainCategory().getId(),
                 partner.getBankName(),
@@ -84,9 +90,9 @@ public class BackOfficePartnerMapper {
                 partner.getCity(),
                 partner.getCountry(),
                 partner.getContractAccepted(),
-                partner.getBusinessRegistrationDocumentUrl(),
-                partner.getIdDocumentUrl(),
-                partner.getNineaDocumentUrl(),
+                resolveAssetUrl(partner.getBusinessRegistrationDocumentUrl()),
+                resolveAssetUrl(partner.getIdDocumentUrl()),
+                resolveAssetUrl(partner.getNineaDocumentUrl()),
                 partner.getRegistrationStatus(),
                 partner.getRegistrationReviewComment()
         );
@@ -97,5 +103,16 @@ public class BackOfficePartnerMapper {
         String last = lastName == null ? "" : lastName.trim();
         String full = (first + " " + last).trim();
         return full.isEmpty() ? null : full;
+    }
+
+    private String resolveAssetUrl(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String raw = value.trim();
+        if (raw.startsWith("http://") || raw.startsWith("https://")) {
+            return raw;
+        }
+        return publicAssetUrlResolver.toPublicUrl(raw);
     }
 }

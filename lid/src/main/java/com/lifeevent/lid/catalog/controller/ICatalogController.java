@@ -13,48 +13,6 @@ import java.util.List;
 @Tag(name = "Catalog", description = "API publique du catalogue")
 public interface ICatalogController {
 
-    @GetMapping("/featured")
-    @Operation(summary = "Articles featured")
-    com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getFeaturedArticles(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    );
-
-    @GetMapping("/bestsellers")
-    @Operation(summary = "Articles bestsellers")
-    com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getBestSellers(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    );
-
-    @GetMapping("/flash-sales")
-    @Operation(summary = "Articles flash sales")
-    com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getFlashSales(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    );
-
-    @GetMapping("/new")
-    @Operation(summary = "Nouveautés")
-    com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getNewArticles(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    );
-
-    @GetMapping("/search")
-    @Operation(summary = "Recherche catalogue")
-    com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> search(
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) Integer categoryId,
-            @RequestParam(required = false) Double minPrice,
-            @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false) Boolean featured,
-            @RequestParam(required = false) Boolean flashSale,
-            @RequestParam(required = false) Boolean bestSeller,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    );
-
     @GetMapping("/products")
     @Operation(summary = "Lister les produits")
     com.lifeevent.lid.common.dto.PageResponse<CatalogProductDto> listProducts(
@@ -84,12 +42,6 @@ public interface ICatalogController {
             @RequestParam(value = "sortKey", required = false) String sortKey
     );
 
-    @GetMapping("/layout/collection")
-    @Operation(summary = "Collection layout e-commerce (catégories + latest)")
-    CatalogLayoutCollectionDto getLayoutCollection(
-            @RequestParam(value = "latestLimit", required = false) Integer latestLimit
-    );
-
     @GetMapping("/products/featured")
     @Operation(summary = "Produits featured")
     List<CatalogProductDto> listFeaturedProducts(@RequestParam(value = "limit", required = false) Integer limit);
@@ -101,10 +53,6 @@ public interface ICatalogController {
     @GetMapping("/products/latest")
     @Operation(summary = "Derniers produits")
     List<CatalogProductDto> listLatestProducts(@RequestParam(value = "limit", required = false) Integer limit);
-
-    @GetMapping("/products/{id}")
-    @Operation(summary = "Détail produit")
-    CatalogProductDto getProduct(@PathVariable String id);
 
     @GetMapping("/products/{id}/details")
     @Operation(summary = "Détail produit complet")

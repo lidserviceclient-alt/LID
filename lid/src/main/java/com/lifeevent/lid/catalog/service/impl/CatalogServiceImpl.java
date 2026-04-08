@@ -86,46 +86,6 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ArticleCatalogDto> getFeaturedArticles(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return articleRepository.findByIsFeaturedTrueAndStatusOrderByUpdatedAtDesc(ArticleStatus.ACTIVE, pageable)
-                .map(catalogMapper::toArticleCatalogDto);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Page<ArticleCatalogDto> getBestSellers(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return articleRepository.findByIsBestSellerTrueAndStatusOrderByUpdatedAtDesc(ArticleStatus.ACTIVE, pageable)
-                .map(catalogMapper::toArticleCatalogDto);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Page<ArticleCatalogDto> getFlashSales(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return articleRepository.findFlashSales(LocalDateTime.now(), ArticleStatus.ACTIVE, pageable)
-                .map(catalogMapper::toArticleCatalogDto);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Page<ArticleCatalogDto> getNewArticles(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return articleRepository.findNewArticles(pageable).map(catalogMapper::toArticleCatalogDto);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Page<ArticleCatalogDto> search(String name, Integer categoryId, Double minPrice, Double maxPrice,
-                                          Boolean featured, Boolean flashSale, Boolean bestSeller, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return articleRepository.findByAdvancedSearchAndStatus(name, categoryId, minPrice, maxPrice, ArticleStatus.ACTIVE, pageable)
-                .map(catalogMapper::toArticleCatalogDto);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
     public Page<CatalogProductDto> listProducts(int page, int size, String q, String category, String sortKey) {
         Pageable pageable = PageRequest.of(safePage(page), safeSize(size), resolveSort(sortKey));
         log.info("pageable: {}", pageable);
@@ -186,13 +146,6 @@ public class CatalogServiceImpl implements CatalogService {
         int safeLimit = safeLimit(limit, 20);
         List<Article> articles = articleRepository.findNewArticles(PageRequest.of(0, safeLimit)).getContent();
         return toCatalogProductList(articles);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public CatalogProductDto getProduct(Long id) {
-        Article article = getActiveArticleOrThrow(id);
-        return toCatalogProductDto(article);
     }
 
     @Override
@@ -487,16 +440,6 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
-    public CatalogLayoutCollectionDto getLayoutCollection(Integer latestLimit) {
-        CompletableFuture<List<CatalogCategoryDto>> categoriesFuture = supplyCatalogAsync(this::listCategories);
-        CompletableFuture<List<CatalogProductDto>> latestProductsFuture =
-                supplyCatalogAsync(() -> listLatestProducts(latestLimit));
-        CompletableFuture.allOf(categoriesFuture, latestProductsFuture).join();
-        return new CatalogLayoutCollectionDto(categoriesFuture.join(), latestProductsFuture.join());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
     public CatalogProductPageCollectionDto getProductPageCollection(Long id, int page, int size, Integer relatedLimit, String sortKey) {
         CatalogProductDetailsDto product = getProductDetails(id);
         int safeRelatedLimit = safeRelatedLimit(relatedLimit);
@@ -767,6 +710,8 @@ public class CatalogServiceImpl implements CatalogService {
                 .description(entity.getDescription())
                 .location(entity.getLocation())
                 .eventDate(entity.getEventDate())
+                .imageUrl(entity.getImageUrl())
+                .category(entity.getCategory())
                 .price(entity.getPrice())
                 .available(entity.getAvailable())
                 .build();

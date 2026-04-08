@@ -36,6 +36,8 @@ public class MediaAssetServiceImpl implements MediaAssetService {
     private static final int MAX_PAGE_SIZE = 100;
     private static final String LID_OWNER_ID = "LID";
     private static final String UNASSIGNED_PARTNER_OWNER_ID = "PARTNER_UNASSIGNED";
+    private static final String LID_STORAGE_SEGMENT = "lid";
+    private static final String PARTNER_STORAGE_SEGMENT = "partners";
 
     private final FileStorageSelector fileStorageSelector;
     private final PublicAssetUrlResolver publicAssetUrlResolver;
@@ -46,6 +48,7 @@ public class MediaAssetServiceImpl implements MediaAssetService {
     public FileUploadResponseDto upload(MultipartFile file, String folder, MediaOwnerScope ownerScope, String ownerUserId, boolean overwrite) {
         MediaOwner owner = resolveUploadOwner(ownerScope, ownerUserId);
         String normalizedFolder = StoragePathUtils.normalizeFolder(folder);
+        String storageFolder = buildStorageFolder(owner, normalizedFolder);
         FileStorageService fileStorageService = fileStorageSelector.activeStorage();
         ProcessedImageFile image = imageProcessingService.compress(file);
         String originalFilename = fallback(file.getOriginalFilename(), image.filename());
@@ -60,7 +63,7 @@ public class MediaAssetServiceImpl implements MediaAssetService {
             );
         }
 
-        String storagePath = fileStorageService.upload(image.bytes(), image.filename(), image.contentType(), normalizedFolder);
+        String storagePath = fileStorageService.upload(image.bytes(), image.filename(), image.contentType(), storageFolder);
         String objectKey = StoragePathUtils.normalizeObjectKey(storagePath);
 
         MediaAssetEntity entity = existing == null ? new MediaAssetEntity() : existing;
@@ -176,6 +179,14 @@ public class MediaAssetServiceImpl implements MediaAssetService {
             return;
         }
         fileStorageService.delete(previous);
+    }
+
+    private String buildStorageFolder(MediaOwner owner, String normalizedFolder) {
+        String safeFolder = StoragePathUtils.normalizeFolder(normalizedFolder);
+        if (owner.scope() == MediaOwnerScope.PARTNER) {
+            return safeFolder + "/" + PARTNER_STORAGE_SEGMENT + "/" + StoragePathUtils.sanitizePathSegment(owner.userId());
+        }
+        return safeFolder + "/" + LID_STORAGE_SEGMENT;
     }
 
     private String normalizeQuery(String query) {

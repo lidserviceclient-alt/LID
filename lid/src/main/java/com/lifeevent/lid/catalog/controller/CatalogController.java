@@ -19,58 +19,6 @@ public class CatalogController implements ICatalogController {
     private final CatalogService catalogService;
     private final PartnerCatalogService partnerCatalogService;
 
-    @GetMapping("/featured")
-    @Override
-    public com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getFeaturedArticles(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
-        return com.lifeevent.lid.common.dto.PageResponse.from(catalogService.getFeaturedArticles(page, size));
-    }
-
-    @GetMapping("/bestsellers")
-    @Override
-    public com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getBestSellers(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
-        return com.lifeevent.lid.common.dto.PageResponse.from(catalogService.getBestSellers(page, size));
-    }
-
-    @GetMapping("/flash-sales")
-    @Override
-    public com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getFlashSales(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
-        return com.lifeevent.lid.common.dto.PageResponse.from(catalogService.getFlashSales(page, size));
-    }
-
-    @GetMapping("/new")
-    @Override
-    public com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> getNewArticles(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
-        return com.lifeevent.lid.common.dto.PageResponse.from(catalogService.getNewArticles(page, size));
-    }
-
-    @GetMapping("/search")
-    @Override
-    public com.lifeevent.lid.common.dto.PageResponse<ArticleCatalogDto> search(
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) Integer categoryId,
-            @RequestParam(required = false) Double minPrice,
-            @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false) Boolean featured,
-            @RequestParam(required = false) Boolean flashSale,
-            @RequestParam(required = false) Boolean bestSeller,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
-        return com.lifeevent.lid.common.dto.PageResponse.from(catalogService.search(name, categoryId, minPrice, maxPrice, featured, flashSale, bestSeller, page, size));
-    }
-
     @GetMapping("/products")
     @Override
     public com.lifeevent.lid.common.dto.PageResponse<CatalogProductDto> listProducts(
@@ -119,14 +67,6 @@ public class CatalogController implements ICatalogController {
         );
     }
 
-    @GetMapping("/layout/collection")
-    @Override
-    public CatalogLayoutCollectionDto getLayoutCollection(
-            @RequestParam(value = "latestLimit", required = false) Integer latestLimit
-    ) {
-        return catalogService.getLayoutCollection(latestLimit);
-    }
-
     @GetMapping("/products/featured")
     @Override
     public List<CatalogProductDto> listFeaturedProducts(
@@ -149,12 +89,6 @@ public class CatalogController implements ICatalogController {
             @RequestParam(value = "limit", required = false) Integer limit
     ) {
         return catalogService.listLatestProducts(limit);
-    }
-
-    @GetMapping("/products/{id}")
-    @Override
-    public CatalogProductDto getProduct(@PathVariable String id) {
-        return catalogService.getProduct(id);
     }
 
     @GetMapping("/products/{id}/details")

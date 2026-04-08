@@ -9,6 +9,7 @@ public record BackOfficePartnerProductDto(
         String name,
         String sku,
         String ean,
+        String mainImageUrl,
         Double price,
         Integer stock,
         ArticleStatus status,

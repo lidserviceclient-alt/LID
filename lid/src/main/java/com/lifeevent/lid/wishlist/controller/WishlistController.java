@@ -22,13 +22,6 @@ public class WishlistController implements IWishlistController {
         List<WishlistDto> wishlist = wishlistService.getWishlist(customerId);
         return ResponseEntity.ok(wishlist);
     }
-
-    @Override
-    @GetMapping("/{customerId}")
-    public ResponseEntity<List<WishlistDto>> getWishlistByPath(@PathVariable String customerId) {
-        List<WishlistDto> wishlist = wishlistService.getWishlist(customerId);
-        return ResponseEntity.ok(wishlist);
-    }
     
     @Override
     @PostMapping("/{articleId:\\d+}")

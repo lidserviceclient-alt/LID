@@ -35,17 +35,6 @@ public interface IWishlistController {
             @Parameter(description = "ID du client", example = "1", required = true)
             @RequestParam(required = true) String customerId);
 
-    @Operation(summary = "Récupérer la wishlist (alias path)", description = "Alias de compatibilité: /wishlist/{customerId}")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Liste des articles en wishlist"),
-        @ApiResponse(responseCode = "401", description = "Non autorisé"),
-        @ApiResponse(responseCode = "403", description = "Accès refusé - Can access only own wishlist")
-    })
-    @GetMapping("/{customerId}")
-    ResponseEntity<List<WishlistDto>> getWishlistByPath(
-            @Parameter(description = "ID du client", example = "11a418cf-5978-4d6a-a9d8-ffe61f6c1544", required = true)
-            @PathVariable String customerId);
-    
     @Operation(summary = "Ajouter à la wishlist", description = "Ajoute un article à la liste de favoris du client (CUSTOMER or ADMIN)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Article ajouté à la wishlist"),
