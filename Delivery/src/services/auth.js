@@ -28,7 +28,7 @@ export function clearAccessToken() {
 
 export async function loginLocal(email, password) {
   const payload = { email, password }
-  const data = await apiRequest('/api/v1/auth/login/local', { method: 'POST', body: payload })
+  const data = await apiRequest('/api/v1/auth/login/local/delivery', { method: 'POST', body: payload })
   const token = data?.accessToken
   if (!token) {
     throw new Error('Token manquant dans la réponse')
