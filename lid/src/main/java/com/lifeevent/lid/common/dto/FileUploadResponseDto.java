@@ -4,6 +4,10 @@ public record FileUploadResponseDto(
         String url,
         String cdnBaseUrl,
         String path,
-        String objectKey
+        String objectKey,
+        String contentType,
+        long originalSize,
+        long size,
+        Long mediaId
 ) {
 }

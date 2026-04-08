@@ -2,7 +2,6 @@ package com.lifeevent.lid.common.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.MediaType;
@@ -19,7 +18,6 @@ import java.nio.file.Path;
 
 @Controller
 @RequestMapping("/api/v1/cdn")
-@Profile("local")
 public class LocalStorageController {
 
     @Value("${storage.local.base-path}")

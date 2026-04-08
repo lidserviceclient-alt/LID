@@ -13,7 +13,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -68,11 +67,4 @@ public interface IBackOfficeCategoryController {
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Purger les catégories")
     ResponseEntity<Void> purge(@RequestParam(value = "withProducts", required = false, defaultValue = "false") boolean withProducts);
 
-    @PostMapping("/upload-image")
-    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Uploader une image de catégorie")
-    ResponseEntity<Object> uploadImage(@RequestParam("file") MultipartFile file);
-
-    @GetMapping("/image/{filename}")
-    // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Récupérer une image de catégorie")
-    ResponseEntity<org.springframework.core.io.Resource> getImage(@PathVariable String filename);
 }

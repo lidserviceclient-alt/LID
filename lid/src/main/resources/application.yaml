@@ -8,6 +8,10 @@ spring:
   threads:
     virtual:
       enabled: ${SPRING_THREADS_VIRTUAL_ENABLED:false}
+  servlet:
+    multipart:
+      max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:12MB}
+      max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:80MB}
 
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
@@ -265,6 +269,10 @@ logging:
 
 storage:
   cdn-base-url: ${STORAGE_CDN_BASE_URL:}
+  images:
+    max-upload-bytes: ${STORAGE_IMAGE_MAX_UPLOAD_BYTES:10485760}
+    max-dimension: ${STORAGE_IMAGE_MAX_DIMENSION:1920}
+    jpeg-quality: ${STORAGE_IMAGE_JPEG_QUALITY:0.82}
   backblaze:
     bucket-id: ${BACKBLAZE_BUCKET_ID:}
     key-id: ${BACKBLAZE_KEY_ID:}

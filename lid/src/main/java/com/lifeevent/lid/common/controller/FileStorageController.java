@@ -1,11 +1,13 @@
 package com.lifeevent.lid.common.controller;
 
+import com.lifeevent.lid.common.dto.BulkFileUploadResponseDto;
 import com.lifeevent.lid.common.dto.FileUploadResponseDto;
-import com.lifeevent.lid.common.service.FileStorageService;
-import com.lifeevent.lid.common.service.PublicAssetUrlResolver;
-import com.lifeevent.lid.common.service.impl.FileStorageSelector;
-import com.lifeevent.lid.common.storage.StoragePathUtils;
+import com.lifeevent.lid.common.media.dto.MediaAssetDto;
+import com.lifeevent.lid.common.media.enumeration.MediaOwnerScope;
+import com.lifeevent.lid.common.media.service.MediaAssetService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -18,29 +20,41 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class FileStorageController implements IFileStorageController {
 
-    private final FileStorageSelector fileStorageSelector;
-    private final PublicAssetUrlResolver publicAssetUrlResolver;
+    private final MediaAssetService mediaAssetService;
 
     @Override
     public ResponseEntity<FileUploadResponseDto> upload(@RequestPart("file") MultipartFile file,
-                                                        @RequestParam(value = "folder", required = false) String folder) {
-        FileStorageService fileStorageService = fileStorageSelector.activeStorage();
-        String storagePath = fileStorageService.upload(file, folder);
-        String objectKey = StoragePathUtils.normalizeObjectKey(storagePath);
-        String cdnBaseUrl = publicAssetUrlResolver.publicBaseUrl();
-        String url = publicAssetUrlResolver.toPublicUrl(objectKey);
-        return ResponseEntity.ok(new FileUploadResponseDto(
-                url,
-                cdnBaseUrl,
-                objectKey,
-                objectKey
-        ));
+                                                        @RequestParam(value = "folder", required = false) String folder,
+                                                        @RequestParam(value = "ownerScope", required = false) MediaOwnerScope ownerScope,
+                                                        @RequestParam(value = "ownerUserId", required = false) String ownerUserId,
+                                                        @RequestParam(value = "overwrite", defaultValue = "false") boolean overwrite,
+                                                        HttpServletRequest request) {
+        return ResponseEntity.ok(mediaAssetService.upload(file, folder, ownerScope, ownerUserId, overwrite));
+    }
+
+    @Override
+    public ResponseEntity<BulkFileUploadResponseDto> uploadBulk(MultipartFile[] files,
+                                                                String folder,
+                                                                MediaOwnerScope ownerScope,
+                                                                String ownerUserId,
+                                                                boolean overwrite,
+                                                                HttpServletRequest request) {
+        return ResponseEntity.ok(mediaAssetService.uploadBulk(files, folder, ownerScope, ownerUserId, overwrite));
+    }
+
+    @Override
+    public ResponseEntity<Page<MediaAssetDto>> listMedia(MediaOwnerScope ownerScope,
+                                                         String ownerUserId,
+                                                         String folder,
+                                                         String q,
+                                                         int page,
+                                                         int size) {
+        return ResponseEntity.ok(mediaAssetService.search(ownerScope, ownerUserId, folder, q, page, size));
     }
 
     @Override
     public ResponseEntity<Void> delete(@RequestParam("objectKey") String objectKey) {
-        FileStorageService fileStorageService = fileStorageSelector.activeStorage();
-        fileStorageService.delete(objectKey);
+        mediaAssetService.delete(objectKey);
         return ResponseEntity.noContent().build();
     }
 }

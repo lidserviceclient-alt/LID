@@ -34,6 +34,20 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
     }
 
     @Override
+    public String upload(byte[] bytes, String originalFilename, String contentType, String folder) {
+        if (bytes == null || bytes.length == 0) throw new IllegalArgumentException("file must not be empty");
+        String objectKey = StoragePathUtils.buildObjectKey(folder, originalFilename);
+        Path target = Path.of(basePath).resolve(objectKey).normalize();
+        try {
+            Files.createDirectories(target.getParent());
+            Files.write(target, bytes);
+            return "/" + objectKey;
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to store file locally", ex);
+        }
+    }
+
+    @Override
     public void delete(String objectKey) {
         if (objectKey == null || objectKey.isBlank()) throw new IllegalArgumentException("objectKey must not be blank");
         try {

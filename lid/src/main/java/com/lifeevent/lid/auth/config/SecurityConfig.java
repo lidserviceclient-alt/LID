@@ -94,7 +94,6 @@ public class SecurityConfig {
                             "/api/v1/catalog/**",
                             "/api/v1/articles/search/**",
                             "/api/v1/newsletter/**",
-                            "/api/v1/storage/**",
                             "/api/v1/cdn/**"
                     ).permitAll();
 

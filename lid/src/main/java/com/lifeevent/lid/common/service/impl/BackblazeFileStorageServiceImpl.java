@@ -43,6 +43,18 @@ public class BackblazeFileStorageServiceImpl implements FileStorageService {
     }
 
     @Override
+    public String upload(byte[] bytes, String originalFilename, String contentType, String folder) {
+        if (bytes == null || bytes.length == 0) {
+            throw new IllegalArgumentException("file must not be empty");
+        }
+
+        String objectKey = StoragePathUtils.buildObjectKey(folder, originalFilename);
+        B2StorageClient client = requireClient();
+        uploadToBackblaze(client, bytes, objectKey, resolveContentType(contentType));
+        return "/" + objectKey;
+    }
+
+    @Override
     public void delete(String objectKey) {
         if (objectKey == null || objectKey.isBlank()) {
             throw new IllegalArgumentException("objectKey must not be blank");
@@ -61,6 +73,30 @@ public class BackblazeFileStorageServiceImpl implements FileStorageService {
         try {
             temp = Files.createTempFile("lid-b2-", ".tmp");
             file.transferTo(temp);
+            B2UploadFileRequest request = B2UploadFileRequest.builder(
+                    bucketId,
+                    objectKey,
+                    contentType,
+                    B2FileContentSource.build(temp.toFile())
+            ).build();
+            client.uploadSmallFile(request);
+        } catch (IOException | B2Exception ex) {
+            throw new IllegalStateException("Failed to upload file to Backblaze", ex);
+        } finally {
+            if (temp != null) {
+                try {
+                    Files.deleteIfExists(temp);
+                } catch (IOException ignored) {
+                }
+            }
+        }
+    }
+
+    private void uploadToBackblaze(B2StorageClient client, byte[] bytes, String objectKey, String contentType) {
+        Path temp = null;
+        try {
+            temp = Files.createTempFile("lid-b2-", ".tmp");
+            Files.write(temp, bytes);
             B2UploadFileRequest request = B2UploadFileRequest.builder(
                     bucketId,
                     objectKey,

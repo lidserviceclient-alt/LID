@@ -47,6 +47,14 @@ public interface IAuthController {
     })
     AuthResponse loginLidBackofficeLocal(@Valid @RequestBody LoginRequest request);
 
+    @PostMapping("/login/local/delivery")
+    @Operation(summary = "Connexion locale livraison")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Authentification réussie"),
+            @ApiResponse(responseCode = "400", description = "Identifiants invalides")
+    })
+    AuthResponse loginDeliveryLocal(@Valid @RequestBody LoginRequest request);
+
     @PostMapping("/login/local/partner")
     @Operation(summary = "Connexion locale partner")
     @ApiResponses({

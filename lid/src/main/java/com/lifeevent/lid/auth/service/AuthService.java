@@ -135,7 +135,12 @@ public class AuthService {
 
     @Transactional
     public AuthResponse loginLidBackofficeLocal(LoginRequest request) {
-        return loginLocal(request, this::assertBackOfficeRoleOrThrow, false);
+        return loginLocal(request, this::assertAdminBackOfficeRoleOrThrow, false);
+    }
+
+    @Transactional
+    public AuthResponse loginDeliveryLocal(LoginRequest request) {
+        return loginLocal(request, this::assertDeliveryRoleOrThrow, false);
     }
 
     @Transactional
@@ -150,7 +155,7 @@ public class AuthService {
 
         Authentication auth = authenticationRepository.findByUserId(user.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("Identifiants invalides"));
-        assertBackOfficeRoleOrThrow(auth);
+        assertAdminBackOfficeRoleOrThrow(auth);
 
         token.setUsed(true);
         passwordResetTokenRepository.save(token);
@@ -379,12 +384,18 @@ public class AuthService {
         return new AuthResponse(accessToken, Boolean.FALSE, null, null);
     }
 
-    private void assertBackOfficeRoleOrThrow(Authentication auth) {
+    private void assertAdminBackOfficeRoleOrThrow(Authentication auth) {
         List<UserRole> roles = auth.getRoles() == null ? List.of() : auth.getRoles();
         boolean allowed = roles.contains(UserRole.ADMIN)
-                || roles.contains(UserRole.SUPER_ADMIN)
-                || roles.contains(UserRole.LIVREUR);
+                || roles.contains(UserRole.SUPER_ADMIN);
         if (!allowed) {
+            throw new IllegalArgumentException("Acces refuse");
+        }
+    }
+
+    private void assertDeliveryRoleOrThrow(Authentication auth) {
+        List<UserRole> roles = auth.getRoles() == null ? List.of() : auth.getRoles();
+        if (!roles.contains(UserRole.LIVREUR)) {
             throw new IllegalArgumentException("Acces refuse");
         }
     }
