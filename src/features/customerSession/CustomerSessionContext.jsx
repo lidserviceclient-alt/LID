@@ -1,7 +1,8 @@
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCurrentUserPayload } from "@/services/authService";
 import { getMyCustomerProfileCollection } from "@/services/customerService";
+import { CUSTOMER_SESSION_CLEARED_EVENT } from "@/services/sessionCleanup";
 
 const CustomerSessionContext = createContext(null);
 
@@ -28,6 +29,14 @@ export function CustomerSessionProvider({ children }) {
       return updater;
     });
   };
+
+  useEffect(() => {
+    const clearCustomerQueryCache = () => {
+      queryClient.removeQueries({ queryKey: ["customer-session-collection"], exact: true });
+    };
+    window.addEventListener(CUSTOMER_SESSION_CLEARED_EVENT, clearCustomerQueryCache);
+    return () => window.removeEventListener(CUSTOMER_SESSION_CLEARED_EVENT, clearCustomerQueryCache);
+  }, [queryClient]);
 
   const value = useMemo(() => {
     const collection = query.data || null;

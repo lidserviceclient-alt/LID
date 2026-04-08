@@ -5,6 +5,9 @@ import Papa from 'papaparse';
 import { createMyProduct, deleteMyProduct, listMyProducts, updateMyProduct } from '@/services/partnerBackofficeProductService';
 import { getMyCategoriesCollection } from '@/services/partnerBackofficeCategoryService';
 import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
+import { uploadFile } from '@/services/fileStorageService';
+
+const DEFAULT_PRODUCT_IMAGE = "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80";
 
 const toIntPrice = (value) => {
   const n = Number(value);
@@ -27,6 +30,9 @@ export default function ProductManagement() {
   const [loading, setLoading] = useState(false);
   const [manualCategories, setManualCategories] = useState([]);
   const fileInputRef = useRef(null);
+  const productImageInputRef = useRef(null);
+  const [productImageUrl, setProductImageUrl] = useState("");
+  const [uploadingProductImage, setUploadingProductImage] = useState(false);
   const categoryOptions = useMemo(() => {
     const list = Array.isArray(bootstrap?.categoriesCollection?.categories)
       ? bootstrap.categoriesCollection.categories
@@ -36,7 +42,7 @@ export default function ProductManagement() {
       .map((c) => ({
         id: `${c?.id ?? ''}`.trim(),
         label: `${c?.nom || c?.name || ''}`.trim(),
-        businessId: `${c?.businessId || c?.business_id || ''}`.trim(),
+        slug: `${c?.slug || ''}`.trim(),
       }))
       .filter((c) => c.id && c.label);
   }, [bootstrap?.categoriesCollection?.categories, manualCategories]);
@@ -62,23 +68,23 @@ export default function ProductManagement() {
     selectableCategoryOptions.forEach((c) => map.set(`${c.label || ''}`.trim().toLowerCase(), `${c.id}`));
     return map;
   }, [selectableCategoryOptions]);
-  const categoryIdByLowerBusinessId = useMemo(() => {
+  const categoryIdByLowerSlug = useMemo(() => {
     const map = new Map();
     selectableCategoryOptions.forEach((c) => {
-      const key = `${c.businessId || ''}`.trim().toLowerCase();
+      const key = `${c.slug || ''}`.trim().toLowerCase();
       if (key) map.set(key, `${c.id}`);
     });
     return map;
   }, [selectableCategoryOptions]);
-  const categoryBusinessIdById = useMemo(() => {
+  const categorySlugById = useMemo(() => {
     const map = new Map();
     selectableCategoryOptions.forEach((c) => {
-      map.set(`${c.id}`, `${c.businessId || ''}`.trim());
+      map.set(`${c.id}`, `${c.slug || ''}`.trim());
     });
     return map;
   }, [selectableCategoryOptions]);
-  const defaultCategoryBusinessId = useMemo(
-    () => `${selectableCategoryOptions.find((c) => `${c.businessId || ''}`.trim())?.businessId || 'CAT-EXEMPLE'}`,
+  const defaultCategorySlug = useMemo(
+    () => `${selectableCategoryOptions.find((c) => `${c.slug || ''}`.trim())?.slug || 'categorie-exemple'}`,
     [selectableCategoryOptions]
   );
 
@@ -94,8 +100,9 @@ export default function ProductManagement() {
         price: toIntPrice(p.price || 0),
         stock: Number(p.stock || 0),
         categoryId: `${p.categoryId || ""}`.trim(),
+        categorySlug: `${p.categorySlug || ""}`.trim(),
         category: `${p.category || categoryById.get(`${p.categoryId || ""}`) || ""}`.trim(),
-        image: p.mainImageUrl || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80"
+        image: p.mainImageUrl || ""
       }));
       setProducts(normalized);
     } finally {
@@ -136,8 +143,9 @@ export default function ProductManagement() {
         price: toIntPrice(p.price || 0),
         stock: Number(p.stock || 0),
         categoryId: `${p.categoryId || ""}`.trim(),
+        categorySlug: `${p.categorySlug || ""}`.trim(),
         category: `${p.category || categoryById.get(`${p.categoryId || ""}`) || ""}`.trim(),
-        image: p.mainImageUrl || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80"
+        image: p.mainImageUrl || ""
       }));
       setProducts(normalized);
       setLoading(false);
@@ -156,6 +164,7 @@ export default function ProductManagement() {
   const handleEdit = (product) => {
     setCurrentProduct(product);
     setAutoSku(`${product?.sku || ""}`.trim());
+    setProductImageUrl(`${product?.image || ""}`.trim());
     setIsModalOpen(true);
   };
 
@@ -179,7 +188,7 @@ export default function ProductManagement() {
       stock: parseInt(formData.get('stock')),
       categoryId,
       category: categoryById.get(categoryId) || "",
-      image: currentProduct?.image || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80" // Placeholder
+      image: productImageUrl
     };
 
     const payload = {
@@ -188,9 +197,9 @@ export default function ProductManagement() {
       price: toIntPrice(newProduct.price),
       stock: Number.isFinite(newProduct.stock) ? newProduct.stock : 0,
       categoryId: newProduct.categoryId,
-      categoryBusinessId: categoryBusinessIdById.get(newProduct.categoryId) || null,
-      img: currentProduct?.image || null,
-      mainImageUrl: currentProduct?.image || null,
+      categorySlug: categorySlugById.get(newProduct.categoryId) || null,
+      img: productImageUrl || null,
+      mainImageUrl: productImageUrl || null,
       status: "ACTIF"
     };
 
@@ -203,6 +212,31 @@ export default function ProductManagement() {
     setIsModalOpen(false);
     setCurrentProduct(null);
     setAutoSku("");
+    setProductImageUrl("");
+  };
+
+  const handleProductImageUpload = async (file) => {
+    if (!file || uploadingProductImage) return;
+    setUploadingProductImage(true);
+    try {
+      let res;
+      try {
+        res = await uploadFile(file, { folder: "partners/products" });
+      } catch (error) {
+        const message = error?.response?.data?.message || error?.message || "";
+        if (!message.toLowerCase().includes("existe déjà") || !window.confirm(`${message}\n\nVoulez-vous écraser cette image ?`)) {
+          throw error;
+        }
+        res = await uploadFile(file, { folder: "partners/products", overwrite: true });
+      }
+      const url = `${res?.url || ""}`.trim();
+      if (!url) throw new Error("Upload terminé, mais URL manquante.");
+      setProductImageUrl(url);
+    } catch (error) {
+      alert(error?.response?.data?.message || error?.message || "Upload de l'image impossible.");
+    } finally {
+      setUploadingProductImage(false);
+    }
   };
 
   const handleFileUpload = (e) => {
@@ -213,19 +247,20 @@ export default function ProductManagement() {
         skipEmptyLines: true,
         complete: (results) => {
           const newProducts = results.data.map(item => {
-            const categoryBusinessId = `${item.categoryBusinessId || item.category_business_id || item.categorie_metier || ""}`.trim();
+            const categorySlug = `${item.categorySlug || item.category_slug || ""}`.trim();
+            const categoryLabel = `${item.category || item.categorie || ""}`.trim();
             const categoryId = `${item.categoryId || ""}`.trim()
-              || `${categoryIdByLowerBusinessId.get(categoryBusinessId.toLowerCase()) || ""}`
-              || `${categoryIdByLowerLabel.get(`${item.category || item.categorie || ""}`.trim().toLowerCase()) || defaultCategoryId}`;
+              || `${categoryIdByLowerSlug.get(categorySlug.toLowerCase()) || ""}`
+              || `${categoryIdByLowerLabel.get(categoryLabel.toLowerCase()) || defaultCategoryId}`;
             return {
-              categoryBusinessId,
+              categorySlug: categorySlug || categorySlugById.get(categoryId) || defaultCategorySlug,
               categoryId,
               id: Date.now() + Math.random(),
               name: item.name || item.nom,
               price: toIntPrice(item.price || item.prix || 0),
               stock: parseInt(item.stock || 0),
-              category: item.category || item.categorie || (categoryById.get(categoryId) || categoryById.get(defaultCategoryId) || 'Uncategorized'),
-              image: item.image || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80"
+              category: categoryLabel || (categoryById.get(categoryId) || categoryById.get(defaultCategoryId) || 'Uncategorized'),
+              image: item.image || item.mainImageUrl || ""
             };
           }).filter(p => p.name); // Filter out empty entries
           
@@ -242,10 +277,10 @@ export default function ProductManagement() {
 
   const downloadImportTemplate = () => {
     const rows = [
-      ["name", "price", "stock", "categoryBusinessId", "image"],
-      ["Casque Bluetooth", "25000", "15", `${defaultCategoryBusinessId}`, "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80"],
-      ["Chaussures Running", "32000", "8", `${defaultCategoryBusinessId}`, "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80"],
-      ["Crème Hydratante", "8500", "30", `${defaultCategoryBusinessId}`, "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=400&q=80"]
+      ["name", "price", "stock", "categorySlug", "image"],
+      ["Casque Bluetooth", "25000", "15", `${defaultCategorySlug}`, "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80"],
+      ["Chaussures Running", "32000", "8", `${defaultCategorySlug}`, "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80"],
+      ["Crème Hydratante", "8500", "30", `${defaultCategorySlug}`, "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=400&q=80"]
     ];
     const csv = rows.map((r) => r.map((v) => `"${`${v}`.replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -270,7 +305,7 @@ export default function ProductManagement() {
         price: toIntPrice(p.price || 0),
         stock: Number(p.stock || 0),
         categoryId,
-        categoryBusinessId: `${p.categoryBusinessId || ""}`.trim() || categoryBusinessIdById.get(categoryId) || null,
+        categorySlug: `${p.categorySlug || ""}`.trim() || categorySlugById.get(categoryId) || null,
         img: p.image || null,
         mainImageUrl: p.image || null,
         status: "ACTIF"
@@ -329,6 +364,7 @@ export default function ProductManagement() {
             onClick={() => {
               setCurrentProduct(null);
               setAutoSku(generateAutoSku());
+              setProductImageUrl("");
               setIsModalOpen(true);
             }}
             className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
@@ -374,7 +410,7 @@ export default function ProductManagement() {
                 {/* Mobile: Header with Image & Name */}
                 <div className="col-span-5 flex items-center gap-4 w-full">
                   <div className="h-12 w-12 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
-                    <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+                    <img src={product.image || DEFAULT_PRODUCT_IMAGE} alt={product.name} className="h-full w-full object-cover" />
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-sm font-medium text-gray-900 truncate">{product.name}</h3>
@@ -459,7 +495,7 @@ export default function ProductManagement() {
                       <li><span className="font-medium">name</span> : nom du produit</li>
                       <li><span className="font-medium">price</span> : prix en FCFA entier</li>
                       <li><span className="font-medium">stock</span> : quantité en stock</li>
-                      <li><span className="font-medium">categoryBusinessId</span> : identifiant métier de la catégorie</li>
+                      <li><span className="font-medium">categorySlug</span> : slug unique de la catégorie</li>
                       <li><span className="font-medium">image</span> : URL image (optionnel)</li>
                     </ul>
                   </div>
@@ -468,7 +504,7 @@ export default function ProductManagement() {
                     <ul className="text-sm text-gray-600 space-y-1">
                       {selectableCategoryOptions.map((c) => (
                         <li key={c.id}>
-                          <span className="font-medium">{c.businessId || "ID métier non exposé"}</span> : {c.label}
+                          <span className="font-medium">{c.slug || "Slug non exposé"}</span> : {c.label}
                         </li>
                       ))}
                     </ul>
@@ -480,7 +516,7 @@ export default function ProductManagement() {
                       <th className="px-3 py-2">name</th>
                       <th className="px-3 py-2">price</th>
                       <th className="px-3 py-2">stock</th>
-                      <th className="px-3 py-2">categoryBusinessId</th>
+                      <th className="px-3 py-2">categorySlug</th>
                       <th className="px-3 py-2">image</th>
                     </tr>
                   </thead>
@@ -489,14 +525,14 @@ export default function ProductManagement() {
                       <td className="px-3 py-2">Casque Bluetooth</td>
                       <td className="px-3 py-2">25000</td>
                       <td className="px-3 py-2">15</td>
-                      <td className="px-3 py-2">{defaultCategoryBusinessId}</td>
+                      <td className="px-3 py-2">{defaultCategorySlug}</td>
                       <td className="px-3 py-2 text-xs text-gray-500 truncate">https://images.unsplash.com/...</td>
                     </tr>
                     <tr>
                       <td className="px-3 py-2">Chaussures Running</td>
                       <td className="px-3 py-2">32000</td>
                       <td className="px-3 py-2">8</td>
-                      <td className="px-3 py-2">{defaultCategoryBusinessId}</td>
+                      <td className="px-3 py-2">{defaultCategorySlug}</td>
                       <td className="px-3 py-2 text-xs text-gray-500 truncate">https://images.unsplash.com/...</td>
                     </tr>
                   </tbody>
@@ -614,13 +650,48 @@ export default function ProductManagement() {
                   </select>
                 </div>
 
-                {/* Image Upload Placeholder */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
-                  <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center hover:bg-gray-50 transition-colors cursor-pointer">
-                    <ImageIcon className="mx-auto text-gray-400 mb-2" size={24} />
-                    <p className="text-xs text-gray-500">Cliquez pour ajouter une image</p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => productImageInputRef.current?.click()}
+                    disabled={uploadingProductImage}
+                    className="w-full border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors disabled:opacity-60"
+                  >
+                    {productImageUrl ? (
+                      <img src={productImageUrl} alt="" className="mx-auto h-32 w-full max-w-xs rounded-lg object-contain bg-white" />
+                    ) : (
+                      <>
+                        <ImageIcon className="mx-auto text-gray-400 mb-2" size={24} />
+                        <p className="text-xs text-gray-500">
+                          {uploadingProductImage ? "Upload..." : "Cliquez pour uploader une image"}
+                        </p>
+                        <p className="mt-1 text-[11px] text-gray-400">Sans image, le catalogue affichera l'image par défaut.</p>
+                      </>
+                    )}
+                  </button>
+                  <input
+                    ref={productImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      handleProductImageUpload(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                  {productImageUrl ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        value={productImageUrl}
+                        onChange={(e) => setProductImageUrl(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs"
+                      />
+                      <button type="button" onClick={() => setProductImageUrl("")} className="px-3 py-2 text-xs border border-gray-200 rounded-lg">
+                        Retirer
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="pt-4 flex gap-3">

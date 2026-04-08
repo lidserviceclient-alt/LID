@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Newsletter from "../components/Newsletter";
-import { getBlogPosts } from "../services/blogService";
+import { getBlogPosts, normalizeBlogPost } from "../services/blogService";
 import { useCatalogBootstrap } from "@/features/catalog/CatalogBootstrapContext";
 import { subscribeFrontendRealtime } from "@/services/realtimeService";
 
@@ -21,9 +21,14 @@ export default function BlogPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
   const bootstrap = useCatalogBootstrap();
-  const initialPosts = Array.isArray(bootstrap?.globalCollection?.posts)
-    ? bootstrap.globalCollection.posts
-    : null;
+  const initialPosts = useMemo(() => {
+    if (!Array.isArray(bootstrap?.globalCollection?.posts)) {
+      return null;
+    }
+    return bootstrap.globalCollection.posts
+      .map(normalizeBlogPost)
+      .filter((post) => post?.id && post?.title);
+  }, [bootstrap?.globalCollection?.posts]);
   const isBootstrapLoading = Boolean(bootstrap?.isGlobalCollectionLoading);
   const isBootstrapResolved = Boolean(bootstrap?.isGlobalCollectionResolved);
   const refreshControlRef = useRef({ inFlight: false, timer: null, lastAt: 0 });
@@ -100,7 +105,8 @@ export default function BlogPage() {
     };
 
     const unsubscribe = subscribeFrontendRealtime((event) => {
-      if (event?.topic !== "catalog.updated") {
+      const topic = `${event?.topic || ""}`.trim();
+      if (topic !== "catalog.updated" && topic !== "connection.ack") {
         return;
       }
       const now = Date.now();
@@ -117,7 +123,7 @@ export default function BlogPage() {
         control.lastAt = Date.now();
         runRefresh();
       }, minGapMs - elapsed);
-    }, ["catalog.updated"]);
+    }, ["catalog.updated", "connection.ack"]);
 
     return () => {
       if (control.timer) {

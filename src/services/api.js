@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { clearAccessToken, getAccessToken, isTokenExpired, setAccessToken } from './auth';
+import { clearCustomerSessionCache } from './sessionCleanup';
 
 const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'https://jean-emmanuel-diap.com/lid';
 const isDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true';
@@ -38,6 +39,7 @@ api.interceptors.request.use(
     const clientId = import.meta.env.VITE_CLIENT_ID;
 
     if (storedToken && !accessToken) {
+      clearCustomerSessionCache();
       clearAccessToken();
     }
 
@@ -102,6 +104,7 @@ api.interceptors.response.use(
           }
         }
         if (hadAccessToken) {
+          clearCustomerSessionCache();
           clearAccessToken();
           const currentPath = window.location?.pathname || '';
           if (currentPath !== '/login') {

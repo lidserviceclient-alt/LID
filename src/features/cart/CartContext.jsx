@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { toast } from "sonner";
 import { getCurrentUserPayload } from "@/services/authService";
 import { clearCustomerCart, getCustomerCart, syncCustomerCart } from "@/services/cartService";
+import { CUSTOMER_SESSION_CLEARED_EVENT } from "@/services/sessionCleanup";
 
 const CartContext = createContext({
   cartItems: [],
@@ -198,6 +199,21 @@ export function CartProvider({ children }) {
       window.removeEventListener("focus", onFocus);
     };
   }, [refreshCustomerId]);
+
+  useEffect(() => {
+    const clearLocalSessionCart = () => {
+      if (syncTimerRef.current) {
+        window.clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+      }
+      pendingSyncRef.current = null;
+      setCustomerId(null);
+      setCartItems([]);
+      saveLocalCartSnapshot([]);
+    };
+    window.addEventListener(CUSTOMER_SESSION_CLEARED_EVENT, clearLocalSessionCart);
+    return () => window.removeEventListener(CUSTOMER_SESSION_CLEARED_EVENT, clearLocalSessionCart);
+  }, []);
 
   useEffect(() => {
     if (!customerId) {

@@ -42,6 +42,7 @@ export default function Header() {
   const [showOffer, setShowOffer] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [notifDisplayProducts, setNotifDisplayProducts] = useState([]);
   const [notifSeenAt, setNotifSeenAt] = useState(() => {
     const raw = Number(localStorage.getItem("lid_last_seen_products") || "0");
     return Number.isFinite(raw) && raw > 0 ? raw : 0;
@@ -82,13 +83,23 @@ export default function Header() {
     });
     return { unreadCount: fresh.length, products: fresh.slice(0, 8) };
   }, [latestProducts, notifSeenAt]);
-  const notifProducts = notifState.products;
   const notifUnreadCount = notifState.unreadCount;
 
   const openNotifications = async () => {
     const products = Array.isArray(latestProducts) ? latestProducts : [];
-    setIsNotifOpen((v) => !v);
-    if (!isNotifOpen) {
+    if (isNotifOpen) {
+      setIsNotifOpen(false);
+      setNotifDisplayProducts([]);
+      return;
+    }
+    const lastSeen = Math.max(getLastSeenProductsTs(), notifSeenAt);
+    const fresh = products.filter((p) => {
+      const t = p?.dateCreation ? new Date(p.dateCreation).getTime() : 0;
+      return Number.isFinite(t) && t > lastSeen;
+    });
+    setNotifDisplayProducts(fresh.slice(0, 8));
+    setIsNotifOpen(true);
+    if (fresh.length > 0) {
       const lastSeen = getLastSeenProductsTs();
       const latest = getLatestProductTs(products);
       const nextSeen = Math.max(lastSeen, latest);
@@ -453,13 +464,13 @@ export default function Header() {
                   </button>
                 </div>
                 <div className="max-h-[60vh] overflow-auto">
-                  {notifProducts.length === 0 ? (
+                  {notifDisplayProducts.length === 0 ? (
                     <div className="px-4 py-6 text-sm text-neutral-600 dark:text-neutral-400">
                       Aucun nouveau produit.
                     </div>
                   ) : (
                     <div className="py-2">
-                      {notifProducts.map((p) => (
+                      {notifDisplayProducts.map((p) => (
                         <button
                           key={p.id}
                           onClick={() => {

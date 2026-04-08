@@ -192,7 +192,16 @@ export default function Settings() {
     setErrorMsg("");
     setUploadingLogo(true);
     try {
-      const res = await uploadFile(file, { folder: "partners" });
+      let res;
+      try {
+        res = await uploadFile(file, { folder: "partners" });
+      } catch (e) {
+        const message = e?.response?.data?.message || e?.message || "";
+        if (!message.toLowerCase().includes("existe déjà") || !window.confirm(`${message}\n\nVoulez-vous écraser cette image ?`)) {
+          throw e;
+        }
+        res = await uploadFile(file, { folder: "partners", overwrite: true });
+      }
       const url = res?.url || "";
       if (url) {
         setSettings((p) => ({ ...p, logoUrl: url }));
@@ -209,7 +218,16 @@ export default function Settings() {
     setErrorMsg("");
     setUploadingBanner(true);
     try {
-      const res = await uploadFile(file, { folder: "partners" });
+      let res;
+      try {
+        res = await uploadFile(file, { folder: "partners" });
+      } catch (e) {
+        const message = e?.response?.data?.message || e?.message || "";
+        if (!message.toLowerCase().includes("existe déjà") || !window.confirm(`${message}\n\nVoulez-vous écraser cette image ?`)) {
+          throw e;
+        }
+        res = await uploadFile(file, { folder: "partners", overwrite: true });
+      }
       const url = res?.url || "";
       if (url) {
         setSettings((p) => ({ ...p, backgroundUrl: url }));

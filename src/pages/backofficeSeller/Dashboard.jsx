@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
 import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
+import { resolveBackendAssetUrl } from '@/services/categoryService';
 
 const STATUS_LABEL = {
   PENDING: "En attente",
@@ -24,6 +25,14 @@ const STATUS_LABEL = {
 };
 
 const WEEK_DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+const FALLBACK_PRODUCT_IMAGE = "/imgs/logo.png";
+
+const resolveProductImage = (value) => {
+  const raw = `${value || ""}`.trim();
+  if (!raw) return FALLBACK_PRODUCT_IMAGE;
+  if (raw.startsWith("/imgs/")) return raw;
+  return resolveBackendAssetUrl(raw);
+};
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -119,7 +128,7 @@ export default function Dashboard() {
         name: p.name || "Produit",
         sales: stock,
         revenue: `${(stock * price).toFixed(2)} FCFA`,
-        image: p.mainImageUrl || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=100&q=80",
+        image: resolveProductImage(p.mainImageUrl),
       };
     });
     return data.sort((a, b) => b.sales - a.sales).slice(0, 3);
