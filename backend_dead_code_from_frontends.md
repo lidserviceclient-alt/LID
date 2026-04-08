@@ -1,6 +1,6 @@
 # Analyse du code mort backend depuis les frontends
 
-Périmètre de comparaison :
+Périmètre frontend :
 
 - `/Users/jeanemmanuel/Desktop/company-projects/lid/frontend/LID`
 - `/Users/jeanemmanuel/Desktop/company-projects/lid/backoffice/LID`
@@ -10,12 +10,26 @@ Backend analysé :
 
 - `/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid`
 
-Principe :
+Méthode :
 
-- `actif` : endpoint explicitement appelé par au moins un des 3 frontends
-- `legacy` : endpoint backend présent mais non appelé, alors qu’un endpoint plus récent couvre déjà le besoin
-- `non branché` : endpoint backend non appelé par les 3 frontends actuels
-- `à vérifier hors frontend` : endpoint non appelé par les 3 frontends, mais potentiellement utile pour intégration, ops, webhook, debug ou autre client
+- recroisement des appels API réellement présents dans les 3 frontends
+- comparaison avec les contrôleurs Spring exposés
+- classification :
+  - `actif` : consommé par au moins un frontend
+  - `legacy` : non consommé et doublonné par une route plus récente
+  - `non branché` : non consommé par les 3 frontends
+  - `à vérifier hors frontend` : non consommé côté frontend mais potentiellement utile pour intégration, ops, webhook ou support
+
+## Corrections importantes par rapport à l’ancien audit
+
+Les points suivants ne doivent plus être classés comme morts :
+
+- `BackOfficeLogController` : maintenant `actif`
+  - utilisé par `backoffice/LID/src/services/api.js` via `/api/v1/backoffice/logs`
+- `LocalStorageController` : maintenant `actif`
+  - utilisé indirectement par tous les frontends via les URLs d’images `/api/v1/cdn/**`
+- `storage/media` et `storage/upload` : maintenant `actifs`
+  - utilisés par le backoffice LID et le backoffice vendeur
 
 ## Candidats les plus nets
 
@@ -23,173 +37,323 @@ Principe :
 
 #### `ArticleController`
 
-- Fichier : [`lid/src/main/java/com/lifeevent/lid/article/controller/ArticleController.java`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/article/controller/ArticleController.java)
+- Fichier : `lid/src/main/java/com/lifeevent/lid/article/controller/ArticleController.java`
 - Statut : `legacy / inactif`
-- Preuve :
-  - `@RestController` est commenté dans [`ArticleController.java:16`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/article/controller/ArticleController.java#L16)
-  - base route définie sur [`ArticleController.java:17`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/article/controller/ArticleController.java#L17)
-- Conclusion :
-  - tout `/api/v1/articles` est déjà inactif
-  - aucun frontend ne l’utilise
+- Motif :
+  - le contrôleur historique `/api/v1/articles` est déjà désactivé
+  - les frontends n’utilisent pas ce bloc
 
 #### `CategoryController`
 
-- Fichier : [`lid/src/main/java/com/lifeevent/lid/article/controller/CategoryController.java`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/article/controller/CategoryController.java)
+- Fichier : `lid/src/main/java/com/lifeevent/lid/article/controller/CategoryController.java`
 - Statut : `legacy / inactif`
-- Preuve :
-  - `@RestController` est commenté dans [`CategoryController.java:13`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/article/controller/CategoryController.java#L13)
-  - base route définie sur [`CategoryController.java:14`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/article/controller/CategoryController.java#L14)
-- Conclusion :
-  - tout `/api/v1/categories` est déjà inactif
-  - aucun frontend ne l’utilise
+- Motif :
+  - le contrôleur historique `/api/v1/categories` est déjà désactivé
+  - les frontends n’utilisent pas ce bloc
 
 ### 2. Routes catalog legacy probablement obsolètes
 
 #### `CatalogController`
 
-- Fichier : [`lid/src/main/java/com/lifeevent/lid/catalog/controller/CatalogController.java`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/catalog/controller/CatalogController.java)
+- Fichier : `lid/src/main/java/com/lifeevent/lid/catalog/controller/CatalogController.java`
 
 Routes `legacy` non appelées par les frontends :
 
-- `/api/v1/catalog/featured` dans [`CatalogController.java:22`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/catalog/controller/CatalogController.java#L22)
-- `/api/v1/catalog/bestsellers` dans [`CatalogController.java:31`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/catalog/controller/CatalogController.java#L31)
-- `/api/v1/catalog/flash-sales` dans [`CatalogController.java:40`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/catalog/controller/CatalogController.java#L40)
-- `/api/v1/catalog/new` dans [`CatalogController.java:49`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/catalog/controller/CatalogController.java#L49)
-- `/api/v1/catalog/search` dans [`CatalogController.java:58`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/catalog/controller/CatalogController.java#L58)
-- `/api/v1/catalog/layout/collection` dans [`CatalogController.java:122`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/catalog/controller/CatalogController.java#L122)
-- `/api/v1/catalog/products/{id}` dans [`CatalogController.java:154`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/catalog/controller/CatalogController.java#L154)
+- `GET /api/v1/catalog/featured`
+- `GET /api/v1/catalog/bestsellers`
+- `GET /api/v1/catalog/flash-sales`
+- `GET /api/v1/catalog/new`
+- `GET /api/v1/catalog/search`
+- `GET /api/v1/catalog/layout/collection`
+- `GET /api/v1/catalog/products/{id}`
 
-Routes `actives` à conserver :
+Routes `actives` du même contrôleur :
 
-- `/api/v1/catalog/products`
-- `/api/v1/catalog/collection`
-- `/api/v1/catalog/products/featured`
-- `/api/v1/catalog/products/bestsellers`
-- `/api/v1/catalog/products/latest`
-- `/api/v1/catalog/products/{id}/details`
-- `/api/v1/catalog/products/{id}/collection`
-- `/api/v1/catalog/categories`
-- `/api/v1/catalog/categories/featured`
-- `/api/v1/catalog/partners`
-- `/api/v1/catalog/partners/{partnerId}`
-- `/api/v1/catalog/partners/{partnerId}/collection`
-- `/api/v1/catalog/partners/{partnerId}/products`
-- `/api/v1/catalog/products/{productId}/reviews`
-- `/api/v1/catalog/reviews/{reviewId}/*`
+- `GET /api/v1/catalog/products`
+- `GET /api/v1/catalog/collection`
+- `GET /api/v1/catalog/products/featured`
+- `GET /api/v1/catalog/products/bestsellers`
+- `GET /api/v1/catalog/products/latest`
+- `GET /api/v1/catalog/products/{id}/details`
+- `GET /api/v1/catalog/products/{id}/collection`
+- `GET /api/v1/catalog/categories`
+- `GET /api/v1/catalog/categories/featured`
+- `GET /api/v1/catalog/partners`
+- `GET /api/v1/catalog/partners/{partnerId}`
+- `GET /api/v1/catalog/partners/{partnerId}/collection`
+- `GET /api/v1/catalog/partners/{partnerId}/products`
+- `GET/POST /api/v1/catalog/products/{productId}/reviews`
+- `DELETE/POST /api/v1/catalog/reviews/{reviewId}/*`
 
 Conclusion :
 
-- ces routes catalog anciennes sont de bons candidats de nettoyage
-- elles semblent doublonner des parcours plus récents réellement consommés
+- ce bloc legacy du catalogue reste un bon candidat de nettoyage
+
+### 3. Endpoints monolithiques `setting` désormais doublonnés
+
+#### `BackOfficeSettingController`
+
+- Fichier : `lid/src/main/java/com/lifeevent/lid/backoffice/lid/setting/controller/BackOfficeSettingController.java`
+- Base route : `/api/v1/backoffice/setting`
+
+Routes encore `actives` :
+
+- `GET /api/v1/backoffice/setting/collection`
+
+Routes `legacy probables` non appelées par les frontends actuels :
+
+- `GET /api/v1/backoffice/setting`
+- `GET/PUT /api/v1/backoffice/setting/shop-profile`
+- `GET/POST/PUT/DELETE /api/v1/backoffice/setting/social-links*`
+- `GET/POST/PUT/DELETE /api/v1/backoffice/setting/free-shipping-rules*`
+- `GET/POST/PUT/DELETE /api/v1/backoffice/setting/shipping-methods*`
+- `GET/POST/PUT/DELETE /api/v1/backoffice/setting/couriers*`
+- `GET/POST/PUT/DELETE /api/v1/backoffice/setting/team-members*`
+- `GET/PUT /api/v1/backoffice/setting/security`
+- `GET/PUT /api/v1/backoffice/setting/integrations`
+- `GET/PUT /api/v1/backoffice/setting/notification-preferences`
+
+Motif :
+
+- le front backoffice consomme maintenant les contrôleurs dédiés :
+  - `/api/v1/backoffice/app-config`
+  - `/api/v1/backoffice/app-config/social-links`
+  - `/api/v1/backoffice/free-shipping-rules`
+  - `/api/v1/backoffice/shipping-methods`
+  - `/api/v1/backoffice/security/settings`
+  - `/api/v1/backoffice/integrations`
+  - `/api/v1/backoffice/notification-preferences`
+- le seul endpoint encore visiblement utile dans le contrôleur agrégé est `collection`
+
+Conclusion :
+
+- gros candidat `legacy` à découper ou supprimer partiellement
+- attention : ne pas supprimer `collection`
 
 ## Non appelés par les 3 frontends actuels
 
 ### `StockController`
 
-- Fichier : [`lid/src/main/java/com/lifeevent/lid/stock/controller/StockController.java`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/stock/controller/StockController.java)
-- Base route : [`StockController.java:14`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/stock/controller/StockController.java#L14)
+- Fichier : `lid/src/main/java/com/lifeevent/lid/stock/controller/StockController.java`
+- Base route : `/api/v1/stocks`
 - Statut : `non branché`
-- Commentaire :
+- Motif :
   - les frontends utilisent le stock via `/api/v1/backoffice/stocks`
   - aucun frontend n’appelle `/api/v1/stocks`
 
-### `WishlistController` variante par customerId
+### `WishlistController` variante par `customerId`
 
-- Fichier : [`lid/src/main/java/com/lifeevent/lid/wishlist/controller/WishlistController.java`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/wishlist/controller/WishlistController.java)
-- Route concernée :
-  - `GET /api/v1/wishlist/{customerId}`
+- Fichier : `lid/src/main/java/com/lifeevent/lid/wishlist/controller/WishlistController.java`
+- Route concernée : `GET /api/v1/wishlist/{customerId}`
 - Statut : `legacy probable`
-- Commentaire :
-  - les frontends utilisent `GET /api/v1/wishlist`
-  - ils utilisent aussi `POST/DELETE /api/v1/wishlist/{articleId}` et `GET /api/v1/wishlist/{articleId}/exists`
-  - je n’ai trouvé aucun appel frontend à la variante `/{customerId}`
+- Motif :
+  - le frontend public utilise :
+    - `GET /api/v1/wishlist`
+    - `POST /api/v1/wishlist/{articleId}`
+    - `DELETE /api/v1/wishlist/{articleId}`
+    - `GET /api/v1/wishlist/{articleId}/exists`
+  - aucun appel trouvé vers `GET /api/v1/wishlist/{customerId}`
 
-### `BackOfficeLogController`
+### `CustomerController` endpoints non branchés
 
-- Fichier : [`lid/src/main/java/com/lifeevent/lid/backoffice/lid/log/controller/BackOfficeLogController.java`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/backoffice/lid/log/controller/BackOfficeLogController.java)
-- Base route : [`BackOfficeLogController.java:13`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/backoffice/lid/log/controller/BackOfficeLogController.java#L13)
+- Fichier : `lid/src/main/java/com/lifeevent/lid/user/customer/controller/CustomerController.java`
+- Base route : `/api/v1/customers`
+
+Routes `non branchées` ou `à confirmer` :
+
+- `GET /api/v1/customers`
+- `GET /api/v1/customers/email/{email}`
+- `GET /api/v1/customers/check-email/{email}`
+
+Routes `actives` du même bloc :
+
+- `GET /api/v1/customers/{id}`
+- `PUT /api/v1/customers/{id}`
+- `DELETE /api/v1/customers/{id}`
+- `GET/POST/PUT/DELETE /api/v1/customers/{customerId}/addresses*`
+- `GET /api/v1/customers/me/collection`
+- `GET /api/v1/customers/me/checkout/collection`
+
+Conclusion :
+
+- les endpoints de lookup global par email / listing complet ne sont pas consommés par les frontends actuels
+
+### `PartnerController` endpoints non branchés
+
+- Fichier : `lid/src/main/java/com/lifeevent/lid/user/partner/controller/PartnerController.java`
+- Base route : `/api/v1/partners`
+
+Routes `non branchées` ou `à confirmer` :
+
+- `PUT /api/v1/partners/{partnerId}`
+- `DELETE /api/v1/partners/{partnerId}`
+
+Routes `actives` :
+
+- `POST /register/upgrade`
+- `POST /register/step-1`
+- `POST /register/step-2`
+- `POST /register/step-3`
+- `POST /register/step-4`
+- `GET /register/aggregate`
+- `GET /api/v1/partners/{partnerId}`
+
+### `BackOfficeOrderController` routes non branchées
+
+- Fichier : `lid/src/main/java/com/lifeevent/lid/backoffice/lid/order/controller/BackOfficeOrderController.java`
+
+Routes non utilisées par les frontends actuels :
+
+- `GET /api/v1/backoffice/orders/customers/orders`
+- `GET /api/v1/backoffice/orders/customers/{customerId}/orders`
+
+Les autres routes du contrôleur sont bien consommées par le backoffice.
+
+### `BackOfficeLogisticsController` routes non branchées
+
+- Fichier : `lid/src/main/java/com/lifeevent/lid/backoffice/lid/logistics/controller/BackOfficeLogisticsController.java`
+
+Routes non utilisées par les frontends actuels :
+
+- `GET /api/v1/backoffice/logistics/delivery-bootstrap`
+- `GET /api/v1/backoffice/logistics/shipments/details/collection`
+- `POST /api/v1/backoffice/logistics/shipments/scan`
+
+Routes actives :
+
+- `GET /api/v1/backoffice/logistics/kpis`
+- `GET /api/v1/backoffice/logistics/shipments`
+- `GET /api/v1/backoffice/logistics/shipments/{id}`
+- `PUT /api/v1/backoffice/logistics/shipments/{id}/status`
+- `POST /api/v1/backoffice/logistics/shipments/{id}/deliver`
+- `GET /api/v1/backoffice/logistics/collection`
+
+Conclusion :
+
+- bon candidat `non branché`, surtout `delivery-bootstrap` et `shipments/details/collection`
+
+### `BackOfficeFinanceController` route export non branchée
+
+- Fichier : `lid/src/main/java/com/lifeevent/lid/backoffice/lid/finance/controller/BackOfficeFinanceController.java`
+- Route concernée : `GET /api/v1/backoffice/finance/export`
 - Statut : `non branché`
-- Commentaire :
-  - aucun des 3 frontends actuels n’appelle `/api/v1/backoffice/logs`
-  - bonne candidate pour feature backend non branchée
+- Motif :
+  - le backoffice consomme `overview`, `transactions`, `collection`
+  - aucun appel trouvé vers l’export CSV
+
+### `BackOfficeLoyaltyController` route transactions client non branchée
+
+- Fichier : `lid/src/main/java/com/lifeevent/lid/backoffice/lid/loyalty/controller/BackOfficeLoyaltyController.java`
+- Route concernée : `GET /api/v1/backoffice/loyalty/customers/{userId}/transactions`
+- Statut : `non branché`
+- Motif :
+  - le backoffice consomme `overview`, `collection`, `tiers`, `customers`, `config`, `adjust`
+  - aucun appel trouvé vers les transactions détaillées par client
+
+### `BackOfficeNotificationController` route read unitaire non branchée
+
+- Fichier : `lid/src/main/java/com/lifeevent/lid/backoffice/lid/notification/controller/BackOfficeNotificationController.java`
+- Route concernée : `POST /api/v1/backoffice/notifications/{id}/read`
+- Statut : `non branché`
+- Motif :
+  - les frontends backoffice utilisent :
+    - `GET /api/v1/backoffice/notifications`
+    - `GET /api/v1/backoffice/notifications/unread-count`
+    - `POST /api/v1/backoffice/notifications/read-all`
+  - aucun appel trouvé au marquage unitaire
 
 ## À vérifier hors frontend avant suppression
 
 ### `PaymentController`
 
-- Fichier : [`lid/src/main/java/com/lifeevent/lid/payment/controller/PaymentController.java`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/PaymentController.java)
-- Base route : [`PaymentController.java:21`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/PaymentController.java#L21)
+- Fichier : `lid/src/main/java/com/lifeevent/lid/payment/controller/PaymentController.java`
+- Statut : `à vérifier hors frontend`
 
-Appelé par frontend :
+Route active côté frontend :
 
-- `GET /api/v1/payments/verify/{invoiceToken}` dans [`PaymentController.java:44`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/PaymentController.java#L44)
+- `GET /api/v1/payments/verify/{invoiceToken}`
 
-Non appelés par les 3 frontends :
+Routes non appelées par les 3 frontends :
 
-- `POST /api/v1/payments` dans [`PaymentController.java:32`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/PaymentController.java#L32)
-- `GET /api/v1/payments/{paymentId}` dans [`PaymentController.java:56`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/PaymentController.java#L56)
-- `GET /api/v1/payments/order/{orderId}` dans [`PaymentController.java:68`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/PaymentController.java#L68)
-- `GET /api/v1/payments/customer/{email}` dans [`PaymentController.java:80`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/PaymentController.java#L80)
-- `DELETE /api/v1/payments/{paymentId}` dans [`PaymentController.java:92`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/PaymentController.java#L92)
-- `GET /api/v1/payments/operators/{countryCode}` dans [`PaymentController.java:104`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/PaymentController.java#L104)
+- `POST /api/v1/payments`
+- `GET /api/v1/payments/{paymentId}`
+- `GET /api/v1/payments/order/{orderId}`
+- `GET /api/v1/payments/customer/{email}`
+- `DELETE /api/v1/payments/{paymentId}`
+- `GET /api/v1/payments/operators/{countryCode}`
 
-Statut :
+Conclusion :
 
-- `à vérifier hors frontend`
+- probablement utiles pour intégration paiement, support ou diagnostic
+- ne pas supprimer sans audit métier
 
 ### `RefundController`
 
-- Fichier : [`lid/src/main/java/com/lifeevent/lid/payment/controller/RefundController.java`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/RefundController.java)
-- Base route : [`RefundController.java:20`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/RefundController.java#L20)
+- Fichier : `lid/src/main/java/com/lifeevent/lid/payment/controller/RefundController.java`
 - Statut : `à vérifier hors frontend`
-- Commentaire :
-  - aucun des 3 frontends n’appelle `/api/v1/refunds`
-  - mais ça peut servir au support, à l’admin ou à des opérations futures
+- Motif :
+  - aucun frontend n’appelle `/api/v1/refunds`
+  - mais le domaine remboursement reste sensible et peut être utilisé hors UI
 
 ### `WebhookController`
 
-- Fichier : [`lid/src/main/java/com/lifeevent/lid/payment/controller/WebhookController.java`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/WebhookController.java)
-- Base route : [`WebhookController.java:17`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/WebhookController.java#L17)
-- Routes :
-  - `POST /api/v1/webhooks/paydunya` dans [`WebhookController.java:32`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/WebhookController.java#L32)
-  - `GET /api/v1/webhooks/health` dans [`WebhookController.java:64`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/payment/controller/WebhookController.java#L64)
+- Fichier : `lid/src/main/java/com/lifeevent/lid/payment/controller/WebhookController.java`
 - Statut : `à vérifier hors frontend`
-- Commentaire :
+- Motif :
   - absence d’appel frontend normale
   - endpoint d’intégration externe, donc non classable comme mort sans audit infra
 
-### `LocalStorageController`
+### `AuthController` routes non branchées côté fronts actuels
 
-- Fichier : [`lid/src/main/java/com/lifeevent/lid/common/controller/LocalStorageController.java`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/common/controller/LocalStorageController.java)
-- Base route : [`LocalStorageController.java:21`](/Users/jeanemmanuel/Desktop/company-projects/lid/lid-api/lid/src/main/java/com/lifeevent/lid/common/controller/LocalStorageController.java#L21)
-- Statut : `à vérifier hors frontend`
-- Commentaire :
-  - aucun frontend ne référence `/api/v1/cdn`
-  - mais le contrôleur est `@Profile("local")`, donc c’est vraisemblablement un outil de dev local
+- Fichier : `lid/src/main/java/com/lifeevent/lid/auth/controller/AuthController.java`
+
+Routes non appelées par les frontends actuels :
+
+- `POST /api/v1/auth/login/customer`
+
+Routes `à vérifier` plutôt que supprimer immédiatement :
+
+- le bloc Google login global dépend potentiellement d’autres clients ou d’évolutions à venir
 
 ## Résumé exécutable
 
-### Candidats de suppression ou nettoyage prioritaire
+### Suppression ou nettoyage prioritaire
 
 - `ArticleController`
 - `CategoryController`
 - routes legacy de `CatalogController`
-- `WishlistController` route `GET /api/v1/wishlist/{customerId}`
+- endpoints monolithiques legacy de `BackOfficeSettingController` sauf `collection`
+- `GET /api/v1/wishlist/{customerId}`
 - `StockController`
 
-### Candidats à garder tant qu’un audit hors frontend n’a pas été fait
+### Bons candidats non branchés mais à confirmer métier
+
+- `PUT/DELETE /api/v1/partners/{partnerId}`
+- `GET /api/v1/customers`
+- `GET /api/v1/customers/email/{email}`
+- `GET /api/v1/customers/check-email/{email}`
+- `GET /api/v1/backoffice/orders/customers/orders`
+- `GET /api/v1/backoffice/orders/customers/{customerId}/orders`
+- `GET /api/v1/backoffice/logistics/delivery-bootstrap`
+- `GET /api/v1/backoffice/logistics/shipments/details/collection`
+- `POST /api/v1/backoffice/logistics/shipments/scan`
+- `GET /api/v1/backoffice/finance/export`
+- `GET /api/v1/backoffice/loyalty/customers/{userId}/transactions`
+- `POST /api/v1/backoffice/notifications/{id}/read`
+
+### À garder tant qu’un audit hors frontend n’a pas été fait
 
 - `PaymentController`
 - `RefundController`
 - `WebhookController`
-- `LocalStorageController`
-- `BackOfficeLogController`
+- `AuthController` routes Google peu utilisées
 
 ## Étape suivante recommandée
 
 Faire un second audit par usage backend interne pour vérifier :
 
-- références directes dans tests
-- usage par scripts ops
-- usage par webhooks ou prestataires tiers
-- présence dans docs Postman/Swagger si elles sont encore maintenues
+- références dans tests
+- usage par services métier internes
+- exposition Swagger encore maintenue
+- usage par scripts ops / tooling
+- usage réel webhook / paiement / support
