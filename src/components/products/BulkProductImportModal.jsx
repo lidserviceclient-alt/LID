@@ -5,6 +5,7 @@ import Button from "../ui/Button.jsx";
 import Input from "../ui/Input.jsx";
 import Select from "../ui/Select.jsx";
 import Label from "../ui/Label.jsx";
+import { backofficeApi } from "../../services/api.js";
 
 const MAX_SECONDARY_IMAGES = 5;
 
@@ -156,9 +157,9 @@ function parseDelimitedRecords(raw) {
 
 function buildTemplate(categories) {
   const firstCategory = Array.isArray(categories) && categories.length > 0
-    ? (categories[0].businessId || categories[0].id)
-    : "CAT-001";
-  return `referenceProduitPartenaire;name;description;category;price;stock;brand;mainImageUrl;secondaryImageUrls;isFeatured;isBestSeller
+    ? (categories[0].slug || categories[0].id)
+    : "categorie-exemple";
+  return `referenceProduitPartenaire;name;description;categorySlug;price;stock;brand;mainImageUrl;secondaryImageUrls;isFeatured;isBestSeller
 REF-001;Produit A;Description A;${firstCategory};15000;10;Marque A;https://cdn.exemple.com/prod-a-main.jpg;https://cdn.exemple.com/prod-a-1.jpg|https://cdn.exemple.com/prod-a-2.jpg;1;0
 REF-002;Produit B;;${firstCategory};25000;5;Marque B;https://cdn.exemple.com/prod-b-main.jpg;;0;1`;
 }
@@ -186,7 +187,7 @@ function toBulkPayload(row) {
     price: Number.isFinite(price) ? price : undefined,
     vat: Number.isFinite(vat) ? vat : undefined,
     status: `${row.status || ""}`.trim().toUpperCase() || undefined,
-    categoryBusinessId: row.categoryId || undefined,
+    categorySlug: row.categoryId || undefined,
     category: row.categoryId || undefined,
     stock: Number.isFinite(Number(row.stock)) ? Math.trunc(Number(row.stock)) : 0,
     brand: row.brand || undefined,
@@ -210,12 +211,15 @@ export default function BulkProductImportModal({
   const [error, setError] = useState("");
   const [importText, setImportText] = useState("");
   const [imageRowIndex, setImageRowIndex] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const bulkMainImageInputRef = useRef(null);
+  const bulkSecondaryImagesInputRef = useRef(null);
 
   const categoryOptions = useMemo(() => {
     const opts = [{ value: "", label: "—" }];
     for (const c of categories || []) {
       opts.push({
-        value: c.businessId || c.id,
+        value: c.slug || c.id,
         label: c.nom
       });
     }
@@ -349,7 +353,7 @@ export default function BulkProductImportModal({
     const idxPrice = colIndexAny(["price"], 4);
     const idxVat = colIndexAny(["vat", "tva"], -1);
     const idxStatus = colIndexAny(["status", "statut"], -1);
-    const idxCategory = colIndexAny(["category"], 3);
+    const idxCategory = colIndexAny(["categoryslug", "category"], 3);
     const idxCategories = colIndexAny(["categories", "categoryids", "category_ids"], -1);
     const idxStock = colIndexAny(["stock"], 5);
     const idxBrand = colIndexAny(["brand", "marque"], 6);
@@ -371,15 +375,13 @@ export default function BulkProductImportModal({
     const normalizeCategory = (value) => {
       const v = `${value || ""}`.trim();
       if (!v) return "";
-      const byId = (categories || []).find((c) => c.id === v);
-      if (byId) return byId.businessId || byId.id;
+      const byId = (categories || []).find((c) => `${c.id}` === v);
+      if (byId) return byId.slug || byId.id;
       const low = v.toLowerCase();
-      const byBusinessId = (categories || []).find((c) => `${c.businessId || ""}`.toLowerCase() === low);
-      if (byBusinessId) return byBusinessId.businessId || byBusinessId.id;
       const bySlug = (categories || []).find((c) => `${c.slug || ""}`.toLowerCase() === low);
-      if (bySlug) return bySlug.businessId || bySlug.slug || bySlug.id;
+      if (bySlug) return bySlug.slug || bySlug.id;
       const byName = (categories || []).find((c) => `${c.nom || ""}`.toLowerCase() === low);
-      if (byName) return byName.businessId || byName.id;
+      if (byName) return byName.slug || byName.id;
       return v;
     };
 
@@ -455,6 +457,57 @@ export default function BulkProductImportModal({
     if (!canSubmit) return;
     const payload = validatedRows.map((r) => toBulkPayload(r));
     onSubmit(payload);
+  };
+
+  const uploadMainImageForRow = async (file) => {
+    if (!file || typeof imageRowIndex !== "number" || uploadingImage) return;
+    setUploadingImage(true);
+    setError("");
+    try {
+      let res;
+      try {
+        res = await backofficeApi.uploadMedia(file, "products");
+      } catch (err) {
+        const message = err?.message || "";
+        if (!message.toLowerCase().includes("existe déjà") || !window.confirm(`${message}\n\nVoulez-vous écraser cette image ?`)) {
+          throw err;
+        }
+        res = await backofficeApi.uploadMedia(file, "products", { overwrite: true });
+      }
+      const url = `${res?.url || ""}`.trim();
+      if (!url) throw new Error("Upload terminé, mais URL manquante.");
+      setRowField(imageRowIndex, "mainImageUrl", url);
+    } catch (err) {
+      setError(err?.message || "Upload de l'image impossible.");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const uploadSecondaryImagesForRow = async (files) => {
+    if (typeof imageRowIndex !== "number" || uploadingImage) return;
+    const selected = Array.from(files || []).filter(Boolean);
+    if (!selected.length) return;
+    setUploadingImage(true);
+    setError("");
+    try {
+      let res = await backofficeApi.uploadMediaBulk(selected, "products");
+      const duplicateCount = (Array.isArray(res?.files) ? res.files : [])
+        .filter((item) => `${item?.errorMessage || ""}`.toLowerCase().includes("existe déjà")).length;
+      if (duplicateCount > 0 && window.confirm(`${duplicateCount} image(s) portent déjà le même nom. Voulez-vous les écraser ?`)) {
+        res = await backofficeApi.uploadMediaBulk(selected, "products", { overwrite: true });
+      }
+      const urls = (Array.isArray(res?.files) ? res.files : [])
+        .filter((item) => item?.success && item?.file?.url)
+        .map((item) => item.file.url);
+      if (!urls.length) throw new Error("Aucune image n'a été uploadée.");
+      const current = parseSecondaryImageUrls(rows[imageRowIndex]?.secondaryImageUrls);
+      setRowField(imageRowIndex, "secondaryImageUrls", [...current, ...urls].join("|"));
+    } catch (err) {
+      setError(err?.message || "Upload des images impossible.");
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   return (
@@ -779,28 +832,60 @@ export default function BulkProductImportModal({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Lien de l'image principale</Label>
-            <Input
-              type="url"
-              value={typeof imageRowIndex === "number" ? rows[imageRowIndex]?.mainImageUrl : ""}
-              onChange={(e) => {
-                if (typeof imageRowIndex !== "number") return;
-                setRowField(imageRowIndex, "mainImageUrl", e.target.value);
-              }}
-              placeholder="https://raw.githubusercontent.com/.../image.jpg"
-            />
-            <p className="text-xs text-muted-foreground">Collez un lien direct vers l'image (GitHub raw, CDN, etc.).</p>
+            <div className="flex gap-2">
+              <Input
+                type="url"
+                value={typeof imageRowIndex === "number" ? rows[imageRowIndex]?.mainImageUrl : ""}
+                onChange={(e) => {
+                  if (typeof imageRowIndex !== "number") return;
+                  setRowField(imageRowIndex, "mainImageUrl", e.target.value);
+                }}
+                placeholder="https://cdn.exemple.com/image.jpg"
+              />
+              <Button type="button" variant="outline" onClick={() => bulkMainImageInputRef.current?.click()} disabled={uploadingImage}>
+                <Upload className="mr-2 h-4 w-4" />
+                {uploadingImage ? "Upload..." : "Uploader"}
+              </Button>
+              <input
+                ref={bulkMainImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  uploadMainImageForRow(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Collez une URL ou uploadez une image compressée par le backend.</p>
           </div>
           <div className="space-y-2">
             <Label>Images secondaires</Label>
-            <Input
-              type="text"
-              value={typeof imageRowIndex === "number" ? rows[imageRowIndex]?.secondaryImageUrls : ""}
-              onChange={(e) => {
-                if (typeof imageRowIndex !== "number") return;
-                setRowField(imageRowIndex, "secondaryImageUrls", e.target.value);
-              }}
-              placeholder="https://cdn.exemple.com/a.jpg|https://cdn.exemple.com/b.jpg"
-            />
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                value={typeof imageRowIndex === "number" ? rows[imageRowIndex]?.secondaryImageUrls : ""}
+                onChange={(e) => {
+                  if (typeof imageRowIndex !== "number") return;
+                  setRowField(imageRowIndex, "secondaryImageUrls", e.target.value);
+                }}
+                placeholder="https://cdn.exemple.com/a.jpg|https://cdn.exemple.com/b.jpg"
+              />
+              <Button type="button" variant="outline" onClick={() => bulkSecondaryImagesInputRef.current?.click()} disabled={uploadingImage}>
+                Ajouter
+              </Button>
+              <input
+                ref={bulkSecondaryImagesInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  uploadSecondaryImagesForRow(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </div>
             <p className="text-xs text-muted-foreground">Séparez chaque URL avec `|` (max {MAX_SECONDARY_IMAGES}).</p>
             {typeof imageRowIndex === "number" &&
             (validatedRows[imageRowIndex]?._errors?.secondaryImageUrls) ? (

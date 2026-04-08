@@ -9,6 +9,7 @@ import Orders from "./pages/Orders.jsx";
 import Returns from "./pages/Returns.jsx";
 import Products from "./pages/Products.jsx";
 import ProductCreate from "./pages/ProductCreate.jsx";
+import Media from "./pages/Media.jsx";
 import Partners from "./pages/Partners.jsx";
 import Customers from "./pages/Customers.jsx";
 import Users from "./pages/Users.jsx";
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="/partners" element={<Partners />} />
         <Route path="/products" element={<Products />} />
         <Route path="/products/create" element={<ProductCreate />} />
+        <Route path="/media" element={<Media />} />
         <Route path="/categories" element={<Categories />} />
         <Route path="/promo-codes" element={<PromoCodes />} />
         <Route path="/blog-posts" element={<BlogPosts />} />

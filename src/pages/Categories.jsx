@@ -58,7 +58,6 @@ export default function Categories() {
   const [pageError, setPageError] = useState("");
 
   const [formData, setFormData] = useState({
-    businessId: "",
     nom: "",
     slug: "",
     imageUrl: "",
@@ -100,8 +99,7 @@ export default function Categories() {
         const matchesQuery =
           !q ||
           `${c.nom || ""}`.toLowerCase().includes(q) ||
-          `${c.slug || ""}`.toLowerCase().includes(q) ||
-          `${c.businessId || ""}`.toLowerCase().includes(q);
+          `${c.slug || ""}`.toLowerCase().includes(q);
 
         const matchesLevel = levelFilter === "ALL" || c.niveau === levelFilter;
 
@@ -127,7 +125,6 @@ export default function Categories() {
   const openCreate = () => {
     setCurrentCategory(null);
     setFormData({
-      businessId: "",
       nom: "",
       slug: "",
       imageUrl: "",
@@ -142,7 +139,6 @@ export default function Categories() {
   const openEdit = (category) => {
     setCurrentCategory(category);
     setFormData({
-      businessId: category.businessId || "",
       nom: category.nom || "",
       slug: category.slug || "",
       imageUrl: category.imageUrl || "",
@@ -164,7 +160,6 @@ export default function Categories() {
     const next = !Boolean(category?.isFeatured);
     try {
       const payload = {
-        businessId: category.businessId || null,
         nom: category.nom || "",
         slug: category.slug || "",
         imageUrl: category.imageUrl || null,
@@ -219,7 +214,6 @@ export default function Categories() {
 
     const isParentCategory = formData.niveau === "PRINCIPALE" && !trimmedParentId;
     const payload = {
-      businessId: formData.businessId?.trim() || null,
       nom: formData.nom,
       slug: formData.slug?.trim() ? formData.slug.trim() : slugify(formData.nom),
       imageUrl: isParentCategory ? formData.imageUrl?.trim() || null : null,
@@ -357,7 +351,7 @@ export default function Categories() {
                   className="pl-9"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Rechercher (nom, slug, id métier)"
+                  placeholder="Rechercher (nom, slug)"
                 />
               </div>
             </div>
@@ -399,7 +393,6 @@ export default function Categories() {
                 />
               </TCell>
               <TCell>Nom</TCell>
-              <TCell>ID métier</TCell>
               <TCell>Niveau</TCell>
               <TCell>Parent</TCell>
               <TCell>Slug</TCell>
@@ -427,7 +420,6 @@ export default function Categories() {
                   <TCell>
                     <p className="font-semibold text-foreground">{category.nom}</p>
                   </TCell>
-                  <TCell className="font-mono text-xs">{category.businessId || "-"}</TCell>
                   <TCell>{levelLabel}</TCell>
                   <TCell>{category.parentName || "-"}</TCell>
                   <TCell className="font-mono text-xs">{category.slug}</TCell>
@@ -466,7 +458,7 @@ export default function Categories() {
 
             {filtered.length === 0 && (
               <TRow>
-                <TCell colSpan={11} className="text-center text-sm text-muted-foreground py-10">
+                <TCell colSpan={10} className="text-center text-sm text-muted-foreground py-10">
                   {isLoading ? "Chargement..." : "Aucune catégorie trouvée."}
                 </TCell>
               </TRow>
@@ -491,17 +483,6 @@ export default function Categories() {
         }
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="businessId">ID métier</Label>
-            <Input
-              id="businessId"
-              value={formData.businessId}
-              onChange={(e) => setFormData((prev) => ({ ...prev, businessId: e.target.value }))}
-              placeholder="Ex: CAT-ELECTRO"
-            />
-            <p className="text-xs text-muted-foreground">Utilisé pour associer les produits en import bulk.</p>
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="nom">Nom</Label>
             <Input

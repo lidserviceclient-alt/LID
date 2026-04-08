@@ -19,7 +19,8 @@ import {
   MessageSquareText,
   FileText,
   Ticket,
-  RotateCcw
+  RotateCcw,
+  Image
 } from "lucide-react";
 import { cn } from "../../utils/cn.js";
 
@@ -40,6 +41,7 @@ const navSections = [
       { label: "Retours", to: "/returns", icon: RotateCcw },
       { label: "Partenaires", to: "/partners", icon: Store },
       { label: "Produits", to: "/products", icon: Package },
+      { label: "Media", to: "/media", icon: Image },
       { label: "Catégories", to: "/categories", icon: Tag },
       { label: "Stocks", to: "/inventory", icon: Boxes },
       { label: "Livraison", to: "/logistics", icon: Truck }

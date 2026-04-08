@@ -216,13 +216,47 @@ export const backofficeApi = {
     request(`/api/v1/backoffice/categories/${id}`, {
       method: "DELETE"
     }),
-  uploadCategoryImage: (file) => {
+  uploadCategoryImage: (file, { overwrite = false } = {}) => {
     const formData = new FormData();
     formData.append("file", file);
-    return requestForm("/api/v1/backoffice/categories/upload-image", {
+    formData.append("folder", "categories");
+    formData.append("overwrite", `${overwrite}`);
+    return requestForm("/api/v1/storage/upload", {
       method: "POST",
       body: formData
     });
+  },
+  uploadMedia: (file, folder = "uploads", { overwrite = false } = {}) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("folder", folder);
+    formData.append("overwrite", `${overwrite}`);
+    return requestForm("/api/v1/storage/upload", {
+      method: "POST",
+      body: formData
+    });
+  },
+  uploadMediaBulk: (files, folder = "uploads", { overwrite = false } = {}) => {
+    const formData = new FormData();
+    for (const file of Array.from(files || [])) {
+      formData.append("files", file);
+    }
+    formData.append("folder", folder);
+    formData.append("overwrite", `${overwrite}`);
+    return requestForm("/api/v1/storage/upload-bulk", {
+      method: "POST",
+      body: formData
+    });
+  },
+  listMedia: ({ ownerScope = "LID", ownerUserId = "", folder = "", q = "", page = 0, size = 24 } = {}) => {
+    const params = new URLSearchParams();
+    if (ownerScope) params.set("ownerScope", ownerScope);
+    if (ownerUserId) params.set("ownerUserId", ownerUserId);
+    if (folder) params.set("folder", folder);
+    if (q) params.set("q", q);
+    params.set("page", `${page}`);
+    params.set("size", `${size}`);
+    return request(`/api/v1/storage/media?${params.toString()}`);
   },
   boutiques: () => request("/api/v1/backoffice/shops"),
   promoCodes: () => request("/api/v1/backoffice/promo-codes"),
@@ -677,17 +711,17 @@ export const backofficeApi = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
-  notifications: (page = 0, size = 20, since = "") => {
-    const params = new URLSearchParams({ page, size });
-    if (since) params.set("since", since);
-    return request(`/api/v1/backoffice/notifications?${params.toString()}`);
-  },
-  notificationsCount: (since = "") => {
-    const params = new URLSearchParams();
-    if (since) params.set("since", since);
-    const qs = params.toString();
-    return request(`/api/v1/backoffice/notifications/count${qs ? `?${qs}` : ""}`);
-  },
+  notifications: (page = 0, size = 20) =>
+    request(`/api/v1/backoffice/notifications?${new URLSearchParams({ page, size }).toString()}`),
+  notificationsCount: () => request("/api/v1/backoffice/notifications/unread-count"),
+  markNotificationRead: (id) =>
+    request(`/api/v1/backoffice/notifications/${encodeURIComponent(id)}/read`, {
+      method: "POST"
+    }),
+  readAllNotifications: () =>
+    request("/api/v1/backoffice/notifications/read-all", {
+      method: "POST"
+    }),
   securitySettings: () => request("/api/v1/backoffice/security/settings"),
   updateSecuritySettings: (payload) =>
     request("/api/v1/backoffice/security/settings", {
@@ -728,6 +762,22 @@ export const backofficeApi = {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
+  logs: ({ page = 0, size = 20, from = "", to = "", level = "", logger = "", q = "" } = {}) => {
+    const params = new URLSearchParams({ page, size });
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    if (level) params.set("level", level);
+    if (logger) params.set("logger", logger);
+    if (q) params.set("q", q);
+    return request(`/api/v1/backoffice/logs?${params.toString()}`);
+  },
+  purgeLogs: (before = "") => {
+    const params = new URLSearchParams();
+    if (before) params.set("before", before);
+    return request(`/api/v1/backoffice/logs${params.toString() ? `?${params.toString()}` : ""}`, {
+      method: "DELETE"
+    });
+  },
   integrations: () => request("/api/v1/backoffice/integrations"),
   updateIntegrations: (payload) =>
     request("/api/v1/backoffice/integrations", {

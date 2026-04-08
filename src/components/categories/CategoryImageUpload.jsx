@@ -30,7 +30,16 @@ export default function CategoryImageUpload({ value, onChange, disabled }) {
     setError("");
     setUploading(true);
     try {
-      const res = await backofficeApi.uploadCategoryImage(file);
+      let res;
+      try {
+        res = await backofficeApi.uploadCategoryImage(file);
+      } catch (e) {
+        const message = e?.message || "";
+        if (!message.toLowerCase().includes("existe déjà") || !window.confirm(`${message}\n\nVoulez-vous écraser cette image ?`)) {
+          throw e;
+        }
+        res = await backofficeApi.uploadCategoryImage(file, { overwrite: true });
+      }
       const url = res?.url || res;
       if (!url) throw new Error("Upload terminé, mais URL manquante.");
       onChange(url);

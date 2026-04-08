@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, Loader2, Info, Layers, DollarSign, Package, Image as ImageIcon, BarChart } from "lucide-react";
 import Card from "../components/ui/Card";
@@ -20,6 +20,9 @@ export default function ProductCreate() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const mainImageInputRef = useRef(null);
+  const secondaryImagesInputRef = useRef(null);
+  const [imageUploading, setImageUploading] = useState(false);
   const categoriesEntry = useCategoriesResolver();
   const categories = Array.isArray(categoriesEntry.data) ? categoriesEntry.data : [];
   const categoriesLoading = categoriesEntry.loading;
@@ -58,6 +61,58 @@ export default function ProductCreate() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const uploadMainImage = async (file) => {
+    if (!file || imageUploading) return;
+    setImageUploading(true);
+    setError("");
+    try {
+      let res;
+      try {
+        res = await backofficeApi.uploadMedia(file, "products");
+      } catch (err) {
+        const message = err?.message || "";
+        if (!message.toLowerCase().includes("existe déjà") || !window.confirm(`${message}\n\nVoulez-vous écraser cette image ?`)) {
+          throw err;
+        }
+        res = await backofficeApi.uploadMedia(file, "products", { overwrite: true });
+      }
+      const url = `${res?.url || ""}`.trim();
+      if (!url) throw new Error("Upload terminé, mais URL manquante.");
+      setFormData((prev) => ({ ...prev, mainImageUrl: url }));
+    } catch (err) {
+      setError(err?.message || "Upload de l'image impossible.");
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const uploadSecondaryImages = async (files) => {
+    const selected = Array.from(files || []).filter(Boolean);
+    if (!selected.length || imageUploading) return;
+    setImageUploading(true);
+    setError("");
+    try {
+      let res = await backofficeApi.uploadMediaBulk(selected, "products");
+      const duplicateCount = (Array.isArray(res?.files) ? res.files : [])
+        .filter((item) => `${item?.errorMessage || ""}`.toLowerCase().includes("existe déjà")).length;
+      if (duplicateCount > 0 && window.confirm(`${duplicateCount} image(s) portent déjà le même nom. Voulez-vous les écraser ?`)) {
+        res = await backofficeApi.uploadMediaBulk(selected, "products", { overwrite: true });
+      }
+      const urls = (Array.isArray(res?.files) ? res.files : [])
+        .filter((item) => item?.success && item?.file?.url)
+        .map((item) => item.file.url);
+      if (!urls.length) throw new Error("Aucune image n'a été uploadée.");
+      setFormData((prev) => {
+        const current = parseSecondaryImageUrls(prev.secondaryImageUrls);
+        return { ...prev, secondaryImageUrls: [...current, ...urls].join("|") };
+      });
+    } catch (err) {
+      setError(err?.message || "Upload des images impossible.");
+    } finally {
+      setImageUploading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -215,29 +270,60 @@ export default function ProductCreate() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="mainImageUrl">Lien de l'image principale</Label>
-                <Input
-                  id="mainImageUrl"
-                  name="mainImageUrl"
-                  type="url"
-                  placeholder="https://raw.githubusercontent.com/.../image.jpg"
-                  value={formData.mainImageUrl}
-                  onChange={handleChange}
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="mainImageUrl"
+                    name="mainImageUrl"
+                    type="url"
+                    placeholder="https://cdn.exemple.com/image.jpg"
+                    value={formData.mainImageUrl}
+                    onChange={handleChange}
+                  />
+                  <Button type="button" variant="outline" onClick={() => mainImageInputRef.current?.click()} disabled={imageUploading}>
+                    {imageUploading ? "Upload..." : "Uploader"}
+                  </Button>
+                  <input
+                    ref={mainImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      uploadMainImage(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Collez un lien direct vers l'image (GitHub raw, CDN, etc.).
+                  Collez une URL ou uploadez une image. Sans image, le catalogue affichera l'image par défaut.
                 </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="secondaryImageUrls">Liens des images secondaires</Label>
-                <Input
-                  id="secondaryImageUrls"
-                  name="secondaryImageUrls"
-                  type="text"
-                  placeholder="https://cdn.exemple.com/a.jpg|https://cdn.exemple.com/b.jpg"
-                  value={formData.secondaryImageUrls}
-                  onChange={handleChange}
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="secondaryImageUrls"
+                    name="secondaryImageUrls"
+                    type="text"
+                    placeholder="https://cdn.exemple.com/a.jpg|https://cdn.exemple.com/b.jpg"
+                    value={formData.secondaryImageUrls}
+                    onChange={handleChange}
+                  />
+                  <Button type="button" variant="outline" onClick={() => secondaryImagesInputRef.current?.click()} disabled={imageUploading}>
+                    Ajouter
+                  </Button>
+                  <input
+                    ref={secondaryImagesInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      uploadSecondaryImages(e.target.files);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground">Séparez plusieurs URLs avec `|`.</p>
               </div>
 

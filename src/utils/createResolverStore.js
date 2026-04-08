@@ -1,13 +1,11 @@
 import { useEffect, useSyncExternalStore } from "react";
 
-function createEmptyEntry() {
-  return {
-    data: null,
-    loading: false,
-    error: "",
-    loaded: false
-  };
-}
+const EMPTY_ENTRY = Object.freeze({
+  data: null,
+  loading: false,
+  error: "",
+  loaded: false
+});
 
 export function createResolverStore(fetcher, getKey = (...args) => JSON.stringify(args)) {
   const entries = new Map();
@@ -24,7 +22,7 @@ export function createResolverStore(fetcher, getKey = (...args) => JSON.stringif
   }
 
   function readEntry(key) {
-    return entries.get(key) || createEmptyEntry();
+    return entries.get(key) || EMPTY_ENTRY;
   }
 
   async function load(args, { force = false } = {}) {

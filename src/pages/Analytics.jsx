@@ -262,13 +262,9 @@ export default function Analytics() {
           {Array.isArray(notifications) && notifications.length > 0 ? (
             <div className="space-y-2 text-sm text-muted-foreground">
               {notifications.slice(0, 4).map((n) => (
-                <div key={n.id || `${n.method}-${n.path}-${n.createdAt}`} className="space-y-0.5">
-                  <p className="text-sm text-foreground font-medium">{n.summary || "Notification"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {n.actor ? `${n.actor} · ` : ""}
-                    {n.method ? `${n.method} ` : ""}
-                    {n.path || ""}
-                  </p>
+                <div key={n.id || `${n.type}-${n.createdAt}`} className="space-y-0.5">
+                  <p className="text-sm text-foreground font-medium">{n.title || "Notification"}</p>
+                  <p className="text-xs text-muted-foreground">{n.body || ""}</p>
                 </div>
               ))}
             </div>

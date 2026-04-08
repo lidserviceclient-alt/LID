@@ -70,6 +70,22 @@ export default function Returns() {
     setData(returnsEntry.data);
   }, [returnsEntry.data, returnsEntry.error, returnsEntry.loading]);
 
+  const refreshList = async (nextPage = page, nextStatus = status, nextQuery = q.trim()) => {
+    setLoading(true);
+    setError("");
+    try {
+      const refreshed = await reloadReturnsResolver(nextPage, size, nextStatus, nextQuery);
+      setData(refreshed);
+      return refreshed;
+    } catch (err) {
+      const message = err?.message || "Impossible de recharger les retours.";
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const rows = useMemo(() => {
     const list = Array.isArray(data?.content) ? data.content : [];
     return list.map((r) => ({
@@ -109,10 +125,11 @@ export default function Returns() {
   const submitStatus = async () => {
     if (!detail?.id || !statusUpdate) return;
     setStatusSaving(true);
+    setDetailError("");
     try {
       const updated = await backofficeApi.updateReturnStatus(detail.id, statusUpdate);
       setDetail(updated);
-      await reloadReturnsResolver(page, size, status, q.trim());
+      await refreshList(page, status, q.trim());
     } catch (err) {
       setDetailError(err?.message || "Impossible de mettre à jour le statut.");
     } finally {
@@ -132,10 +149,22 @@ export default function Returns() {
         title="Retours commandes"
         subtitle="Validez et suivez les demandes de retour"
         rightSlot={
-          <Button variant="outline" size="sm" className="gap-2" onClick={resetFilters}>
-            <RefreshCcw className="h-4 w-4" />
-            Réinitialiser
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => refreshList().catch(() => {})}
+              disabled={loading}
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Actualiser
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={resetFilters}>
+              <RefreshCcw className="h-4 w-4" />
+              Réinitialiser
+            </Button>
+          </div>
         }
       />
 

@@ -523,26 +523,18 @@ export default function Topbar({ onMenuClick }) {
                 className="flex items-start justify-between gap-4 p-3 rounded-xl border border-border/60 bg-muted/20"
               >
                 <div className="space-y-1">
-                  <div className="text-sm font-semibold text-foreground">{n.summary || "Activité backoffice"}</div>
-                  <div className="text-xs text-muted-foreground">{n.actor || "-"} {"\u2022"} {n.method || "-"} {"\u2022"} {n.path || "-"}</div>
+                  <div className="text-sm font-semibold text-foreground">{n.title || "Notification"}</div>
+                  <div className="text-xs text-muted-foreground">{n.body || "-"}</div>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
                     setIsNotificationsOpen(false);
-                    const p = `${n.path || ""}`;
-                    if (p.includes("/products")) navigate("/products");
-                    else if (p.includes("/users")) navigate("/users");
-                    else if (p.includes("/customers")) navigate("/customers");
-                    else if (p.includes("/orders")) navigate("/orders");
-                    else if (p.includes("/inventory")) navigate("/inventory");
-                    else if (p.includes("/marketing")) navigate("/marketing");
-                    else if (p.includes("/finance")) navigate("/finance");
-                    else navigate("/");
+                    navigate(n.actionPath || "/");
                   }}
                 >
-                  Voir
+                  {n.actionLabel || "Voir"}
                 </Button>
               </div>
             ))}
