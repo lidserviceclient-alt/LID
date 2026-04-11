@@ -12,21 +12,24 @@ import com.lifeevent.lid.auth.repository.PasswordResetTokenRepository;
 import com.lifeevent.lid.backoffice.lid.setting.repository.BackOfficeSecuritySettingRepository;
 import com.lifeevent.lid.cart.service.CartService;
 import com.lifeevent.lid.common.service.EmailService;
+import com.lifeevent.lid.common.util.PhoneNumberUtils;
 import com.lifeevent.lid.user.common.dto.UserDto;
 import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.customer.dto.CustomerDto;
 import com.lifeevent.lid.user.customer.service.CustomerService;
+import com.lifeevent.lid.user.deliverydriver.entity.DelivryDriverProfileEntity;
+import com.lifeevent.lid.user.deliverydriver.repository.DelivryDriverProfileRepository;
 import com.lifeevent.lid.user.partner.mapper.PartnerMapper;
 import com.lifeevent.lid.user.partner.dto.PartnerResponseDto;
 import com.lifeevent.lid.user.partner.entity.Partner;
 import com.lifeevent.lid.user.partner.entity.PartnerRegistrationStatus;
 import com.lifeevent.lid.user.partner.repository.PartnerRepository;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseCookie;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -58,6 +61,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final AuthenticationRepository authenticationRepository;
     private final UserEntityRepository userEntityRepository;
+    private final DelivryDriverProfileRepository delivryDriverProfileRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
@@ -134,22 +138,23 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse loginLidBackofficeLocal(LoginRequest request) {
-        return loginLocal(request, this::assertAdminBackOfficeRoleOrThrow, false);
+    public AuthResponse loginLidBackofficeLocal(LoginRequest request, HttpServletResponse response) {
+        return loginLocalByEmail(request, this::assertAdminBackOfficeRoleOrThrow, false, response);
     }
 
     @Transactional
-    public AuthResponse loginDeliveryLocal(LoginRequest request) {
-        return loginLocal(request, this::assertDeliveryRoleOrThrow, false);
+    public AuthResponse loginDeliveryLocal(DeliveryLoginRequest request, HttpServletResponse response) {
+        UserEntity user = findDeliveryUserByPhoneOrThrow(request.phoneNumber());
+        return loginLocalForUser(user, request.password(), this::assertDeliveryRoleOrThrow, false, response);
     }
 
     @Transactional
-    public AuthResponse loginPartnerLocal(LoginRequest request) {
-        return loginLocal(request, this::assertPartnerRoleOrThrow, false);
+    public AuthResponse loginPartnerLocal(LoginRequest request, HttpServletResponse response) {
+        return loginLocalByEmail(request, this::assertPartnerRoleOrThrow, false, response);
     }
 
     @Transactional
-    public AuthResponse verifyAdminMfa(String mfaTokenId, String code) {
+    public AuthResponse verifyAdminMfa(String mfaTokenId, String code, HttpServletResponse response) {
         PasswordResetToken token = validateMfaTokenOrThrow(mfaTokenId, code);
         UserEntity user = token.getUser();
 
@@ -161,6 +166,7 @@ public class AuthService {
         passwordResetTokenRepository.save(token);
 
         String accessToken = buildAccessTokenForUser(user, auth);
+        issueRefreshTokenCookie(response, user.getUserId());
         return new AuthResponse(accessToken, Boolean.FALSE, null, null);
     }
 
@@ -368,20 +374,45 @@ public class AuthService {
         return auth;
     }
 
-    private AuthResponse loginLocal(LoginRequest request, Consumer<Authentication> roleCheck, boolean withMfa) {
+    private AuthResponse loginLocalByEmail(LoginRequest request,
+                                           Consumer<Authentication> roleCheck,
+                                           boolean withMfa,
+                                           HttpServletResponse response) {
         UserEntity user = findUserByEmailOrThrow(request.getEmail());
+        return loginLocalForUser(user, request.getPassword(), roleCheck, withMfa, response);
+    }
+
+    private AuthResponse loginLocalForUser(UserEntity user,
+                                           String rawPassword,
+                                           Consumer<Authentication> roleCheck,
+                                           boolean withMfa,
+                                           HttpServletResponse response) {
         assertUserNotBlocked(user.getUserId());
 
         Authentication auth = findLocalAuthenticationOrThrow(user);
         roleCheck.accept(auth);
-        assertPasswordMatchesOrThrow(request.getPassword(), auth.getPasswordHash());
+        assertPasswordMatchesOrThrow(rawPassword, auth.getPasswordHash());
 
         if (withMfa && requiresAdminMfa(auth)) {
             return startAdminMfa(user);
         }
 
         String accessToken = buildAccessTokenForUser(user, auth);
+        issueRefreshTokenCookie(response, user.getUserId());
         return new AuthResponse(accessToken, Boolean.FALSE, null, null);
+    }
+
+    private UserEntity findDeliveryUserByPhoneOrThrow(String phoneNumber) {
+        String normalizedPhone = PhoneNumberUtils.normalizeE164OrNull(phoneNumber);
+        if (normalizedPhone == null) {
+            throw new IllegalArgumentException("Identifiants invalides");
+        }
+
+        DelivryDriverProfileEntity profile = delivryDriverProfileRepository.findByPhoneNumber(normalizedPhone)
+                .orElseThrow(() -> new IllegalArgumentException("Identifiants invalides"));
+
+        return userEntityRepository.findById(profile.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Identifiants invalides"));
     }
 
     private void assertAdminBackOfficeRoleOrThrow(Authentication auth) {
@@ -488,9 +519,16 @@ public class AuthService {
     }
 
     private String buildAccessTokenForUser(UserEntity user, Authentication auth) {
+        String phoneNumber = null;
+        if (auth != null && auth.getRoles() != null && auth.getRoles().contains(UserRole.LIVREUR)) {
+            phoneNumber = userService.getDeliveryProfile(user.getUserId())
+                    .map(DelivryDriverProfileEntity::getPhoneNumber)
+                    .orElse(null);
+        }
         UserJwt userJwt = UserJwt.builder()
                 .userId(user.getUserId())
                 .email(user.getEmail())
+                .phoneNumber(phoneNumber)
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .avatarUrl(null)
@@ -619,27 +657,31 @@ public class AuthService {
     }
 
     private void setRefreshCookie(HttpServletResponse response, UUID id) {
-        Cookie cookie = new Cookie("refresh_token", id.toString());
-        cookie.setHttpOnly(true);
-        cookie.setSecure(!isLocalProfile());
-        cookie.setPath(resolveRefreshCookiePath());
-        cookie.setMaxAge((int) Duration.ofDays(refreshTtlDays).getSeconds());
-        response.addCookie(cookie);
+        ResponseCookie cookie = ResponseCookie.from("refresh_token", id.toString())
+                .httpOnly(true)
+                .secure(!isLocalProfile())
+                .sameSite(resolveRefreshCookieSameSite())
+                .path(resolveRefreshCookiePath())
+                .maxAge(Duration.ofDays(refreshTtlDays))
+                .build();
+        response.addHeader("Set-Cookie", cookie.toString());
     }
 
     private void clearRefreshCookie(HttpServletResponse response) {
-        Cookie cookie = new Cookie("refresh_token", "");
-        cookie.setHttpOnly(true);
-        cookie.setSecure(!isLocalProfile());
-        cookie.setPath(resolveRefreshCookiePath());
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
+        ResponseCookie cookie = ResponseCookie.from("refresh_token", "")
+                .httpOnly(true)
+                .secure(!isLocalProfile())
+                .sameSite(resolveRefreshCookieSameSite())
+                .path(resolveRefreshCookiePath())
+                .maxAge(Duration.ZERO)
+                .build();
+        response.addHeader("Set-Cookie", cookie.toString());
     }
 
     private String resolveRefreshCookiePath() {
         String base = servletContextPath == null ? "" : servletContextPath.trim();
         if (base.isEmpty() || "/".equals(base)) {
-            return "/api/v1/auth/refresh";
+            return "/api/v1/auth";
         }
         if (!base.startsWith("/")) {
             base = "/" + base;
@@ -647,7 +689,11 @@ public class AuthService {
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }
-        return base + "/api/v1/auth/refresh";
+        return base + "/api/v1/auth";
+    }
+
+    private String resolveRefreshCookieSameSite() {
+        return isLocalProfile() ? "Lax" : "None";
     }
 
     private String generateResetCode() {
@@ -681,4 +727,5 @@ public class AuthService {
     private boolean isLocalH2Profile() {
         return activeProfile != null && activeProfile.toLowerCase().contains("local-h2");
     }
+
 }

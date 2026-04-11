@@ -33,6 +33,7 @@ import com.lifeevent.lid.common.cache.CatalogCacheNames;
 import com.lifeevent.lid.common.dto.PageResponse;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
+import com.lifeevent.lid.common.util.PhoneNumberUtils;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.entity.OrderArticle;
 import com.lifeevent.lid.order.entity.StatusHistory;
@@ -245,7 +246,7 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
 
         partner.setFirstName(normalizeOrCurrent(dto.firstName(), partner.getFirstName()));
         partner.setLastName(normalizeOrCurrent(dto.lastName(), partner.getLastName()));
-        partner.setPhoneNumber(normalizeOrCurrent(dto.phoneNumber(), partner.getPhoneNumber()));
+        partner.setPhoneNumber(normalizePhoneOrCurrent(dto.phoneNumber(), partner.getPhoneNumber()));
         partner.setBankName(normalizeOrCurrent(dto.bankName(), partner.getBankName()));
         partner.setAccountHolder(normalizeOrCurrent(dto.accountHolder(), partner.getAccountHolder()));
         partner.setRib(normalizeOrCurrent(dto.rib(), partner.getRib()));
@@ -616,6 +617,14 @@ public class BackOfficePartnerServiceImpl implements BackOfficePartnerService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? current : trimmed;
+    }
+
+    private String normalizePhoneOrCurrent(String value, String current) {
+        if (value == null) {
+            return current;
+        }
+        String normalized = PhoneNumberUtils.normalizeE164OrNull(value);
+        return normalized == null ? current : normalized;
     }
 
     private String normalizeOrNull(String value) {

@@ -36,6 +36,12 @@ public class OrderDetailDto {
 
     private String shippingAddress;
 
+    private String shippingPhoneNumber;
+
+    private String shippingMethodCode;
+
+    private String shippingMethodLabel;
+
     private Double shippingLatitude;
 
     private Double shippingLongitude;

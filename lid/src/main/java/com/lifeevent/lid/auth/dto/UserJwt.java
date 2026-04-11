@@ -11,6 +11,7 @@ import java.util.List;
 public class UserJwt {
     private String userId;
     private String email;
+    private String phoneNumber;
     private Boolean emailVerified;
     private String fullName;
     private String firstName;

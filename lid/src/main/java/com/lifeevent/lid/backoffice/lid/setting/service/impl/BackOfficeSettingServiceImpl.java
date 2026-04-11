@@ -105,7 +105,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
     public BackOfficeSettingShopProfileDto getShopProfile() {
         return appConfigRepository.findTopByOrderByIdAsc()
                 .map(this::toShopProfileDto)
-                .orElseGet(BackOfficeSettingShopProfileDto::new);
+                .orElseGet(() -> enrichShopProfileDto(new BackOfficeSettingShopProfileDto()));
     }
 
     @Override
@@ -120,6 +120,8 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         entity.setLogoUrl(trimToNull(dto != null ? dto.getLogoUrl() : null));
         entity.setSlogan(trimToNull(dto != null ? dto.getSlogan() : null));
         entity.setActivitySector(trimToNull(dto != null ? dto.getActivitySector() : null));
+        entity.setShippingPolicyNote(trimToNull(dto != null ? dto.getShippingPolicyNote() : null));
+        entity.setReturnPolicyText(trimToNull(dto != null ? dto.getReturnPolicyText() : null));
         BackOfficeAppConfigEntity saved = appConfigRepository.save(entity);
         recordSecurityActivity("SETTING_SHOP_PROFILE_UPDATE", "SUCCESS", "PUT", "/backoffice/setting/shop-profile", "Mise a jour profil boutique");
         return toShopProfileDto(saved);
@@ -255,6 +257,9 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .label(trimToNull(dto != null ? dto.getLabel() : null))
                 .description(trimToNull(dto != null ? dto.getDescription() : null))
                 .costAmount(Optional.ofNullable(dto).map(BackOfficeSettingShippingMethodDto::getCostAmount).orElse(0D))
+                .leadTimeUnit(normalizeLeadTimeUnit(dto != null ? dto.getLeadTimeUnit() : null))
+                .leadTimeMin(normalizeLeadTimeMin(dto != null ? dto.getLeadTimeMin() : null))
+                .leadTimeMax(normalizeLeadTimeMax(dto != null ? dto.getLeadTimeMin() : null, dto != null ? dto.getLeadTimeMax() : null))
                 .enabled(Boolean.TRUE.equals(Optional.ofNullable(dto).map(BackOfficeSettingShippingMethodDto::getEnabled).orElse(Boolean.TRUE)))
                 .isDefault(Boolean.TRUE.equals(Optional.ofNullable(dto).map(BackOfficeSettingShippingMethodDto::getIsDefault).orElse(Boolean.FALSE)))
                 .sortOrder(Optional.ofNullable(dto).map(BackOfficeSettingShippingMethodDto::getSortOrder).orElse(0))
@@ -274,6 +279,9 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         entity.setLabel(trimToNull(dto != null ? dto.getLabel() : null));
         entity.setDescription(trimToNull(dto != null ? dto.getDescription() : null));
         entity.setCostAmount(Optional.ofNullable(dto).map(BackOfficeSettingShippingMethodDto::getCostAmount).orElse(0D));
+        entity.setLeadTimeUnit(normalizeLeadTimeUnit(dto != null ? dto.getLeadTimeUnit() : null));
+        entity.setLeadTimeMin(normalizeLeadTimeMin(dto != null ? dto.getLeadTimeMin() : null));
+        entity.setLeadTimeMax(normalizeLeadTimeMax(dto != null ? dto.getLeadTimeMin() : null, dto != null ? dto.getLeadTimeMax() : null));
         entity.setEnabled(Boolean.TRUE.equals(Optional.ofNullable(dto).map(BackOfficeSettingShippingMethodDto::getEnabled).orElse(Boolean.TRUE)));
         entity.setSortOrder(Optional.ofNullable(dto).map(BackOfficeSettingShippingMethodDto::getSortOrder).orElse(0));
 
@@ -689,7 +697,7 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
     }
 
     private BackOfficeSettingShopProfileDto toShopProfileDto(BackOfficeAppConfigEntity entity) {
-        return BackOfficeSettingShopProfileDto.builder()
+        return enrichShopProfileDto(BackOfficeSettingShopProfileDto.builder()
                 .storeName(entity.getStoreName())
                 .contactEmail(entity.getContactEmail())
                 .contactPhone(entity.getContactPhone())
@@ -697,7 +705,17 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .logoUrl(entity.getLogoUrl())
                 .slogan(entity.getSlogan())
                 .activitySector(entity.getActivitySector())
-                .build();
+                .shippingPolicyNote(entity.getShippingPolicyNote())
+                .returnPolicyText(entity.getReturnPolicyText())
+                .build());
+    }
+
+    private BackOfficeSettingShopProfileDto enrichShopProfileDto(BackOfficeSettingShopProfileDto dto) {
+        dto.setShippingMethods(getShippingMethods());
+        dto.setFreeShipping(freeShippingRuleRepository.findFirstByEnabledTrueOrderByCreatedAtDesc()
+                .map(this::toFreeShippingDto)
+                .orElse(null));
+        return dto;
     }
 
     private BackOfficeSettingSocialLinkDto toSocialLinkDto(BackOfficeSocialLinkEntity entity) {
@@ -726,10 +744,34 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .label(entity.getLabel())
                 .description(entity.getDescription())
                 .costAmount(entity.getCostAmount())
+                .leadTimeUnit(entity.getLeadTimeUnit())
+                .leadTimeMin(entity.getLeadTimeMin())
+                .leadTimeMax(entity.getLeadTimeMax())
                 .enabled(entity.getEnabled())
                 .isDefault(entity.getIsDefault())
                 .sortOrder(entity.getSortOrder())
                 .build();
+    }
+
+    private String normalizeLeadTimeUnit(String value) {
+        String trimmed = trimToEmpty(value).toUpperCase(Locale.ROOT);
+        return switch (trimmed) {
+            case "HOURS", "DAYS" -> trimmed;
+            default -> "DAYS";
+        };
+    }
+
+    private Integer normalizeLeadTimeMin(Integer value) {
+        if (value == null || value < 0) {
+            return 0;
+        }
+        return value;
+    }
+
+    private Integer normalizeLeadTimeMax(Integer min, Integer max) {
+        int safeMin = normalizeLeadTimeMin(min);
+        int safeMax = max == null || max < safeMin ? safeMin : max;
+        return safeMax;
     }
 
     private BackOfficeSettingSecurityDto toSecurityDto(BackOfficeSecuritySettingEntity entity) {

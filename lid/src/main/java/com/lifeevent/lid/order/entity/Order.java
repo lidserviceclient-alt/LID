@@ -82,6 +82,15 @@ public class Order extends BaseEntity {
     @Column(length = 1000)
     private String shippingAddress;
 
+    @Column(length = 30)
+    private String shippingPhoneNumber;
+
+    @Column(length = 32)
+    private String shippingMethodCode;
+
+    @Column(length = 120)
+    private String shippingMethodLabel;
+
     private Double shippingLatitude;
 
     private Double shippingLongitude;

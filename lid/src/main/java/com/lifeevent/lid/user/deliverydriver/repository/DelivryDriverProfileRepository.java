@@ -6,9 +6,12 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DelivryDriverProfileRepository extends JpaRepository<DelivryDriverProfileEntity, String> {
 
     List<DelivryDriverProfileEntity> findByUserIdIn(Collection<String> userIds);
+
+    Optional<DelivryDriverProfileEntity> findByPhoneNumber(String phoneNumber);
 }

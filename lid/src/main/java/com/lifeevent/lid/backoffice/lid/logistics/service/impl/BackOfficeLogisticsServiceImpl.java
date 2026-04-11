@@ -657,6 +657,10 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     }
 
     private String resolveCustomerPhone(Order order) {
+        String shippingPhoneNumber = trimToNull(order == null ? null : order.getShippingPhoneNumber());
+        if (shippingPhoneNumber != null) {
+            return shippingPhoneNumber;
+        }
         Customer customer = extractCustomer(order);
         return customer == null ? null : trimToNull(customer.getPhoneNumber());
     }

@@ -32,6 +32,15 @@ public class BackOfficeShippingMethodEntity extends BaseEntity {
     @Column(nullable = false)
     private Double costAmount;
 
+    @Column(length = 16, nullable = false)
+    private String leadTimeUnit;
+
+    @Column(nullable = false)
+    private Integer leadTimeMin;
+
+    @Column(nullable = false)
+    private Integer leadTimeMax;
+
     @Column(nullable = false)
     private Boolean enabled;
 

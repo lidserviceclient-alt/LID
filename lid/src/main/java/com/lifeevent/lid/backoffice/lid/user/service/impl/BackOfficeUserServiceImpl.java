@@ -350,11 +350,13 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
     }
 
     private UserEntity buildEntityFromDto(BackOfficeUserDto dto, String userId) {
+        String role = dto == null ? null : dto.getRole();
+        String email = dto == null ? null : dto.getEmail();
         return UserEntity.builder()
                 .userId(userId)
                 .firstName(dto.getPrenom())
                 .lastName(dto.getNom())
-                .email(dto.getEmail())
+                .email(resolveUserEmail(role, userId, email))
                 .emailVerified(Boolean.TRUE.equals(dto.getEmailVerifie()))
                 .blocked(Boolean.TRUE.equals(dto.getBlocked()))
                 .build();
@@ -414,6 +416,18 @@ public class BackOfficeUserServiceImpl implements BackOfficeUserService {
                 .blocked(Boolean.FALSE)
                 .role("LIVREUR")
                 .build();
+    }
+
+    private String resolveUserEmail(String role, String userId, String email) {
+        String normalizedEmail = email == null ? null : email.trim().toLowerCase();
+        if (normalizedEmail != null && !normalizedEmail.isBlank()) {
+            return normalizedEmail;
+        }
+        String normalizedRole = role == null ? "" : role.trim().toUpperCase();
+        if ("LIVREUR".equals(normalizedRole)) {
+            return "livreur+" + userId + "@delivery.lid.local";
+        }
+        return normalizedEmail;
     }
 
     private BackOfficeUserDto updateBlockedState(String id, boolean blocked) {

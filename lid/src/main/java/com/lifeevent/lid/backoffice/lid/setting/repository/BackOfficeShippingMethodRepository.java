@@ -4,7 +4,10 @@ import com.lifeevent.lid.backoffice.lid.setting.entity.BackOfficeShippingMethodE
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface BackOfficeShippingMethodRepository extends JpaRepository<BackOfficeShippingMethodEntity, String> {
     List<BackOfficeShippingMethodEntity> findAllByOrderBySortOrderAscCreatedAtAsc();
+    Optional<BackOfficeShippingMethodEntity> findFirstByCodeIgnoreCaseOrderByCreatedAtDesc(String code);
+    Optional<BackOfficeShippingMethodEntity> findFirstByIsDefaultTrueOrderBySortOrderAscCreatedAtAsc();
 }

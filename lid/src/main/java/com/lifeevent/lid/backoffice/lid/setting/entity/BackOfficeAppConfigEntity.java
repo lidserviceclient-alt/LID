@@ -27,4 +27,10 @@ public class BackOfficeAppConfigEntity extends BaseEntity {
     private String logoUrl;
     private String slogan;
     private String activitySector;
+
+    @Column(length = 2000)
+    private String shippingPolicyNote;
+
+    @Column(length = 2000)
+    private String returnPolicyText;
 }

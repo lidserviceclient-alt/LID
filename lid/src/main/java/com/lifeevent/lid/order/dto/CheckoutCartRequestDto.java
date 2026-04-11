@@ -40,6 +40,10 @@ public class CheckoutCartRequestDto {
 
     private Double shippingLongitude;
 
+    private String shippingMethodCode;
+
+    private String shippingMethodLabel;
+
     /**
      * Remarques optionnelles
      */

@@ -43,7 +43,7 @@ public class CreatePaymentRequestDto {
     private String customerEmail;
     
     @NotBlank(message = "Le téléphone du client est requis")
-    @Pattern(regexp = "^[0-9+\\-\\s()]{7,}$", message = "Le numéro de téléphone n'est pas valide")
+    @Pattern(regexp = "^\\+[1-9]\\d{7,14}$", message = "Le numéro de téléphone doit être au format international E.164")
     private String customerPhone;
     
     @NotBlank(message = "L'URL de retour est requise")

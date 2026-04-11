@@ -34,23 +34,23 @@ public class AuthController implements IAuthController {
     }
 
     @Override
-    public AuthResponse loginLidBackofficeLocal(@Valid @RequestBody LoginRequest request) {
-        return authService.loginLidBackofficeLocal(request);
+    public AuthResponse loginLidBackofficeLocal(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
+        return authService.loginLidBackofficeLocal(request, response);
     }
 
     @Override
-    public AuthResponse loginDeliveryLocal(@Valid @RequestBody LoginRequest request) {
-        return authService.loginDeliveryLocal(request);
+    public AuthResponse loginDeliveryLocal(@Valid @RequestBody DeliveryLoginRequest request, HttpServletResponse response) {
+        return authService.loginDeliveryLocal(request, response);
     }
 
     @Override
-    public AuthResponse loginPartnerLocal(@Valid @RequestBody LoginRequest request) {
-        return authService.loginPartnerLocal(request);
+    public AuthResponse loginPartnerLocal(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
+        return authService.loginPartnerLocal(request, response);
     }
 
     @Override
-    public AuthResponse verifyAdminMfa(@Valid @RequestBody VerifyAdminMfaRequest request) {
-        return authService.verifyAdminMfa(request.mfaTokenId(), request.code());
+    public AuthResponse verifyAdminMfa(@Valid @RequestBody VerifyAdminMfaRequest request, HttpServletResponse response) {
+        return authService.verifyAdminMfa(request.mfaTokenId(), request.code(), response);
     }
 
     @Override

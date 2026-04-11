@@ -5,6 +5,8 @@ import com.lifeevent.lid.article.repository.ArticleRepository;
 import com.lifeevent.lid.backoffice.lid.order.dto.*;
 import com.lifeevent.lid.backoffice.lid.order.enumeration.BackOfficeOrderStatus;
 import com.lifeevent.lid.backoffice.lid.order.service.BackOfficeOrderService;
+import com.lifeevent.lid.backoffice.lid.setting.entity.BackOfficeShippingMethodEntity;
+import com.lifeevent.lid.backoffice.lid.setting.repository.BackOfficeShippingMethodRepository;
 import com.lifeevent.lid.common.cache.event.PartnerOrderChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.discount.entity.Discount;
@@ -32,7 +34,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,6 +55,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
     private final DiscountRepository discountRepository;
     private final StockRepository stockRepository;
     private final ShipmentRepository shipmentRepository;
+    private final BackOfficeShippingMethodRepository shippingMethodRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final RealtimeEventPublisher realtimeEventPublisher;
 
@@ -221,7 +223,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
         Shipment shipment = findOrCreateShipment(orderId);
 
         switch (status) {
-            case EXPEDIEE -> applyExpedieeShipmentState(shipment, orderId);
+            case EXPEDIEE -> applyExpedieeShipmentState(shipment, order);
             case LIVREE -> applyLivreeShipmentState(shipment);
             case ANNULEE -> applyAnnuleeShipmentState(shipment);
             default -> {
@@ -240,7 +242,8 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
                 .orElseGet(() -> Shipment.builder().orderId(orderId).build());
     }
 
-    private void applyExpedieeShipmentState(Shipment shipment, String orderId) {
+    private void applyExpedieeShipmentState(Shipment shipment, Order order) {
+        String orderId = order == null || order.getId() == null ? "" : String.valueOf(order.getId());
         // Keep default handoff step for delivery app: "A recuperer" first.
         if (shipment.getStatus() == null || shipment.getStatus() == ShipmentStatus.ECHEC) {
             shipment.setStatus(ShipmentStatus.EN_PREPARATION);
@@ -251,9 +254,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
         if (isBlank(shipment.getCarrier())) {
             shipment.setCarrier("Transporteur");
         }
-        if (shipment.getEta() == null) {
-            shipment.setEta(LocalDateTime.now().plusDays(2));
-        }
+        shipment.setEta(computeShipmentEta(order));
         shipment.setDeliveredAt(null);
     }
 
@@ -285,6 +286,34 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private LocalDateTime computeShipmentEta(Order order) {
+        Optional<BackOfficeShippingMethodEntity> shippingMethod = resolveShippingMethod(order);
+        if (shippingMethod.isEmpty()) {
+            return null;
+        }
+        BackOfficeShippingMethodEntity method = shippingMethod.get();
+        int amount = Optional.ofNullable(method.getLeadTimeMax()).orElse(0);
+        if (amount <= 0) {
+            return null;
+        }
+        String unit = Optional.ofNullable(method.getLeadTimeUnit()).orElse("DAYS");
+        return switch (unit.toUpperCase()) {
+            case "HOURS" -> LocalDateTime.now().plusHours(amount);
+            default -> LocalDateTime.now().plusDays(amount);
+        };
+    }
+
+    private Optional<BackOfficeShippingMethodEntity> resolveShippingMethod(Order order) {
+        String shippingMethodCode = order == null ? "" : Optional.ofNullable(order.getShippingMethodCode()).orElse("").trim();
+        if (!shippingMethodCode.isEmpty()) {
+            Optional<BackOfficeShippingMethodEntity> configured = shippingMethodRepository.findFirstByCodeIgnoreCaseOrderByCreatedAtDesc(shippingMethodCode);
+            if (configured.isPresent()) {
+                return configured;
+            }
+        }
+        return shippingMethodRepository.findFirstByIsDefaultTrueOrderBySortOrderAscCreatedAtAsc();
     }
 
     @Override

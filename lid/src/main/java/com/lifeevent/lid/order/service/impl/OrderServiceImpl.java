@@ -8,6 +8,7 @@ import com.lifeevent.lid.cart.repository.CartArticleRepository;
 import com.lifeevent.lid.cart.repository.CartRepository;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
+import com.lifeevent.lid.common.util.PhoneNumberUtils;
 import com.lifeevent.lid.discount.entity.Discount;
 import com.lifeevent.lid.discount.enumeration.DiscountTarget;
 import com.lifeevent.lid.discount.enumeration.DiscountType;
@@ -58,6 +59,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -585,10 +587,10 @@ public class OrderServiceImpl implements OrderService {
     private PaymentResponseDto createPaymentForOrder(Order order, Customer customer, CheckoutCartRequestDto request) {
         String email = resolveCustomerEmail(customer, request);
         String fullName = resolveCustomerDisplayName(customer);
-        String phone = request == null ? "" : safeTrim(request.getPhone());
-        if (phone.isEmpty()) {
-            throw new IllegalArgumentException("Numéro de téléphone requis");
-        }
+        String phone = PhoneNumberUtils.requireE164(
+                request == null ? null : request.getPhone(),
+                "Numéro de téléphone requis"
+        );
 
         String returnUrl = request != null && !safeTrim(request.getReturnUrl()).isEmpty()
                 ? safeTrim(request.getReturnUrl())
@@ -741,6 +743,9 @@ public class OrderServiceImpl implements OrderService {
                 .amount(amount)
                 .currency(currency)
                 .shippingAddress(safeTrim(request == null ? null : request.getShippingAddress()))
+                .shippingPhoneNumber(PhoneNumberUtils.normalizeE164OrNull(request == null ? null : request.getPhone()))
+                .shippingMethodCode(normalizeShippingMethodCode(request == null ? null : request.getShippingMethodCode()))
+                .shippingMethodLabel(safeTrim(request == null ? null : request.getShippingMethodLabel()))
                 .shippingLatitude(normalizeCoordinate(request == null ? null : request.getShippingLatitude()))
                 .shippingLongitude(normalizeCoordinate(request == null ? null : request.getShippingLongitude()))
                 .currentStatus(Status.PENDING)
@@ -846,6 +851,9 @@ public class OrderServiceImpl implements OrderService {
                 .deliveryDate(order.getDeliveryDate())
                 .trackingNumber(order.getTrackingNumber())
                 .shippingAddress(order.getShippingAddress())
+                .shippingPhoneNumber(order.getShippingPhoneNumber())
+                .shippingMethodCode(order.getShippingMethodCode())
+                .shippingMethodLabel(order.getShippingMethodLabel())
                 .shippingLatitude(order.getShippingLatitude())
                 .shippingLongitude(order.getShippingLongitude())
                 .items(items)
@@ -874,6 +882,14 @@ public class OrderServiceImpl implements OrderService {
 
     private String safeTrim(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private String normalizeShippingMethodCode(String value) {
+        String trimmed = safeTrim(value);
+        if (trimmed.isEmpty()) {
+            return "STANDARD";
+        }
+        return trimmed.toUpperCase(Locale.ROOT);
     }
 
     private boolean isStrictlyNumeric(String value) {

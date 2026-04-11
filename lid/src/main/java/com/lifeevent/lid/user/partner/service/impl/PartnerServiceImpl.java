@@ -11,6 +11,7 @@ import com.lifeevent.lid.backoffice.lid.notification.service.BackOfficeNotificat
 import com.lifeevent.lid.auth.service.AuthService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
+import com.lifeevent.lid.common.util.PhoneNumberUtils;
 import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.common.service.UserService;
@@ -63,7 +64,7 @@ public class PartnerServiceImpl implements PartnerService {
         UserEntity user = createBaseUserForPartnerStep1(dto);
         Partner partnerProfile = new Partner();
         partnerProfile.setUser(user);
-        partnerProfile.setPhoneNumber(normalize(dto.getPhoneNumber()));
+        partnerProfile.setPhoneNumber(normalizePhone(dto.getPhoneNumber()));
         partnerProfile.setRegistrationStatus(PartnerRegistrationStatus.STEP_1_PENDING);
         partnerProfile.setContractAccepted(Boolean.FALSE);
         Partner saved = partnerRepository.saveAndFlush(partnerProfile);
@@ -116,7 +117,7 @@ public class PartnerServiceImpl implements PartnerService {
                     .build());
             Partner partner = new Partner();
             partner.setUser(user);
-            partner.setPhoneNumber(normalize(dto.getPhoneNumber()));
+            partner.setPhoneNumber(normalizePhone(dto.getPhoneNumber()));
             partner.setRegistrationStatus(PartnerRegistrationStatus.STEP_1_PENDING);
             partner.setContractAccepted(Boolean.FALSE);
             Partner saved = partnerRepository.save(partner);
@@ -134,7 +135,7 @@ public class PartnerServiceImpl implements PartnerService {
                     UserEntity savedUser = userEntityRepository.save(user);
                     Partner created = new Partner();
                     created.setUser(savedUser);
-                    created.setPhoneNumber(normalize(dto.getPhoneNumber()));
+                    created.setPhoneNumber(normalizePhone(dto.getPhoneNumber()));
                     created.setRegistrationStatus(PartnerRegistrationStatus.STEP_1_PENDING);
                     created.setContractAccepted(Boolean.FALSE);
                     return created;
@@ -292,7 +293,7 @@ public class PartnerServiceImpl implements PartnerService {
             partner.setLastName(lastName);
         }
         if (phoneNumber != null) {
-            partner.setPhoneNumber(phoneNumber);
+            partner.setPhoneNumber(normalizePhone(phoneNumber));
         }
     }
 
@@ -309,6 +310,10 @@ public class PartnerServiceImpl implements PartnerService {
     private Category requireCategory(Integer categoryId) {
         return categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Category non trouvée", "categoryId", String.valueOf(categoryId)));
+    }
+
+    private String normalizePhone(String value) {
+        return PhoneNumberUtils.normalizeE164OrNull(value);
     }
 
     private void ensureCanManagePartner(String partnerId) {

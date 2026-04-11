@@ -2,6 +2,8 @@ package com.lifeevent.lid.backoffice.lid.setting.dto;
 
 import lombok.*;
 
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -15,4 +17,8 @@ public class BackOfficeSettingShopProfileDto {
     private String logoUrl;
     private String slogan;
     private String activitySector;
+    private String shippingPolicyNote;
+    private String returnPolicyText;
+    private BackOfficeSettingFreeShippingRuleDto freeShipping;
+    private List<BackOfficeSettingShippingMethodDto> shippingMethods;
 }

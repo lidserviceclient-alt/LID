@@ -1,6 +1,7 @@
 package com.lifeevent.lid.user.common.service.impl;
 
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.common.util.PhoneNumberUtils;
 import com.lifeevent.lid.user.common.dto.UserDto;
 import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.mapper.UserMapper;
@@ -163,7 +164,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public DelivryDriverProfileEntity upsertDelivryDriverProfile(String userId, String phoneNumber, String city, String country) {
         DelivryDriverProfileEntity profile = getOrCreateDelivryDriverProfile(userId);
-        profile.setPhoneNumber(normalize(phoneNumber));
+        profile.setPhoneNumber(normalizePhone(phoneNumber));
         profile.setCity(normalize(city));
         profile.setCountry(normalize(country));
         return livreurProfileRepository.save(profile);
@@ -184,6 +185,10 @@ public class UserServiceImpl implements UserService {
         return trimmed.isBlank() ? null : trimmed;
     }
 
+    private String normalizePhone(String value) {
+        return PhoneNumberUtils.normalizeE164OrNull(value);
+    }
+
     @Override
     public Customer getOrCreateCustomerProfile(String userId) {
         if (userId == null || userId.isBlank()) {
@@ -201,7 +206,7 @@ public class UserServiceImpl implements UserService {
         }
         Customer profile = getOrCreateCustomerProfile(customer.getUserId());
         profile.setAvatarUrl(normalize(customer.getAvatarUrl()));
-        profile.setPhoneNumber(normalize(customer.getPhoneNumber()));
+        profile.setPhoneNumber(normalizePhone(customer.getPhoneNumber()));
         profile.setCity(normalize(customer.getCity()));
         profile.setCountry(normalize(customer.getCountry()));
         return customerRepository.save(profile);
@@ -256,7 +261,7 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("Partner invalide");
         }
         Partner profile = getOrCreatePartnerProfile(partner.getUserId());
-        profile.setPhoneNumber(normalize(partner.getPhoneNumber()));
+        profile.setPhoneNumber(normalizePhone(partner.getPhoneNumber()));
         profile.setShop(partner.getShop());
         profile.setHeadOfficeAddress(normalize(partner.getHeadOfficeAddress()));
         profile.setCity(normalize(partner.getCity()));

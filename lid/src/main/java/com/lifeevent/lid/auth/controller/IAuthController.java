@@ -45,7 +45,7 @@ public interface IAuthController {
             @ApiResponse(responseCode = "200", description = "Authentification réussie"),
             @ApiResponse(responseCode = "400", description = "Identifiants invalides")
     })
-    AuthResponse loginLidBackofficeLocal(@Valid @RequestBody LoginRequest request);
+    AuthResponse loginLidBackofficeLocal(@Valid @RequestBody LoginRequest request, HttpServletResponse response);
 
     @PostMapping("/login/local/delivery")
     @Operation(summary = "Connexion locale livraison")
@@ -53,7 +53,7 @@ public interface IAuthController {
             @ApiResponse(responseCode = "200", description = "Authentification réussie"),
             @ApiResponse(responseCode = "400", description = "Identifiants invalides")
     })
-    AuthResponse loginDeliveryLocal(@Valid @RequestBody LoginRequest request);
+    AuthResponse loginDeliveryLocal(@Valid @RequestBody DeliveryLoginRequest request, HttpServletResponse response);
 
     @PostMapping("/login/local/partner")
     @Operation(summary = "Connexion locale partner")
@@ -61,11 +61,11 @@ public interface IAuthController {
             @ApiResponse(responseCode = "200", description = "Authentification réussie"),
             @ApiResponse(responseCode = "400", description = "Identifiants invalides")
     })
-    AuthResponse loginPartnerLocal(@Valid @RequestBody LoginRequest request);
+    AuthResponse loginPartnerLocal(@Valid @RequestBody LoginRequest request, HttpServletResponse response);
 
     @PostMapping("/login/local/verify")
     @Operation(summary = "Validation MFA admin")
-    AuthResponse verifyAdminMfa(@Valid @RequestBody VerifyAdminMfaRequest request);
+    AuthResponse verifyAdminMfa(@Valid @RequestBody VerifyAdminMfaRequest request, HttpServletResponse response);
 
     @PostMapping("/refresh")
     @Operation(summary = "Rafraîchir access token")

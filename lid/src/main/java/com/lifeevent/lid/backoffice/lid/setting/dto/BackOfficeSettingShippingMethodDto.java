@@ -13,6 +13,9 @@ public class BackOfficeSettingShippingMethodDto {
     private String label;
     private String description;
     private Double costAmount;
+    private String leadTimeUnit;
+    private Integer leadTimeMin;
+    private Integer leadTimeMax;
     private Boolean enabled;
     private Boolean isDefault;
     private Integer sortOrder;
