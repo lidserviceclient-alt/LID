@@ -11,6 +11,7 @@ import Select from "../components/ui/Select.jsx";
 import Modal from "../components/ui/Modal.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
+import { subscribeBackofficeRealtime } from "../services/realtime.js";
 
 const CARRIERS_STORAGE_KEY = "lid.backoffice.shipping.carriers";
 
@@ -203,6 +204,28 @@ export default function Logistics() {
     return () => {
       cancelled = true;
       clearTimeout(timer);
+    };
+  }, [carrier, page, q, size, status]);
+
+  useEffect(() => {
+    let timeoutId;
+    const unsubscribe = subscribeBackofficeRealtime((event) => {
+      if (event?.topic !== "backoffice.overview.updated") {
+        return;
+      }
+      const reason = `${event?.payload?.reason || event?.reason || ""}`.trim().toLowerCase();
+      if (!reason.startsWith("shipment:")) {
+        return;
+      }
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        refreshCollection(page, size, status, carrier, q).catch(() => {});
+      }, 200);
+    }, ["backoffice.overview.updated"]);
+
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribe();
     };
   }, [carrier, page, q, size, status]);
 

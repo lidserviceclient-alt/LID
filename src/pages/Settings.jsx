@@ -3,11 +3,51 @@ import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Button from "../components/ui/Button.jsx";
 import Input from "../components/ui/Input.jsx";
+import PhoneNumberField from "../components/ui/PhoneNumberField.jsx";
 import Select from "../components/ui/Select.jsx";
 import Modal from "../components/ui/Modal.jsx";
 import Badge from "../components/ui/Badge.jsx";
 import { backofficeApi } from "../services/api.js";
 import { useSettingsResolver } from "../resolvers/settingsResolver.js";
+import { isValidInternationalPhone } from "../utils/phone.js";
+
+const SHIPPING_METHOD_PRESETS = {
+  STANDARD: {
+    code: "STANDARD",
+    label: "Standard",
+    description: "3-5 jours ouvrables",
+    sortOrder: 0,
+    leadTimeUnit: "DAYS",
+    leadTimeMin: 3,
+    leadTimeMax: 5
+  },
+  EXPRESS: {
+    code: "EXPRESS",
+    label: "Express",
+    description: "24-48h",
+    sortOrder: 1,
+    leadTimeUnit: "HOURS",
+    leadTimeMin: 24,
+    leadTimeMax: 48
+  }
+};
+
+const buildShippingMethodForm = (code = "STANDARD", overrides = {}) => {
+  const preset = SHIPPING_METHOD_PRESETS[code] || SHIPPING_METHOD_PRESETS.STANDARD;
+  return {
+    code: preset.code,
+    label: preset.label,
+    description: preset.description,
+    costAmount: "3250",
+    leadTimeUnit: preset.leadTimeUnit,
+    leadTimeMin: `${preset.leadTimeMin}`,
+    leadTimeMax: `${preset.leadTimeMax}`,
+    enabled: true,
+    isDefault: preset.code === "STANDARD",
+    sortOrder: `${preset.sortOrder}`,
+    ...overrides
+  };
+};
 
 export default function Settings() {
   const settingsEntry = useSettingsResolver();
@@ -18,7 +58,9 @@ export default function Settings() {
     city: "",
     logoUrl: "",
     slogan: "",
-    activitySector: "ECOMMERCE"
+    activitySector: "ECOMMERCE",
+    shippingPolicyNote: "",
+    returnPolicyText: ""
   });
   const [shopLoading, setShopLoading] = useState(false);
   const [shopSaving, setShopSaving] = useState(false);
@@ -55,15 +97,7 @@ export default function Settings() {
   const [shippingMethodsSuccess, setShippingMethodsSuccess] = useState("");
   const [shippingMethodModalOpen, setShippingMethodModalOpen] = useState(false);
   const [shippingMethodEditTarget, setShippingMethodEditTarget] = useState(null);
-  const [shippingMethodForm, setShippingMethodForm] = useState({
-    code: "STANDARD",
-    label: "Standard",
-    description: "3-5 jours ouvrables",
-    costAmount: "3250",
-    enabled: true,
-    isDefault: true,
-    sortOrder: "0"
-  });
+  const [shippingMethodForm, setShippingMethodForm] = useState(() => buildShippingMethodForm("STANDARD"));
   const [shippingMethodSaving, setShippingMethodSaving] = useState(false);
   const [shippingMethodDeletingId, setShippingMethodDeletingId] = useState("");
   const [shippingMethodTogglingId, setShippingMethodTogglingId] = useState("");
@@ -170,7 +204,9 @@ export default function Settings() {
       city: shopProfile?.city || "",
       logoUrl: shopProfile?.logoUrl || "",
       slogan: shopProfile?.slogan || "",
-      activitySector: shopProfile?.activitySector || "ECOMMERCE"
+      activitySector: shopProfile?.activitySector || "ECOMMERCE",
+      shippingPolicyNote: shopProfile?.shippingPolicyNote || "",
+      returnPolicyText: shopProfile?.returnPolicyText || ""
     });
     setSocialLinks(Array.isArray(data?.socialLinks) ? data.socialLinks : []);
     setFreeShippingRules(Array.isArray(data?.freeShippingRules) ? data.freeShippingRules : []);
@@ -259,7 +295,9 @@ export default function Settings() {
         city: cfg?.city || "",
         logoUrl: cfg?.logoUrl || "",
         slogan: cfg?.slogan || "",
-        activitySector: cfg?.activitySector || "ECOMMERCE"
+        activitySector: cfg?.activitySector || "ECOMMERCE",
+        shippingPolicyNote: cfg?.shippingPolicyNote || "",
+        returnPolicyText: cfg?.returnPolicyText || ""
       });
     } catch (err) {
       setShopError(err?.message || "Impossible de charger les informations boutique.");
@@ -560,7 +598,9 @@ export default function Settings() {
         city: shopForm.city,
         logoUrl: shopForm.logoUrl || null,
         slogan: shopForm.slogan || null,
-        activitySector: shopForm.activitySector || null
+        activitySector: shopForm.activitySector || null,
+        shippingPolicyNote: shopForm.shippingPolicyNote || null,
+        returnPolicyText: shopForm.returnPolicyText || null
       });
       setShopSuccess("Informations boutique sauvegardées.");
       await loadShopProfile();
@@ -753,15 +793,7 @@ export default function Settings() {
     setShippingMethodsError("");
     setShippingMethodsSuccess("");
     setShippingMethodEditTarget(null);
-    setShippingMethodForm({
-      code: "STANDARD",
-      label: "Standard",
-      description: "3-5 jours ouvrables",
-      costAmount: "3250",
-      enabled: true,
-      isDefault: true,
-      sortOrder: "0"
-    });
+    setShippingMethodForm(buildShippingMethodForm("STANDARD"));
     setShippingMethodModalOpen(true);
   };
 
@@ -769,15 +801,16 @@ export default function Settings() {
     setShippingMethodsError("");
     setShippingMethodsSuccess("");
     setShippingMethodEditTarget(m);
-    setShippingMethodForm({
-      code: m?.code || "",
-      label: m?.label || "",
+    setShippingMethodForm(buildShippingMethodForm(m?.code || "STANDARD", {
       description: m?.description || "",
       costAmount: `${m?.costAmount ?? ""}`,
+      leadTimeUnit: m?.leadTimeUnit || SHIPPING_METHOD_PRESETS[m?.code || "STANDARD"]?.leadTimeUnit || "DAYS",
+      leadTimeMin: `${m?.leadTimeMin ?? SHIPPING_METHOD_PRESETS[m?.code || "STANDARD"]?.leadTimeMin ?? 0}`,
+      leadTimeMax: `${m?.leadTimeMax ?? SHIPPING_METHOD_PRESETS[m?.code || "STANDARD"]?.leadTimeMax ?? 0}`,
       enabled: Boolean(m?.enabled),
       isDefault: Boolean(m?.isDefault),
-      sortOrder: `${m?.sortOrder ?? 0}`
-    });
+      sortOrder: `${m?.sortOrder ?? SHIPPING_METHOD_PRESETS[m?.code || "STANDARD"]?.sortOrder ?? 0}`
+    }));
     setShippingMethodModalOpen(true);
   };
 
@@ -799,12 +832,26 @@ export default function Settings() {
         setShippingMethodsError("Coût invalide.");
         return;
       }
+      const leadTimeMin = Number(`${shippingMethodForm.leadTimeMin || ""}`.trim());
+      const leadTimeMax = Number(`${shippingMethodForm.leadTimeMax || ""}`.trim());
+      if (!Number.isInteger(leadTimeMin) || leadTimeMin < 0) {
+        setShippingMethodsError("Délai minimum invalide.");
+        return;
+      }
+      if (!Number.isInteger(leadTimeMax) || leadTimeMax < leadTimeMin) {
+        setShippingMethodsError("Délai maximum invalide.");
+        return;
+      }
       const sortOrder = `${shippingMethodForm.sortOrder || ""}`.trim() === "" ? 0 : Number(shippingMethodForm.sortOrder);
+      const preset = SHIPPING_METHOD_PRESETS[shippingMethodForm.code] || SHIPPING_METHOD_PRESETS.STANDARD;
       const payload = {
-        code: `${shippingMethodForm.code || ""}`.trim(),
-        label: `${shippingMethodForm.label || ""}`.trim(),
+        code: preset.code,
+        label: preset.label,
         description: `${shippingMethodForm.description || ""}`.trim() || null,
         costAmount: cost,
+        leadTimeUnit: shippingMethodForm.leadTimeUnit || "DAYS",
+        leadTimeMin,
+        leadTimeMax,
         enabled: Boolean(shippingMethodForm.enabled),
         isDefault: Boolean(shippingMethodForm.isDefault),
         sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0
@@ -889,12 +936,16 @@ export default function Settings() {
     if (courierLoading) return;
     setCourierError("");
     setCourierSuccess("");
+    if (courierForm.telephone && !isValidInternationalPhone(courierForm.telephone)) {
+      setCourierError("Numéro de téléphone invalide.");
+      return;
+    }
     setCourierLoading(true);
     try {
       await backofficeApi.createCourier({
         prenom: courierForm.prenom || null,
         nom: courierForm.nom || null,
-        email: courierForm.email,
+        email: courierForm.email || null,
         telephone: courierForm.telephone || null,
         password: courierForm.password
       });
@@ -933,12 +984,16 @@ export default function Settings() {
     if (!courierEditTarget?.id) return;
     setCourierError("");
     setCourierSuccess("");
+    if (courierEditForm.telephone && !isValidInternationalPhone(courierEditForm.telephone)) {
+      setCourierError("Numéro de téléphone invalide.");
+      return;
+    }
     setCourierSaving(true);
     try {
       await backofficeApi.updateUser(courierEditTarget.id, {
         prenom: courierEditForm.prenom || null,
         nom: courierEditForm.nom || null,
-        email: courierEditForm.email,
+        email: courierEditForm.email || null,
         telephone: courierEditForm.telephone || null,
         emailVerifie: true,
         role: "LIVREUR",
@@ -1009,6 +1064,10 @@ export default function Settings() {
     if (teamSaving) return;
     setTeamError("");
     setTeamSuccess("");
+    if (teamForm.telephone && !isValidInternationalPhone(teamForm.telephone)) {
+      setTeamError("Numéro de téléphone invalide.");
+      return;
+    }
     setTeamSaving(true);
     try {
       const payload = {
@@ -1282,6 +1341,20 @@ export default function Settings() {
               onChange={(e) => setShopForm((s) => ({ ...s, slogan: e.target.value }))}
               disabled={shopLoading || shopSaving}
             />
+            <textarea
+              className="min-h-[96px] rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 focus:ring-4 focus:ring-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
+              placeholder="Note générale sur la livraison"
+              value={shopForm.shippingPolicyNote}
+              onChange={(e) => setShopForm((s) => ({ ...s, shippingPolicyNote: e.target.value }))}
+              disabled={shopLoading || shopSaving}
+            />
+            <textarea
+              className="min-h-[96px] rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 focus:ring-4 focus:ring-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
+              placeholder="Politique de retour affichée au client"
+              value={shopForm.returnPolicyText}
+              onChange={(e) => setShopForm((s) => ({ ...s, returnPolicyText: e.target.value }))}
+              disabled={shopLoading || shopSaving}
+            />
             <Select
               value={shopForm.activitySector}
               onChange={(e) => setShopForm((s) => ({ ...s, activitySector: e.target.value }))}
@@ -1448,7 +1521,7 @@ export default function Settings() {
                         {m?.enabled ? <Badge label="ACTIF" variant="success" /> : <Badge label="INACTIF" variant="outline" />}
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {m?.description || "—"} · {Number(m?.costAmount || 0).toLocaleString()} FCFA
+                        {m?.description || "—"} · {Number(m?.costAmount || 0).toLocaleString()} FCFA · {m?.leadTimeMin ?? 0}-{m?.leadTimeMax ?? 0} {m?.leadTimeUnit === "HOURS" ? "h" : "jours"}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1634,16 +1707,15 @@ export default function Settings() {
               onChange={(e) => setCourierForm((s) => ({ ...s, nom: e.target.value }))}
             />
             <Input
-              placeholder="Email"
+              placeholder="Email (optionnel)"
               type="email"
               value={courierForm.email}
               onChange={(e) => setCourierForm((s) => ({ ...s, email: e.target.value }))}
-              required
             />
-            <Input
-              placeholder="Téléphone"
+            <PhoneNumberField
               value={courierForm.telephone}
-              onChange={(e) => setCourierForm((s) => ({ ...s, telephone: e.target.value }))}
+              onChange={(value) => setCourierForm((s) => ({ ...s, telephone: value }))}
+              placeholder="Téléphone"
             />
             <Input
               placeholder="Mot de passe (min 6)"
@@ -1677,10 +1749,10 @@ export default function Settings() {
                     <div className="font-semibold text-foreground">
                       {`${u?.prenom || ""} ${u?.nom || ""}`.trim() || "-"}
                     </div>
-                    <div className="text-xs text-muted-foreground truncate">{u.email}</div>
+                    <div className="text-xs text-muted-foreground truncate">{u.telephone || "-"}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="hidden sm:block text-xs text-muted-foreground">{u.telephone || "-"}</div>
+                    <div className="hidden sm:block text-xs text-muted-foreground">{u.role || "LIVREUR"}</div>
                     <Button variant="outline" size="sm" onClick={() => openEditCourier(u)}>
                       Modifier
                     </Button>
@@ -2088,7 +2160,6 @@ export default function Settings() {
               disabled={
                 shippingMethodSaving ||
                 !`${shippingMethodForm.code || ""}`.trim() ||
-                !`${shippingMethodForm.label || ""}`.trim() ||
                 `${shippingMethodForm.costAmount || ""}`.trim() === ""
               }
             >
@@ -2098,17 +2169,35 @@ export default function Settings() {
         }
       >
         <form onSubmit={submitShippingMethod} className="grid gap-3">
-          <Input
-            placeholder="Code (ex: STANDARD, EXPRESS)"
+          <Select
             value={shippingMethodForm.code}
-            onChange={(e) => setShippingMethodForm((s) => ({ ...s, code: e.target.value }))}
-            required
+            onChange={(e) => {
+              const nextCode = e.target.value;
+              setShippingMethodForm((s) => {
+                const preset = SHIPPING_METHOD_PRESETS[nextCode] || SHIPPING_METHOD_PRESETS.STANDARD;
+                return {
+                  ...s,
+                  code: preset.code,
+                  label: preset.label,
+                  description: s.description === s.label || s.description === SHIPPING_METHOD_PRESETS[s.code]?.description
+                    ? preset.description
+                    : s.description,
+                  leadTimeUnit: preset.leadTimeUnit,
+                  leadTimeMin: `${preset.leadTimeMin}`,
+                  leadTimeMax: `${preset.leadTimeMax}`,
+                  sortOrder: `${preset.sortOrder}`
+                };
+              });
+            }}
+            options={[
+              { value: "STANDARD", label: "Standard" },
+              { value: "EXPRESS", label: "Express" }
+            ]}
           />
           <Input
-            placeholder="Libellé (ex: Standard)"
+            placeholder="Libellé"
             value={shippingMethodForm.label}
-            onChange={(e) => setShippingMethodForm((s) => ({ ...s, label: e.target.value }))}
-            required
+            disabled
           />
           <Input
             placeholder="Description (ex: 3-5 jours ouvrables)"
@@ -2120,6 +2209,24 @@ export default function Settings() {
             value={shippingMethodForm.costAmount}
             onChange={(e) => setShippingMethodForm((s) => ({ ...s, costAmount: e.target.value }))}
             required
+          />
+          <Select
+            value={shippingMethodForm.leadTimeUnit}
+            onChange={(e) => setShippingMethodForm((s) => ({ ...s, leadTimeUnit: e.target.value }))}
+            options={[
+              { value: "HOURS", label: "Délai en heures" },
+              { value: "DAYS", label: "Délai en jours" }
+            ]}
+          />
+          <Input
+            placeholder={shippingMethodForm.leadTimeUnit === "HOURS" ? "Minimum (heures)" : "Minimum (jours)"}
+            value={shippingMethodForm.leadTimeMin}
+            onChange={(e) => setShippingMethodForm((s) => ({ ...s, leadTimeMin: e.target.value }))}
+          />
+          <Input
+            placeholder={shippingMethodForm.leadTimeUnit === "HOURS" ? "Maximum (heures)" : "Maximum (jours)"}
+            value={shippingMethodForm.leadTimeMax}
+            onChange={(e) => setShippingMethodForm((s) => ({ ...s, leadTimeMax: e.target.value }))}
           />
           <Input
             placeholder="Ordre (0, 1, 2…)"
@@ -2175,17 +2282,16 @@ export default function Settings() {
           </div>
 
           <Input
-            placeholder="Email"
+            placeholder="Email (optionnel)"
             type="email"
             value={courierEditForm.email}
             onChange={(e) => setCourierEditForm((s) => ({ ...s, email: e.target.value }))}
-            required
           />
 
-          <Input
-            placeholder="Téléphone"
+          <PhoneNumberField
             value={courierEditForm.telephone}
-            onChange={(e) => setCourierEditForm((s) => ({ ...s, telephone: e.target.value }))}
+            onChange={(value) => setCourierEditForm((s) => ({ ...s, telephone: value }))}
+            placeholder="Téléphone"
           />
         </form>
       </Modal>
@@ -2227,10 +2333,10 @@ export default function Settings() {
             required
           />
 
-          <Input
-            placeholder="Téléphone"
+          <PhoneNumberField
             value={teamForm.telephone}
-            onChange={(e) => setTeamForm((s) => ({ ...s, telephone: e.target.value }))}
+            onChange={(value) => setTeamForm((s) => ({ ...s, telephone: value }))}
+            placeholder="Téléphone"
           />
 
           <Select

@@ -18,6 +18,7 @@ import Input from "../ui/Input.jsx";
 import Label from "../ui/Label.jsx";
 import GlobalSearchModal from "../search/GlobalSearchModal.jsx";
 import { clearAccessToken, getAuthenticatedUser } from "../../services/auth.js";
+import { backofficeApi } from "../../services/api.js";
 import { useNotificationsContext } from "../../contexts/NotificationsContext.jsx";
 import { cn } from "../../utils/cn.js";
 export default function Topbar({ onMenuClick }) {
@@ -137,9 +138,15 @@ export default function Topbar({ onMenuClick }) {
     setIsProfileOpen(false);
   }, []);
 
-  const handleLogout = useCallback(() => {
-    clearAccessToken();
-    navigate("/login", { replace: true });
+  const handleLogout = useCallback(async () => {
+    try {
+      await backofficeApi.logout();
+    } catch {
+      // ignore
+    } finally {
+      clearAccessToken();
+      navigate("/login", { replace: true });
+    }
   }, [navigate]);
 
   const openCommandPalette = useCallback(
