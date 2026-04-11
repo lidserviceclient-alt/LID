@@ -552,7 +552,7 @@ public class OrderServiceImpl implements OrderService {
         reserveStocks(lines);
 
         String currency = resolveCurrency(request);
-        Order savedOrder = orderRepository.save(buildPendingOrder(customer, currency, totalAmount));
+        Order savedOrder = orderRepository.save(buildPendingOrder(customer, currency, totalAmount, request));
 
         List<OrderArticle> savedOrderArticles = orderArticleRepository.saveAll(buildOrderArticles(savedOrder, lines));
         savedOrder.setArticles(savedOrderArticles);
@@ -735,11 +735,14 @@ public class OrderServiceImpl implements OrderService {
                 .sum();
     }
 
-    private Order buildPendingOrder(Customer customer, String currency, double amount) {
+    private Order buildPendingOrder(Customer customer, String currency, double amount, CheckoutCartRequestDto request) {
         return Order.builder()
                 .customer(customer)
                 .amount(amount)
                 .currency(currency)
+                .shippingAddress(safeTrim(request == null ? null : request.getShippingAddress()))
+                .shippingLatitude(normalizeCoordinate(request == null ? null : request.getShippingLatitude()))
+                .shippingLongitude(normalizeCoordinate(request == null ? null : request.getShippingLongitude()))
                 .currentStatus(Status.PENDING)
                 .statusHistory(new ArrayList<>())
                 .articles(new ArrayList<>())
@@ -842,6 +845,9 @@ public class OrderServiceImpl implements OrderService {
                 .createdAt(order.getCreatedAt())
                 .deliveryDate(order.getDeliveryDate())
                 .trackingNumber(order.getTrackingNumber())
+                .shippingAddress(order.getShippingAddress())
+                .shippingLatitude(order.getShippingLatitude())
+                .shippingLongitude(order.getShippingLongitude())
                 .items(items)
                 .statusHistory(statusHistory)
                 .build();
@@ -880,6 +886,13 @@ public class OrderServiceImpl implements OrderService {
 
     private double round2(double value) {
         return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private Double normalizeCoordinate(Double value) {
+        if (value == null || !Double.isFinite(value)) {
+            return null;
+        }
+        return value;
     }
 
     private record CheckoutLine(Article article, int quantity, double unitPrice) {

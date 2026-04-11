@@ -110,7 +110,12 @@ public class BackOfficeLogisticsController implements IBackOfficeLogisticsContro
 
     @Override
     public ResponseEntity<BackOfficeShipmentDto> updateShipmentStatus(Long id, BackOfficeShipmentStatusUpdateRequest request) {
-        return ResponseEntity.ok(backOfficeLogisticsService.updateShipmentStatus(id, request.getStatus()));
+        return ResponseEntity.ok(backOfficeLogisticsService.updateShipmentStatus(
+                id,
+                request.getStatus(),
+                request.getDeliveryIssueComment(),
+                request.getCustomerFacingComment()
+        ));
     }
 
     @Override

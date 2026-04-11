@@ -21,17 +21,35 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
         SELECT s
         FROM Shipment s
         WHERE (:status IS NULL OR :status = '' OR s.status = :status)
-          AND (:carrier IS NULL OR :carrier = '' OR LOWER(CAST(s.carrier AS string)) LIKE LOWER(CONCAT('%', :carrier, '%')))
+          AND (:carrierPattern IS NULL OR LOWER(CAST(s.carrier AS string)) LIKE :carrierPattern)
           AND (
-            :q IS NULL OR :q = '' OR
-            LOWER(CAST(s.trackingId AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
-            LOWER(CAST(s.orderId AS string)) LIKE LOWER(CONCAT('%', :q, '%'))
+            :queryPattern IS NULL OR
+            LOWER(CAST(s.trackingId AS string)) LIKE :queryPattern OR
+            LOWER(CAST(s.orderId AS string)) LIKE :queryPattern
           )
     """)
     Page<Shipment> search(
             @Param("status") ShipmentStatus status,
-            @Param("carrier") String carrier,
-            @Param("q") String q,
+            @Param("carrierPattern") String carrierPattern,
+            @Param("queryPattern") String queryPattern,
+            Pageable pageable
+    );
+
+    @Query("""
+        SELECT s
+        FROM Shipment s
+        WHERE (:statuses IS NULL OR s.status IN :statuses)
+          AND (:carrierPattern IS NULL OR LOWER(CAST(s.carrier AS string)) LIKE :carrierPattern)
+          AND (
+            :queryPattern IS NULL OR
+            LOWER(CAST(s.trackingId AS string)) LIKE :queryPattern OR
+            LOWER(CAST(s.orderId AS string)) LIKE :queryPattern
+          )
+    """)
+    Page<Shipment> searchByStatuses(
+            @Param("statuses") Collection<ShipmentStatus> statuses,
+            @Param("carrierPattern") String carrierPattern,
+            @Param("queryPattern") String queryPattern,
             Pageable pageable
     );
 

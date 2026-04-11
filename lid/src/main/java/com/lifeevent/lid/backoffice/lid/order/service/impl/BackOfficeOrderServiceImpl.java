@@ -19,6 +19,7 @@ import com.lifeevent.lid.order.entity.StatusHistory;
 import com.lifeevent.lid.order.enumeration.Status;
 import com.lifeevent.lid.order.repository.OrderArticleRepository;
 import com.lifeevent.lid.order.repository.OrderRepository;
+import com.lifeevent.lid.realtime.service.RealtimeEventPublisher;
 import com.lifeevent.lid.stock.repository.StockRepository;
 import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.customer.entity.Customer;
@@ -54,6 +55,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
     private final StockRepository stockRepository;
     private final ShipmentRepository shipmentRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final RealtimeEventPublisher realtimeEventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -228,7 +230,8 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
         }
 
         if (shipment.getStatus() != null) {
-            shipmentRepository.save(shipment);
+            Shipment saved = shipmentRepository.save(shipment);
+            publishShipmentRealtime(saved, "order_status_sync");
         }
     }
 
@@ -249,7 +252,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
             shipment.setCarrier("Transporteur");
         }
         if (shipment.getEta() == null) {
-            shipment.setEta(LocalDate.now().plusDays(2));
+            shipment.setEta(LocalDateTime.now().plusDays(2));
         }
         shipment.setDeliveredAt(null);
     }
@@ -264,6 +267,20 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
     private void applyAnnuleeShipmentState(Shipment shipment) {
         shipment.setStatus(ShipmentStatus.ECHEC);
         shipment.setDeliveredAt(null);
+    }
+
+    private void publishShipmentRealtime(Shipment shipment, String trigger) {
+        if (shipment == null) {
+            return;
+        }
+        realtimeEventPublisher.publishDeliveryShipmentUpdated(
+                shipment.getId(),
+                shipment.getOrderId(),
+                shipment.getStatus() == null ? null : shipment.getStatus().name(),
+                shipment.getCarrier(),
+                trigger
+        );
+        realtimeEventPublisher.publishBackofficeOverviewUpdated("shipment:" + trigger);
     }
 
     private boolean isBlank(String value) {

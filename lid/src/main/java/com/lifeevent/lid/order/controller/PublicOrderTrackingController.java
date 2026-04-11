@@ -70,7 +70,7 @@ public class PublicOrderTrackingController {
         Shipment shipment = shipmentRepository.findByOrderId(String.valueOf(order.getId())).orElse(null);
         String deliveryType = shipment != null ? shipment.getCarrier() : null;
         LocalDateTime estimatedDeliveryDate = shipment != null && shipment.getEta() != null
-                ? shipment.getEta().atStartOfDay()
+                ? shipment.getEta()
                 : order.getDeliveryDate();
         return new TrackingPayload(
                 order.getId(),

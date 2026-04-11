@@ -36,6 +36,10 @@ public class CheckoutCartRequestDto {
      */
     private String shippingAddress;
 
+    private Double shippingLatitude;
+
+    private Double shippingLongitude;
+
     /**
      * Remarques optionnelles
      */

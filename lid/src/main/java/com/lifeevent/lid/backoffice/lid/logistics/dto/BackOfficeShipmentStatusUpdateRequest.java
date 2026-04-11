@@ -12,4 +12,6 @@ import lombok.*;
 public class BackOfficeShipmentStatusUpdateRequest {
     @NotNull
     private ShipmentStatus status;
+    private String deliveryIssueComment;
+    private String customerFacingComment;
 }

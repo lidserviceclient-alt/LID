@@ -41,6 +41,7 @@ import java.util.LinkedHashSet;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -54,6 +55,11 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 @Slf4j
 public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsService {
+
+    private static final String DEFAULT_DELIVERY_FAILURE_CUSTOMER_MESSAGE =
+            "La livraison de votre commande a rencontré un contretemps. Notre équipe reviendra vers vous très prochainement avec des informations complémentaires.";
+    private static final String DEFAULT_DELIVERY_RETRY_CUSTOMER_MESSAGE =
+            "Une nouvelle tentative de livraison est en cours. Nous vous tiendrons informé de l’avancement.";
 
     private final ShipmentRepository shipmentRepository;
     private final OrderRepository orderRepository;
@@ -84,7 +90,33 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     @Transactional(readOnly = true)
     public Page<BackOfficeShipmentDto> getShipments(Pageable pageable, ShipmentStatus status, String carrier, String q) {
         Pageable safePageable = ensureDefaultSort(pageable);
-        Page<Shipment> shipments = shipmentRepository.search(status, carrier, q, safePageable);
+        Page<Shipment> shipments = shipmentRepository.search(
+                status,
+                toLikePattern(carrier),
+                toLikePattern(q),
+                safePageable
+        );
+        Map<Long, Order> ordersById = loadOrdersByShipmentOrderIds(shipments.getContent(), false);
+        List<BackOfficeShipmentDto> content = shipments.getContent().stream()
+                .map(shipment -> toShipmentDto(shipment, resolveOrderForShipment(shipment, ordersById)))
+                .toList();
+        return new PageImpl<>(content, safePageable, shipments.getTotalElements());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BackOfficeShipmentDto> getShipments(Pageable pageable, Collection<ShipmentStatus> statuses, String carrier, String q) {
+        Pageable safePageable = ensureDefaultSort(pageable);
+        Collection<ShipmentStatus> safeStatuses = statuses == null ? List.of() : statuses.stream().filter(Objects::nonNull).toList();
+        if (safeStatuses.isEmpty()) {
+            return getShipments(safePageable, (ShipmentStatus) null, carrier, q);
+        }
+        Page<Shipment> shipments = shipmentRepository.searchByStatuses(
+                safeStatuses,
+                toLikePattern(carrier),
+                toLikePattern(q),
+                safePageable
+        );
         Map<Long, Order> ordersById = loadOrdersByShipmentOrderIds(shipments.getContent(), false);
         List<BackOfficeShipmentDto> content = shipments.getContent().stream()
                 .map(shipment -> toShipmentDto(shipment, resolveOrderForShipment(shipment, ordersById)))
@@ -116,16 +148,26 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     }
 
     @Override
-    public BackOfficeShipmentDto updateShipmentStatus(Long id, ShipmentStatus status) {
+    public BackOfficeShipmentDto updateShipmentStatus(Long id, ShipmentStatus status, String deliveryIssueComment, String customerFacingComment) {
         if (status == null) {
             throw new IllegalArgumentException("Statut requis");
         }
 
         Shipment shipment = findShipmentById(id);
+        boolean forceCommentRefresh = false;
+        String issueComment = trimToNull(deliveryIssueComment);
+        String customerComment = trimToNull(customerFacingComment);
+        if (status == ShipmentStatus.ECHEC) {
+            shipment.setDeliveryIssueComment(issueComment);
+            shipment.setCustomerFacingComment(customerComment == null ? defaultDeliveryFailureCustomerMessage() : customerComment);
+            forceCommentRefresh = shipment.getStatus() == ShipmentStatus.ECHEC;
+        } else if (customerComment != null) {
+            shipment.setCustomerFacingComment(customerComment);
+        }
         applyDeliveryLifecycle(shipment, status);
 
         Shipment saved = shipmentRepository.save(shipment);
-        syncLinkedOrder(saved);
+        syncLinkedOrder(saved, null, forceCommentRefresh);
         publishShipmentRealtime(saved, "status_update");
         return toShipmentDto(saved, findLinkedOrder(saved).orElse(null));
     }
@@ -151,6 +193,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             shipment.setStatus(ShipmentStatus.EN_COURS);
             shipment.setDeliveredAt(null);
             shipment.setScannedAt(LocalDateTime.now());
+            shipment.setCustomerFacingComment(null);
         } else if (shipment.getScannedAt() == null) {
             shipment.setScannedAt(LocalDateTime.now());
         }
@@ -183,6 +226,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
         shipment.setStatus(ShipmentStatus.LIVREE);
         shipment.setDeliveredAt(LocalDateTime.now());
+        shipment.setCustomerFacingComment(null);
 
         Shipment saved = shipmentRepository.save(shipment);
         syncLinkedOrder(saved);
@@ -262,10 +306,10 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
         String normalized = token.toLowerCase(Locale.ROOT);
         if (normalized.startsWith("shipment:")) {
-            return findShipmentByIdToken(token.substring("shipment:".length()));
+            return resolvePrefixedShipmentToken(token.substring("shipment:".length()));
         }
         if (normalized.startsWith("ship:")) {
-            return findShipmentByIdToken(token.substring("ship:".length()));
+            return resolvePrefixedShipmentToken(token.substring("ship:".length()));
         }
         if (normalized.startsWith("id:")) {
             return findShipmentByIdToken(token.substring("id:".length()));
@@ -273,19 +317,8 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         if (normalized.startsWith("order:")) {
             return findShipmentByOrderToken(token.substring("order:".length()));
         }
-        if (normalized.startsWith("tracking:")) {
-            return shipmentRepository.findByTrackingIdIgnoreCase(token.substring("tracking:".length()).trim());
-        }
-        if (normalized.contains("tracking=")) {
-            return shipmentRepository.findByTrackingIdIgnoreCase(extractQueryValue(token, "tracking"));
-        }
         if (normalized.contains("shipmentId=".toLowerCase(Locale.ROOT))) {
             return findShipmentByIdToken(extractQueryValue(token, "shipmentId"));
-        }
-
-        Optional<Shipment> byTracking = shipmentRepository.findByTrackingIdIgnoreCase(token);
-        if (byTracking.isPresent()) {
-            return byTracking;
         }
 
         Optional<Shipment> byOrder = shipmentRepository.findByOrderId(token);
@@ -299,6 +332,23 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         }
 
         return findShipmentByIdToken(token);
+    }
+
+    private Optional<Shipment> resolvePrefixedShipmentToken(String rawValue) {
+        String value = trimToNull(rawValue);
+        if (value == null) {
+            return Optional.empty();
+        }
+
+        String[] parts = value.split(":");
+        for (String part : parts) {
+            Optional<Shipment> byId = findShipmentByIdToken(part);
+            if (byId.isPresent()) {
+                return byId;
+            }
+        }
+
+        return Optional.empty();
     }
 
     private Optional<Shipment> findShipmentByOrderToken(String rawValue) {
@@ -407,7 +457,11 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             if (shipment.getDeliveredAt() == null) {
                 shipment.setDeliveredAt(LocalDateTime.now());
             }
+            shipment.setCustomerFacingComment(null);
             return;
+        }
+        if (status == ShipmentStatus.EN_COURS || status == ShipmentStatus.EN_PREPARATION) {
+            shipment.setCustomerFacingComment(null);
         }
         shipment.setDeliveredAt(null);
     }
@@ -424,7 +478,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
                 .orderId(shipment.getOrderId())
                 .carrier(shipment.getCarrier())
                 .status(shipment.getStatus())
-                .eta(shipment.getEta())
+                .eta(resolveEtaAt(shipment))
                 .cost(shipment.getCost())
                 .orderTotal(order != null ? order.getAmount() : null)
                 .currency(order != null ? order.getCurrency() : null)
@@ -433,12 +487,16 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
                 .customerEmail(resolveCustomerEmail(order))
                 .customerPhone(resolveCustomerPhone(order))
                 .customerAddress(resolveCustomerAddress(order))
+                .customerLatitude(resolveCustomerLatitude(order))
+                .customerLongitude(resolveCustomerLongitude(order))
                 .items(resolveItems(order))
                 .courierReference(shipment.getCourierReference())
                 .courierName(shipment.getCourierName())
                 .courierPhone(shipment.getCourierPhone())
                 .courierUser(shipment.getCourierUser())
                 .scannedAt(shipment.getScannedAt())
+                .deliveryIssueComment(shipment.getDeliveryIssueComment())
+                .customerFacingComment(shipment.getCustomerFacingComment())
                 .build();
     }
 
@@ -449,15 +507,19 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
                 .carrier(shipment.getCarrier())
                 .trackingId(shipment.getTrackingId())
                 .status(shipment.getStatus())
-                .eta(shipment.getEta())
+                .eta(resolveEtaAt(shipment))
                 .cost(shipment.getCost())
                 .customerName(resolveCustomerName(order))
                 .customerPhone(resolveCustomerPhone(order))
                 .customerAddress(resolveCustomerAddress(order))
+                .customerLatitude(resolveCustomerLatitude(order))
+                .customerLongitude(resolveCustomerLongitude(order))
                 .customerEmail(resolveCustomerEmail(order))
                 .scannedAt(shipment.getScannedAt())
                 .courierName(shipment.getCourierName())
                 .courierReference(shipment.getCourierReference())
+                .deliveryIssueComment(shipment.getDeliveryIssueComment())
+                .customerFacingComment(shipment.getCustomerFacingComment())
                 .build();
     }
 
@@ -507,6 +569,21 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
                 pageable.getPageSize(),
                 Sort.by(Sort.Direction.DESC, "createdAt")
         );
+    }
+
+    private LocalDateTime resolveEtaAt(Shipment shipment) {
+        if (shipment == null) {
+            return null;
+        }
+        return shipment.getEta();
+    }
+
+    private String toLikePattern(String value) {
+        String normalized = trimToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        return "%" + normalized.toLowerCase(Locale.ROOT) + "%";
     }
 
     private List<Long> normalizeIds(List<Long> ids) {
@@ -585,6 +662,11 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     }
 
     private String resolveCustomerAddress(Order order) {
+        String shippingAddress = trimToNull(order == null ? null : order.getShippingAddress());
+        if (shippingAddress != null) {
+            return shippingAddress;
+        }
+
         Customer customer = extractCustomer(order);
         if (customer == null) {
             return null;
@@ -599,6 +681,14 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             return city;
         }
         return city + ", " + country;
+    }
+
+    private Double resolveCustomerLatitude(Order order) {
+        return order == null ? null : order.getShippingLatitude();
+    }
+
+    private Double resolveCustomerLongitude(Order order) {
+        return order == null ? null : order.getShippingLongitude();
     }
 
     private Customer extractCustomer(Order order) {
@@ -617,10 +707,14 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     }
 
     private void syncLinkedOrder(Shipment shipment) {
-        syncLinkedOrder(shipment, null);
+        syncLinkedOrder(shipment, null, false);
     }
 
     private void syncLinkedOrder(Shipment shipment, Order preloadedOrder) {
+        syncLinkedOrder(shipment, preloadedOrder, false);
+    }
+
+    private void syncLinkedOrder(Shipment shipment, Order preloadedOrder, boolean forceCommentRefresh) {
         Order order = preloadedOrder;
         if (order == null) {
             Optional<Order> orderOpt = findLinkedOrder(shipment);
@@ -633,7 +727,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             return;
         }
         updateOrderTracking(order, shipment);
-        updateOrderStatus(order, shipment.getStatus());
+        updateOrderStatus(order, shipment, forceCommentRefresh);
         orderRepository.save(order);
         publishPartnerOrderChanged(order.getId());
     }
@@ -652,7 +746,8 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         order.setDeliveryDate(null);
     }
 
-    private void updateOrderStatus(Order order, ShipmentStatus shipmentStatus) {
+    private void updateOrderStatus(Order order, Shipment shipment, boolean forceCommentRefresh) {
+        ShipmentStatus shipmentStatus = shipment == null ? null : shipment.getStatus();
         if (shipmentStatus == null) {
             return;
         }
@@ -668,6 +763,9 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         }
 
         if (currentStatus == targetStatus) {
+            if (targetStatus == Status.DELIVERY_FAILED && forceCommentRefresh) {
+                appendOrderHistory(order, targetStatus, buildOrderHistoryComment(targetStatus, shipment));
+            }
             return;
         }
 
@@ -676,21 +774,25 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         }
 
         order.setCurrentStatus(targetStatus);
-        appendOrderHistory(order, targetStatus, buildOrderHistoryComment(targetStatus));
+        appendOrderHistory(order, targetStatus, buildOrderHistoryComment(targetStatus, shipment));
         if (targetStatus == Status.DELIVERY_FAILED && order.getId() != null) {
+            String issueComment = trimToNull(shipment == null ? null : shipment.getDeliveryIssueComment());
             backOfficeNotificationService.create(CreateBackOfficeNotificationRequest.builder()
                     .type(BackOfficeNotificationType.DELIVERY_ANOMALY)
-                    .scope(BackOfficeNotificationScope.DELIVERY)
-                    .targetRole(BackOfficeNotificationTargetRole.LIVREUR)
+                    .scope(BackOfficeNotificationScope.BACKOFFICE)
+                    .targetRole(BackOfficeNotificationTargetRole.ADMIN)
                     .title("Anomalie de livraison")
-                    .body("Échec de livraison sur la commande ORD-" + order.getId())
-                    .actionPath("/deliveries")
+                    .body(issueComment == null
+                            ? "Échec de livraison sur la commande ORD-" + order.getId()
+                            : "Échec de livraison sur la commande ORD-" + order.getId() + " • Motif: " + issueComment)
+                    .actionPath("/logistics")
                     .actionLabel("Ouvrir")
                     .severity(BackOfficeNotificationSeverity.WARNING)
                     .dedupeKey("DELIVERY_ANOMALY:" + order.getId())
                     .payload(java.util.Map.of(
                             "orderId", order.getId(),
-                            "status", targetStatus.name()
+                            "status", targetStatus.name(),
+                            "deliveryIssueComment", issueComment
                     ))
                     .build());
         }
@@ -725,11 +827,19 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
                 .build());
     }
 
-    private String buildOrderHistoryComment(Status status) {
+    private String buildOrderHistoryComment(Status status, Shipment shipment) {
         if (status == Status.DELIVERY_FAILED) {
-            return "Tentative de livraison échouée";
+            String customerComment = trimToNull(shipment == null ? null : shipment.getCustomerFacingComment());
+            return customerComment == null ? defaultDeliveryFailureCustomerMessage() : customerComment;
+        }
+        if (status == Status.DELIVERY_IN_PROGRESS) {
+            return DEFAULT_DELIVERY_RETRY_CUSTOMER_MESSAGE;
         }
         return "Statut synchronisé depuis logistique back-office";
+    }
+
+    private String defaultDeliveryFailureCustomerMessage() {
+        return DEFAULT_DELIVERY_FAILURE_CUSTOMER_MESSAGE;
     }
 
     private Status mapShipmentStatusToOrderStatus(ShipmentStatus shipmentStatus) {
@@ -784,8 +894,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     }
 
     private double computeShipmentDelayDays(Shipment shipment) {
-        LocalDateTime etaEndOfDay = shipment.getEta().atTime(23, 59, 59);
-        long hours = ChronoUnit.HOURS.between(etaEndOfDay, shipment.getDeliveredAt());
+        long hours = ChronoUnit.HOURS.between(shipment.getEta(), shipment.getDeliveredAt());
         return hours / 24.0d;
     }
 

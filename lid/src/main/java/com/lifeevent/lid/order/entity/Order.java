@@ -76,4 +76,14 @@ public class Order extends BaseEntity {
     @Column(length = 3)
     private String currency;
 
+    /**
+     * Adresse de livraison saisie au checkout.
+     */
+    @Column(length = 1000)
+    private String shippingAddress;
+
+    private Double shippingLatitude;
+
+    private Double shippingLongitude;
+
 }

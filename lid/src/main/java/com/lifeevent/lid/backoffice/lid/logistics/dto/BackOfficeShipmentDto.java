@@ -3,7 +3,6 @@ package com.lifeevent.lid.backoffice.lid.logistics.dto;
 import com.lifeevent.lid.logistics.enumeration.ShipmentStatus;
 import lombok.*;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
@@ -17,13 +16,17 @@ public class BackOfficeShipmentDto {
     private String carrier;
     private String trackingId;
     private ShipmentStatus status;
-    private LocalDate eta;
+    private LocalDateTime eta;
     private Double cost;
     private String customerName;
     private String customerPhone;
     private String customerAddress;
+    private Double customerLatitude;
+    private Double customerLongitude;
     private String customerEmail;
     private LocalDateTime scannedAt;
     private String courierName;
     private String courierReference;
+    private String deliveryIssueComment;
+    private String customerFacingComment;
 }

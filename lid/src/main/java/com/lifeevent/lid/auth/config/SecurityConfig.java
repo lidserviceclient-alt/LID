@@ -1,6 +1,8 @@
 package com.lifeevent.lid.auth.config;
 
 import com.lifeevent.lid.auth.config.converter.LidRoleConverter;
+import com.lifeevent.lid.user.common.entity.UserEntity;
+import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,6 +21,7 @@ import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
@@ -161,8 +164,30 @@ public class SecurityConfig {
     }
 
     @Bean
-    JwtDecoder lidApplicationDecoder(SecretKey secretKey) {
-        return NimbusJwtDecoder.withSecretKey(secretKey).build();
+    JwtDecoder lidApplicationDecoder(SecretKey secretKey,
+                                     UserEntityRepository userEntityRepository) {
+        OAuth2TokenValidator<Jwt> userPresenceValidator = jwt -> {
+            String userId = jwt == null ? null : jwt.getSubject();
+            if (userId == null || userId.isBlank()) {
+                return OAuth2TokenValidatorResult.failure(
+                        new OAuth2Error("invalid_token", "Missing subject", null)
+                );
+            }
+
+            return userEntityRepository.findById(userId)
+                    .filter(user -> !Boolean.TRUE.equals(user.getBlocked()))
+                    .<OAuth2TokenValidatorResult>map(user -> OAuth2TokenValidatorResult.success())
+                    .orElseGet(() -> OAuth2TokenValidatorResult.failure(
+                            new OAuth2Error("invalid_token", "Unknown or blocked user", null)
+                    ));
+        };
+
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(secretKey).build();
+        decoder.setJwtValidator(new org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefault(),
+                userPresenceValidator
+        ));
+        return decoder;
     }
 
     @Bean

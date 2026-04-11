@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -101,7 +102,7 @@ public class BackOfficeLogisticsCollectionServiceImpl implements BackOfficeLogis
         Page<BackOfficeShipmentDto> deliveredPageResult = backOfficeLogisticsService
                 .getShipments(deliveredPageRequest, deliveredStatus, deliveredCarrier, deliveredQ);
         List<BackOfficeShipmentDto> activeShipments = backOfficeLogisticsService
-                .getShipments(activePageRequest, ShipmentStatus.EN_COURS, carrier, q)
+                .getShipments(activePageRequest, EnumSet.of(ShipmentStatus.EN_PREPARATION, ShipmentStatus.EN_COURS), carrier, q)
                 .getContent();
 
         return BackOfficeDeliveryBootstrapDto.builder()

@@ -6,7 +6,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -42,7 +41,7 @@ public class Shipment extends BaseEntity {
     @Column(nullable = false)
     private ShipmentStatus status;
 
-    private LocalDate eta;
+    private LocalDateTime eta;
 
     private Double cost;
 
@@ -59,6 +58,12 @@ public class Shipment extends BaseEntity {
     private String deliveryCode;
 
     private LocalDateTime deliveryCodeGeneratedAt;
+
+    @Column(length = 1000)
+    private String deliveryIssueComment;
+
+    @Column(length = 1000)
+    private String customerFacingComment;
 
     private LocalDateTime deliveredAt;
 }

@@ -33,6 +33,12 @@ public class OrderDetailDto {
     private LocalDateTime deliveryDate;
     
     private String trackingNumber;
+
+    private String shippingAddress;
+
+    private Double shippingLatitude;
+
+    private Double shippingLongitude;
     
     /**
      * Articles commandés
