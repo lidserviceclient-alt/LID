@@ -1,6 +1,8 @@
-package com.lifeevent.lid.common.cache;
+package com.lifeevent.lid.common.cache.caffeine;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.lifeevent.lid.common.cache.CacheConfigurationSupport;
+import com.lifeevent.lid.common.cache.CatalogCacheProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -14,7 +16,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Configuration
-@Profile("local")
+@Profile({"local", "ddl-postgres"})
 @EnableCaching
 @EnableConfigurationProperties(CatalogCacheProperties.class)
 public class CacheConfigLocal {

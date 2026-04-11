@@ -2,12 +2,12 @@ package com.lifeevent.lid.common.cache;
 
 import java.util.List;
 
-final class CacheConfigurationSupport {
+public final class CacheConfigurationSupport {
 
     private CacheConfigurationSupport() {
     }
 
-    static List<CacheSpec> cacheSpecs(CatalogCacheProperties properties) {
+    public static List<CacheSpec> cacheSpecs(CatalogCacheProperties properties) {
         return List.of(
                 new CacheSpec(CatalogCacheNames.COLLECTION, properties.getCollectionTtlMinutes(), properties.getCollectionMaxSize()),
                 new CacheSpec(CatalogCacheNames.CATEGORIES, properties.getCategoriesTtlMinutes(), properties.getCategoriesMaxSize()),
@@ -46,6 +46,6 @@ final class CacheConfigurationSupport {
         );
     }
 
-    record CacheSpec(String name, long ttlMinutes, long maxSize) {
+    public record CacheSpec(String name, long ttlMinutes, long maxSize) {
     }
 }

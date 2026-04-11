@@ -1,10 +1,12 @@
-package com.lifeevent.lid.common.cache;
+package com.lifeevent.lid.common.cache.redis;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.lifeevent.lid.common.cache.CacheConfigurationSupport;
+import com.lifeevent.lid.common.cache.CatalogCacheProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
