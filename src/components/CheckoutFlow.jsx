@@ -9,6 +9,8 @@ import { checkout } from '@/services/orderService.js';
 import { getCustomerAddresses, getMyCustomerCheckoutCollection } from '@/services/customerService.js';
 import { resolveBackendAssetUrl } from '@/services/categoryService';
 import { useAppConfig } from '@/features/appConfig/useAppConfig';
+import InternationalPhoneField from '@/components/InternationalPhoneField';
+import { isValidInternationalPhone } from '@/utils/phone';
 
 const formatCardNumber = (value) => {
   const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
@@ -204,7 +206,7 @@ function CardPreview({ number, name, expiry, cvc, focus, supportPhone }) {
   );
 }
 
-export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, selectedSize, quantity, cartItems, onSuccess, shippingCost = 0, discountAmount = 0, loyaltyDiscountAmount = 0, loyaltyTier = "", promoCode = "", shippingMethodLabel = "Standard" }) {
+export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, selectedSize, quantity, cartItems, onSuccess, shippingCost = 0, discountAmount = 0, loyaltyDiscountAmount = 0, loyaltyTier = "", promoCode = "", shippingMethodCode = "STANDARD", shippingMethodLabel = "Standard" }) {
   const [step, setStep] = useState(1); // 1: Info, 2: Payment, 3: Processing, 4: Success
   const [loadingStep, setLoadingStep] = useState(0); // 0: Init, 1: Connecting, 2: Verifying, 3: Approved
   const [orderNumber, setOrderNumber] = useState('');
@@ -383,12 +385,24 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     }
   };
 
-  const handleSubmitInfo = (e) => { e.preventDefault(); setStep(2); };
+  const handleSubmitInfo = (e) => {
+    e.preventDefault();
+    if (!isValidInternationalPhone(formData.phone)) {
+      toast.error("Saisis un numéro de téléphone valide.");
+      return;
+    }
+    setStep(2);
+  };
 
   const handlePayment = async (e) => {
     e.preventDefault();
     const payload = getCurrentUserPayload();
     if (!payload?.sub) return toast.error("Veuillez vous connecter");
+    const checkoutPhone = formData.paymentMethod === 'mobile' ? formData.mobilePhone : formData.phone;
+    if (!isValidInternationalPhone(checkoutPhone)) {
+      toast.error("Saisis un numéro de téléphone valide pour le paiement.");
+      return;
+    }
     
     setStep(3);
     setLoadingStep(1);
@@ -397,10 +411,12 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
         amount: finalTotal,
         currency: 'XOF',
         email: formData.email,
-        phone: formData.paymentMethod === 'mobile' ? formData.mobilePhone : formData.phone,
+        phone: checkoutPhone,
         shippingAddress: `${formData.address}, ${formData.city} ${formData.zip}`,
         shippingLatitude: shippingCoordinates?.latitude ?? null,
         shippingLongitude: shippingCoordinates?.longitude ?? null,
+        shippingMethodCode,
+        shippingMethodLabel,
         shippingCost: normalizedShippingCost,
         items: isCartCheckout ? cartItems.map(i => ({ articleId: i.id, quantity: i.quantity })) : [{ articleId: product.id, quantity: normalizedQuantity }],
         paymentProvider: import.meta.env.VITE_PAYMENT_PROVIDER || 'PAYDUNYA'
@@ -496,6 +512,18 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                         <input required type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full p-4 bg-neutral-50 dark:bg-neutral-900 rounded-2xl outline-none focus:ring-2 ring-orange-500 transition-all" />
                       </div>
                       <div className="space-y-1">
+                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest px-1">Téléphone</label>
+                        <InternationalPhoneField
+                          value={formData.phone}
+                          onChange={(value) => setFormData((prev) => ({ ...prev, phone: value }))}
+                          defaultCountry="CI"
+                          placeholder="Numéro de téléphone"
+                          containerClassName="items-stretch"
+                          selectClassName="w-full rounded-2xl bg-neutral-50 dark:bg-neutral-900 px-4 py-4 outline-none focus:ring-2 ring-orange-500 transition-all"
+                          inputClassName="w-full rounded-2xl bg-neutral-50 dark:bg-neutral-900 px-4 py-4 outline-none focus:ring-2 ring-orange-500 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1">
                         <div className="flex items-center justify-between gap-3 px-1">
                           <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">
                             Adresse
@@ -565,7 +593,18 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                             <Smartphone className="mx-auto text-orange-500" size={48} />
                             <p className="text-sm text-neutral-500 font-medium">Payez avec Orange Money, Wave ou MTN</p>
                           </div>
-                          <input required type="tel" name="mobilePhone" value={formData.mobilePhone} onChange={handleInputChange} placeholder="Numéro Mobile Money" className="w-full p-5 bg-neutral-50 dark:bg-neutral-900 rounded-2xl outline-none border-2 border-transparent focus:border-orange-500 transition-all text-center text-xl font-black" />
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest px-1">Numéro Mobile Money</label>
+                            <InternationalPhoneField
+                              value={formData.mobilePhone}
+                              onChange={(value) => setFormData((prev) => ({ ...prev, mobilePhone: value }))}
+                              defaultCountry="CI"
+                              placeholder="Numéro Mobile Money"
+                              containerClassName="items-stretch"
+                              selectClassName="w-full rounded-2xl bg-neutral-50 dark:bg-neutral-900 px-4 py-5 outline-none border-2 border-transparent focus:border-orange-500 transition-all"
+                              inputClassName="w-full rounded-2xl bg-neutral-50 dark:bg-neutral-900 px-4 py-5 outline-none border-2 border-transparent focus:border-orange-500 transition-all text-center text-xl font-black"
+                            />
+                          </div>
                         </div>
                       )}
                       <button type="submit" className="w-full py-5 bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all">Payer {formatMoney(finalTotal)} FCFA</button>

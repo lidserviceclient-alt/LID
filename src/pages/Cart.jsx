@@ -15,6 +15,19 @@ import { getCatalogProductsPage, getFeaturedCatalogProducts } from "@/services/p
 import { resolveBackendAssetUrl } from "@/services/categoryService";
 import { useAppConfig } from "@/features/appConfig/useAppConfig";
 
+const formatShippingLeadTime = (method) => {
+  const unit = `${method?.leadTimeUnit || ""}`.toUpperCase();
+  const min = Number(method?.leadTimeMin);
+  const max = Number(method?.leadTimeMax);
+  if (Number.isFinite(min) && Number.isFinite(max) && max >= min) {
+    if (unit === "HOURS") {
+      return min === max ? `${min}h` : `${min}-${max}h`;
+    }
+    return min === max ? `${min} jour${min > 1 ? "s" : ""}` : `${min}-${max} jours ouvrables`;
+  }
+  return `${method?.description || ""}`.trim();
+};
+
 export default function Cart() {
   const { cartItems, addToCart, removeFromCart, updateQuantity, cartTotal, clearCart } = useCart();
   const { data: appConfig } = useAppConfig();
@@ -40,8 +53,8 @@ export default function Cart() {
   const isFreeShippingEnabled = Boolean(freeShipping?.enabled) && Boolean(freeShippingThreshold);
   const fallbackShippingMethods = useMemo(
     () => [
-      { code: "STANDARD", label: "Standard", description: "3-5 jours ouvrables", costAmount: 3250, enabled: true, isDefault: true, sortOrder: 0 },
-      { code: "EXPRESS", label: "Express", description: "24-48h", costAmount: 6500, enabled: true, isDefault: false, sortOrder: 1 }
+      { code: "STANDARD", label: "Standard", description: "3-5 jours ouvrables", costAmount: 3250, enabled: true, isDefault: true, sortOrder: 0, leadTimeUnit: "DAYS", leadTimeMin: 3, leadTimeMax: 5 },
+      { code: "EXPRESS", label: "Express", description: "24-48h", costAmount: 6500, enabled: true, isDefault: false, sortOrder: 1, leadTimeUnit: "HOURS", leadTimeMin: 24, leadTimeMax: 48 }
     ],
     []
   );
@@ -596,7 +609,7 @@ export default function Cart() {
                           />
                           <div className="flex flex-col">
                             <span className="text-sm font-medium text-neutral-900 dark:text-white">{m?.label || code}</span>
-                            <span className="text-xs text-neutral-500">{m?.description || ""}</span>
+                            <span className="text-xs text-neutral-500">{formatShippingLeadTime(m)}</span>
                           </div>
                         </div>
                         <span className="text-sm font-bold text-neutral-900 dark:text-white">{displayCost}</span>
@@ -648,6 +661,7 @@ export default function Cart() {
         cartItems={cartItems}
         onSuccess={handlePaymentSuccess}
         shippingCost={shippingCost}
+        shippingMethodCode={selectedShippingMethod?.code || "STANDARD"}
         shippingMethodLabel={selectedShippingMethod?.label || "Standard"}
         discountAmount={discountAmount}
         loyaltyDiscountAmount={loyaltyDiscountAmount}

@@ -43,6 +43,19 @@ const resolveImageSrc = (url) => {
   return resolveBackendAssetUrl(raw);
 };
 
+const formatShippingLeadTime = (method) => {
+  const unit = `${method?.leadTimeUnit || ""}`.toUpperCase();
+  const min = Number(method?.leadTimeMin);
+  const max = Number(method?.leadTimeMax);
+  if (Number.isFinite(min) && Number.isFinite(max) && max >= min) {
+    if (unit === "HOURS") {
+      return min === max ? `${min}h` : `${min}-${max}h`;
+    }
+    return min === max ? `${min} jour${min > 1 ? "s" : ""}` : `${min}-${max} jours ouvrables`;
+  }
+  return `${method?.description || ""}`.trim() || "-";
+};
+
 const pickGalleryImages = (product) => {
   const urls = [];
   const add = (url) => {
@@ -90,8 +103,8 @@ export default function ProductDetailsDb() {
   const isFreeShippingEnabled = Boolean(freeShipping?.enabled) && Boolean(freeShippingThreshold);
   const fallbackShippingMethods = useMemo(
     () => [
-      { code: "STANDARD", label: "Standard", description: "3-5 jours ouvrables", costAmount: 3250, enabled: true, isDefault: true, sortOrder: 0 },
-      { code: "EXPRESS", label: "Express", description: "24-48h", costAmount: 5000, enabled: true, isDefault: false, sortOrder: 1 }
+      { code: "STANDARD", label: "Standard", description: "3-5 jours ouvrables", costAmount: 3250, enabled: true, isDefault: true, sortOrder: 0, leadTimeUnit: "DAYS", leadTimeMin: 3, leadTimeMax: 5 },
+      { code: "EXPRESS", label: "Express", description: "24-48h", costAmount: 5000, enabled: true, isDefault: false, sortOrder: 1, leadTimeUnit: "HOURS", leadTimeMin: 24, leadTimeMax: 48 }
     ],
     []
   );
@@ -99,6 +112,8 @@ export default function ProductDetailsDb() {
     const list = configuredShippingMethods.length ? configuredShippingMethods : fallbackShippingMethods;
     return list.filter((m) => Boolean(m?.enabled));
   }, [configuredShippingMethods, fallbackShippingMethods]);
+  const shippingPolicyNote = `${appConfig?.shippingPolicyNote || ""}`.trim() || "La livraison comprend différentes modalités.";
+  const returnPolicyText = `${appConfig?.returnPolicyText || ""}`.trim() || "Retours sous 30 jours : produit non utilisé, dans son emballage d'origine.";
   const defaultShippingCode = useMemo(() => {
     const found = shippingMethods.find((m) => Boolean(m?.isDefault)) || shippingMethods[0];
     return found?.code || "STANDARD";
@@ -512,7 +527,7 @@ export default function ProductDetailsDb() {
                         {isSelected && <Check size={16} className="text-orange-600" />}
                       </div>
                       <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
-                        {option?.description || "-"}
+                        {formatShippingLeadTime(option)}
                       </div>
                       <div className="text-xs font-bold text-neutral-900 dark:text-white">
                         {costDisplay}
@@ -643,15 +658,14 @@ export default function ProductDetailsDb() {
 
               {activeTab === "shipping" ? (
                 <div className="mt-5 space-y-3 text-sm text-neutral-700 dark:text-neutral-300">
-                  <p>
-                    Livraison standard : <span className="font-bold">3–5 jours ouvrables</span>. Livraison
-                    express : <span className="font-bold">24–48h</span>.
-                  </p>
-                  <p>
-                    
-La livraison comprend différentes modalités.
-                  </p>
-                  <p>Retours sous 30 jours : produit non utilisé, dans son emballage d'origine.</p>
+                  {shippingMethods.map((method) => (
+                    <p key={method?.code || method?.id}>
+                      Livraison {`${method?.label || method?.code || "standard"}`.toLowerCase()} :{" "}
+                      <span className="font-bold">{formatShippingLeadTime(method)}</span>.
+                    </p>
+                  ))}
+                  <p>{shippingPolicyNote}</p>
+                  <p>{returnPolicyText}</p>
                 </div>
               ) : null}
 
@@ -737,6 +751,7 @@ La livraison comprend différentes modalités.
         selectedSize="Unique"
         quantity={Math.max(1, Math.trunc(Number(quantity) || 1))}
         shippingCost={shippingCost}
+        shippingMethodCode={selectedShippingMethod?.code || "STANDARD"}
         shippingMethodLabel={selectedShippingMethod?.label || "Standard"}
         discountAmount={0}
         promoCode=""
