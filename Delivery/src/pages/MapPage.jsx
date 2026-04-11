@@ -12,7 +12,14 @@ import { useGeolocation } from '../hooks/useGeolocation'
 import { geocodeAddress } from '../services/geocoding'
 import { getDrivingRoute } from '../services/routing'
 
-function openExternalNav(address) {
+function openExternalNav(address, latitude, longitude) {
+  const lat = Number(latitude)
+  const lng = Number(longitude)
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`
+    window.open(url, '_blank', 'noopener,noreferrer')
+    return
+  }
   const addr = `${address || ''}`.trim()
   if (!addr) return
   const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}&travelmode=driving`
@@ -49,6 +56,12 @@ export default function MapPage() {
   useEffect(() => {
     let canceled = false
     const run = async () => {
+      const lat = Number(selectedDetail?.customerLatitude)
+      const lng = Number(selectedDetail?.customerLongitude)
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        setDestination({ lat, lng, label: `${selectedDetail?.customerAddress || ''}`.trim() || 'Destination' })
+        return
+      }
       const addr = `${selectedDetail?.customerAddress || ''}`.trim()
       if (!addr) {
         setDestination(null)
@@ -67,7 +80,7 @@ export default function MapPage() {
     return () => {
       canceled = true
     }
-  }, [selectedDetail?.customerAddress])
+  }, [selectedDetail?.customerAddress, selectedDetail?.customerLatitude, selectedDetail?.customerLongitude])
 
   useEffect(() => {
     if (routeTimerRef.current) {
@@ -98,9 +111,12 @@ export default function MapPage() {
   }, [currentPos, destination])
 
   const eta = useMemo(() => {
-    if (!route?.summary) return null
-    const durationMin = Math.round(route.summary.totalTime / 60)
-    const distanceKm = (route.summary.totalDistance / 1000).toFixed(1)
+    if (!route) return null
+    const durationMin = Math.round(Number(route.durationSeconds) / 60)
+    const distanceKm = (Number(route.distanceMeters) / 1000).toFixed(1)
+    if (!Number.isFinite(durationMin) || !Number.isFinite(Number(distanceKm))) {
+      return null
+    }
     return { duration: durationMin, distance: distanceKm }
   }, [route])
 
@@ -151,8 +167,8 @@ export default function MapPage() {
 
         <div className="absolute bottom-4 left-4 right-4">
           <button
-            onClick={() => openExternalNav(selectedDetail?.customerAddress)}
-            disabled={!selectedDetail?.customerAddress}
+            onClick={() => openExternalNav(selectedDetail?.customerAddress, selectedDetail?.customerLatitude, selectedDetail?.customerLongitude)}
+            disabled={!selectedDetail?.customerAddress && !(Number.isFinite(Number(selectedDetail?.customerLatitude)) && Number.isFinite(Number(selectedDetail?.customerLongitude)))}
             className="w-full bg-[#6aa200] text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Navigation size={18} />

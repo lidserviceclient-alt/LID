@@ -25,6 +25,15 @@ function formatNumber(value) {
   return new Intl.NumberFormat('fr-FR').format(Number(value))
 }
 
+function toStatusUi(status) {
+  const s = `${status || ''}`.trim().toUpperCase()
+  if (s === 'EN_PREPARATION') return { label: 'À récupérer', className: 'bg-neutral-100 text-neutral-700' }
+  if (s === 'EN_COURS') return { label: 'En cours', className: 'bg-blue-50 text-blue-700' }
+  if (s === 'LIVREE') return { label: 'Livrée', className: 'bg-green-50 text-green-700' }
+  if (s === 'ECHEC') return { label: 'Échec', className: 'bg-red-50 text-red-700' }
+  return { label: s || '-', className: 'bg-neutral-100 text-neutral-700' }
+}
+
 export default function HomePage() {
   const navigate = useNavigate()
   const [status, setStatus] = useState(getSavedStatus())
@@ -100,28 +109,31 @@ export default function HomePage() {
               <p className="text-neutral-500 font-medium">Aucune livraison active</p>
             </div>
           ) : (
-            active.map((mission) => (
-              <Link
-                key={mission.id}
-                to={`/deliveries/${mission.id}`}
-                className="block bg-white p-4 rounded-3xl shadow-sm border border-neutral-100 active:scale-[0.99] transition-transform"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-neutral-100 rounded-2xl flex items-center justify-center flex-shrink-0">
-                    <MapPin size={24} className="text-neutral-900" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-bold text-neutral-900 truncate">Commande #{mission.orderId || mission.id}</h3>
-                      <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-full">EN COURS</span>
+            active.map((mission) => {
+              const statusUi = toStatusUi(mission?.status)
+              return (
+                <Link
+                  key={mission.id}
+                  to={`/deliveries/${mission.id}`}
+                  className="block bg-white p-4 rounded-3xl shadow-sm border border-neutral-100 active:scale-[0.99] transition-transform"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-neutral-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+                      <MapPin size={24} className="text-neutral-900" />
                     </div>
-                    <p className="text-neutral-500 text-sm mt-1 truncate">
-                      {mission.customerAddress || 'Adresse non disponible'}
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <h3 className="font-bold text-neutral-900 truncate">Commande #{mission.orderId || mission.id}</h3>
+                        <span className={`${statusUi.className} text-[10px] font-bold px-2 py-1 rounded-full`}>{statusUi.label}</span>
+                      </div>
+                      <p className="text-neutral-500 text-sm mt-1 truncate">
+                        {mission.customerAddress || 'Adresse non disponible'}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))
+                </Link>
+              )
+            })
           )}
         </div>
       </div>

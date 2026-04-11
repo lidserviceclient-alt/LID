@@ -1,24 +1,6 @@
-import { apiRequest } from './http'
-import { clearAccessToken, getAccessToken } from './auth'
+import { authorizedApiRequest } from './auth'
 
 const notificationsInflight = new Map()
-
-async function authedRequest(path, options) {
-  const token = getAccessToken()
-  if (!token) {
-    const err = new Error('Non authentifié')
-    err.status = 401
-    throw err
-  }
-  try {
-    return await apiRequest(path, { ...(options || {}), token })
-  } catch (err) {
-    if (err?.status === 401) {
-      clearAccessToken()
-    }
-    throw err
-  }
-}
 
 export function getNotifications({ page = 0, size = 20, since } = {}) {
   const params = { page, size, since }
@@ -33,7 +15,7 @@ export function getNotifications({ page = 0, size = 20, since } = {}) {
     return inflight
   }
 
-  const request = authedRequest('/api/v1/backoffice/notifications', { params }).finally(() => {
+  const request = authorizedApiRequest('/api/v1/backoffice/notifications', { params }).finally(() => {
     notificationsInflight.delete(key)
   })
 
@@ -42,5 +24,5 @@ export function getNotifications({ page = 0, size = 20, since } = {}) {
 }
 
 export function getNotificationsCount(since) {
-  return authedRequest('/api/v1/backoffice/notifications/count', { params: { since } })
+  return authorizedApiRequest('/api/v1/backoffice/notifications/count', { params: { since } })
 }

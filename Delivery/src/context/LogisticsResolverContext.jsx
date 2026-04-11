@@ -71,6 +71,7 @@ export function LogisticsResolverProvider({ children }) {
   const [bootstraps, setBootstraps] = useState({})
   const [details, setDetails] = useState({})
   const bootstrapsRef = useRef({})
+  const detailsRef = useRef({})
   const bootstrapInflightRef = useRef(new Map())
   const detailInflightRef = useRef(new Map())
   const refreshTimerRef = useRef(null)
@@ -78,6 +79,10 @@ export function LogisticsResolverProvider({ children }) {
   useEffect(() => {
     bootstrapsRef.current = bootstraps
   }, [bootstraps])
+
+  useEffect(() => {
+    detailsRef.current = details
+  }, [details])
 
   const ensureBootstrap = async (params, { force = false } = {}) => {
     const normalized = normalizeBootstrapParams(params)
@@ -246,6 +251,15 @@ export function LogisticsResolverProvider({ children }) {
             // ignore malformed keys
           }
         })
+
+        const shipmentId = detailKey(event?.payload?.shipmentId ?? event?.shipmentId)
+        if (!shipmentId) {
+          return
+        }
+        const current = detailsRef.current?.[shipmentId]
+        if (current?.loaded || current?.isLoading) {
+          ensureShipmentDetails([shipmentId], { force: true }).catch(() => {})
+        }
       }
 
       if (refreshTimerRef.current) {
