@@ -1,17 +1,16 @@
 import { useNavigate } from 'react-router-dom'
 import { Bell, LifeBuoy, LogOut, Shield, ChevronRight, User } from 'lucide-react'
-import { clearAccessToken, decodeJwt, getAccessToken } from '../services/auth'
+import { getAuthenticatedUser, logout } from '../services/auth'
 
 export default function ProfilePage() {
   const navigate = useNavigate()
-  const token = getAccessToken()
-  const payload = decodeJwt(token)
+  const user = getAuthenticatedUser()
+  const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Livreur'
+  const phoneNumber = user?.phoneNumber || '-'
+  const roles = Array.isArray(user?.roles) ? user.roles : []
 
-  const email = payload?.email || '-'
-  const roles = Array.isArray(payload?.roles) ? payload.roles : payload?.role ? [payload.role] : []
-
-  const logout = () => {
-    clearAccessToken()
+  const handleLogout = async () => {
+    await logout()
     navigate('/login')
   }
 
@@ -38,8 +37,8 @@ export default function ProfilePage() {
           <User size={32} />
         </div>
         <div>
-          <h1 className="text-xl font-black text-neutral-900">Livreur</h1>
-          <p className="text-neutral-500 font-medium text-sm">{email}</p>
+          <h1 className="text-xl font-black text-neutral-900">{fullName}</h1>
+          <p className="text-neutral-500 font-medium text-sm">{phoneNumber}</p>
           <div className="flex gap-2 mt-2">
             {roles.map(role => (
               <span key={role} className="bg-neutral-100 text-neutral-600 text-[10px] font-bold px-2 py-1 rounded-full uppercase">
@@ -73,7 +72,7 @@ export default function ProfilePage() {
         <MenuItem 
           icon={LogOut} 
           label="Se déconnecter" 
-          onClick={logout} 
+          onClick={handleLogout} 
           danger
         />
       </div>

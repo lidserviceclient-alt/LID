@@ -1,12 +1,14 @@
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Eye, EyeOff, Lock, Mail } from 'lucide-react'
-import { loginLocal } from '../services/auth'
+import { ArrowRight, Eye, EyeOff, Lock } from 'lucide-react'
+import { loginDelivery } from '../services/auth'
+import PhoneNumberField from '../components/ui/PhoneNumberField'
+import { isValidInternationalPhone } from '../utils/phone'
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -14,16 +16,19 @@ export default function LoginPage() {
 
   const onSubmit = async (e) => {
     e.preventDefault()
-    if (!email || !password) return
-    
+    if (!phoneNumber || !password) return
+
     setIsLoading(true)
     setError('')
-    
+
     try {
-      await loginLocal(email, password)
+      if (!isValidInternationalPhone(phoneNumber)) {
+        throw new Error('Numéro de téléphone invalide.')
+      }
+      await loginDelivery(phoneNumber, password)
       navigate('/home')
     } catch (err) {
-      setError('Email ou mot de passe incorrect.')
+      setError(err?.message || 'Numéro ou mot de passe incorrect.')
     } finally {
       setIsLoading(false)
     }
@@ -46,17 +51,11 @@ export default function LoginPage() {
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-4">
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={20} />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
-                autoComplete="email"
-                className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl px-12 py-4 outline-none focus:border-[#6aa200] focus:ring-1 focus:ring-[#6aa200] transition-all placeholder:text-neutral-600"
-              />
-            </div>
+            <PhoneNumberField
+              value={phoneNumber}
+              onChange={setPhoneNumber}
+              placeholder="Numéro du livreur"
+            />
             
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={20} />
