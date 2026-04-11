@@ -300,13 +300,16 @@ export default function DeliveriesPage() {
             <div id="reader" className="w-full h-full object-cover"></div>
           </div>
           <div className="p-6 bg-white rounded-t-3xl">
-            <p className="text-center font-bold text-neutral-900 mb-4">Ou saisir manuellement</p>
+            <p className="text-center font-bold text-neutral-900 mb-2">Ou saisir le code QR manuellement</p>
+            <p className="text-center text-sm text-neutral-500 mb-4">
+              Saisissez exactement le code affiché sous le QR, par exemple <span className="font-mono">SHIP:123</span>.
+            </p>
             <div className="flex gap-2">
               <input
                 value={manualQr}
                 onChange={(e) => setManualQr(e.target.value)}
                 className="flex-1 bg-neutral-100 rounded-xl px-4 py-3 font-mono font-bold outline-none focus:ring-2 focus:ring-[#6aa200]"
-                placeholder="CODE..."
+                placeholder="Code QR, ex: SHIP:123"
               />
               <button
                 onClick={() => submitScan(manualQr)}

@@ -1,14 +1,14 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { CheckCircle2, KeyRound, Navigation, PhoneCall, RefreshCw, Check, ScanLine, QrCode } from 'lucide-react'
+import { CheckCircle2, KeyRound, Navigation, PhoneCall, RefreshCw, Check, ScanLine, QrCode, MessageSquare, AlertTriangle } from 'lucide-react'
 
 import LiveTrackingMap from '../components/map/LiveTrackingMap'
 import { useShipmentDetailResolver } from '../context/LogisticsResolverContext'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { geocodeAddress } from '../services/geocoding'
 import { getDrivingRoute } from '../services/routing'
-import { confirmDelivery, updateShipmentStatus } from '../services/logistics'
+import { confirmDelivery, scanShipment, updateShipmentStatus } from '../services/logistics'
 
 const MotionDiv = motion.div
 
@@ -63,8 +63,13 @@ export default function DeliveryDetailsPage() {
   const [deliveryCode, setDeliveryCode] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
   const [isLocked, setIsLocked] = useState(true)
+  const [manualQr, setManualQr] = useState('')
+  const [unlockError, setUnlockError] = useState('')
+  const [unlockLoading, setUnlockLoading] = useState(false)
+  const [showFailureSheet, setShowFailureSheet] = useState(false)
+  const [failureComment, setFailureComment] = useState('')
 
-  const { position: currentPos } = useGeolocation()
+  const { position: currentPos, error: gpsError, permission: gpsPermission } = useGeolocation()
   const { data: detail, error, isLoading, refresh } = useShipmentDetailResolver(id, { enabled: Boolean(id) })
   const statusUi = useMemo(() => toStatusUi(detail?.status), [detail?.status])
   const items = Array.isArray(detail?.items) ? detail.items : []
@@ -85,11 +90,43 @@ export default function DeliveryDetailsPage() {
     }
   }, [detail?.status, id])
 
+  const unlockWithManualCode = async () => {
+    const qr = `${manualQr || ''}`.trim()
+    if (!qr || unlockLoading) return
+
+    setUnlockLoading(true)
+    setUnlockError('')
+    try {
+      const scannedDetail = await scanShipment(qr)
+      if (!scannedDetail?.id) {
+        throw new Error('Expédition introuvable.')
+      }
+      localStorage.setItem('lid_last_scanned_shipment', JSON.stringify(scannedDetail))
+      setManualQr('')
+      if (`${scannedDetail.id}` !== id) {
+        navigate(`/deliveries/${encodeURIComponent(scannedDetail.id)}`, { replace: true })
+        return
+      }
+      setIsLocked(false)
+      await refresh()
+    } catch (err) {
+      setUnlockError(err?.message || 'Impossible de valider ce code QR.')
+    } finally {
+      setUnlockLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (isLocked) return
 
     let canceled = false
     const run = async () => {
+      const lat = Number(detail?.customerLatitude)
+      const lng = Number(detail?.customerLongitude)
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        setDestination({ lat, lng, label: `${detail?.customerAddress || ''}`.trim() || 'Destination' })
+        return
+      }
       const addr = `${detail?.customerAddress || ''}`.trim()
       if (!addr) {
         setDestination(null)
@@ -103,7 +140,7 @@ export default function DeliveryDetailsPage() {
     return () => {
       canceled = true
     }
-  }, [detail?.customerAddress, isLocked])
+  }, [detail?.customerAddress, detail?.customerLatitude, detail?.customerLongitude, isLocked])
 
   useEffect(() => {
     if (isLocked) {
@@ -144,7 +181,20 @@ export default function DeliveryDetailsPage() {
     window.location.href = `tel:${phone}`
   }
 
+  const smsCustomer = () => {
+    const phone = `${detail?.customerPhone || ''}`.trim()
+    if (!phone) return
+    window.location.href = `sms:${phone}`
+  }
+
   const openNavigation = () => {
+    const lat = Number(detail?.customerLatitude)
+    const lng = Number(detail?.customerLongitude)
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`
+      window.open(url, '_blank', 'noopener,noreferrer')
+      return
+    }
     const addr = `${detail?.customerAddress || ''}`.trim()
     if (!addr) return
     const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}&travelmode=driving`
@@ -153,10 +203,17 @@ export default function DeliveryDetailsPage() {
 
   const markFailure = async () => {
     if (!id || isUpdating) return
+    const comment = `${failureComment || ''}`.trim()
+    if (!comment) {
+      setActionError('Précisez le problème rencontré avant de signaler l’échec.')
+      return
+    }
     setIsUpdating(true)
     setActionError('')
     try {
-      await updateShipmentStatus(id, 'ECHEC')
+      await updateShipmentStatus(id, 'ECHEC', { deliveryIssueComment: comment })
+      setShowFailureSheet(false)
+      setFailureComment('')
       await refresh()
     } catch (err) {
       setActionError(err?.message || 'Impossible de mettre à jour le statut.')
@@ -188,6 +245,17 @@ export default function DeliveryDetailsPage() {
 
   const distance = route?.distanceMeters != null ? formatDistance(route.distanceMeters) : null
   const duration = route?.durationSeconds != null ? formatDuration(route.durationSeconds) : null
+  const routeInfoLabel = useMemo(() => {
+    if (!detail) return 'Chargement de la mission...'
+    if (gpsError) return gpsError
+    if (gpsPermission === 'denied') {
+      return "Autorisation GPS refusée. Active la localisation dans les réglages du navigateur."
+    }
+    if (!currentPos) return 'Position livreur en attente'
+    if (!destination) return 'Destination indisponible'
+    if (!route) return 'Itinéraire indisponible'
+    return null
+  }, [currentPos, destination, detail, gpsError, gpsPermission, route])
 
   if (isLocked && !isLoading && detail) {
     return (
@@ -204,12 +272,33 @@ export default function DeliveryDetailsPage() {
         <p className="text-neutral-500 font-medium mb-8 max-w-xs">
           Pour accéder aux détails et démarrer la livraison, vous devez d'abord scanner le QR code du colis.
         </p>
-        <button
-          onClick={() => navigate('/deliveries')}
-          className="w-full max-w-xs bg-black text-white py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-transform"
-        >
-          <ScanLine size={20} /> Scanner maintenant
-        </button>
+        <div className="w-full max-w-xs space-y-3">
+          <button
+            onClick={() => navigate('/deliveries')}
+            className="w-full bg-black text-white py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-transform"
+          >
+            <ScanLine size={20} /> Scanner maintenant
+          </button>
+          <div className="rounded-2xl border border-neutral-200 bg-white p-4 space-y-3 shadow-sm">
+            <p className="text-sm font-bold text-neutral-900">Ou entrer le code QR</p>
+            <input
+              value={manualQr}
+              onChange={(event) => setManualQr(event.target.value)}
+              placeholder="Code QR, ex: SHIP:123"
+              className="w-full rounded-xl bg-neutral-100 px-4 py-3 font-mono font-bold outline-none focus:ring-2 focus:ring-[#6aa200]"
+            />
+            <button
+              onClick={unlockWithManualCode}
+              disabled={unlockLoading || !`${manualQr || ''}`.trim()}
+              className="w-full rounded-xl bg-[#6aa200] px-4 py-3 font-bold text-white disabled:opacity-50"
+            >
+              {unlockLoading ? 'Vérification...' : 'Valider le code'}
+            </button>
+            {unlockError ? (
+              <p className="text-sm font-medium text-red-600">{unlockError}</p>
+            ) : null}
+          </div>
+        </div>
       </MotionDiv>
     )
   }
@@ -249,24 +338,51 @@ export default function DeliveryDetailsPage() {
         </div>
 
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-100">
+          {gpsError ? (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+              {gpsError}
+            </div>
+          ) : null}
+
           <div className="flex items-start justify-between mb-6">
             <div>
               <h1 className="text-2xl font-black text-neutral-900">{detail?.customerName || 'Client'}</h1>
               <p className="text-neutral-500 font-medium mt-1">{detail?.customerAddress || 'Adresse non définie'}</p>
             </div>
-            <button onClick={callCustomer} className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center text-green-700 transition hover:bg-green-200">
-              <PhoneCall size={24} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={callCustomer}
+                disabled={!`${detail?.customerPhone || ''}`.trim()}
+                className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center text-green-700 transition hover:bg-green-200 disabled:opacity-40"
+                title="Appeler le client"
+              >
+                <PhoneCall size={24} />
+              </button>
+              <button
+                onClick={smsCustomer}
+                disabled={!`${detail?.customerPhone || ''}`.trim()}
+                className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 transition hover:bg-blue-200 disabled:opacity-40"
+                title="Envoyer un SMS"
+              >
+                <MessageSquare size={22} />
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-neutral-50 p-4 rounded-2xl">
               <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider">Distance</p>
               <p className="text-xl font-black text-neutral-900">{distance || '--'}</p>
+              {!distance && routeInfoLabel ? (
+                <p className="mt-1 text-xs font-medium text-neutral-500">{routeInfoLabel}</p>
+              ) : null}
             </div>
             <div className="bg-neutral-50 p-4 rounded-2xl">
               <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider">Temps estimé</p>
               <p className="text-xl font-black text-neutral-900">{duration || '--'}</p>
+              {!duration && routeInfoLabel ? (
+                <p className="mt-1 text-xs font-medium text-neutral-500">{routeInfoLabel}</p>
+              ) : null}
             </div>
           </div>
 
@@ -315,7 +431,10 @@ export default function DeliveryDetailsPage() {
           </div>
 
           <button
-            onClick={markFailure}
+            onClick={() => {
+              setActionError('')
+              setShowFailureSheet(true)
+            }}
             disabled={isUpdating}
             className="w-full mt-4 py-3 text-red-600 font-bold text-sm bg-red-50 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50"
           >
@@ -346,6 +465,71 @@ export default function DeliveryDetailsPage() {
             </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showFailureSheet ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ y: 28, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 28, opacity: 0 }}
+              className="w-full max-w-lg rounded-[28px] bg-white p-6 shadow-2xl"
+            >
+              <div className="mb-4 flex items-start gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                  <AlertTriangle size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-neutral-900">Décrire le problème</h3>
+                  <p className="text-sm text-neutral-500">
+                    Ce message sera envoyé au backoffice pour qu’il puisse informer le client et relancer la livraison si besoin.
+                  </p>
+                </div>
+              </div>
+
+              <textarea
+                rows={5}
+                value={failureComment}
+                onChange={(event) => setFailureComment(event.target.value)}
+                placeholder="Ex: client injoignable, adresse introuvable, absence sur place, accès impossible..."
+                className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm font-medium text-neutral-900 outline-none focus:border-[#6aa200] focus:ring-2 focus:ring-[#6aa200]/20"
+              />
+
+              {actionError ? (
+                <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+                  {actionError}
+                </div>
+              ) : null}
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isUpdating) return
+                    setShowFailureSheet(false)
+                  }}
+                  className="flex-1 rounded-2xl border border-neutral-200 bg-white px-4 py-3 font-bold text-neutral-700"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={markFailure}
+                  disabled={isUpdating || !`${failureComment || ''}`.trim()}
+                  className="flex-1 rounded-2xl bg-red-600 px-4 py-3 font-bold text-white disabled:opacity-50"
+                >
+                  {isUpdating ? 'Envoi...' : 'Envoyer au backoffice'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
       </AnimatePresence>
     </>
   )

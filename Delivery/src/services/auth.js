@@ -26,6 +26,13 @@ export function clearAccessToken() {
   setAccessToken(null)
 }
 
+export function isTokenExpired(token) {
+  const payload = decodeJwt(token)
+  const exp = Number(payload?.exp)
+  if (!Number.isFinite(exp) || exp <= 0) return false
+  return Date.now() >= exp * 1000
+}
+
 export async function loginLocal(email, password) {
   const payload = { email, password }
   const data = await apiRequest('/api/v1/auth/login/local/delivery', { method: 'POST', body: payload })

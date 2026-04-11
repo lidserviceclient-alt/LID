@@ -1,11 +1,16 @@
 import { Navigate, useLocation } from 'react-router-dom'
-import { clearAccessToken, decodeJwt, getAccessToken } from '../services/auth'
+import { clearAccessToken, decodeJwt, getAccessToken, isTokenExpired } from '../services/auth'
 
 export default function RequireAuth({ children }) {
   const location = useLocation()
   const token = getAccessToken()
 
   if (!token) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  }
+
+  if (isTokenExpired(token)) {
+    clearAccessToken()
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
 

@@ -1,9 +1,10 @@
 import { apiRequest } from './http'
-import { getAccessToken, clearAccessToken, decodeJwt } from './auth'
+import { getAccessToken, clearAccessToken, decodeJwt, isTokenExpired } from './auth'
 
 async function authedRequest(path, options) {
   const token = getAccessToken()
-  if (!token) {
+  if (!token || isTokenExpired(token)) {
+    clearAccessToken()
     const err = new Error('Non authentifié')
     err.status = 401
     throw err
@@ -78,10 +79,10 @@ export function getShipmentDetail(id) {
   return authedRequest(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}`)
 }
 
-export function updateShipmentStatus(id, status) {
+export function updateShipmentStatus(id, status, { deliveryIssueComment, customerFacingComment } = {}) {
   return authedRequest(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/status`, {
     method: 'PUT',
-    body: { status },
+    body: { status, deliveryIssueComment, customerFacingComment },
   })
 }
 
