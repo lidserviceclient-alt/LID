@@ -31,6 +31,8 @@ import { uploadFile } from "@/services/fileStorageService";
 import { getPartnerRegistrationAggregate, upgradeToPartner, registerPartnerStep1, registerPartnerStep2, registerPartnerStep3, registerPartnerStep4 } from "@/services/partnerService";
 import { getCatalogCategories, resolveBackendAssetUrl } from "@/services/categoryService";
 import ResetPasswordForm from "@/components/ResetPasswordForm";
+import InternationalPhoneField from "@/components/InternationalPhoneField";
+import { isValidInternationalPhone } from "@/utils/phone";
 
 const BRAND = "#6aa200";
 const cx = (...c) => c.filter(Boolean).join(" ");
@@ -538,6 +540,7 @@ export default function Seller() {
       if (!firstName) return "Veuillez renseigner votre prénom.";
       if (!lastName) return "Veuillez renseigner votre nom.";
       if (!phone) return "Veuillez renseigner votre numéro de téléphone.";
+      if (!isValidInternationalPhone(phone)) return "Veuillez renseigner un numéro au format international valide.";
       if (password.length < 8) return "Le mot de passe doit contenir au moins 8 caractères.";
       return null;
     }
@@ -824,18 +827,13 @@ export default function Seller() {
 
                               {!isPartner && (
                                 <div className="max-w-xs mx-auto mb-8">
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-400">
-                                            <Phone size={16} />
-                                        </div>
-                                        <input 
-                                            type="tel" 
-                                            placeholder="Votre numéro de téléphone"
-                                            className="w-full pl-10 pr-4 py-3 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#6aa200] focus:border-transparent outline-none transition-all text-sm font-medium shadow-sm"
-                                            value={formData.phone}
-                                            onChange={(e) => handleChange("phone", e.target.value)}
-                                        />
-                                    </div>
+                                    <InternationalPhoneField
+                                      value={formData.phone}
+                                      onChange={(value) => handleChange("phone", value)}
+                                      placeholder="Votre numéro de téléphone"
+                                      selectClassName="w-full px-3 py-3 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#6aa200] focus:border-transparent outline-none transition-all text-sm font-medium shadow-sm"
+                                      inputClassName="w-full px-4 py-3 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#6aa200] focus:border-transparent outline-none transition-all text-sm font-medium shadow-sm"
+                                    />
                                 </div>
                               )}
                               <div className="flex flex-col sm:flex-row items-center gap-4 w-full mx-auto">
@@ -921,13 +919,16 @@ export default function Seller() {
                                   value={formData.email} 
                                   onChange={e => handleChange("email", e.target.value)}
                                 />
-                                <Field 
-                                  label="Téléphone Mobile" 
-                                  icon={Phone} 
-                                  placeholder="+225 77 000 00 00" 
-                                  value={formData.phone} 
-                                  onChange={e => handleChange("phone", e.target.value)} 
-                                />
+                                <div className="space-y-2">
+                                  <label className="text-sm font-semibold text-neutral-700">Téléphone Mobile</label>
+                                  <InternationalPhoneField
+                                    value={formData.phone}
+                                    onChange={(value) => handleChange("phone", value)}
+                                    placeholder="Téléphone mobile"
+                                    selectClassName="w-full p-3 bg-white border border-neutral-200 rounded-xl outline-none focus:ring-2 ring-[#6aa200] transition-all text-sm font-medium"
+                                    inputClassName="w-full p-3 bg-white border border-neutral-200 rounded-xl outline-none focus:ring-2 ring-[#6aa200] transition-all text-sm font-medium"
+                                  />
+                                </div>
                               </div>
                               <Field label="Mot de passe" icon={Lock} type="password" placeholder="••••••••" value={formData.password} onChange={e => handleChange("password", e.target.value)} />
                             </>
