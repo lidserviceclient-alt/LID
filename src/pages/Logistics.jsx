@@ -25,7 +25,22 @@ function formatEta(value) {
   if (!value) return "-";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
-  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(d);
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(d);
+}
+
+function toDatetimeLocalValue(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  const hours = `${d.getHours()}`.padStart(2, "0");
+  const minutes = `${d.getMinutes()}`.padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 function toShipmentStatusLabel(status) {
@@ -95,6 +110,11 @@ export default function Logistics() {
   const [qrModalValue, setQrModalValue] = useState("");
   const [qrModalTitle, setQrModalTitle] = useState("");
   const [qrCopyState, setQrCopyState] = useState("");
+  const [actionModalOpen, setActionModalOpen] = useState(false);
+  const [actionShipment, setActionShipment] = useState(null);
+  const [actionForm, setActionForm] = useState({ customerFacingComment: "" });
+  const [actionSaving, setActionSaving] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   // Company Info for Printing
   const [companyInfo, setCompanyInfo] = useState(null);
@@ -192,9 +212,13 @@ export default function Logistics() {
       id: s.id,
       trackingId: s.trackingId || "-",
       orderId: s.orderId || "-",
+      customerName: s.customerName || "-",
+      customerAddress: s.customerAddress || "-",
       carrier: s.carrier || "-",
       status: toShipmentStatusLabel(s.status),
       rawStatus: s.status || "",
+      deliveryIssueComment: s.deliveryIssueComment || "",
+      customerFacingComment: s.customerFacingComment || "",
       eta: formatEta(s.eta),
       cost: formatMoney(s.cost),
       qr: s?.id && s.status !== "LIVREE" ? `SHIP:${s.id}` : null
@@ -237,6 +261,60 @@ export default function Logistics() {
     setQrModalValue("");
     setQrModalTitle("");
     setQrCopyState("");
+  }
+
+  function openActionModal(shipment) {
+    setActionShipment(shipment);
+    setActionError("");
+    setActionForm({
+      customerFacingComment: shipment?.customerFacingComment || ""
+    });
+    setActionModalOpen(true);
+  }
+
+  function closeActionModal() {
+    if (actionSaving) return;
+    setActionModalOpen(false);
+    setActionShipment(null);
+    setActionError("");
+    setActionForm({ customerFacingComment: "" });
+  }
+
+  async function saveFailureMessage() {
+    if (!actionShipment?.id) return;
+    setActionSaving(true);
+    setActionError("");
+    try {
+      await backofficeApi.updateShipmentStatus(actionShipment.id, {
+        status: "ECHEC",
+        deliveryIssueComment: actionShipment.deliveryIssueComment || null,
+        customerFacingComment: actionForm.customerFacingComment || null
+      });
+      await refreshCollection(page, size, status, carrier, q);
+      closeActionModal();
+    } catch (err) {
+      setActionError(err?.message || "Impossible d’enregistrer le message client.");
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
+  async function retryDelivery() {
+    if (!actionShipment?.id) return;
+    setActionSaving(true);
+    setActionError("");
+    try {
+      await backofficeApi.updateShipmentStatus(actionShipment.id, {
+        status: "EN_COURS",
+        customerFacingComment: actionForm.customerFacingComment || null
+      });
+      await refreshCollection(page, size, status, carrier, q);
+      closeActionModal();
+    } catch (err) {
+      setActionError(err?.message || "Impossible de relancer cette livraison.");
+    } finally {
+      setActionSaving(false);
+    }
   }
 
   const meta = useMemo(() => {
@@ -296,11 +374,11 @@ export default function Logistics() {
   }
 
   function exportShipmentsCsv() {
-    const header = ["Tracking ID", "Commande", "Transporteur", "Statut", "ETA", "Coût"];
+    const header = ["Tracking ID", "Commande", "Client", "Adresse livraison", "Transporteur", "Statut", "ETA", "Coût"];
     const csvRows = [
       header.join(";"),
       ...rows.map((r) =>
-        [r.trackingId, r.orderId, r.carrier, r.status, r.eta, r.cost]
+        [r.trackingId, r.orderId, r.customerName, r.customerAddress, r.carrier, r.status, r.eta, r.cost]
           .map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`)
           .join(";")
       )
@@ -426,6 +504,8 @@ export default function Logistics() {
             <TRow>
               <TCell>Tracking ID</TCell>
               <TCell>Commande</TCell>
+              <TCell>Client</TCell>
+              <TCell>Adresse livraison</TCell>
               <TCell>Transporteur</TCell>
               <TCell>Statut</TCell>
               <TCell>ETA</TCell>
@@ -443,10 +523,14 @@ export default function Logistics() {
                 <TCell />
                 <TCell />
                 <TCell />
+                <TCell />
+                <TCell />
               </TRow>
             ) : rows.length === 0 ? (
               <TRow>
                 <TCell className="text-muted-foreground text-sm">Aucune expédition.</TCell>
+                <TCell />
+                <TCell />
                 <TCell />
                 <TCell />
                 <TCell />
@@ -459,6 +543,8 @@ export default function Logistics() {
                 <TRow key={item.id}>
                   <TCell className="font-mono text-xs font-semibold">{item.trackingId}</TCell>
                   <TCell className="font-semibold text-foreground">{item.orderId}</TCell>
+                  <TCell>{item.customerName}</TCell>
+                  <TCell className="max-w-[320px] whitespace-normal break-words">{item.customerAddress}</TCell>
                   <TCell>{item.carrier}</TCell>
                   <TCell>
                     <Badge label={item.status} />
@@ -492,6 +578,11 @@ export default function Logistics() {
                       ) : (
                         <div className="h-8 w-8 rounded-md bg-muted/20" />
                       )}
+                      {item.rawStatus === "ECHEC" ? (
+                        <Button variant="outline" size="sm" onClick={() => openActionModal(item)}>
+                          Gérer
+                        </Button>
+                      ) : null}
                     </div>
                   </TCell>
                 </TRow>
@@ -627,6 +718,55 @@ export default function Logistics() {
       </Modal>
 
       <Modal
+        isOpen={actionModalOpen}
+        onClose={closeActionModal}
+        title={actionShipment ? `Incident • ${actionShipment.orderId}` : "Incident de livraison"}
+        size="lg"
+        footer={
+          <>
+            <Button variant="outline" onClick={closeActionModal} disabled={actionSaving}>
+              Fermer
+            </Button>
+            <Button variant="outline" onClick={saveFailureMessage} disabled={actionSaving}>
+              {actionSaving ? "Sauvegarde..." : "Mettre à jour le message client"}
+            </Button>
+            <Button onClick={retryDelivery} disabled={actionSaving}>
+              {actionSaving ? "Relance..." : "Relancer la livraison"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-border bg-muted/20 p-4">
+            <p className="text-sm font-semibold">Motif transmis par le livreur</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+              {actionShipment?.deliveryIssueComment || "Aucun motif détaillé."}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Message client affiché dans le suivi</p>
+            <textarea
+              rows={5}
+              value={actionForm.customerFacingComment}
+              onChange={(e) => setActionForm((prev) => ({ ...prev, customerFacingComment: e.target.value }))}
+              placeholder="Ex: Nous n'avons pas pu finaliser la livraison aujourd'hui. Notre équipe reviendra vers vous avec un nouveau créneau."
+              className="w-full rounded-lg border border-border bg-background px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground">
+              Ce message est visible côté client dans le suivi de commande.
+            </p>
+          </div>
+
+          {actionError ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {actionError}
+            </div>
+          ) : null}
+        </div>
+      </Modal>
+
+      <Modal
         isOpen={isCarriersOpen}
         onClose={() => setIsCarriersOpen(false)}
         title="Transporteurs"
@@ -746,7 +886,11 @@ export default function Logistics() {
 
           <div className="space-y-2">
             <p className="text-sm font-medium">ETA</p>
-            <Input type="date" value={shipmentForm.eta} onChange={(e) => setShipmentForm((p) => ({ ...p, eta: e.target.value }))} />
+            <Input
+              type="datetime-local"
+              value={shipmentForm.eta}
+              onChange={(e) => setShipmentForm((p) => ({ ...p, eta: e.target.value }))}
+            />
           </div>
 
           <div className="space-y-2 md:col-span-2">

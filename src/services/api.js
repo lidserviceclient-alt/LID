@@ -691,6 +691,11 @@ export const backofficeApi = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  updateShipmentStatus: (id, payload) =>
+    request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/status`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
   createCustomer: (payload) =>
     request("/api/v1/backoffice/customers", {
       method: "POST",
