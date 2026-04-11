@@ -1,8 +1,39 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { clearAccessToken, getAccessToken } from "./auth.js";
+import { setAccessToken } from "./auth.js";
 
 const BASE_URL = import.meta.env.VITE_BACKOFFICE_API_URL || "http://localhost:9000";
+let refreshPromise = null;
 
-async function request(path, options = {}) {
+async function refreshAccessToken() {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+  refreshPromise = fetch(`${BASE_URL}/api/v1/auth/refresh`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    credentials: "include"
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        throw new Error(`Refresh failed: ${res.status}`);
+      }
+      const data = await res.json().catch(() => null);
+      const accessToken = data?.accessToken;
+      if (!accessToken) {
+        throw new Error("Token manquant");
+      }
+      setAccessToken(accessToken);
+      return accessToken;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
+  return refreshPromise;
+}
+
+async function request(path, options = {}, retryAuth = true) {
   const accessToken = getAccessToken();
   const { headers: optionHeaders, ...restOptions } = options || {};
   let res;
@@ -13,6 +44,7 @@ async function request(path, options = {}) {
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...(optionHeaders || {})
       },
+      credentials: "include",
       ...restOptions
     });
   } catch {
@@ -29,6 +61,19 @@ async function request(path, options = {}) {
     } else {
       const text = await res.text();
       if (text) message = text;
+    }
+
+    if (res.status === 401 && retryAuth && !path.includes("/api/v1/auth/refresh") && !path.includes("/api/v1/auth/login")) {
+      try {
+        const refreshedToken = await refreshAccessToken();
+        const nextHeaders = {
+          ...(optionHeaders || {}),
+          Authorization: `Bearer ${refreshedToken}`
+        };
+        return await request(path, { ...restOptions, headers: nextHeaders }, false);
+      } catch {
+        clearAccessToken();
+      }
     }
 
     if (res.status === 401 || res.status === 403) {
@@ -55,7 +100,7 @@ async function request(path, options = {}) {
   return res.text();
 }
 
-async function requestBlob(path, options = {}) {
+async function requestBlob(path, options = {}, retryAuth = true) {
   const accessToken = getAccessToken();
   const { headers: optionHeaders, ...restOptions } = options || {};
   let res;
@@ -65,6 +110,7 @@ async function requestBlob(path, options = {}) {
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...(optionHeaders || {})
       },
+      credentials: "include",
       ...restOptions
     });
   } catch {
@@ -81,6 +127,19 @@ async function requestBlob(path, options = {}) {
     } else {
       const text = await res.text().catch(() => "");
       if (text) message = text;
+    }
+
+    if (res.status === 401 && retryAuth && !path.includes("/api/v1/auth/refresh") && !path.includes("/api/v1/auth/login")) {
+      try {
+        const refreshedToken = await refreshAccessToken();
+        const nextHeaders = {
+          ...(optionHeaders || {}),
+          Authorization: `Bearer ${refreshedToken}`
+        };
+        return await requestBlob(path, { ...restOptions, headers: nextHeaders }, false);
+      } catch {
+        clearAccessToken();
+      }
     }
 
     if (res.status === 401 || res.status === 403) {
@@ -100,7 +159,7 @@ async function requestBlob(path, options = {}) {
   return res.blob();
 }
 
-async function requestForm(path, options = {}) {
+async function requestForm(path, options = {}, retryAuth = true) {
   const accessToken = getAccessToken();
   const { headers: optionHeaders, ...restOptions } = options || {};
   let res;
@@ -110,6 +169,7 @@ async function requestForm(path, options = {}) {
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...(optionHeaders || {})
       },
+      credentials: "include",
       ...restOptions
     });
   } catch {
@@ -126,6 +186,19 @@ async function requestForm(path, options = {}) {
     } else {
       const text = await res.text().catch(() => "");
       if (text) message = text;
+    }
+
+    if (res.status === 401 && retryAuth && !path.includes("/api/v1/auth/refresh") && !path.includes("/api/v1/auth/login")) {
+      try {
+        const refreshedToken = await refreshAccessToken();
+        const nextHeaders = {
+          ...(optionHeaders || {}),
+          Authorization: `Bearer ${refreshedToken}`
+        };
+        return await requestForm(path, { ...restOptions, headers: nextHeaders }, false);
+      } catch {
+        clearAccessToken();
+      }
     }
 
     if (res.status === 401 || res.status === 403) {
@@ -157,6 +230,10 @@ export const backofficeApi = {
     request("/api/v1/auth/login/local", {
       method: "POST",
       body: JSON.stringify({ email, password })
+    }),
+  logout: () =>
+    request("/api/v1/auth/logout", {
+      method: "POST"
     }),
   realtimeWsAccess: (topics = []) =>
     request("/api/v1/realtime/ws-access", {
@@ -689,6 +766,11 @@ export const backofficeApi = {
   upsertShipment: (payload) =>
     request("/api/v1/backoffice/logistics/shipments", {
       method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateShipmentStatus: (id, payload) =>
+    request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/status`, {
+      method: "PUT",
       body: JSON.stringify(payload)
     }),
   createCustomer: (payload) =>
