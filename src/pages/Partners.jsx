@@ -29,6 +29,16 @@ const formatDate = (value) => {
   return dt.toLocaleString("fr-FR");
 };
 
+const formatMoney = (value) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "-";
+  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XOF", maximumFractionDigits: 0 }).format(amount);
+};
+
+const csvValue = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+
+const todayInput = () => new Date().toISOString().slice(0, 10);
+
 const statusUi = (status) => {
   const s = `${status || ""}`.trim().toUpperCase();
   if (s === "VERIFIED") return { label: "Approuvé", variant: "success" };
@@ -63,13 +73,20 @@ export default function Partners() {
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
 
-  const [selectedId, setSelectedId] = useState("");
+  const [detailPartnerId, setDetailPartnerId] = useState("");
+  const [paymentPartnerId, setPaymentPartnerId] = useState("");
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
+  const [transactionData, setTransactionData] = useState(null);
+  const [transactionLoading, setTransactionLoading] = useState(false);
+  const [transactionError, setTransactionError] = useState("");
+  const [transactionPage, setTransactionPage] = useState(0);
+  const [transactionFilters, setTransactionFilters] = useState({ fromDate: todayInput(), toDate: todayInput() });
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
+  const [selectedPartnerSummary, setSelectedPartnerSummary] = useState(null);
 
   const statusOptions = useMemo(() => STATUS_OPTIONS, []);
 
@@ -103,33 +120,92 @@ export default function Partners() {
     }
   };
 
+  const loadTransactions = async (id, nextPage = 0, filters = transactionFilters) => {
+    if (!id) return;
+    setTransactionLoading(true);
+    setTransactionError("");
+    try {
+      const res = await backofficeApi.partnerTransactions(id, filters.fromDate, filters.toDate, nextPage, 10);
+      setTransactionData(res);
+      setTransactionPage(nextPage);
+    } catch (err) {
+      setTransactionError(err?.message || "Impossible de charger les transactions partenaire.");
+      setTransactionData(null);
+    } finally {
+      setTransactionLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadPartners(0).catch(() => {});
   }, [size, status]);
 
   const rows = Array.isArray(data?.content) ? data.content : [];
   const totalPages = Number.isFinite(Number(data?.totalPages)) ? Number(data.totalPages) : 0;
+  const transactionRows = Array.isArray(transactionData?.content) ? transactionData.content : [];
+  const transactionTotalPages = Number.isFinite(Number(transactionData?.totalPages)) ? Number(transactionData.totalPages) : 0;
+
+  const exportTransactionsCsv = () => {
+    if (!paymentPartnerId || transactionRows.length === 0) return;
+    const csvRows = [
+      ["Date", "Commande", "Statut", "Brut", "Livraison", "Retour", "Marge", "Net", "Reference"],
+      ...transactionRows.map((row) => [
+        formatDate(row.transactionDate),
+        row.orderId ? `ORD-${row.orderId}` : "-",
+        row.payoutStatus || "-",
+        formatMoney(row.grossAmount),
+        formatMoney(row.shippingAllocation),
+        formatMoney(row.returnCostAllocation),
+        formatMoney(row.marginAmount),
+        formatMoney(row.netAmount),
+        row.payoutReference || "-"
+      ])
+    ];
+    const blob = new Blob([csvRows.map((row) => row.map(csvValue).join(",")).join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `partner-transactions-${paymentPartnerId}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const openDetail = async (id) => {
-    setSelectedId(id);
+    setDetailPartnerId(id);
     setDetail(null);
     setRejectComment("");
     await loadDetail(id);
   };
 
+  const inspectPartnerPayments = async (partner) => {
+    const partnerId = partner?.partnerId;
+    if (!partnerId) return;
+    setSelectedPartnerSummary(partner || null);
+    setPaymentPartnerId(partnerId);
+    setTransactionData(null);
+    setTransactionError("");
+    setTransactionPage(0);
+    await loadTransactions(partnerId, 0, transactionFilters);
+  };
+
   const closeDetail = () => {
-    setSelectedId("");
+    setDetailPartnerId("");
     setDetail(null);
     setRejectComment("");
     setConfirmAction(null);
   };
 
   const approve = async () => {
-    if (!selectedId) return;
+    if (!detailPartnerId) return;
     setDecisionLoading(true);
     try {
-      await backofficeApi.approvePartner(selectedId);
-      await loadDetail(selectedId);
+      await backofficeApi.approvePartner(detailPartnerId);
+      await loadDetail(detailPartnerId);
+      if (paymentPartnerId === detailPartnerId) {
+        await loadTransactions(paymentPartnerId, transactionPage, transactionFilters);
+      }
       await loadPartners(page);
     } catch (err) {
       setDetailError(err?.message || "Action impossible.");
@@ -140,11 +216,14 @@ export default function Partners() {
   };
 
   const reject = async () => {
-    if (!selectedId) return;
+    if (!detailPartnerId) return;
     setDecisionLoading(true);
     try {
-      await backofficeApi.rejectPartner(selectedId, { comment: rejectComment });
-      await loadDetail(selectedId);
+      await backofficeApi.rejectPartner(detailPartnerId, { comment: rejectComment });
+      await loadDetail(detailPartnerId);
+      if (paymentPartnerId === detailPartnerId) {
+        await loadTransactions(paymentPartnerId, transactionPage, transactionFilters);
+      }
       await loadPartners(page);
     } catch (err) {
       setDetailError(err?.message || "Action impossible.");
@@ -226,10 +305,15 @@ export default function Partners() {
                   </TCell>
                   <TCell className="text-xs text-muted-foreground">{formatDate(row?.createdAt)}</TCell>
                   <TCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => openDetail(row.partnerId)}>
-                      <Eye className="mr-2 h-4 w-4" />
-                      Voir
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => inspectPartnerPayments(row)}>
+                        Paiements
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => openDetail(row.partnerId)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Voir
+                      </Button>
+                    </div>
                   </TCell>
                 </TRow>
               );
@@ -257,13 +341,178 @@ export default function Partners() {
         </div>
       </Card>
 
+      <Card className="space-y-4 p-4">
+        <SectionHeader
+          title="Gestion des paiements partenaire"
+          subtitle={
+            selectedPartnerSummary
+              ? `Ledger et transactions de ${selectedPartnerSummary.shopName || `${selectedPartnerSummary.firstName || ""} ${selectedPartnerSummary.lastName || ""}`.trim() || "ce partenaire"}.`
+              : "Sélectionnez un partenaire pour afficher son tableau de paiements."
+          }
+          rightSlot={
+            selectedPartnerSummary ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  type="date"
+                  value={transactionFilters.fromDate}
+                  onChange={(e) => setTransactionFilters((s) => ({ ...s, fromDate: e.target.value }))}
+                  className="w-[165px]"
+                />
+                <Input
+                  type="date"
+                  value={transactionFilters.toDate}
+                  onChange={(e) => setTransactionFilters((s) => ({ ...s, toDate: e.target.value }))}
+                  className="w-[165px]"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadTransactions(paymentPartnerId, 0, transactionFilters)}
+                  disabled={transactionLoading || !paymentPartnerId}
+                >
+                  {transactionLoading ? "Chargement..." : "Filtrer"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportTransactionsCsv}
+                  disabled={transactionLoading || transactionRows.length === 0}
+                >
+                  Export CSV
+                </Button>
+              </div>
+            ) : null
+          }
+        />
+
+        {selectedPartnerSummary ? (
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="rounded-lg border border-border bg-muted/20 p-3">
+              <div className="text-xs text-muted-foreground">Partenaire</div>
+              <div className="font-semibold text-foreground">
+                {`${selectedPartnerSummary.firstName || ""} ${selectedPartnerSummary.lastName || ""}`.trim() || "-"}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/20 p-3">
+              <div className="text-xs text-muted-foreground">Boutique</div>
+              <div className="font-semibold text-foreground">{selectedPartnerSummary.shopName || "-"}</div>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/20 p-3">
+              <div className="text-xs text-muted-foreground">Email</div>
+              <div className="font-semibold text-foreground">{selectedPartnerSummary.email || "-"}</div>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/20 p-3">
+              <div className="text-xs text-muted-foreground">Statut</div>
+              <div className="mt-1">
+                <Badge {...statusUi(selectedPartnerSummary.registrationStatus)} />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {transactionError ? <div className="text-sm text-destructive">{transactionError}</div> : null}
+
+        <Table>
+          <THead>
+            <TRow>
+              <TCell>Date</TCell>
+              <TCell>Commande</TCell>
+              <TCell>Statut</TCell>
+              <TCell>Brut</TCell>
+              <TCell>Livraison</TCell>
+              <TCell>Retour</TCell>
+              <TCell>Marge</TCell>
+              <TCell>Net</TCell>
+              <TCell>Référence</TCell>
+            </TRow>
+          </THead>
+          <tbody>
+            {!selectedPartnerSummary ? (
+              <TRow>
+                <TCell>Sélectionnez un partenaire via le bouton “Paiements”.</TCell>
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+              </TRow>
+            ) : transactionLoading ? (
+              <TRow>
+                <TCell>Chargement...</TCell>
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+              </TRow>
+            ) : transactionRows.length === 0 ? (
+              <TRow>
+                <TCell>Aucune transaction sur cette période.</TCell>
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+                <TCell />
+              </TRow>
+            ) : (
+              transactionRows.map((row) => (
+                <TRow key={`ledger-${row.id}`}>
+                  <TCell>{formatDate(row.transactionDate)}</TCell>
+                  <TCell>{row.orderId ? `ORD-${row.orderId}` : "-"}</TCell>
+                  <TCell>{row.payoutStatus || "-"}</TCell>
+                  <TCell>{formatMoney(row.grossAmount)}</TCell>
+                  <TCell>{formatMoney(row.shippingAllocation)}</TCell>
+                  <TCell>{formatMoney(row.returnCostAllocation)}</TCell>
+                  <TCell>{formatMoney(row.marginAmount)}</TCell>
+                  <TCell className="font-semibold text-foreground">{formatMoney(row.netAmount)}</TCell>
+                  <TCell>{row.payoutReference || "-"}</TCell>
+                </TRow>
+              ))
+            )}
+          </tbody>
+        </Table>
+
+        {selectedPartnerSummary ? (
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Page {transactionPage + 1} / {Math.max(transactionTotalPages, 1)}</span>
+            <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={transactionPage <= 0 || transactionLoading}
+                  onClick={() => loadTransactions(paymentPartnerId, Math.max(0, transactionPage - 1), transactionFilters)}
+                >
+                Précédent
+              </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={transactionLoading || transactionTotalPages === 0 || transactionPage >= transactionTotalPages - 1}
+                  onClick={() => loadTransactions(paymentPartnerId, transactionPage + 1, transactionFilters)}
+                >
+                Suivant
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Card>
+
       <Modal
-        isOpen={Boolean(selectedId)}
+        isOpen={Boolean(detailPartnerId)}
         onClose={closeDetail}
         title="Détails partenaire"
         footer={
           <div className="flex flex-wrap items-center justify-between gap-2 w-full">
-            <div className="text-xs text-muted-foreground font-mono">{selectedId || ""}</div>
+            <div className="text-xs text-muted-foreground font-mono">{detailPartnerId || ""}</div>
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={closeDetail}>
                 Fermer
