@@ -10,7 +10,7 @@ import { getCustomerAddresses, getMyCustomerCheckoutCollection } from '@/service
 import { resolveBackendAssetUrl } from '@/services/categoryService';
 import { useAppConfig } from '@/features/appConfig/useAppConfig';
 import InternationalPhoneField from '@/components/InternationalPhoneField';
-import { isValidInternationalPhone } from '@/utils/phone';
+import { isValidInternationalPhone, isValidMobileMoneyPhone } from '@/utils/phone';
 
 const formatCardNumber = (value) => {
   const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
@@ -52,6 +52,18 @@ const formatExpiryLong = (value) => {
   const match = v.match(/^(\d{2})\/(\d{2})$/);
   if (!match) return v;
   return `${match[1]}/20${match[2]}`;
+};
+
+const normalizeVatRate = (raw) => {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) return 0.18;
+  return value > 1 ? value / 100 : value;
+};
+
+const roundAmount = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Math.round(num * 100) / 100;
 };
 
 const CardChip = () => (
@@ -233,8 +245,11 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [isResolvingCurrentAddress, setIsResolvingCurrentAddress] = useState(false);
   const [shippingCoordinates, setShippingCoordinates] = useState(null);
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const [mobilePhoneTouched, setMobilePhoneTouched] = useState(false);
   const { data: appConfig } = useAppConfig();
   const supportPhone = `${appConfig?.contactPhone || ''}`.trim();
+  const vatRate = normalizeVatRate(appConfig?.vatPercent);
  
   const isCartCheckout = cartItems && cartItems.length > 0;
 
@@ -247,9 +262,12 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     ? cartItems.reduce((acc, item) => acc + (Number(item?.price) || 0) * (Number(item?.quantity) || 0), 0)
     : (Number(product?.price) || 0) * normalizedQuantity;
 
-  const finalTotal = Math.max(0, itemsTotal + normalizedShippingCost - normalizedDiscountAmount - normalizedLoyaltyDiscountAmount);
-  const TAX_RATE = 0.18;
-  const taxAmount = Math.round(finalTotal - (finalTotal / (1 + TAX_RATE)));
+  const netTotal = Math.max(0, itemsTotal + normalizedShippingCost - normalizedDiscountAmount - normalizedLoyaltyDiscountAmount);
+  const taxAmount = roundAmount(netTotal * vatRate);
+  const finalTotal = roundAmount(netTotal + taxAmount);
+  const vatPercentLabel = Math.round(vatRate * 100);
+  const phoneIsValid = isValidInternationalPhone(formData.phone);
+  const mobilePhoneIsValid = !formData.mobilePhone || isValidMobileMoneyPhone(formData.mobilePhone);
 
   const steps = [
     { id: 1, label: 'Informations', icon: User },
@@ -387,7 +405,8 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
 
   const handleSubmitInfo = (e) => {
     e.preventDefault();
-    if (!isValidInternationalPhone(formData.phone)) {
+    setPhoneTouched(true);
+    if (!phoneIsValid) {
       toast.error("Saisis un numéro de téléphone valide.");
       return;
     }
@@ -399,7 +418,15 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     const payload = getCurrentUserPayload();
     if (!payload?.sub) return toast.error("Veuillez vous connecter");
     const checkoutPhone = formData.paymentMethod === 'mobile' ? formData.mobilePhone : formData.phone;
-    if (!isValidInternationalPhone(checkoutPhone)) {
+    if (formData.paymentMethod === 'mobile') {
+      setMobilePhoneTouched(true);
+    } else {
+      setPhoneTouched(true);
+    }
+    const paymentPhoneIsValid = formData.paymentMethod === 'mobile'
+      ? isValidMobileMoneyPhone(checkoutPhone)
+      : isValidInternationalPhone(checkoutPhone);
+    if (!paymentPhoneIsValid) {
       toast.error("Saisis un numéro de téléphone valide pour le paiement.");
       return;
     }
@@ -469,8 +496,11 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
               </div>
               <div className="pt-6 border-t border-white/10 space-y-2 text-sm text-neutral-400">
                 <div className="flex justify-between"><span>Sous-total</span><span className="text-white">{formatMoney(itemsTotal)} FCFA</span></div>
+                {normalizedDiscountAmount > 0 ? <div className="flex justify-between"><span>Réduction</span><span className="text-white">-{formatMoney(normalizedDiscountAmount)} FCFA</span></div> : null}
+                {normalizedLoyaltyDiscountAmount > 0 ? <div className="flex justify-between"><span>Remise fidélité</span><span className="text-white">-{formatMoney(normalizedLoyaltyDiscountAmount)} FCFA</span></div> : null}
                 <div className="flex justify-between"><span>Livraison</span><span className="text-white">{normalizedShippingCost === 0 ? "Gratuit" : `${formatMoney(normalizedShippingCost)} FCFA`}</span></div>
                 <div className="flex justify-between pt-4 border-t border-white/10 text-xl font-black text-white"><span>Total</span><span>{formatMoney(finalTotal)} FCFA</span></div>
+                <div className="text-[11px] text-neutral-500 text-right">Dont TVA ({vatPercentLabel}%) : {formatMoney(taxAmount)} FCFA</div>
               </div>
             </div>
           </div>
@@ -515,13 +545,26 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                         <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest px-1">Téléphone</label>
                         <InternationalPhoneField
                           value={formData.phone}
-                          onChange={(value) => setFormData((prev) => ({ ...prev, phone: value }))}
+                          onChange={(value) => {
+                            setPhoneTouched(true);
+                            setFormData((prev) => ({ ...prev, phone: value }));
+                          }}
+                          onBlur={() => setPhoneTouched(true)}
                           defaultCountry="CI"
                           placeholder="Numéro de téléphone"
                           containerClassName="items-stretch"
-                          selectClassName="w-full rounded-2xl bg-neutral-50 dark:bg-neutral-900 px-4 py-4 outline-none focus:ring-2 ring-orange-500 transition-all"
-                          inputClassName="w-full rounded-2xl bg-neutral-50 dark:bg-neutral-900 px-4 py-4 outline-none focus:ring-2 ring-orange-500 transition-all"
+                          selectClassName={cn(
+                            "w-full rounded-2xl bg-neutral-50 dark:bg-neutral-900 px-4 py-4 outline-none focus:ring-2 ring-orange-500 transition-all",
+                            phoneTouched && formData.phone && !phoneIsValid ? "ring-2 ring-red-500" : ""
+                          )}
+                          inputClassName={cn(
+                            "w-full rounded-2xl bg-neutral-50 dark:bg-neutral-900 px-4 py-4 outline-none focus:ring-2 ring-orange-500 transition-all",
+                            phoneTouched && formData.phone && !phoneIsValid ? "ring-2 ring-red-500" : ""
+                          )}
                         />
+                        {phoneTouched && formData.phone && !phoneIsValid ? (
+                          <p className="px-1 text-xs font-medium text-red-500">Saisis un numéro de téléphone valide avant de continuer.</p>
+                        ) : null}
                       </div>
                       <div className="space-y-1">
                         <div className="flex items-center justify-between gap-3 px-1">
@@ -597,13 +640,26 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                             <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest px-1">Numéro Mobile Money</label>
                             <InternationalPhoneField
                               value={formData.mobilePhone}
-                              onChange={(value) => setFormData((prev) => ({ ...prev, mobilePhone: value }))}
+                              onChange={(value) => {
+                                setMobilePhoneTouched(true);
+                                setFormData((prev) => ({ ...prev, mobilePhone: value }));
+                              }}
+                              onBlur={() => setMobilePhoneTouched(true)}
                               defaultCountry="CI"
                               placeholder="Numéro Mobile Money"
                               containerClassName="items-stretch"
-                              selectClassName="w-full rounded-2xl bg-neutral-50 dark:bg-neutral-900 px-4 py-5 outline-none border-2 border-transparent focus:border-orange-500 transition-all"
-                              inputClassName="w-full rounded-2xl bg-neutral-50 dark:bg-neutral-900 px-4 py-5 outline-none border-2 border-transparent focus:border-orange-500 transition-all text-center text-xl font-black"
+                              selectClassName={cn(
+                                "w-full rounded-2xl bg-neutral-50 dark:bg-neutral-900 px-4 py-5 outline-none border-2 border-transparent focus:border-orange-500 transition-all",
+                                mobilePhoneTouched && formData.mobilePhone && !mobilePhoneIsValid ? "border-red-500 focus:border-red-500" : ""
+                              )}
+                              inputClassName={cn(
+                                "w-full rounded-2xl bg-neutral-50 dark:bg-neutral-900 px-4 py-5 outline-none border-2 border-transparent focus:border-orange-500 transition-all text-center text-xl font-black",
+                                mobilePhoneTouched && formData.mobilePhone && !mobilePhoneIsValid ? "border-red-500 focus:border-red-500" : ""
+                              )}
                             />
+                            {mobilePhoneTouched && formData.mobilePhone && !mobilePhoneIsValid ? (
+                              <p className="px-1 text-xs font-medium text-red-500">Saisis un numéro Mobile Money valide avant de payer.</p>
+                            ) : null}
                           </div>
                         </div>
                       )}

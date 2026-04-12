@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getPublicPartnerCollection } from "@/services/publicPartnerCatalogService";
+import { resolveBackendAssetUrl } from "@/services/categoryService";
 
 // Mock events data for the seller
 const mockEvents = [
@@ -49,7 +50,7 @@ const mapCollectionProducts = (collection) => {
         title: product.name,
         date: "En Stock",
         price: `${Number(product.price || 0).toFixed(2)} FCFA`,
-        image: product.mainImageUrl || "https://images.unsplash.com/photo-1560343090-f0409e92791a?q=80&w=1000",
+        image: resolveBackendAssetUrl(product.mainImageUrl) || "https://images.unsplash.com/photo-1560343090-f0409e92791a?q=80&w=1000",
         category: product.mainCategoryName || "Produit"
     }));
 };

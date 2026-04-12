@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Copy, Image as ImageIcon, Search, Upload } from 'lucide-react';
-import { listMedia, uploadFiles } from '@/services/fileStorageService';
+import { Check, Copy, Image as ImageIcon, Search, Trash2, Upload } from 'lucide-react';
+import { deleteFile, listMedia, uploadFiles } from '@/services/fileStorageService';
 
 const folders = [
   { value: 'partners/products', label: 'Produits' },
@@ -17,6 +17,7 @@ export default function SellerMedia() {
   const [mediaPage, setMediaPage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deletingKey, setDeletingKey] = useState('');
   const [error, setError] = useState('');
   const [copiedUrl, setCopiedUrl] = useState('');
 
@@ -70,6 +71,21 @@ export default function SellerMedia() {
     await navigator.clipboard.writeText(url);
     setCopiedUrl(url);
     window.setTimeout(() => setCopiedUrl(''), 1400);
+  };
+
+  const remove = async (objectKey) => {
+    if (!objectKey || deletingKey) return;
+    if (!window.confirm('Supprimer définitivement ce média ?')) return;
+    setDeletingKey(objectKey);
+    setError('');
+    try {
+      await deleteFile(objectKey);
+      await loadMedia(mediaItems.length === 1 && page > 0 ? page - 1 : page);
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'Suppression impossible.');
+    } finally {
+      setDeletingKey('');
+    }
   };
 
   return (
@@ -155,10 +171,20 @@ export default function SellerMedia() {
                 <span>{media.folder}</span>
                 <span>{Math.round((media.size || 0) / 1024)} Ko</span>
               </div>
-              <button onClick={() => copy(media.url)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                {copiedUrl === media.url ? <Check size={16} /> : <Copy size={16} />}
-                {copiedUrl === media.url ? 'Copié' : "Copier l'URL"}
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => copy(media.url)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                  {copiedUrl === media.url ? <Check size={16} /> : <Copy size={16} />}
+                  {copiedUrl === media.url ? 'Copié' : "Copier l'URL"}
+                </button>
+                <button
+                  onClick={() => remove(media.objectKey)}
+                  disabled={deletingKey === media.objectKey}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
+                >
+                  <Trash2 size={16} />
+                  {deletingKey === media.objectKey ? 'Suppression...' : 'Supprimer'}
+                </button>
+              </div>
             </div>
           </div>
         ))}
