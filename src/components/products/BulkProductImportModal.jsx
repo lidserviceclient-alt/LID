@@ -175,8 +175,6 @@ function parseSecondaryImageUrls(raw) {
 
 function toBulkPayload(row) {
   const price = normalizeNumber(row.price);
-  const vatRaw = `${row.vat ?? ""}`.trim();
-  const vat = vatRaw === "" ? undefined : normalizeNumber(vatRaw);
   const mainImageUrl = `${row.mainImageUrl || ""}`.trim();
   const secondaryImageUrls = parseSecondaryImageUrls(row.secondaryImageUrls);
   return {
@@ -185,7 +183,6 @@ function toBulkPayload(row) {
     description: `${row.description || ""}`.trim() || undefined,
     name: row.name,
     price: Number.isFinite(price) ? price : undefined,
-    vat: Number.isFinite(vat) ? vat : undefined,
     status: `${row.status || ""}`.trim().toUpperCase() || undefined,
     categorySlug: row.categoryId || undefined,
     category: row.categoryId || undefined,
@@ -236,7 +233,6 @@ export default function BulkProductImportModal({
         name: "",
         description: "",
         price: "",
-        vat: "",
         status: "ACTIVE",
         categoryId: "",
         stock: "0",
@@ -265,11 +261,6 @@ export default function BulkProductImportModal({
     if (!Number.isFinite(price)) errs.price = "Prix invalide";
     const stock = `${row.stock ?? ""}`.trim() === "" ? 0 : normalizeNumber(row.stock);
     if (!Number.isFinite(stock) || stock < 0) errs.stock = "Stock invalide";
-    const vatRaw = `${row.vat ?? ""}`.trim();
-    if (vatRaw !== "") {
-      const vat = normalizeNumber(vatRaw);
-      if (!Number.isFinite(vat) || vat < 0) errs.vat = "TVA invalide";
-    }
     const statusRaw = `${row.status || ""}`.trim();
     if (statusRaw && !["ACTIVE", "DRAFT", "ARCHIVED"].includes(statusRaw.toUpperCase())) {
       errs.status = "Statut invalide";
@@ -307,7 +298,6 @@ export default function BulkProductImportModal({
         name: "",
         description: "",
         price: "",
-        vat: "",
         status: "ACTIVE",
         categoryId: "",
         stock: "0",
@@ -351,7 +341,6 @@ export default function BulkProductImportModal({
     const idxName = colIndexAny(["name"], 1);
     const idxDescription = colIndexAny(["description", "desc"], 2);
     const idxPrice = colIndexAny(["price"], 4);
-    const idxVat = colIndexAny(["vat", "tva"], -1);
     const idxStatus = colIndexAny(["status", "statut"], -1);
     const idxCategory = colIndexAny(["categoryslug", "category"], 3);
     const idxCategories = colIndexAny(["categories", "categoryids", "category_ids"], -1);
@@ -393,7 +382,6 @@ export default function BulkProductImportModal({
       const name = idxName >= 0 ? cells[idxName] : "";
       const description = idxDescription >= 0 ? cells[idxDescription] : "";
       const priceRaw = idxPrice >= 0 ? cells[idxPrice] : "";
-      const vatRaw = idxVat >= 0 ? cells[idxVat] : "";
       const statusRaw = idxStatus >= 0 ? cells[idxStatus] : "";
       const catRaw = idxCategory >= 0 ? cells[idxCategory] : "";
       const categoriesRaw = idxCategories >= 0 ? cells[idxCategories] : "";
@@ -414,7 +402,6 @@ export default function BulkProductImportModal({
         name,
         description,
         price: priceRaw,
-        vat: vatRaw,
         status: statusRaw || "ACTIVE",
         categoryId: normalizeCategory(categoryKey),
         stock: stockRaw === "" ? "0" : stockRaw,
@@ -576,7 +563,7 @@ export default function BulkProductImportModal({
               />
               <div className="text-xs text-muted-foreground">
                 - Séparateur colonnes: ; (CSV). Valeurs avec ; à entourer de guillemets.
-                - Prix/TVA acceptent 15000, 15 000, 15.000, 15000,50.
+                - Prix acceptent 15000, 15 000, 15.000, 15000,50.
                 - Catégorie: utiliser l’ID, le slug ou le nom (une seule catégorie).
                 - Images secondaires: séparer les URLs avec `|` (ou `,` / `;`).
                 - EAN: généré automatiquement si vide.

@@ -49,6 +49,33 @@ const buildShippingMethodForm = (code = "STANDARD", overrides = {}) => {
   };
 };
 
+const toVatPercentInput = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return "18";
+  const normalized = parsed <= 1 ? parsed * 100 : parsed;
+  return `${normalized}`;
+};
+
+const toPercentInput = (value, fallback = "0") => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  const normalized = parsed <= 1 ? parsed * 100 : parsed;
+  return `${normalized}`;
+};
+
+const formatReturnWindowLabel = (unit, min, max) => {
+  const safeMin = Number(min);
+  const safeMax = Number(max);
+  const suffix = `${unit || ""}`.toUpperCase() === "HOURS" ? "heures" : "jours";
+  if (Number.isFinite(safeMin) && Number.isFinite(safeMax)) return `${safeMin}-${safeMax} ${suffix}`;
+  return `0-0 ${suffix}`;
+};
+
+const formatRefundPolicyLabel = (mode) =>
+  `${mode || ""}`.trim().toUpperCase() === "ORDER_ONLY"
+    ? "Remboursement de la commande uniquement"
+    : "Remboursement total commande + livraison";
+
 export default function Settings() {
   const settingsEntry = useSettingsResolver();
   const [shopForm, setShopForm] = useState({
@@ -60,12 +87,22 @@ export default function Settings() {
     slogan: "",
     activitySector: "ECOMMERCE",
     shippingPolicyNote: "",
+    vatPercent: "18",
+    returnWindowUnit: "DAYS",
+    returnWindowMin: "30",
+    returnWindowMax: "30",
+    customerRefundMode: "FULL_WITH_SHIPPING",
+    partnerSettlementMode: "DEDUCT_SHIPPING_AND_RETURN_COST",
+    returnShippingCostAmount: "0",
+    partnerMarginPercent: "0",
+    partnerPayoutWithdrawMode: "",
     returnPolicyText: ""
   });
   const [shopLoading, setShopLoading] = useState(false);
   const [shopSaving, setShopSaving] = useState(false);
   const [shopError, setShopError] = useState("");
   const [shopSuccess, setShopSuccess] = useState("");
+  const [returnPolicyModalOpen, setReturnPolicyModalOpen] = useState(false);
   const [socialLinks, setSocialLinks] = useState([]);
   const [socialLoading, setSocialLoading] = useState(false);
   const [socialError, setSocialError] = useState("");
@@ -206,6 +243,15 @@ export default function Settings() {
       slogan: shopProfile?.slogan || "",
       activitySector: shopProfile?.activitySector || "ECOMMERCE",
       shippingPolicyNote: shopProfile?.shippingPolicyNote || "",
+      vatPercent: toVatPercentInput(shopProfile?.vatPercent),
+      returnWindowUnit: shopProfile?.returnWindowUnit || "DAYS",
+      returnWindowMin: `${shopProfile?.returnWindowMin ?? 30}`,
+      returnWindowMax: `${shopProfile?.returnWindowMax ?? 30}`,
+      customerRefundMode: shopProfile?.customerRefundMode || "FULL_WITH_SHIPPING",
+      partnerSettlementMode: shopProfile?.partnerSettlementMode || "DEDUCT_SHIPPING_AND_RETURN_COST",
+      returnShippingCostAmount: `${shopProfile?.returnShippingCostAmount ?? 0}`,
+      partnerMarginPercent: toPercentInput(shopProfile?.partnerMarginPercent, "0"),
+      partnerPayoutWithdrawMode: shopProfile?.partnerPayoutWithdrawMode || "",
       returnPolicyText: shopProfile?.returnPolicyText || ""
     });
     setSocialLinks(Array.isArray(data?.socialLinks) ? data.socialLinks : []);
@@ -297,6 +343,15 @@ export default function Settings() {
         slogan: cfg?.slogan || "",
         activitySector: cfg?.activitySector || "ECOMMERCE",
         shippingPolicyNote: cfg?.shippingPolicyNote || "",
+        vatPercent: toVatPercentInput(cfg?.vatPercent),
+        returnWindowUnit: cfg?.returnWindowUnit || "DAYS",
+        returnWindowMin: `${cfg?.returnWindowMin ?? 30}`,
+        returnWindowMax: `${cfg?.returnWindowMax ?? 30}`,
+        customerRefundMode: cfg?.customerRefundMode || "FULL_WITH_SHIPPING",
+        partnerSettlementMode: cfg?.partnerSettlementMode || "DEDUCT_SHIPPING_AND_RETURN_COST",
+        returnShippingCostAmount: `${cfg?.returnShippingCostAmount ?? 0}`,
+        partnerMarginPercent: toPercentInput(cfg?.partnerMarginPercent, "0"),
+        partnerPayoutWithdrawMode: cfg?.partnerPayoutWithdrawMode || "",
         returnPolicyText: cfg?.returnPolicyText || ""
       });
     } catch (err) {
@@ -584,13 +639,32 @@ export default function Settings() {
     }
   };
 
-  const submitShop = async (e) => {
-    e.preventDefault();
+  const saveShopProfile = async ({ closeReturnModal = false } = {}) => {
     if (shopSaving) return;
     setShopError("");
     setShopSuccess("");
     setShopSaving(true);
     try {
+      const vatPercent = Number(`${shopForm.vatPercent || ""}`.trim().replace(",", "."));
+      if (!Number.isFinite(vatPercent) || vatPercent < 0) {
+        throw new Error("TVA invalide.");
+      }
+      const returnWindowMin = Number.parseInt(`${shopForm.returnWindowMin || ""}`.trim(), 10);
+      const returnWindowMax = Number.parseInt(`${shopForm.returnWindowMax || ""}`.trim(), 10);
+      const returnShippingCostAmount = Number(`${shopForm.returnShippingCostAmount || ""}`.trim().replace(",", "."));
+      const partnerMarginPercent = Number(`${shopForm.partnerMarginPercent || ""}`.trim().replace(",", "."));
+      if (!Number.isInteger(returnWindowMin) || returnWindowMin <= 0) {
+        throw new Error("Intervalle retour min invalide.");
+      }
+      if (!Number.isInteger(returnWindowMax) || returnWindowMax < returnWindowMin) {
+        throw new Error("Intervalle retour max invalide.");
+      }
+      if (!Number.isFinite(returnShippingCostAmount) || returnShippingCostAmount < 0) {
+        throw new Error("Coût de retour invalide.");
+      }
+      if (!Number.isFinite(partnerMarginPercent) || partnerMarginPercent < 0) {
+        throw new Error("Marge partenaire invalide.");
+      }
       await backofficeApi.updateAppConfig({
         storeName: shopForm.storeName,
         contactEmail: shopForm.contactEmail,
@@ -600,15 +674,46 @@ export default function Settings() {
         slogan: shopForm.slogan || null,
         activitySector: shopForm.activitySector || null,
         shippingPolicyNote: shopForm.shippingPolicyNote || null,
+        vatPercent,
+        returnWindowUnit: shopForm.returnWindowUnit || "DAYS",
+        returnWindowMin,
+        returnWindowMax,
+        customerRefundMode: shopForm.customerRefundMode || "FULL_WITH_SHIPPING",
+        partnerSettlementMode: shopForm.partnerSettlementMode || "DEDUCT_SHIPPING_AND_RETURN_COST",
+        returnShippingCostAmount,
+        partnerMarginPercent,
+        partnerPayoutWithdrawMode: shopForm.partnerPayoutWithdrawMode || null,
         returnPolicyText: shopForm.returnPolicyText || null
       });
       setShopSuccess("Informations boutique sauvegardées.");
       await loadShopProfile();
+      if (closeReturnModal) {
+        setReturnPolicyModalOpen(false);
+      }
     } catch (err) {
       setShopError(err?.message || "Impossible de sauvegarder les informations boutique.");
     } finally {
       setShopSaving(false);
     }
+  };
+
+  const submitShop = async (e) => {
+    e.preventDefault();
+    await saveShopProfile();
+  };
+
+  const openReturnPolicyModal = () => {
+    setReturnPolicyModalOpen(true);
+  };
+
+  const closeReturnPolicyModal = () => {
+    if (shopSaving) return;
+    setReturnPolicyModalOpen(false);
+  };
+
+  const submitReturnPolicy = async (e) => {
+    e.preventDefault();
+    await saveShopProfile({ closeReturnModal: true });
   };
 
   const openCreateSocial = () => {
@@ -1341,20 +1446,28 @@ export default function Settings() {
               onChange={(e) => setShopForm((s) => ({ ...s, slogan: e.target.value }))}
               disabled={shopLoading || shopSaving}
             />
-            <textarea
-              className="min-h-[96px] rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 focus:ring-4 focus:ring-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
-              placeholder="Note générale sur la livraison"
-              value={shopForm.shippingPolicyNote}
-              onChange={(e) => setShopForm((s) => ({ ...s, shippingPolicyNote: e.target.value }))}
-              disabled={shopLoading || shopSaving}
-            />
-            <textarea
-              className="min-h-[96px] rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 focus:ring-4 focus:ring-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
-              placeholder="Politique de retour affichée au client"
-              value={shopForm.returnPolicyText}
-              onChange={(e) => setShopForm((s) => ({ ...s, returnPolicyText: e.target.value }))}
-              disabled={shopLoading || shopSaving}
-            />
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-muted-foreground">TVA globale (%)</div>
+              <Input
+                placeholder="Ex: 18"
+                type="number"
+                min="0"
+                step="0.01"
+                value={shopForm.vatPercent}
+                onChange={(e) => setShopForm((s) => ({ ...s, vatPercent: e.target.value }))}
+                disabled={shopLoading || shopSaving}
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-muted-foreground">Note générale sur la livraison</div>
+              <textarea
+                className="min-h-[96px] rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 focus:ring-4 focus:ring-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
+                placeholder="Message affiché au client"
+                value={shopForm.shippingPolicyNote}
+                onChange={(e) => setShopForm((s) => ({ ...s, shippingPolicyNote: e.target.value }))}
+                disabled={shopLoading || shopSaving}
+              />
+            </div>
             <Select
               value={shopForm.activitySector}
               onChange={(e) => setShopForm((s) => ({ ...s, activitySector: e.target.value }))}
@@ -1557,6 +1670,30 @@ export default function Settings() {
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="space-y-3 pt-4">
+            <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-foreground">Modalités de retour</div>
+                  <div className="text-xs text-muted-foreground">
+                    {`${formatReturnWindowLabel(
+                      shopForm.returnWindowUnit,
+                      shopForm.returnWindowMin,
+                      shopForm.returnWindowMax
+                    )} · ${formatRefundPolicyLabel(shopForm.customerRefundMode)}${
+                      Number.isFinite(Number(shopForm.returnShippingCostAmount)) && Number(shopForm.returnShippingCostAmount) > 0
+                        ? ` · coût de retour ${Number(shopForm.returnShippingCostAmount).toLocaleString()} FCFA`
+                        : ""
+                    }`}
+                  </div>
+                </div>
+                <Button type="button" variant="outline" onClick={openReturnPolicyModal} disabled={shopLoading || shopSaving}>
+                  Configurer
+                </Button>
+              </div>
+            </div>
           </div>
         </Card>
 
@@ -2169,86 +2306,256 @@ export default function Settings() {
         }
       >
         <form onSubmit={submitShippingMethod} className="grid gap-3">
-          <Select
-            value={shippingMethodForm.code}
-            onChange={(e) => {
-              const nextCode = e.target.value;
-              setShippingMethodForm((s) => {
-                const preset = SHIPPING_METHOD_PRESETS[nextCode] || SHIPPING_METHOD_PRESETS.STANDARD;
-                return {
-                  ...s,
-                  code: preset.code,
-                  label: preset.label,
-                  description: s.description === s.label || s.description === SHIPPING_METHOD_PRESETS[s.code]?.description
-                    ? preset.description
-                    : s.description,
-                  leadTimeUnit: preset.leadTimeUnit,
-                  leadTimeMin: `${preset.leadTimeMin}`,
-                  leadTimeMax: `${preset.leadTimeMax}`,
-                  sortOrder: `${preset.sortOrder}`
-                };
-              });
-            }}
-            options={[
-              { value: "STANDARD", label: "Standard" },
-              { value: "EXPRESS", label: "Express" }
-            ]}
-          />
-          <Input
-            placeholder="Libellé"
-            value={shippingMethodForm.label}
-            disabled
-          />
-          <Input
-            placeholder="Description (ex: 3-5 jours ouvrables)"
-            value={shippingMethodForm.description}
-            onChange={(e) => setShippingMethodForm((s) => ({ ...s, description: e.target.value }))}
-          />
-          <Input
-            placeholder="Coût (FCFA)"
-            value={shippingMethodForm.costAmount}
-            onChange={(e) => setShippingMethodForm((s) => ({ ...s, costAmount: e.target.value }))}
-            required
-          />
-          <Select
-            value={shippingMethodForm.leadTimeUnit}
-            onChange={(e) => setShippingMethodForm((s) => ({ ...s, leadTimeUnit: e.target.value }))}
-            options={[
-              { value: "HOURS", label: "Délai en heures" },
-              { value: "DAYS", label: "Délai en jours" }
-            ]}
-          />
-          <Input
-            placeholder={shippingMethodForm.leadTimeUnit === "HOURS" ? "Minimum (heures)" : "Minimum (jours)"}
-            value={shippingMethodForm.leadTimeMin}
-            onChange={(e) => setShippingMethodForm((s) => ({ ...s, leadTimeMin: e.target.value }))}
-          />
-          <Input
-            placeholder={shippingMethodForm.leadTimeUnit === "HOURS" ? "Maximum (heures)" : "Maximum (jours)"}
-            value={shippingMethodForm.leadTimeMax}
-            onChange={(e) => setShippingMethodForm((s) => ({ ...s, leadTimeMax: e.target.value }))}
-          />
-          <Input
-            placeholder="Ordre (0, 1, 2…)"
-            value={shippingMethodForm.sortOrder}
-            onChange={(e) => setShippingMethodForm((s) => ({ ...s, sortOrder: e.target.value }))}
-          />
-          <Select
-            value={shippingMethodForm.enabled ? "true" : "false"}
-            onChange={(e) => setShippingMethodForm((s) => ({ ...s, enabled: e.target.value === "true" }))}
-            options={[
-              { value: "true", label: "Actif" },
-              { value: "false", label: "Désactivé" }
-            ]}
-          />
-          <Select
-            value={shippingMethodForm.isDefault ? "true" : "false"}
-            onChange={(e) => setShippingMethodForm((s) => ({ ...s, isDefault: e.target.value === "true" }))}
-            options={[
-              { value: "true", label: "Par défaut" },
-              { value: "false", label: "Non" }
-            ]}
-          />
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">Type de livraison</div>
+            <Select
+              value={shippingMethodForm.code}
+              onChange={(e) => {
+                const nextCode = e.target.value;
+                setShippingMethodForm((s) => {
+                  const preset = SHIPPING_METHOD_PRESETS[nextCode] || SHIPPING_METHOD_PRESETS.STANDARD;
+                  return {
+                    ...s,
+                    code: preset.code,
+                    label: preset.label,
+                    description: s.description === s.label || s.description === SHIPPING_METHOD_PRESETS[s.code]?.description
+                      ? preset.description
+                      : s.description,
+                    leadTimeUnit: preset.leadTimeUnit,
+                    leadTimeMin: `${preset.leadTimeMin}`,
+                    leadTimeMax: `${preset.leadTimeMax}`,
+                    sortOrder: `${preset.sortOrder}`
+                  };
+                });
+              }}
+              options={[
+                { value: "STANDARD", label: "Standard" },
+                { value: "EXPRESS", label: "Express" }
+              ]}
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">Libellé</div>
+            <Input
+              placeholder="Libellé"
+              value={shippingMethodForm.label}
+              disabled
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">Description</div>
+            <Input
+              placeholder="Ex: 3-5 jours ouvrables"
+              value={shippingMethodForm.description}
+              onChange={(e) => setShippingMethodForm((s) => ({ ...s, description: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">Coût (FCFA)</div>
+            <Input
+              placeholder="Montant"
+              value={shippingMethodForm.costAmount}
+              onChange={(e) => setShippingMethodForm((s) => ({ ...s, costAmount: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">Unité de l'intervalle</div>
+            <Select
+              value={shippingMethodForm.leadTimeUnit}
+              onChange={(e) => setShippingMethodForm((s) => ({ ...s, leadTimeUnit: e.target.value }))}
+              options={[
+                { value: "HOURS", label: "Délai en heures" },
+                { value: "DAYS", label: "Délai en jours" }
+              ]}
+            />
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-muted-foreground">Intervalle min</div>
+              <Input
+                placeholder={shippingMethodForm.leadTimeUnit === "HOURS" ? "Minimum en heures" : "Minimum en jours"}
+                value={shippingMethodForm.leadTimeMin}
+                onChange={(e) => setShippingMethodForm((s) => ({ ...s, leadTimeMin: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-muted-foreground">Intervalle max</div>
+              <Input
+                placeholder={shippingMethodForm.leadTimeUnit === "HOURS" ? "Maximum en heures" : "Maximum en jours"}
+                value={shippingMethodForm.leadTimeMax}
+                onChange={(e) => setShippingMethodForm((s) => ({ ...s, leadTimeMax: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">Ordre d'affichage</div>
+            <Input
+              placeholder="0, 1, 2…"
+              value={shippingMethodForm.sortOrder}
+              onChange={(e) => setShippingMethodForm((s) => ({ ...s, sortOrder: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">Statut</div>
+            <Select
+              value={shippingMethodForm.enabled ? "true" : "false"}
+              onChange={(e) => setShippingMethodForm((s) => ({ ...s, enabled: e.target.value === "true" }))}
+              options={[
+                { value: "true", label: "Actif" },
+                { value: "false", label: "Désactivé" }
+              ]}
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">Mode par défaut</div>
+            <Select
+              value={shippingMethodForm.isDefault ? "true" : "false"}
+              onChange={(e) => setShippingMethodForm((s) => ({ ...s, isDefault: e.target.value === "true" }))}
+              options={[
+                { value: "true", label: "Par défaut" },
+                { value: "false", label: "Non" }
+              ]}
+            />
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={returnPolicyModalOpen}
+        onClose={closeReturnPolicyModal}
+        title="Modalités de retour"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={closeReturnPolicyModal} disabled={shopSaving}>
+              Fermer
+            </Button>
+            <Button type="submit" form="return-policy-form" disabled={shopSaving}>
+              {shopSaving ? "Sauvegarde…" : "Sauvegarder"}
+            </Button>
+          </>
+        }
+      >
+        <form id="return-policy-form" onSubmit={submitReturnPolicy} className="grid gap-3">
+          {shopError ? <div className="text-sm text-red-600">{shopError}</div> : null}
+          {shopSuccess ? <div className="text-sm text-emerald-700">{shopSuccess}</div> : null}
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-muted-foreground">Unité de l'intervalle de retour</div>
+              <Select
+                value={shopForm.returnWindowUnit}
+                onChange={(e) => setShopForm((s) => ({ ...s, returnWindowUnit: e.target.value }))}
+                options={[
+                  { value: "DAYS", label: "Retour en jours" },
+                  { value: "HOURS", label: "Retour en heures" }
+                ]}
+                disabled={shopLoading || shopSaving}
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-muted-foreground">Coût retour produit</div>
+              <Input
+                placeholder="Montant en FCFA"
+                type="number"
+                min="0"
+                step="0.01"
+                value={shopForm.returnShippingCostAmount}
+                onChange={(e) => setShopForm((s) => ({ ...s, returnShippingCostAmount: e.target.value }))}
+                disabled={shopLoading || shopSaving}
+              />
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-muted-foreground">Intervalle retour min</div>
+              <Input
+                placeholder={shopForm.returnWindowUnit === "HOURS" ? "Minimum en heures" : "Minimum en jours"}
+                type="number"
+                min="1"
+                step="1"
+                value={shopForm.returnWindowMin}
+                onChange={(e) => setShopForm((s) => ({ ...s, returnWindowMin: e.target.value }))}
+                disabled={shopLoading || shopSaving}
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-muted-foreground">Intervalle retour max</div>
+              <Input
+                placeholder={shopForm.returnWindowUnit === "HOURS" ? "Maximum en heures" : "Maximum en jours"}
+                type="number"
+                min="1"
+                step="1"
+                value={shopForm.returnWindowMax}
+                onChange={(e) => setShopForm((s) => ({ ...s, returnWindowMax: e.target.value }))}
+                disabled={shopLoading || shopSaving}
+              />
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-muted-foreground">Mode de remboursement client</div>
+              <Select
+                value={shopForm.customerRefundMode}
+                onChange={(e) => setShopForm((s) => ({ ...s, customerRefundMode: e.target.value }))}
+                options={[
+                  { value: "FULL_WITH_SHIPPING", label: "Remboursement total (commande + livraison)" },
+                  { value: "ORDER_ONLY", label: "Remboursement de la commande uniquement" }
+                ]}
+                disabled={shopLoading || shopSaving}
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-muted-foreground">Mode de règlement partenaire</div>
+              <Select
+                value={shopForm.partnerSettlementMode}
+                onChange={(e) => setShopForm((s) => ({ ...s, partnerSettlementMode: e.target.value }))}
+                options={[
+                  { value: "DEDUCT_SHIPPING_AND_RETURN_COST", label: "Partenaire : commande - livraison - coût retour" }
+                ]}
+                disabled={shopLoading || shopSaving}
+              />
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-muted-foreground">Marge partenaire (%)</div>
+              <Input
+                placeholder="Pourcentage"
+                type="number"
+                min="0"
+                step="0.01"
+                value={shopForm.partnerMarginPercent}
+                onChange={(e) => setShopForm((s) => ({ ...s, partnerMarginPercent: e.target.value }))}
+                disabled={shopLoading || shopSaving}
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-muted-foreground">Mode de reversement partenaire</div>
+              <Select
+                value={shopForm.partnerPayoutWithdrawMode}
+                onChange={(e) => setShopForm((s) => ({ ...s, partnerPayoutWithdrawMode: e.target.value }))}
+                options={[
+                  { value: "", label: "Reversement partenaire désactivé" },
+                  { value: "orange-money-ci", label: "Orange Money Côte d'Ivoire" },
+                  { value: "mtn-ci", label: "MTN Côte d'Ivoire" },
+                  { value: "wave-ci", label: "Wave Côte d'Ivoire" },
+                  { value: "orange-money-senegal", label: "Orange Money Sénégal" },
+                  { value: "wave-senegal", label: "Wave Sénégal" }
+                ]}
+                disabled={shopLoading || shopSaving}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">Texte affiché au client</div>
+            <textarea
+              className="min-h-[96px] rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 focus:ring-4 focus:ring-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
+              placeholder="Politique de retour affichée au client"
+              value={shopForm.returnPolicyText}
+              onChange={(e) => setShopForm((s) => ({ ...s, returnPolicyText: e.target.value }))}
+              disabled={shopLoading || shopSaving}
+            />
+          </div>
         </form>
       </Modal>
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Image as ImageIcon, Search, Upload, X } from "lucide-react";
+import { Check, Copy, Image as ImageIcon, Search, Trash2, Upload, X } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Button from "../components/ui/Button.jsx";
@@ -32,6 +32,8 @@ export default function Media() {
   const [items, setItems] = useState([]);
   const [error, setError] = useState("");
   const [copiedUrl, setCopiedUrl] = useState("");
+  const [selectedKeys, setSelectedKeys] = useState([]);
+  const [deleting, setDeleting] = useState(false);
 
   const successfulItems = useMemo(() => items.filter((item) => item?.success && item?.file?.url), [items]);
   const mediaItems = Array.isArray(mediaPage?.content) ? mediaPage.content : [];
@@ -50,6 +52,7 @@ export default function Media() {
       });
       setMediaPage(response);
       setPage(response?.number ?? nextPage);
+      setSelectedKeys([]);
     } catch (err) {
       setError(err?.message || "Chargement des médias impossible.");
     } finally {
@@ -87,6 +90,33 @@ export default function Media() {
     await navigator.clipboard.writeText(url);
     setCopiedUrl(url);
     window.setTimeout(() => setCopiedUrl(""), 1400);
+  };
+
+  const toggleSelection = (objectKey) => {
+    setSelectedKeys((prev) =>
+      prev.includes(objectKey) ? prev.filter((value) => value !== objectKey) : [...prev, objectKey]
+    );
+  };
+
+  const deleteKeys = async (keys) => {
+    const targets = Array.from(new Set((keys || []).filter(Boolean)));
+    if (!targets.length || deleting) return;
+    const confirmed = window.confirm(
+      targets.length === 1
+        ? "Supprimer ce média ?"
+        : `Supprimer ${targets.length} média(s) ?`
+    );
+    if (!confirmed) return;
+    setDeleting(true);
+    setError("");
+    try {
+      await Promise.all(targets.map((objectKey) => backofficeApi.deleteMedia(objectKey)));
+      await loadMedia(0);
+    } catch (err) {
+      setError(err?.message || "Suppression impossible.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -213,6 +243,20 @@ export default function Media() {
           </div>
         </div>
 
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {selectedKeys.length > 0 ? `${selectedKeys.length} média(s) sélectionné(s)` : "Sélectionnez des médias pour les supprimer en masse."}
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => deleteKeys(selectedKeys)}
+            disabled={deleting || selectedKeys.length === 0}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            {deleting ? "Suppression..." : "Supprimer la sélection"}
+          </Button>
+        </div>
+
         {mediaItems.length > 0 ? (
           <div className="grid gap-3 lg:grid-cols-2">
             {mediaItems.map((media) => (
@@ -222,7 +266,15 @@ export default function Media() {
                 </div>
                 <div className="min-w-0 space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="truncate text-sm font-semibold text-foreground">{media.originalFilename || media.storedFilename}</p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={selectedKeys.includes(media.objectKey)}
+                        onChange={() => toggleSelection(media.objectKey)}
+                        aria-label={`Sélectionner ${media.originalFilename || media.storedFilename || media.objectKey}`}
+                      />
+                      <p className="truncate text-sm font-semibold text-foreground">{media.originalFilename || media.storedFilename}</p>
+                    </div>
                     <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">{media.folder}</span>
                   </div>
                   <p className="truncate font-mono text-xs text-muted-foreground">{media.objectKey}</p>
@@ -231,10 +283,21 @@ export default function Media() {
                     <span>{media.ownerScope === "PARTNER" ? "Partenaire" : "LID"}</span>
                     <span>{Math.round((media.size || 0) / 1024)} Ko</span>
                   </div>
-                  <Button className="h-9 w-full" variant="outline" onClick={() => copy(media.url)}>
-                    {copiedUrl === media.url ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
-                    {copiedUrl === media.url ? "Copié" : "Copier l'URL"}
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button className="h-9 w-full" variant="outline" onClick={() => copy(media.url)}>
+                      {copiedUrl === media.url ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+                      {copiedUrl === media.url ? "Copié" : "Copier l'URL"}
+                    </Button>
+                    <Button
+                      className="h-9 w-full"
+                      variant="outline"
+                      onClick={() => deleteKeys([media.objectKey])}
+                      disabled={deleting}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Supprimer
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}

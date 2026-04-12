@@ -335,6 +335,10 @@ export const backofficeApi = {
     params.set("size", `${size}`);
     return request(`/api/v1/storage/media?${params.toString()}`);
   },
+  deleteMedia: (objectKey) =>
+    request(`/api/v1/storage/delete?objectKey=${encodeURIComponent(objectKey)}`, {
+      method: "DELETE"
+    }),
   boutiques: () => request("/api/v1/backoffice/shops"),
   promoCodes: () => request("/api/v1/backoffice/promo-codes"),
   promoCodesCollection: (days) => {
@@ -654,6 +658,12 @@ export const backofficeApi = {
       method: "POST",
       body: JSON.stringify(payload || {})
     }),
+  partnerTransactions: (id, fromDate, toDate, page = 0, size = 20) => {
+    const params = new URLSearchParams({ page, size });
+    if (fromDate) params.set("fromDate", fromDate);
+    if (toDate) params.set("toDate", toDate);
+    return request(`/api/v1/backoffice/partners/${encodeURIComponent(id)}/transactions?${params.toString()}`);
+  },
   returns: (page = 0, size = 20, status = "", q = "") => {
     const params = new URLSearchParams({ page, size });
     if (status) params.set("status", status);

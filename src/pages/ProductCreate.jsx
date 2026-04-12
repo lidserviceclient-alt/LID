@@ -36,7 +36,6 @@ export default function ProductCreate() {
     secondaryImageUrls: "",
     brand: "",
     price: "",
-    vat: 20,
     status: "ACTIVE", // ACTIVE, DRAFT, ARCHIVED
     category: "",
     stock: 0,
@@ -130,11 +129,6 @@ export default function ProductCreate() {
         throw new Error("Veuillez renseigner un prix valide.");
       }
 
-      const vat = formData.vat === "" || formData.vat === null || formData.vat === undefined ? null : Number(formData.vat);
-      if (vat !== null && !Number.isFinite(vat)) {
-        throw new Error("Veuillez renseigner une TVA valide.");
-      }
-
       const stock = formData.stock === "" || formData.stock === null || formData.stock === undefined ? null : Number(formData.stock);
       if (stock !== null && !Number.isFinite(stock)) {
         throw new Error("Veuillez renseigner un stock valide.");
@@ -149,7 +143,6 @@ export default function ProductCreate() {
         secondaryImageUrls: parseSecondaryImageUrls(formData.secondaryImageUrls),
         brand: formData.brand || null,
         price,
-        vat,
         status: formData.status,
         category: formData.category,
         stock,
@@ -368,21 +361,6 @@ export default function ProductCreate() {
                     onChange={handleChange}
                     required
                   />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="vat">TVA (%)</Label>
-                <div className="relative">
-                  <Input 
-                    id="vat" 
-                    name="vat" 
-                    type="number" 
-                    placeholder="20" 
-                    value={formData.vat} 
-                    onChange={handleChange}
-                  />
-                  <span className="absolute right-3 top-2.5 text-muted-foreground">%</span>
                 </div>
               </div>
             </div>
