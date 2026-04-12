@@ -27,8 +27,6 @@ import { useAppConfig } from "@/features/appConfig/useAppConfig";
 
 const FALLBACK_IMAGE = "/imgs/logo.png";
 const FREE_SHIPPING_THRESHOLD = 10000;
-// const STANDARD_SHIPPING_COST = 3250; // Removed constant, now from AppConfig
-const TAX_RATE = 0.18;
 
 const formatMoney = (value, { maximumFractionDigits = 0 } = {}) => {
   const num = Number(value);
@@ -56,6 +54,25 @@ const formatShippingLeadTime = (method) => {
   return `${method?.description || ""}`.trim() || "-";
 };
 
+const normalizeVatRate = (raw) => {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) return 0.18;
+  return value > 1 ? value / 100 : value;
+};
+
+const formatReturnWindow = (unit, min, max) => {
+  const normalizedUnit = `${unit || ""}`.toUpperCase();
+  const parsedMin = Number(min);
+  const parsedMax = Number(max);
+  if (!Number.isFinite(parsedMin) || !Number.isFinite(parsedMax) || parsedMin <= 0 || parsedMax < parsedMin) {
+    return "30 jours";
+  }
+  if (normalizedUnit === "HOURS") {
+    return parsedMin === parsedMax ? `${parsedMax} heure${parsedMax > 1 ? "s" : ""}` : `${parsedMin}-${parsedMax} heures`;
+  }
+  return parsedMin === parsedMax ? `${parsedMax} jour${parsedMax > 1 ? "s" : ""}` : `${parsedMin}-${parsedMax} jours`;
+};
+
 const pickGalleryImages = (product) => {
   const urls = [];
   const add = (url) => {
@@ -68,7 +85,7 @@ const pickGalleryImages = (product) => {
   return urls.length > 0 ? urls : [FALLBACK_IMAGE];
 };
 
-const buildSpecs = (product) => {
+const buildSpecs = (product, vatRate) => {
   const createdAt = product?.dateCreation ? new Date(product.dateCreation) : null;
   const sku = `${product?.sku || product?.referenceProduitPartenaire || ""}`.trim();
   const ean = `${product?.ean || ""}`.trim();
@@ -78,7 +95,7 @@ const buildSpecs = (product) => {
     { label: "Marque", value: product?.brand || "-" },
     { label: "Catégorie", value: product?.categoryName || "-" },
     { label: "Stock", value: Number.isFinite(Number(product?.stock)) ? `${product.stock}` : "-" },
-    { label: "TVA", value: product?.vat !== null && product?.vat !== undefined ? `${formatMoney(Number(product.vat) * 100, { maximumFractionDigits: 0 })}%` : "18%" },
+    { label: "TVA", value: `${formatMoney(vatRate * 100, { maximumFractionDigits: 0 })}%` },
     { label: "Ajouté le", value: createdAt ? createdAt.toLocaleDateString("fr-FR") : "-" }
   ];
 };
@@ -113,7 +130,18 @@ export default function ProductDetailsDb() {
     return list.filter((m) => Boolean(m?.enabled));
   }, [configuredShippingMethods, fallbackShippingMethods]);
   const shippingPolicyNote = `${appConfig?.shippingPolicyNote || ""}`.trim() || "La livraison comprend différentes modalités.";
-  const returnPolicyText = `${appConfig?.returnPolicyText || ""}`.trim() || "Retours sous 30 jours : produit non utilisé, dans son emballage d'origine.";
+  const returnWindowLabel = useMemo(
+    () => formatReturnWindow(appConfig?.returnWindowUnit, appConfig?.returnWindowMin, appConfig?.returnWindowMax),
+    [appConfig?.returnWindowMax, appConfig?.returnWindowMin, appConfig?.returnWindowUnit]
+  );
+  const returnPolicyText = `${appConfig?.returnPolicyText || ""}`.trim() || "Produit non utilisé, dans son emballage d'origine. Des conditions complémentaires peuvent s'appliquer.";
+  const customerRefundMode = `${appConfig?.customerRefundMode || "FULL_WITH_SHIPPING"}`.trim().toUpperCase();
+  const returnShippingCostAmount = Number(appConfig?.returnShippingCostAmount);
+  const refundPolicyLabel =
+    customerRefundMode === "ORDER_ONLY"
+      ? "Remboursement de la commande uniquement"
+      : "Remboursement total commande + livraison";
+  const vatRate = useMemo(() => normalizeVatRate(appConfig?.vatPercent), [appConfig?.vatPercent]);
   const defaultShippingCode = useMemo(() => {
     const found = shippingMethods.find((m) => Boolean(m?.isDefault)) || shippingMethods[0];
     return found?.code || "STANDARD";
@@ -200,7 +228,7 @@ export default function ProductDetailsDb() {
       : selectedBaseCost;
   
   const totalTtc = itemsTotal + shippingCost;
-  const taxAmount = Math.round(totalTtc - totalTtc / (1 + TAX_RATE));
+  const taxAmount = Math.round(totalTtc - totalTtc / (1 + vatRate));
 
   const isWishlisted = product?.id ? isInWishlist(product.id) : false;
 
@@ -301,7 +329,7 @@ export default function ProductDetailsDb() {
   const categoryLink = product?.categorySlug
     ? `/shop?category=${encodeURIComponent(product.categorySlug)}`
     : "/shop";
-  const specs = buildSpecs(product);
+  const specs = buildSpecs(product, vatRate);
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950">
@@ -489,7 +517,7 @@ export default function ProductDetailsDb() {
                 {formatMoney(price)} <span className="text-base font-bold">FCFA</span>
               </div>
               <div className="text-xs text-neutral-500 pb-2">
-                Dont TVA (18%) :{" "}
+                Dont TVA ({formatMoney(vatRate * 100, { maximumFractionDigits: 0 })}%) :{" "}
                 <span className="font-semibold">{formatMoney(taxAmount)} FCFA</span>
               </div>
             </div>
@@ -600,7 +628,7 @@ export default function ProductDetailsDb() {
               <div className="flex flex-col items-center text-center gap-2 border-l border-neutral-100 dark:border-neutral-800">
                 <RotateCcw className="w-6 h-6 text-blue-600" />
                 <div className="text-xs font-bold uppercase text-neutral-500">Retours</div>
-                <div className="text-sm font-bold text-neutral-900 dark:text-white">30 Jours</div>
+                <div className="text-sm font-bold text-neutral-900 dark:text-white">{returnWindowLabel}</div>
               </div>
             </div>
 
@@ -665,7 +693,13 @@ export default function ProductDetailsDb() {
                     </p>
                   ))}
                   <p>{shippingPolicyNote}</p>
-                  <p>{returnPolicyText}</p>
+                  <p>
+                    Retours sous <span className="font-bold">{returnWindowLabel}</span> : {returnPolicyText}
+                  </p>
+                  <p>
+                    Politique de remboursement : <span className="font-bold">{refundPolicyLabel}</span>
+                    {Number.isFinite(returnShippingCostAmount) && returnShippingCostAmount > 0 ? `, coût de retour estimé ${formatPrice(returnShippingCostAmount)}.` : "."}
+                  </p>
                 </div>
               ) : null}
 

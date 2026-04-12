@@ -15,6 +15,18 @@ import { getCatalogProductsPage, getFeaturedCatalogProducts } from "@/services/p
 import { resolveBackendAssetUrl } from "@/services/categoryService";
 import { useAppConfig } from "@/features/appConfig/useAppConfig";
 
+const normalizeVatRate = (raw) => {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) return 0.18;
+  return value > 1 ? value / 100 : value;
+};
+
+const roundAmount = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Math.round(num * 100) / 100;
+};
+
 const formatShippingLeadTime = (method) => {
   const unit = `${method?.leadTimeUnit || ""}`.toUpperCase();
   const min = Number(method?.leadTimeMin);
@@ -159,7 +171,11 @@ export default function Cart() {
 
   const discountAmount = appliedPromo ? (Number(appliedPromo.discountAmount) || 0) : 0;
   const loyaltyDiscountAmount = appliedPromo ? 0 : (Number(loyaltyPricing?.discountAmount) || 0);
-  const finalTotal = cartTotal - discountAmount - loyaltyDiscountAmount + shippingCost;
+  const vatRate = normalizeVatRate(appConfig?.vatPercent);
+  const vatPercentLabel = Math.round(vatRate * 100);
+  const netTotal = Math.max(0, cartTotal - discountAmount - loyaltyDiscountAmount + shippingCost);
+  const taxAmount = roundAmount(netTotal * vatRate);
+  const finalTotal = roundAmount(netTotal + taxAmount);
   const remainingToFreeShipping = isFreeShippingEnabled ? Math.max(freeShippingThreshold - cartTotal, 0) : 0;
   const progressToFreeShipping = isFreeShippingEnabled ? Math.min((cartTotal / freeShippingThreshold) * 100, 100) : 0;
   const freeShippingMessage = useMemo(() => {
@@ -623,7 +639,7 @@ export default function Cart() {
                 <span className="text-lg font-bold text-neutral-900 dark:text-white">Total</span>
                 <div className="text-right">
                   <span className="block text-2xl font-bold text-neutral-900 dark:text-white">{finalTotal.toLocaleString()} FCFA</span>
-                  <span className="text-xs text-neutral-500">TVA incluse</span>
+                  <span className="text-xs text-neutral-500">Dont TVA ({vatPercentLabel}%) : {taxAmount.toLocaleString()} FCFA</span>
                 </div>
               </div>
 

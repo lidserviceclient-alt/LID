@@ -43,3 +43,23 @@ export function formatNationalNumber(country, value) {
 export function isValidInternationalPhone(value) {
   return Boolean(value) && isValidPhoneNumber(value);
 }
+
+export function isValidMobileMoneyPhone(value) {
+  if (!isValidInternationalPhone(value)) {
+    return false;
+  }
+
+  const parsed = parsePhoneNumberFromString(value);
+  if (!parsed) {
+    return false;
+  }
+
+  const country = `${parsed.country || ''}`.toUpperCase();
+  const nationalNumber = `${parsed.nationalNumber || ''}`.replace(/\D/g, '');
+
+  if (country === 'CI') {
+    return /^(01|05|07)\d{8}$/.test(nationalNumber);
+  }
+
+  return true;
+}

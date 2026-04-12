@@ -146,6 +146,7 @@ export default function OrderTracking() {
 
       setTrackingData({
         id: data?.orderNumber || trimmed,
+        customerValidationCode: `${data?.customerValidationCode || ""}`.trim(),
         status: statusKey,
         trackingNumber: data?.trackingNumber || "",
         deliveryType: data?.deliveryType || "Standard",
@@ -262,6 +263,9 @@ export default function OrderTracking() {
                     <div className="mt-2 text-lg font-bold">{trackingData.id}</div>
                     <p className="text-xs text-neutral-500">Livraison {trackingData.deliveryType}</p>
                     <p className="text-xs text-neutral-500">Suivi {trackingData.trackingNumber || "—"}</p>
+                    <p className="text-xs text-neutral-800">
+                      Code à donner au transporteur : <span className="font-bold">{trackingData.customerValidationCode || "—"}</span>
+                    </p>
                   </div>
                   <div className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 dark:border-neutral-800 dark:bg-neutral-900">
                     <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Statut actuel</p>

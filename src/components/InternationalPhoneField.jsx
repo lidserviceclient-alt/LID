@@ -4,6 +4,7 @@ import { PHONE_COUNTRIES, buildPhoneCandidate, formatNationalNumber, splitPhoneN
 export default function InternationalPhoneField({
   value,
   onChange,
+  onBlur,
   defaultCountry = 'CI',
   placeholder = 'Numéro de téléphone',
   selectClassName = '',
@@ -38,6 +39,7 @@ export default function InternationalPhoneField({
           setCountry(nextCountry);
           emit(nextCountry, nationalNumber);
         }}
+        onBlur={onBlur}
         className={selectClassName}
       >
         {PHONE_COUNTRIES.map((item) => (
@@ -56,6 +58,7 @@ export default function InternationalPhoneField({
         }}
         placeholder={placeholder}
         autoComplete="tel-national"
+        onBlur={onBlur}
         className={inputClassName}
       />
     </div>
