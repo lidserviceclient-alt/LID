@@ -18,6 +18,7 @@ import com.lifeevent.lid.payment.entity.Payment;
 import com.lifeevent.lid.payment.entity.PaymentTransaction;
 import com.lifeevent.lid.payment.enums.PaymentStatus;
 import com.lifeevent.lid.payment.mapper.PaymentMapper;
+import com.lifeevent.lid.payment.partner.service.PartnerSettlementService;
 import com.lifeevent.lid.payment.repository.PaymentRepository;
 import com.lifeevent.lid.payment.repository.PaymentTransactionRepository;
 import com.lifeevent.lid.payment.service.PaymentService;
@@ -56,6 +57,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentMapper paymentMapper;
     private final RealtimeEventPublisher realtimeEventPublisher;
     private final BackOfficeNotificationService backOfficeNotificationService;
+    private final PartnerSettlementService partnerSettlementService;
     
     @Override
     public PaymentResponseDto createPayment(CreatePaymentRequestDto request) {
@@ -119,6 +121,7 @@ public class PaymentServiceImpl implements PaymentService {
                 "LOCAL"
         );
         createNotificationForPaymentStatus(savedPayment, null);
+        partnerSettlementService.syncOrderSettlements(savedPayment.getOrderId());
         return paymentMapper.toDto(savedPayment);
     }
     
@@ -175,6 +178,9 @@ public class PaymentServiceImpl implements PaymentService {
         );
         realtimeEventPublisher.publishPaymentStatusUpdated(payment, "verify_api");
         createNotificationForPaymentStatus(payment, previousStatus);
+        if (payment.getStatus() == PaymentStatus.COMPLETED) {
+            partnerSettlementService.syncOrderSettlements(payment.getOrderId());
+        }
         return buildStatusResponse(payment, invoice);
     }
     
@@ -223,6 +229,9 @@ public class PaymentServiceImpl implements PaymentService {
         );
         realtimeEventPublisher.publishPaymentStatusUpdated(payment, "webhook");
         createNotificationForPaymentStatus(payment, previousStatus);
+        if (payment.getStatus() == PaymentStatus.COMPLETED) {
+            partnerSettlementService.syncOrderSettlements(payment.getOrderId());
+        }
     }
     
     @Override

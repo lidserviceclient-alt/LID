@@ -1,11 +1,15 @@
 package com.lifeevent.lid.payment.service.impl;
 
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.common.util.PhoneNumberUtils;
 import com.lifeevent.lid.payment.dto.RefundRequestDto;
 import com.lifeevent.lid.payment.dto.RefundResponseDto;
+import com.lifeevent.lid.payment.disbursement.dto.PaydunyaDisbursementResult;
+import com.lifeevent.lid.payment.disbursement.service.PaydunyaDisbursementService;
 import com.lifeevent.lid.payment.entity.Payment;
 import com.lifeevent.lid.payment.entity.PaymentTransaction;
 import com.lifeevent.lid.payment.entity.Refund;
+import com.lifeevent.lid.payment.enums.PaymentOperator;
 import com.lifeevent.lid.payment.enums.PaymentStatus;
 import com.lifeevent.lid.payment.mapper.RefundMapper;
 import com.lifeevent.lid.payment.repository.PaymentRepository;
@@ -36,6 +40,7 @@ public class RefundServiceImpl implements RefundService {
     private final PaymentRepository paymentRepository;
     private final PaymentTransactionRepository transactionRepository;
     private final RefundMapper refundMapper;
+    private final PaydunyaDisbursementService paydunyaDisbursementService;
     
     @Override
     public RefundResponseDto requestRefund(RefundRequestDto request) {
@@ -99,19 +104,54 @@ public class RefundServiceImpl implements RefundService {
             .orElseThrow(() -> new ResourceNotFoundException("Refund", "id", refundId.toString()));
         
         try {
-            // TODO: Implémenter l'appel à l'API PayDunya pour traiter le remboursement
-            // Une fois l'API PayDunya supportant les remboursements, l'intégrer ici
-            
-            refund.setStatus("PROCESSING");
+            Payment payment = refund.getPayment();
+            if (payment != null && payment.getInvoiceToken() != null && payment.getInvoiceToken().startsWith("LOCAL-")) {
+                payment.setStatus(PaymentStatus.REFUNDED);
+                paymentRepository.save(payment);
+
+                refund.setStatus("COMPLETED");
+                refund.setProcessedDate(LocalDateTime.now());
+                refund.setRefundId("LOCAL-REFUND-" + refund.getId());
+                refundRepository.save(refund);
+
+                saveTransaction(payment, "REFUND_COMPLETED",
+                        PaymentStatus.REFUNDED.getCode(),
+                        "Remboursement local complété", "LOCAL");
+                log.info("Remboursement local complété: {}", refundId);
+                return;
+            }
+
+            String accountAlias = resolveDisbursementAccountAlias(payment);
+            String withdrawMode = resolveDisbursementWithdrawMode(payment == null ? null : payment.getOperator());
+            PaydunyaDisbursementResult result = paydunyaDisbursementService.disburse(
+                    accountAlias,
+                    refund.getAmount(),
+                    withdrawMode,
+                    "REFUND-" + refund.getId()
+            );
+
+            refund.setStatus(result.success() ? "COMPLETED" : "PROCESSING");
             refund.setProcessedDate(LocalDateTime.now());
+            refund.setRefundId(result.transactionId() == null || result.transactionId().isBlank()
+                    ? result.disburseInvoice()
+                    : result.transactionId());
             refundRepository.save(refund);
-            
-            // Enregistrer la transaction
-            saveTransaction(refund.getPayment(), "REFUND_PROCESSING", 
-                refund.getPayment().getStatus().getCode(),
-                "Remboursement en cours de traitement", "API");
-            
-            log.info("Remboursement marqué comme en traitement: {}", refundId);
+
+            if (result.success()) {
+                payment.setStatus(PaymentStatus.REFUNDED);
+                paymentRepository.save(payment);
+                saveTransaction(payment, "REFUND_COMPLETED",
+                        PaymentStatus.REFUNDED.getCode(),
+                        "Remboursement PayDunya complété", "API");
+                log.info("Remboursement PayDunya complété: {}", refundId);
+                return;
+            }
+
+            saveTransaction(refund.getPayment(), "REFUND_PROCESSING",
+                    refund.getPayment().getStatus().getCode(),
+                    "Remboursement PayDunya en cours", "API");
+
+            log.info("Remboursement PayDunya en cours: {}", refundId);
         } catch (Exception e) {
             log.error("Erreur lors du traitement du remboursement", e);
             refund.setStatus("FAILED");
@@ -152,5 +192,27 @@ public class RefundServiceImpl implements RefundService {
             .source(source)
             .build();
         transactionRepository.save(transaction);
+    }
+
+    private String resolveDisbursementAccountAlias(Payment payment) {
+        String alias = PhoneNumberUtils.toNationalSignificantNumberOrNull(payment == null ? null : payment.getCustomerPhone());
+        if (alias == null || alias.isBlank()) {
+            throw new IllegalStateException("Téléphone client invalide pour déboursement");
+        }
+        return alias;
+    }
+
+    private String resolveDisbursementWithdrawMode(PaymentOperator operator) {
+        if (operator == null) {
+            throw new IllegalStateException("Opérateur de paiement introuvable pour le déboursement");
+        }
+        return switch (operator) {
+            case ORANGE_MONEY_CI -> "orange-money-ci";
+            case MTN_MONEY_CI -> "mtn-ci";
+            case WAVE_CI -> "wave-ci";
+            case ORANGE_MONEY_SENEGAL -> "orange-money-senegal";
+            case WAVE_SENEGAL -> "wave-senegal";
+            default -> throw new IllegalStateException("Withdraw mode PayDunya non supporté pour " + operator.name());
+        };
     }
 }

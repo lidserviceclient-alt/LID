@@ -32,6 +32,8 @@ public class PaydunyaProperties {
     private String callbackUrl;
     private String cancelUrl;
     private String returnUrl;
+    private String disbursementCallbackUrl;
+    private String apiBaseUrl = "https://app.paydunya.com";
     
     // Pays supportés (liste des opérateurs)
     private String supportedCountries = "CI,SN,BJ,BF,CM,CG,GA,GW,ML"; // Côte d'Ivoire par défaut + autres pays africains

@@ -37,4 +37,17 @@ public final class PhoneNumberUtils {
         }
         return normalized;
     }
+
+    public static String toNationalSignificantNumberOrNull(String raw) {
+        String normalized = normalizeE164OrNull(raw);
+        if (normalized == null) {
+            return null;
+        }
+        try {
+            Phonenumber.PhoneNumber parsed = PHONE_NUMBER_UTIL.parse(normalized, null);
+            return String.valueOf(parsed.getNationalNumber());
+        } catch (NumberParseException ex) {
+            return null;
+        }
+    }
 }

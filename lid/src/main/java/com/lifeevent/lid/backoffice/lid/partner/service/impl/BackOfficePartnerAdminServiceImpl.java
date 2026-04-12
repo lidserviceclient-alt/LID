@@ -1,12 +1,14 @@
 package com.lifeevent.lid.backoffice.lid.partner.service.impl;
 
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerAdminDto;
+import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransactionDto;
 import com.lifeevent.lid.backoffice.lid.partner.service.BackOfficePartnerAdminService;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
 import com.lifeevent.lid.backoffice.partner.mapper.BackOfficePartnerMapper;
 import com.lifeevent.lid.common.cache.CacheScopeVersionService;
 import com.lifeevent.lid.common.dto.PageResponse;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.payment.partner.service.PartnerSettlementService;
 import com.lifeevent.lid.user.partner.entity.Partner;
 import com.lifeevent.lid.user.partner.entity.PartnerRegistrationStatus;
 import com.lifeevent.lid.user.partner.repository.PartnerRepository;
@@ -17,6 +19,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
@@ -30,6 +33,7 @@ public class BackOfficePartnerAdminServiceImpl implements BackOfficePartnerAdmin
     private final PartnerRepository partnerRepository;
     private final BackOfficePartnerMapper backOfficePartnerMapper;
     private final CacheScopeVersionService cacheScopeVersionService;
+    private final PartnerSettlementService partnerSettlementService;
 
     @Override
     public PageResponse<BackOfficePartnerAdminDto> listPartners(int page, int size, String q, List<PartnerRegistrationStatus> statuses) {
@@ -67,6 +71,12 @@ public class BackOfficePartnerAdminServiceImpl implements BackOfficePartnerAdmin
     @Transactional
     public BackOfficePartnerSettingsDto rejectPartner(String partnerId, String comment) {
         return updateRegistrationStatus(partnerId, PartnerRegistrationStatus.REJECTED, normalizeComment(comment));
+    }
+
+    @Override
+    public PageResponse<BackOfficePartnerTransactionDto> getPartnerTransactions(String partnerId, LocalDate fromDate, LocalDate toDate, int page, int size) {
+        requirePartner(partnerId);
+        return partnerSettlementService.listPartnerTransactions(partnerId, fromDate, toDate, page, size);
     }
 
     private BackOfficePartnerSettingsDto updateRegistrationStatus(

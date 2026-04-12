@@ -1,6 +1,7 @@
 package com.lifeevent.lid.order.entity;
 
 import com.lifeevent.lid.common.entity.BaseEntity;
+import com.lifeevent.lid.order.enumeration.ReturnRefundStatus;
 import com.lifeevent.lid.order.enumeration.ReturnRequestStatus;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -22,6 +23,7 @@ import lombok.experimental.SuperBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
 
 @Entity
 @Data
@@ -30,7 +32,13 @@ import java.util.List;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "return_request")
+@Table(
+        name = "return_request",
+        indexes = {
+                @jakarta.persistence.Index(name = "idx_return_request_order_status_created_at", columnList = "order_id, status, created_at"),
+                @jakarta.persistence.Index(name = "idx_return_request_refund_status_created_at", columnList = "refund_status, created_at")
+        }
+)
 public class ReturnRequest extends BaseEntity {
 
     @Id
@@ -62,4 +70,15 @@ public class ReturnRequest extends BaseEntity {
     @EqualsAndHashCode.Exclude
     @Builder.Default
     private List<ReturnRequestItem> items = new ArrayList<>();
+
+    @Column(precision = 19, scale = 2)
+    private BigDecimal refundAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    @Builder.Default
+    private ReturnRefundStatus refundStatus = ReturnRefundStatus.NOT_REQUESTED;
+
+    @Column(length = 128)
+    private String refundReference;
 }

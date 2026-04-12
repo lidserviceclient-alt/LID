@@ -9,6 +9,7 @@ public record PublicOrderTrackingResponseDto(
         Long id,
         String orderNumber,
         String trackingNumber,
+        String customerValidationCode,
         String deliveryType,
         Status currentStatus,
         Double amount,

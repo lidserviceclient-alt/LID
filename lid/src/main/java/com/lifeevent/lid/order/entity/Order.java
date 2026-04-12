@@ -91,6 +91,10 @@ public class Order extends BaseEntity {
     @Column(length = 120)
     private String shippingMethodLabel;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Double shippingCost = 0d;
+
     private Double shippingLatitude;
 
     private Double shippingLongitude;

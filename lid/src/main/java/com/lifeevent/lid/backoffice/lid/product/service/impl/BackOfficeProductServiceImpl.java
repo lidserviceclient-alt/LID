@@ -13,6 +13,7 @@ import com.lifeevent.lid.backoffice.lid.product.dto.BulkProductResult;
 import com.lifeevent.lid.backoffice.lid.product.dto.BulkProductResultItem;
 import com.lifeevent.lid.backoffice.lid.product.mapper.BackOfficeProductMapper;
 import com.lifeevent.lid.backoffice.lid.product.service.BackOfficeProductService;
+import com.lifeevent.lid.backoffice.lid.setting.repository.BackOfficeAppConfigRepository;
 import com.lifeevent.lid.common.cache.event.ProductCatalogChangedEvent;
 import com.lifeevent.lid.common.cache.CatalogCacheNames;
 import com.lifeevent.lid.common.dto.PageResponse;
@@ -45,12 +46,14 @@ import java.util.stream.Collectors;
 @Slf4j
 public class BackOfficeProductServiceImpl implements BackOfficeProductService {
     private static final int MAX_SECONDARY_IMAGES = 5;
+    private static final float DEFAULT_VAT_PERCENT = 0.18f;
 
     private final ArticleRepository articleRepository;
     private final CategoryRepository categoryRepository;
     private final StockRepository stockRepository;
     private final BackOfficeCategoryService backOfficeCategoryService;
     private final BackOfficeProductMapper backOfficeProductMapper;
+    private final BackOfficeAppConfigRepository appConfigRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -269,6 +272,15 @@ public class BackOfficeProductServiceImpl implements BackOfficeProductService {
         if (entity.getSku() == null && dto != null) {
             entity.setSku(dto.getSku());
         }
+        entity.setVat(resolveConfiguredVatPercent());
+    }
+
+    private float resolveConfiguredVatPercent() {
+        return appConfigRepository.findTopByOrderByIdAsc()
+                .map(cfg -> cfg.getVatPercent())
+                .filter(value -> value != null && Double.isFinite(value) && value >= 0d)
+                .map(Double::floatValue)
+                .orElse(DEFAULT_VAT_PERCENT);
     }
 
     private void applyStatus(Article entity, String rawStatus) {

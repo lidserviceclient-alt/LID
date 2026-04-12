@@ -135,6 +135,7 @@ public class PartnerCatalogServiceImpl implements PartnerCatalogService {
         List<String> secondary = article.getSecondaryImageUrls() == null
                 ? List.of()
                 : article.getSecondaryImageUrls().stream()
+                .map(this::toPublicAssetUrl)
                 .filter(value -> value != null && !value.isBlank())
                 .toList();
         return new PartnerCatalogProductDto(
@@ -143,7 +144,7 @@ public class PartnerCatalogServiceImpl implements PartnerCatalogService {
                 article.getSku(),
                 article.getEan(),
                 article.getPrice(),
-                article.getMainImageUrl(),
+                toPublicAssetUrl(article.getMainImageUrl()),
                 secondary,
                 article.getBrand(),
                 article.getCreatedAt()

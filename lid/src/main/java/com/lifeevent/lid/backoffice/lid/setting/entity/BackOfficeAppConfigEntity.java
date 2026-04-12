@@ -31,6 +31,27 @@ public class BackOfficeAppConfigEntity extends BaseEntity {
     @Column(length = 2000)
     private String shippingPolicyNote;
 
+    private Double vatPercent;
+
+    private String returnWindowUnit;
+
+    private Integer returnWindowMin;
+
+    private Integer returnWindowMax;
+
+    @Enumerated(EnumType.STRING)
+    private CustomerRefundMode customerRefundMode;
+
+    @Enumerated(EnumType.STRING)
+    private PartnerSettlementMode partnerSettlementMode;
+
+    private Double returnShippingCostAmount;
+
+    private Double partnerMarginPercent;
+
+    @Column(length = 64)
+    private String partnerPayoutWithdrawMode;
+
     @Column(length = 2000)
     private String returnPolicyText;
 }

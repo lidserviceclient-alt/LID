@@ -2,6 +2,7 @@ package com.lifeevent.lid.backoffice.lid.partner.controller;
 
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerAdminDto;
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerDecisionRequest;
+import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransactionDto;
 import com.lifeevent.lid.backoffice.lid.partner.service.BackOfficePartnerAdminService;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
 import com.lifeevent.lid.common.dto.PageResponse;
@@ -12,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -46,6 +48,18 @@ public class BackOfficePartnerAdminController implements IBackOfficePartnerAdmin
     public ResponseEntity<BackOfficePartnerSettingsDto> rejectPartner(String partnerId, BackOfficePartnerDecisionRequest request) {
         String comment = request == null ? null : request.comment();
         return ResponseEntity.ok(backOfficePartnerAdminService.rejectPartner(partnerId, comment));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<PageResponse<BackOfficePartnerTransactionDto>> getPartnerTransactions(
+            String partnerId,
+            LocalDate fromDate,
+            LocalDate toDate,
+            int page,
+            int size
+    ) {
+        return ResponseEntity.ok(backOfficePartnerAdminService.getPartnerTransactions(partnerId, fromDate, toDate, page, size));
     }
 
     private List<PartnerRegistrationStatus> parseStatuses(String raw) {

@@ -39,6 +39,14 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
 
     private static final int SETTINGS_USERS_FETCH_SIZE = 500;
     private static final long AGGREGATION_TIMEOUT_SECONDS = 8L;
+    private static final double DEFAULT_VAT_PERCENT = 0.18d;
+    private static final String DEFAULT_RETURN_WINDOW_UNIT = "DAYS";
+    private static final int DEFAULT_RETURN_WINDOW_MIN = 30;
+    private static final int DEFAULT_RETURN_WINDOW_MAX = 30;
+    private static final CustomerRefundMode DEFAULT_CUSTOMER_REFUND_MODE = CustomerRefundMode.FULL_WITH_SHIPPING;
+    private static final PartnerSettlementMode DEFAULT_PARTNER_SETTLEMENT_MODE = PartnerSettlementMode.DEDUCT_SHIPPING_AND_RETURN_COST;
+    private static final double DEFAULT_RETURN_SHIPPING_COST_AMOUNT = 0d;
+    private static final double DEFAULT_PARTNER_MARGIN_PERCENT = 0d;
 
     private final BackOfficeUserService backOfficeUserService;
     private final BackOfficeAppConfigRepository appConfigRepository;
@@ -121,6 +129,18 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
         entity.setSlogan(trimToNull(dto != null ? dto.getSlogan() : null));
         entity.setActivitySector(trimToNull(dto != null ? dto.getActivitySector() : null));
         entity.setShippingPolicyNote(trimToNull(dto != null ? dto.getShippingPolicyNote() : null));
+        entity.setVatPercent(normalizeVatPercent(dto != null ? dto.getVatPercent() : null));
+        entity.setReturnWindowUnit(normalizeReturnWindowUnit(dto != null ? dto.getReturnWindowUnit() : null));
+        entity.setReturnWindowMin(normalizeReturnWindowBound(dto != null ? dto.getReturnWindowMin() : null, DEFAULT_RETURN_WINDOW_MIN));
+        entity.setReturnWindowMax(normalizeReturnWindowMax(
+                dto != null ? dto.getReturnWindowMax() : null,
+                dto != null ? dto.getReturnWindowMin() : null
+        ));
+        entity.setCustomerRefundMode(normalizeCustomerRefundMode(dto != null ? dto.getCustomerRefundMode() : null));
+        entity.setPartnerSettlementMode(normalizePartnerSettlementMode(dto != null ? dto.getPartnerSettlementMode() : null));
+        entity.setReturnShippingCostAmount(normalizeNonNegativeAmount(dto != null ? dto.getReturnShippingCostAmount() : null, DEFAULT_RETURN_SHIPPING_COST_AMOUNT));
+        entity.setPartnerMarginPercent(normalizePercent(dto != null ? dto.getPartnerMarginPercent() : null, DEFAULT_PARTNER_MARGIN_PERCENT));
+        entity.setPartnerPayoutWithdrawMode(normalizePayoutWithdrawMode(dto != null ? dto.getPartnerPayoutWithdrawMode() : null));
         entity.setReturnPolicyText(trimToNull(dto != null ? dto.getReturnPolicyText() : null));
         BackOfficeAppConfigEntity saved = appConfigRepository.save(entity);
         recordSecurityActivity("SETTING_SHOP_PROFILE_UPDATE", "SUCCESS", "PUT", "/backoffice/setting/shop-profile", "Mise a jour profil boutique");
@@ -706,16 +726,91 @@ public class BackOfficeSettingServiceImpl implements BackOfficeSettingService {
                 .slogan(entity.getSlogan())
                 .activitySector(entity.getActivitySector())
                 .shippingPolicyNote(entity.getShippingPolicyNote())
+                .vatPercent(normalizeVatPercent(entity.getVatPercent()))
+                .returnWindowUnit(normalizeReturnWindowUnit(entity.getReturnWindowUnit()))
+                .returnWindowMin(normalizeReturnWindowBound(entity.getReturnWindowMin(), DEFAULT_RETURN_WINDOW_MIN))
+                .returnWindowMax(normalizeReturnWindowMax(entity.getReturnWindowMax(), entity.getReturnWindowMin()))
+                .customerRefundMode(normalizeCustomerRefundMode(entity.getCustomerRefundMode()))
+                .partnerSettlementMode(normalizePartnerSettlementMode(entity.getPartnerSettlementMode()))
+                .returnShippingCostAmount(normalizeNonNegativeAmount(entity.getReturnShippingCostAmount(), DEFAULT_RETURN_SHIPPING_COST_AMOUNT))
+                .partnerMarginPercent(normalizePercent(entity.getPartnerMarginPercent(), DEFAULT_PARTNER_MARGIN_PERCENT))
+                .partnerPayoutWithdrawMode(normalizePayoutWithdrawMode(entity.getPartnerPayoutWithdrawMode()))
                 .returnPolicyText(entity.getReturnPolicyText())
                 .build());
     }
 
     private BackOfficeSettingShopProfileDto enrichShopProfileDto(BackOfficeSettingShopProfileDto dto) {
+        dto.setVatPercent(normalizeVatPercent(dto.getVatPercent()));
+        dto.setReturnWindowUnit(normalizeReturnWindowUnit(dto.getReturnWindowUnit()));
+        dto.setReturnWindowMin(normalizeReturnWindowBound(dto.getReturnWindowMin(), DEFAULT_RETURN_WINDOW_MIN));
+        dto.setReturnWindowMax(normalizeReturnWindowMax(dto.getReturnWindowMax(), dto.getReturnWindowMin()));
+        dto.setCustomerRefundMode(normalizeCustomerRefundMode(dto.getCustomerRefundMode()));
+        dto.setPartnerSettlementMode(normalizePartnerSettlementMode(dto.getPartnerSettlementMode()));
+        dto.setReturnShippingCostAmount(normalizeNonNegativeAmount(dto.getReturnShippingCostAmount(), DEFAULT_RETURN_SHIPPING_COST_AMOUNT));
+        dto.setPartnerMarginPercent(normalizePercent(dto.getPartnerMarginPercent(), DEFAULT_PARTNER_MARGIN_PERCENT));
+        dto.setPartnerPayoutWithdrawMode(normalizePayoutWithdrawMode(dto.getPartnerPayoutWithdrawMode()));
         dto.setShippingMethods(getShippingMethods());
         dto.setFreeShipping(freeShippingRuleRepository.findFirstByEnabledTrueOrderByCreatedAtDesc()
                 .map(this::toFreeShippingDto)
                 .orElse(null));
         return dto;
+    }
+
+    private double normalizeVatPercent(Double raw) {
+        if (raw == null || !Double.isFinite(raw) || raw < 0d) {
+            return DEFAULT_VAT_PERCENT;
+        }
+        double normalized = raw > 1d ? raw / 100d : raw;
+        return Math.max(0d, normalized);
+    }
+
+    private String normalizeReturnWindowUnit(String raw) {
+        String normalized = trimToEmpty(raw).toUpperCase(Locale.ROOT);
+        if (!normalized.equals("HOURS") && !normalized.equals("DAYS")) {
+            return DEFAULT_RETURN_WINDOW_UNIT;
+        }
+        return normalized;
+    }
+
+    private int normalizeReturnWindowBound(Integer raw, int fallback) {
+        if (raw == null || raw <= 0) {
+            return fallback;
+        }
+        return raw;
+    }
+
+    private int normalizeReturnWindowMax(Integer rawMax, Integer rawMin) {
+        int min = normalizeReturnWindowBound(rawMin, DEFAULT_RETURN_WINDOW_MIN);
+        int max = normalizeReturnWindowBound(rawMax, DEFAULT_RETURN_WINDOW_MAX);
+        return Math.max(min, max);
+    }
+
+    private CustomerRefundMode normalizeCustomerRefundMode(CustomerRefundMode raw) {
+        return raw == null ? DEFAULT_CUSTOMER_REFUND_MODE : raw;
+    }
+
+    private PartnerSettlementMode normalizePartnerSettlementMode(PartnerSettlementMode raw) {
+        return raw == null ? DEFAULT_PARTNER_SETTLEMENT_MODE : raw;
+    }
+
+    private double normalizeNonNegativeAmount(Double raw, double fallback) {
+        if (raw == null || !Double.isFinite(raw) || raw < 0d) {
+            return fallback;
+        }
+        return raw;
+    }
+
+    private double normalizePercent(Double raw, double fallback) {
+        if (raw == null || !Double.isFinite(raw) || raw < 0d) {
+            return fallback;
+        }
+        double normalized = raw > 1d ? raw / 100d : raw;
+        return Math.max(0d, normalized);
+    }
+
+    private String normalizePayoutWithdrawMode(String raw) {
+        String normalized = trimToNull(raw);
+        return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
     }
 
     private BackOfficeSettingSocialLinkDto toSocialLinkDto(BackOfficeSocialLinkEntity entity) {

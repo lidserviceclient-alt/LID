@@ -6,6 +6,7 @@ import com.lifeevent.lid.cart.entity.Cart;
 import com.lifeevent.lid.cart.entity.CartArticle;
 import com.lifeevent.lid.cart.repository.CartArticleRepository;
 import com.lifeevent.lid.cart.repository.CartRepository;
+import com.lifeevent.lid.backoffice.lid.setting.repository.BackOfficeAppConfigRepository;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.security.SecurityUtils;
 import com.lifeevent.lid.common.util.PhoneNumberUtils;
@@ -87,6 +88,7 @@ public class OrderServiceImpl implements OrderService {
     private final DiscountRepository discountRepository;
     private final LoyaltyTierRepository loyaltyTierRepository;
     private final LoyaltyPointAdjustmentRepository loyaltyPointAdjustmentRepository;
+    private final BackOfficeAppConfigRepository appConfigRepository;
     private final PaymentService paymentService;
     private final PaydunyaProperties paydunyaProperties;
     private final ApplicationEventPublisher eventPublisher;
@@ -98,7 +100,7 @@ public class OrderServiceImpl implements OrderService {
         CheckoutData checkoutData = resolveCheckoutData(customerId, request);
         QuoteComputation quote = computeQuote(checkoutData.lines(), request, true);
         double shippingCost = normalizeShippingCost(request);
-        double totalAmount = round2(quote.totalAmount() + shippingCost);
+        double totalAmount = calculateGrossAmount(quote.totalAmount() + shippingCost);
         return executeCheckout(customer, request, checkoutData.lines(), checkoutData.cartToClear(), totalAmount);
     }
 
@@ -107,11 +109,14 @@ public class OrderServiceImpl implements OrderService {
     public OrderQuoteResponseDto checkoutQuote(String customerId, CheckoutCartRequestDto request) {
         CheckoutData checkoutData = resolveCheckoutData(customerId, request);
         QuoteComputation quote = computeQuote(checkoutData.lines(), request, false);
+        double vatAmount = calculateVatAmount(quote.totalAmount());
         return OrderQuoteResponseDto.builder()
                 .subTotal(round2(quote.subTotal()))
                 .discountAmount(round2(quote.promo().discountAmount()))
                 .loyaltyDiscountAmount(round2(quote.loyalty().discountAmount()))
-                .total(round2(quote.totalAmount()))
+                .vatAmount(vatAmount)
+                .vatRate(round2(resolveConfiguredVatRate() * 100d))
+                .total(calculateGrossAmount(quote.totalAmount()))
                 .promoApplied(quote.promo().applied())
                 .promoCode(quote.promo().code())
                 .promoMessage(quote.promo().message())
@@ -129,7 +134,7 @@ public class OrderServiceImpl implements OrderService {
         List<CheckoutLine> lines = buildSelectedCheckoutLines(request);
         QuoteComputation quote = computeQuote(lines, request, true);
         double shippingCost = normalizeShippingCost(request);
-        double totalAmount = round2(quote.totalAmount() + shippingCost);
+        double totalAmount = calculateGrossAmount(quote.totalAmount() + shippingCost);
         return executeCheckout(customer, request, lines, null, totalAmount);
     }
 
@@ -639,11 +644,46 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private PaymentTaxDto buildVatTax(double amount) {
-        double vatAmount = Math.round(amount - (amount / 1.18d));
+        double vatRate = resolveConfiguredVatRate();
+        double vatAmount = calculateVatIncludedAmount(amount);
+        long vatPercent = Math.round(vatRate * 100d);
         return PaymentTaxDto.builder()
-                .name("TVA (18%)")
+                .name("TVA (" + vatPercent + "%)")
                 .amount(BigDecimal.valueOf(vatAmount))
                 .build();
+    }
+
+    private double resolveConfiguredVatRate() {
+        return appConfigRepository.findTopByOrderByIdAsc()
+                .map(cfg -> cfg.getVatPercent())
+                .filter(value -> value != null && Double.isFinite(value) && value >= 0d)
+                .map(value -> value > 1d ? value / 100d : value)
+                .orElse(0.18d);
+    }
+
+    private double calculateVatAmount(double netAmount) {
+        if (!Double.isFinite(netAmount) || netAmount <= 0d) {
+            return 0d;
+        }
+        return round2(netAmount * resolveConfiguredVatRate());
+    }
+
+    private double calculateGrossAmount(double netAmount) {
+        if (!Double.isFinite(netAmount) || netAmount <= 0d) {
+            return 0d;
+        }
+        return round2(netAmount + calculateVatAmount(netAmount));
+    }
+
+    private double calculateVatIncludedAmount(double grossAmount) {
+        if (!Double.isFinite(grossAmount) || grossAmount <= 0d) {
+            return 0d;
+        }
+        double vatRate = resolveConfiguredVatRate();
+        if (vatRate <= 0d) {
+            return 0d;
+        }
+        return round2(grossAmount - (grossAmount / (1d + vatRate)));
     }
 
     private String resolveCustomerEmail(Customer customer, CheckoutCartRequestDto request) {
@@ -746,6 +786,7 @@ public class OrderServiceImpl implements OrderService {
                 .shippingPhoneNumber(PhoneNumberUtils.normalizeE164OrNull(request == null ? null : request.getPhone()))
                 .shippingMethodCode(normalizeShippingMethodCode(request == null ? null : request.getShippingMethodCode()))
                 .shippingMethodLabel(safeTrim(request == null ? null : request.getShippingMethodLabel()))
+                .shippingCost(round2(normalizeShippingCost(request)))
                 .shippingLatitude(normalizeCoordinate(request == null ? null : request.getShippingLatitude()))
                 .shippingLongitude(normalizeCoordinate(request == null ? null : request.getShippingLongitude()))
                 .currentStatus(Status.PENDING)

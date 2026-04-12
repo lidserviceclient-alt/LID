@@ -13,6 +13,8 @@ public class OrderQuoteResponseDto {
     private Double subTotal;
     private Double discountAmount;
     private Double loyaltyDiscountAmount;
+    private Double vatAmount;
+    private Double vatRate;
     private Double total;
     private Boolean promoApplied;
     private String promoCode;
