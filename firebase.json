@@ -28,6 +28,10 @@
           {
             "key": "Cache-Control",
             "value": "no-cache"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "geolocation=(self), microphone=(), camera=(), payment=(), usb=(), accelerometer=(), magnetometer=(), gyroscope=()"
           }
         ]
       },

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const permissionsPolicyHeader = 'geolocation=(self), microphone=(), camera=(), payment=(), usb=(), accelerometer=(), magnetometer=(), gyroscope=()'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -33,7 +34,7 @@ export default defineConfig(({ mode }) => {
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'X-Frame-Options': 'DENY',
-      'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), payment=(), usb=(), accelerometer=(), magnetometer=(), gyroscope=()',
+      'Permissions-Policy': permissionsPolicyHeader,
       'Cross-Origin-Resource-Policy': 'same-site'
     },
   },
@@ -44,7 +45,7 @@ export default defineConfig(({ mode }) => {
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'X-Frame-Options': 'DENY',
-      'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), payment=(), usb=(), accelerometer=(), magnetometer=(), gyroscope=()',
+      'Permissions-Policy': permissionsPolicyHeader,
       'Cross-Origin-Resource-Policy': 'same-site'
     },
   },
