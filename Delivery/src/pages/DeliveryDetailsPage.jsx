@@ -84,7 +84,11 @@ export default function DeliveryDetailsPage() {
     try {
       const lastScanned = localStorage.getItem('lid_last_scanned_shipment')
       const scannedObj = lastScanned ? JSON.parse(lastScanned) : null
-      setIsLocked(`${scannedObj?.id || ''}` !== id)
+      if (scannedObj?.id === id) {
+        setIsLocked(false)
+        return
+      }
+      setIsLocked(true)
     } catch {
       setIsLocked(true)
     }
