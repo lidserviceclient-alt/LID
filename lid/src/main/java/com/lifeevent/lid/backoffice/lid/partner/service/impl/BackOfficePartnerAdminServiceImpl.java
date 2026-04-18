@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
@@ -77,6 +78,34 @@ public class BackOfficePartnerAdminServiceImpl implements BackOfficePartnerAdmin
     public PageResponse<BackOfficePartnerTransactionDto> getPartnerTransactions(String partnerId, LocalDate fromDate, LocalDate toDate, int page, int size) {
         requirePartner(partnerId);
         return partnerSettlementService.listPartnerTransactions(partnerId, fromDate, toDate, page, size);
+    }
+
+    @Override
+    @Transactional
+    public BackOfficePartnerTransactionDto payPartnerTransactionManual(String partnerId, Long transactionId) {
+        requirePartner(partnerId);
+        return partnerSettlementService.markSettlementPaidManual(partnerId, transactionId);
+    }
+
+    @Override
+    @Transactional
+    public BackOfficePartnerTransactionDto payPartnerTransactionDirect(String partnerId, Long transactionId) {
+        requirePartner(partnerId);
+        return partnerSettlementService.paySettlementDirect(partnerId, transactionId);
+    }
+
+    @Override
+    @Transactional
+    public BackOfficePartnerTransactionDto schedulePartnerTransaction(String partnerId, Long transactionId, LocalDateTime scheduledAt) {
+        requirePartner(partnerId);
+        return partnerSettlementService.scheduleSettlement(partnerId, transactionId, scheduledAt);
+    }
+
+    @Override
+    @Transactional
+    public BackOfficePartnerTransactionDto cancelPartnerTransaction(String partnerId, Long transactionId) {
+        requirePartner(partnerId);
+        return partnerSettlementService.cancelSettlement(partnerId, transactionId);
     }
 
     private BackOfficePartnerSettingsDto updateRegistrationStatus(

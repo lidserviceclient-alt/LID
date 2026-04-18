@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_partner_settlement_partner_status_tx_date", columnList = "partner_id, payout_status, transaction_date"),
                 @Index(name = "idx_partner_settlement_eligible_status", columnList = "eligible_at, payout_status"),
+                @Index(name = "idx_partner_settlement_scheduled_status", columnList = "scheduled_at, payout_status"),
                 @Index(name = "idx_partner_settlement_order_partner", columnList = "order_id, partner_id")
         }
 )
@@ -97,6 +98,9 @@ public class PartnerSettlement extends BaseEntity {
 
     @Column(name = "eligible_at")
     private LocalDateTime eligibleAt;
+
+    @Column(name = "scheduled_at")
+    private LocalDateTime scheduledAt;
 
     @Column(name = "paid_out_at")
     private LocalDateTime paidOutAt;

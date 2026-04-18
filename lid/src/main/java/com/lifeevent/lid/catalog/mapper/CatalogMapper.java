@@ -31,7 +31,7 @@ public class CatalogMapper {
                 .build();
     }
 
-    public CatalogProductDto toCatalogProductDto(Article article, int stock, double rating, long reviews) {
+    public CatalogProductDto toCatalogProductDto(Article article, int stock, double rating, long reviews, BigDecimal displayPrice, BigDecimal initialPrice) {
         Category category = firstCategory(article);
         String mainImageUrl = resolveMainImageUrl(article);
         List<String> secondaryImages = resolveSecondaryImages(article);
@@ -40,7 +40,8 @@ public class CatalogMapper {
                 article.getSku(),
                 article.getName(),
                 buildSlug(article),
-                toBigDecimal(article.getPrice()),
+                displayPrice,
+                initialPrice,
                 article.getBrand(),
                 category == null ? null : String.valueOf(category.getId()),
                 category == null ? null : category.getName(),
@@ -56,7 +57,7 @@ public class CatalogMapper {
         );
     }
 
-    public CatalogProductDetailsDto toCatalogProductDetailsDto(Article article, int stock, List<String> images) {
+    public CatalogProductDetailsDto toCatalogProductDetailsDto(Article article, int stock, List<String> images, BigDecimal displayPrice, BigDecimal initialPrice) {
         Category category = firstCategory(article);
         String mainImage = resolveMainImageUrl(article);
         List<String> secondaryImages = resolveSecondaryImages(article);
@@ -65,7 +66,8 @@ public class CatalogMapper {
                 article.getSku(),
                 article.getName(),
                 buildSlug(article),
-                toBigDecimal(article.getPrice()),
+                displayPrice,
+                initialPrice,
                 article.getBrand(),
                 article.getDescription(),
                 toBigDecimal(article.getVat() == null ? null : Double.valueOf(article.getVat())),

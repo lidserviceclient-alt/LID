@@ -5,6 +5,7 @@ import com.lifeevent.lid.backoffice.lid.setting.entity.BackOfficeAppConfigEntity
 import com.lifeevent.lid.backoffice.lid.setting.entity.PartnerSettlementMode;
 import com.lifeevent.lid.backoffice.lid.setting.repository.BackOfficeAppConfigRepository;
 import com.lifeevent.lid.common.dto.PageResponse;
+import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.common.util.PhoneNumberUtils;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.entity.OrderArticle;
@@ -41,6 +42,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -56,9 +58,10 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
             ReturnRequestStatus.CLOSED
     );
     private static final PartnerSettlementMode DEFAULT_PARTNER_SETTLEMENT_MODE = PartnerSettlementMode.DEDUCT_SHIPPING_AND_RETURN_COST;
-    private static final int DEFAULT_RETURN_WINDOW_MAX = 30;
+    private static final int DEFAULT_RETURN_WINDOW_MAX = 14;
     private static final String DEFAULT_RETURN_WINDOW_UNIT = "DAYS";
     private static final int MAX_PAGE_SIZE = 200;
+    private static final int SCHEDULED_BATCH_SIZE = 50;
 
     private final PartnerSettlementRepository partnerSettlementRepository;
     private final OrderRepository orderRepository;
@@ -115,7 +118,7 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
         Map<String, BigDecimal> returnedGrossByPartnerId = aggregateReturnedGrossByPartner(orderArticlesById, cappedReturnedQuantities);
         BigDecimal totalReturnedPartnerGross = returnedGrossByPartnerId.values().stream().reduce(ZERO, BigDecimal::add);
         boolean hasPartnerReturn = totalReturnedPartnerGross.compareTo(ZERO) > 0;
-        boolean eligibleNow = eligibleAt != null && !eligibleAt.isAfter(LocalDateTime.now());
+        LocalDateTime defaultScheduledAt = eligibleAt;
 
         Map<String, PartnerSettlement> existingByPartnerId = new HashMap<>();
         for (PartnerSettlement settlement : partnerSettlementRepository.findByOrderId(orderId)) {
@@ -143,10 +146,18 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
 
             PartnerSettlementStatus payoutStatus = returnedPartner
                     ? PartnerSettlementStatus.RETURN_ADJUSTED
-                    : (eligibleNow ? PartnerSettlementStatus.ELIGIBLE : PartnerSettlementStatus.PENDING_WINDOW);
+                    : deriveScheduledStatus(defaultScheduledAt, eligibleAt, LocalDateTime.now());
             PartnerSettlement settlement = existingByPartnerId.getOrDefault(partnerId, PartnerSettlement.builder().build());
-            if (settlement.getPayoutStatus() == PartnerSettlementStatus.PAID && !returnedPartner) {
-                payoutStatus = PartnerSettlementStatus.PAID;
+            PartnerSettlementStatus existingStatus = normalizeStatus(settlement.getPayoutStatus());
+            LocalDateTime scheduledAt = normalizeScheduledAt(settlement.getScheduledAt(), defaultScheduledAt, eligibleAt);
+            if (isPaidStatus(existingStatus) && !returnedPartner) {
+                payoutStatus = existingStatus;
+            } else if (isFailureStatus(existingStatus) && !returnedPartner) {
+                payoutStatus = existingStatus;
+            } else if (existingStatus == PartnerSettlementStatus.CANCELLED_MANUAL && !returnedPartner) {
+                payoutStatus = existingStatus;
+            } else if (existingStatus == PartnerSettlementStatus.SCHEDULED && !returnedPartner) {
+                payoutStatus = deriveScheduledStatus(scheduledAt, eligibleAt, LocalDateTime.now());
             }
             settlement.setOrderId(orderId);
             settlement.setPaymentId(payment.getId());
@@ -164,14 +175,12 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
             settlement.setNetAmount(netAmount);
             settlement.setTransactionDate(transactionDate != null ? transactionDate : order.getCreatedAt());
             settlement.setEligibleAt(eligibleAt);
+            settlement.setScheduledAt(returnedPartner ? null : scheduledAt);
             settlement.setLastCalculatedAt(LocalDateTime.now());
             settlement.setPayoutStatus(payoutStatus);
-            if (settlement.getPayoutStatus() != PartnerSettlementStatus.PAID) {
+            if (!isPaidStatus(settlement.getPayoutStatus())) {
                 settlement.setPaidOutAt(null);
                 settlement.setPayoutReference(null);
-            }
-            if (!returnedPartner) {
-                attemptPartnerPayout(settlement, partnersById.get(partnerId), config);
             }
             partnerSettlementRepository.save(settlement);
         }
@@ -190,7 +199,12 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
         partnerSettlementRepository.promoteEligible(
                 LocalDateTime.now(),
                 PartnerSettlementStatus.PENDING_WINDOW,
-                PartnerSettlementStatus.ELIGIBLE
+                PartnerSettlementStatus.SCHEDULED
+        );
+        partnerSettlementRepository.promoteEligible(
+                LocalDateTime.now(),
+                PartnerSettlementStatus.ELIGIBLE,
+                PartnerSettlementStatus.SCHEDULED
         );
         LocalDateTime from = startOfDay(fromDate);
         LocalDateTime to = endExclusive(toDate);
@@ -199,10 +213,148 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
                 Math.max(1, Math.min(size, MAX_PAGE_SIZE)),
                 Sort.by(Sort.Direction.DESC, "transactionDate").and(Sort.by(Sort.Direction.DESC, "createdAt"))
         );
-        return PageResponse.from(
-                partnerSettlementRepository.findTransactionViews(partnerId, from, to, pageable)
-                        .map(this::toDto)
+        var pageResult = partnerSettlementRepository.findTransactionViews(partnerId, from, to, pageable);
+        Map<Long, BigDecimal> orderAmounts = resolveOrderAmounts(
+                pageResult.getContent().stream()
+                        .map(PartnerSettlementRepository.PartnerTransactionView::getOrderId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList()
         );
+        return PageResponse.from(pageResult.map(view -> toDto(view, orderAmounts.get(view.getOrderId()))));
+    }
+
+    @Override
+    public BackOfficePartnerTransactionDto markSettlementPaidManual(String partnerId, Long settlementId) {
+        partnerSettlementRepository.promoteEligible(
+                LocalDateTime.now(),
+                PartnerSettlementStatus.PENDING_WINDOW,
+                PartnerSettlementStatus.SCHEDULED
+        );
+        partnerSettlementRepository.promoteEligible(
+                LocalDateTime.now(),
+                PartnerSettlementStatus.ELIGIBLE,
+                PartnerSettlementStatus.SCHEDULED
+        );
+        PartnerSettlement settlement = partnerSettlementRepository.findByIdAndPartnerIdForUpdate(settlementId, partnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("PartnerSettlement", "id", String.valueOf(settlementId)));
+        PartnerSettlementStatus normalizedStatus = normalizeStatus(settlement.getPayoutStatus());
+        if (!isPaidStatus(normalizedStatus) && normalizedStatus != PartnerSettlementStatus.RETURN_ADJUSTED) {
+            settlement.setPayoutStatus(PartnerSettlementStatus.PAID_MANUAL);
+            settlement.setPaidOutAt(LocalDateTime.now());
+            if (trimToNull(settlement.getPayoutReference()) == null) {
+                settlement.setPayoutReference("MANUAL-" + settlement.getOrderId() + "-" + settlement.getId());
+            }
+            settlement = partnerSettlementRepository.save(settlement);
+        }
+        BigDecimal orderAmount = resolveOrderAmounts(List.of(settlement.getOrderId())).get(settlement.getOrderId());
+        return toDto(settlement, orderAmount);
+    }
+
+    @Override
+    public BackOfficePartnerTransactionDto paySettlementDirect(String partnerId, Long settlementId) {
+        partnerSettlementRepository.promoteEligible(
+                LocalDateTime.now(),
+                PartnerSettlementStatus.PENDING_WINDOW,
+                PartnerSettlementStatus.SCHEDULED
+        );
+        partnerSettlementRepository.promoteEligible(
+                LocalDateTime.now(),
+                PartnerSettlementStatus.ELIGIBLE,
+                PartnerSettlementStatus.SCHEDULED
+        );
+        PartnerSettlement settlement = partnerSettlementRepository.findByIdAndPartnerIdForUpdate(settlementId, partnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("PartnerSettlement", "id", String.valueOf(settlementId)));
+        settlement = executeDirectPayout(settlement);
+        BigDecimal orderAmount = resolveOrderAmounts(List.of(settlement.getOrderId())).get(settlement.getOrderId());
+        return toDto(settlement, orderAmount);
+    }
+
+    @Override
+    public BackOfficePartnerTransactionDto scheduleSettlement(String partnerId, Long settlementId, LocalDateTime scheduledAt) {
+        PartnerSettlement settlement = partnerSettlementRepository.findByIdAndPartnerIdForUpdate(settlementId, partnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("PartnerSettlement", "id", String.valueOf(settlementId)));
+        PartnerSettlementStatus normalizedStatus = normalizeStatus(settlement.getPayoutStatus());
+        if (normalizedStatus == PartnerSettlementStatus.RETURN_ADJUSTED || isPaidStatus(normalizedStatus)) {
+            BigDecimal orderAmount = resolveOrderAmounts(List.of(settlement.getOrderId())).get(settlement.getOrderId());
+            return toDto(settlement, orderAmount);
+        }
+        LocalDateTime normalizedSchedule = normalizeScheduledAt(scheduledAt, settlement.getEligibleAt(), settlement.getEligibleAt());
+        if (normalizedSchedule == null) {
+            throw new IllegalArgumentException("Date de paiement programmée manquante");
+        }
+        settlement.setScheduledAt(normalizedSchedule);
+        settlement.setPayoutStatus(deriveScheduledStatus(normalizedSchedule, settlement.getEligibleAt(), LocalDateTime.now()));
+        settlement.setPaidOutAt(null);
+        settlement.setPayoutReference(null);
+        settlement = partnerSettlementRepository.save(settlement);
+        BigDecimal orderAmount = resolveOrderAmounts(List.of(settlement.getOrderId())).get(settlement.getOrderId());
+        return toDto(settlement, orderAmount);
+    }
+
+    @Override
+    public BackOfficePartnerTransactionDto cancelSettlement(String partnerId, Long settlementId) {
+        PartnerSettlement settlement = partnerSettlementRepository.findByIdAndPartnerIdForUpdate(settlementId, partnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("PartnerSettlement", "id", String.valueOf(settlementId)));
+        PartnerSettlementStatus normalizedStatus = normalizeStatus(settlement.getPayoutStatus());
+        if (!isPaidStatus(normalizedStatus) && normalizedStatus != PartnerSettlementStatus.RETURN_ADJUSTED) {
+            settlement.setPayoutStatus(PartnerSettlementStatus.CANCELLED_MANUAL);
+            settlement.setPaidOutAt(null);
+            settlement.setPayoutReference(null);
+            settlement = partnerSettlementRepository.save(settlement);
+        }
+        BigDecimal orderAmount = resolveOrderAmounts(List.of(settlement.getOrderId())).get(settlement.getOrderId());
+        return toDto(settlement, orderAmount);
+    }
+
+    @Override
+    public int processDueScheduledSettlements(int batchSize) {
+        int safeBatchSize = batchSize <= 0 ? SCHEDULED_BATCH_SIZE : batchSize;
+        partnerSettlementRepository.promoteEligible(
+                LocalDateTime.now(),
+                PartnerSettlementStatus.PENDING_WINDOW,
+                PartnerSettlementStatus.SCHEDULED
+        );
+        partnerSettlementRepository.promoteEligible(
+                LocalDateTime.now(),
+                PartnerSettlementStatus.ELIGIBLE,
+                PartnerSettlementStatus.SCHEDULED
+        );
+        List<PartnerSettlement> dueSettlements = partnerSettlementRepository.findDueScheduledForUpdate(
+                Set.of(PartnerSettlementStatus.SCHEDULED, PartnerSettlementStatus.ELIGIBLE),
+                LocalDateTime.now(),
+                PageRequest.of(0, safeBatchSize)
+        );
+        if (dueSettlements.isEmpty()) {
+            return 0;
+        }
+        BackOfficeAppConfigEntity config = appConfigRepository.findTopByOrderByIdAsc().orElse(null);
+        int processed = 0;
+        for (PartnerSettlement settlement : dueSettlements) {
+            PartnerSettlementStatus normalizedStatus = normalizeStatus(settlement.getPayoutStatus());
+            if (normalizedStatus != PartnerSettlementStatus.SCHEDULED) {
+                settlement.setPayoutStatus(normalizedStatus);
+            }
+            if (normalizedStatus != PartnerSettlementStatus.SCHEDULED) {
+                continue;
+            }
+            settlement.setScheduledAt(normalizeScheduledAt(settlement.getScheduledAt(), settlement.getEligibleAt(), settlement.getEligibleAt()));
+            if (settlement.getScheduledAt() == null || settlement.getScheduledAt().isAfter(LocalDateTime.now())) {
+                continue;
+            }
+            Partner partner = resolvePartners(List.of(settlement.getPartnerId())).get(settlement.getPartnerId());
+            executePartnerPayout(
+                    settlement,
+                    partner,
+                    config,
+                    PartnerSettlementStatus.SCHEDULED_PAID,
+                    PartnerSettlementStatus.SCHEDULED_FAILED,
+                    "PARTNER-SCHEDULED-" + settlement.getOrderId() + "-" + settlement.getPartnerId()
+            );
+            partnerSettlementRepository.save(settlement);
+            processed += 1;
+        }
+        return processed;
     }
 
     private Map<String, BigDecimal> aggregatePartnerGross(List<OrderArticle> lines) {
@@ -323,10 +475,13 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
         return total;
     }
 
-    private BackOfficePartnerTransactionDto toDto(PartnerSettlementRepository.PartnerTransactionView view) {
+    private BackOfficePartnerTransactionDto toDto(PartnerSettlementRepository.PartnerTransactionView view, BigDecimal orderAmount) {
+        Order order = orderRepository.findById(view.getOrderId()).orElse(null);
         return new BackOfficePartnerTransactionDto(
                 view.getId(),
                 view.getOrderId(),
+                order == null ? null : order.getCreatedAt(),
+                money(orderAmount),
                 view.getPartnerId(),
                 view.getPartnerName(),
                 view.getCurrency(),
@@ -339,25 +494,100 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
                 money(view.getNetAmount()),
                 view.getTransactionDate(),
                 view.getEligibleAt(),
+                view.getScheduledAt(),
                 view.getPaidOutAt(),
                 view.getPayoutReference(),
-                view.getPayoutStatus()
+                normalizeStatus(view.getPayoutStatus())
         );
     }
 
-    private void attemptPartnerPayout(PartnerSettlement settlement, Partner partner, BackOfficeAppConfigEntity config) {
-        if (settlement == null || partner == null || config == null) {
+    private BackOfficePartnerTransactionDto toDto(PartnerSettlement settlement, BigDecimal orderAmount) {
+        Order order = orderRepository.findById(settlement.getOrderId()).orElse(null);
+        return new BackOfficePartnerTransactionDto(
+                settlement.getId(),
+                settlement.getOrderId(),
+                order == null ? null : order.getCreatedAt(),
+                money(orderAmount),
+                settlement.getPartnerId(),
+                settlement.getPartnerName(),
+                settlement.getCurrency(),
+                money(settlement.getGrossAmount()),
+                money(settlement.getDiscountAllocation()),
+                money(settlement.getShippingAllocation()),
+                money(settlement.getReturnCostAllocation()),
+                percent(settlement.getMarginPercent()),
+                money(settlement.getMarginAmount()),
+                money(settlement.getNetAmount()),
+                settlement.getTransactionDate(),
+                settlement.getEligibleAt(),
+                settlement.getScheduledAt(),
+                settlement.getPaidOutAt(),
+                settlement.getPayoutReference(),
+                normalizeStatus(settlement.getPayoutStatus())
+        );
+    }
+
+    private Map<Long, BigDecimal> resolveOrderAmounts(Collection<Long> orderIds) {
+        Map<Long, BigDecimal> orderAmounts = new HashMap<>();
+        if (orderIds == null || orderIds.isEmpty()) {
+            return orderAmounts;
+        }
+        for (Order order : orderRepository.findAllById(orderIds)) {
+            if (order == null || order.getId() == null) {
+                continue;
+            }
+            orderAmounts.put(order.getId(), money(order.getAmount()));
+        }
+        return orderAmounts;
+    }
+
+    private PartnerSettlement executeDirectPayout(PartnerSettlement settlement) {
+        PartnerSettlementStatus normalizedStatus = normalizeStatus(settlement.getPayoutStatus());
+        if (settlement == null || normalizedStatus == PartnerSettlementStatus.RETURN_ADJUSTED || isPaidStatus(normalizedStatus)) {
+            return settlement;
+        }
+        BackOfficeAppConfigEntity config = appConfigRepository.findTopByOrderByIdAsc().orElse(null);
+        Partner partner = resolvePartners(List.of(settlement.getPartnerId())).get(settlement.getPartnerId());
+        executePartnerPayout(
+                settlement,
+                partner,
+                config,
+                PartnerSettlementStatus.DIRECT_PAID,
+                PartnerSettlementStatus.DIRECT_FAILED,
+                "PARTNER-DIRECT-" + settlement.getOrderId() + "-" + settlement.getPartnerId()
+        );
+        return partnerSettlementRepository.save(settlement);
+    }
+
+    private void executePartnerPayout(
+            PartnerSettlement settlement,
+            Partner partner,
+            BackOfficeAppConfigEntity config,
+            PartnerSettlementStatus successStatus,
+            PartnerSettlementStatus failedStatus,
+            String fallbackReference
+    ) {
+        if (settlement == null) {
             return;
         }
-        if (settlement.getPayoutStatus() != PartnerSettlementStatus.ELIGIBLE) {
+        if (partner == null || config==null) {
+            settlement.setPayoutStatus(failedStatus);
+            settlement.setPaidOutAt(null);
+            settlement.setPayoutReference(null);
             return;
         }
         String withdrawMode = trimToNull(config.getPartnerPayoutWithdrawMode());
         if (withdrawMode == null) {
+            settlement.setPayoutStatus(failedStatus);
+            settlement.setPaidOutAt(null);
+            settlement.setPayoutReference(null);
             return;
         }
         String accountAlias = PhoneNumberUtils.toNationalSignificantNumberOrNull(partner.getPhoneNumber());
         if (accountAlias == null || accountAlias.isBlank()) {
+            settlement.setPayoutStatus(failedStatus);
+            settlement.setPaidOutAt(null);
+            settlement.setPayoutReference(null);
             return;
         }
         try {
@@ -365,18 +595,68 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
                     accountAlias,
                     settlement.getNetAmount(),
                     withdrawMode,
-                    "PARTNER-" + settlement.getOrderId() + "-" + settlement.getPartnerId()
+                    fallbackReference
             );
             if (result.success()) {
-                settlement.setPayoutStatus(PartnerSettlementStatus.PAID);
+                settlement.setPayoutStatus(successStatus);
                 settlement.setPaidOutAt(LocalDateTime.now());
                 settlement.setPayoutReference(result.transactionId() == null || result.transactionId().isBlank()
                         ? result.disburseInvoice()
                         : result.transactionId());
+            } else {
+                settlement.setPayoutStatus(failedStatus);
+                settlement.setPaidOutAt(null);
+                settlement.setPayoutReference(null);
             }
         } catch (Exception ignored) {
-            // laisse le settlement en ELIGIBLE pour reprise
+            settlement.setPayoutStatus(failedStatus);
+            settlement.setPaidOutAt(null);
+            settlement.setPayoutReference(null);
         }
+    }
+
+    private boolean isPaidStatus(PartnerSettlementStatus status) {
+        PartnerSettlementStatus normalized = normalizeStatus(status);
+        return normalized == PartnerSettlementStatus.DIRECT_PAID
+                || normalized == PartnerSettlementStatus.SCHEDULED_PAID
+                || normalized == PartnerSettlementStatus.PAID_MANUAL;
+    }
+
+    private boolean isFailureStatus(PartnerSettlementStatus status) {
+        PartnerSettlementStatus normalized = normalizeStatus(status);
+        return normalized == PartnerSettlementStatus.DIRECT_FAILED
+                || normalized == PartnerSettlementStatus.SCHEDULED_FAILED;
+    }
+
+    private PartnerSettlementStatus normalizeStatus(PartnerSettlementStatus status) {
+        if (status == null) {
+            return PartnerSettlementStatus.PENDING_WINDOW;
+        }
+        return switch (status) {
+            case ELIGIBLE -> PartnerSettlementStatus.SCHEDULED;
+            case PAID_AUTOMATIC -> PartnerSettlementStatus.SCHEDULED_PAID;
+            case FAILED_MANUAL -> PartnerSettlementStatus.CANCELLED_MANUAL;
+            case FAILED_AUTOMATIC -> PartnerSettlementStatus.SCHEDULED_FAILED;
+            default -> status;
+        };
+    }
+
+    private LocalDateTime normalizeScheduledAt(LocalDateTime requested, LocalDateTime fallback, LocalDateTime eligibleAt) {
+        LocalDateTime candidate = requested != null ? requested : fallback;
+        if (candidate == null) {
+            return eligibleAt;
+        }
+        if (eligibleAt != null && candidate.isBefore(eligibleAt)) {
+            return eligibleAt;
+        }
+        return candidate;
+    }
+
+    private PartnerSettlementStatus deriveScheduledStatus(LocalDateTime scheduledAt, LocalDateTime eligibleAt, LocalDateTime now) {
+        if (eligibleAt != null && now != null && eligibleAt.isAfter(now)) {
+            return PartnerSettlementStatus.PENDING_WINDOW;
+        }
+        return scheduledAt == null ? PartnerSettlementStatus.PENDING_WINDOW : PartnerSettlementStatus.SCHEDULED;
     }
 
     private BigDecimal allocate(BigDecimal total, BigDecimal part, BigDecimal whole) {

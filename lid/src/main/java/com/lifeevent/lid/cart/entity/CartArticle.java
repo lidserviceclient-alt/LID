@@ -1,7 +1,9 @@
 package com.lifeevent.lid.cart.entity;
 
 import com.lifeevent.lid.article.entity.Article;
+import com.lifeevent.lid.common.enumeration.CommerceItemType;
 import com.lifeevent.lid.common.entity.BaseEntity;
+import com.lifeevent.lid.ticket.entity.TicketEvent;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -17,7 +19,8 @@ import lombok.experimental.SuperBuilder;
         name = "cart_article",
         indexes = {
                 @Index(name = "idx_cart_article_cart", columnList = "cart_id"),
-                @Index(name = "idx_cart_article_article", columnList = "article_id")
+                @Index(name = "idx_cart_article_article", columnList = "article_id"),
+                @Index(name = "idx_cart_article_ticket_event", columnList = "ticket_event_id")
         }
 )
 public class CartArticle extends BaseEntity {
@@ -29,8 +32,17 @@ public class CartArticle extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     private Cart cart;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    @Builder.Default
+    private CommerceItemType itemType = CommerceItemType.ARTICLE;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     private Article article;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ticket_event_id")
+    private TicketEvent ticketEvent;
 
     /**
      * Quantité de cet article dans le panier

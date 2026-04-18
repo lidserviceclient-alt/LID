@@ -10,6 +10,7 @@ public record CatalogProductDto(
         String name,
         String slug,
         BigDecimal price,
+        BigDecimal initialPrice,
         String brand,
         String categoryId,
         String categoryName,

@@ -18,5 +18,8 @@ public class BackOfficeTicketEventDto {
     private String imageUrl;
     private String category;
     private Boolean available;
+    private Integer quantityAvailable;
+    private Integer quantityReserved;
+    private Boolean sellable;
     private String description;
 }

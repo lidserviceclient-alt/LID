@@ -9,6 +9,7 @@ public record PartnerCatalogProductDto(
         String sku,
         String ean,
         Double price,
+        Double initialPrice,
         String mainImageUrl,
         List<String> secondaryImageUrls,
         String brand,

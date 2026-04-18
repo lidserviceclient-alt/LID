@@ -5,6 +5,7 @@ import com.lifeevent.lid.payment.partner.entity.PartnerSettlementStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,6 +15,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import jakarta.persistence.LockModeType;
 
 @Repository
 public interface PartnerSettlementRepository extends JpaRepository<PartnerSettlement, Long> {
@@ -33,12 +38,15 @@ public interface PartnerSettlementRepository extends JpaRepository<PartnerSettle
         BigDecimal getNetAmount();
         LocalDateTime getTransactionDate();
         LocalDateTime getEligibleAt();
+        LocalDateTime getScheduledAt();
         LocalDateTime getPaidOutAt();
         String getPayoutReference();
         PartnerSettlementStatus getPayoutStatus();
     }
 
     List<PartnerSettlement> findByOrderId(Long orderId);
+
+    Optional<PartnerSettlement> findByIdAndPartnerId(Long id, String partnerId);
 
     void deleteByOrderId(Long orderId);
 
@@ -47,7 +55,8 @@ public interface PartnerSettlementRepository extends JpaRepository<PartnerSettle
     @Modifying
     @Query("""
         update PartnerSettlement s
-           set s.payoutStatus = :eligibleStatus
+           set s.payoutStatus = :eligibleStatus,
+               s.scheduledAt = coalesce(s.scheduledAt, s.eligibleAt)
          where s.payoutStatus = :pendingStatus
            and s.eligibleAt is not null
            and s.eligibleAt <= :now
@@ -73,6 +82,7 @@ public interface PartnerSettlementRepository extends JpaRepository<PartnerSettle
                s.netAmount as netAmount,
                s.transactionDate as transactionDate,
                s.eligibleAt as eligibleAt,
+               s.scheduledAt as scheduledAt,
                s.paidOutAt as paidOutAt,
                s.payoutReference as payoutReference,
                s.payoutStatus as payoutStatus
@@ -104,6 +114,7 @@ public interface PartnerSettlementRepository extends JpaRepository<PartnerSettle
                s.netAmount as netAmount,
                s.transactionDate as transactionDate,
                s.eligibleAt as eligibleAt,
+               s.scheduledAt as scheduledAt,
                s.paidOutAt as paidOutAt,
                s.payoutReference as payoutReference,
                s.payoutStatus as payoutStatus
@@ -117,5 +128,24 @@ public interface PartnerSettlementRepository extends JpaRepository<PartnerSettle
             @Param("partnerId") String partnerId,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from PartnerSettlement s where s.id = :id and s.partnerId = :partnerId")
+    Optional<PartnerSettlement> findByIdAndPartnerIdForUpdate(@Param("id") Long id, @Param("partnerId") String partnerId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        select s
+          from PartnerSettlement s
+         where s.payoutStatus in :statuses
+           and s.scheduledAt is not null
+           and s.scheduledAt <= :now
+         order by s.scheduledAt asc, s.createdAt asc
+    """)
+    List<PartnerSettlement> findDueScheduledForUpdate(
+            @Param("statuses") Set<PartnerSettlementStatus> statuses,
+            @Param("now") LocalDateTime now,
+            Pageable pageable
     );
 }

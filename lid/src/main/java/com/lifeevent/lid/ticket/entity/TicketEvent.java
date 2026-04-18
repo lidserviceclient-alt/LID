@@ -37,6 +37,14 @@ public class TicketEvent extends BaseEntity {
     @Builder.Default
     private Boolean available = true;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer quantityAvailable = 0;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer quantityReserved = 0;
+
     @Column(length = 2000)
     private String description;
 }

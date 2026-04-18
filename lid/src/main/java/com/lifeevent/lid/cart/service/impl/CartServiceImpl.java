@@ -12,7 +12,11 @@ import com.lifeevent.lid.cart.mapper.CartArticleMapper;
 import com.lifeevent.lid.cart.repository.CartArticleRepository;
 import com.lifeevent.lid.cart.repository.CartRepository;
 import com.lifeevent.lid.cart.service.CartService;
+import com.lifeevent.lid.common.enumeration.CommerceItemType;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.ticket.entity.TicketEvent;
+import com.lifeevent.lid.ticket.repository.TicketEventRepository;
+import com.lifeevent.lid.ticket.service.TicketInventoryService;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.mapper.CustomerMapper;
 import com.lifeevent.lid.user.common.service.UserService;
@@ -39,6 +43,8 @@ public class CartServiceImpl implements CartService {
     private final CartRepository cartRepository;
     private final CartArticleRepository cartArticleRepository;
     private final ArticleRepository articleRepository;
+    private final TicketEventRepository ticketEventRepository;
+    private final TicketInventoryService ticketInventoryService;
     private final CartArticleMapper cartArticleMapper;
     private final CustomerMapper customerMapper;
     private final UserService userService;
@@ -86,37 +92,47 @@ public class CartServiceImpl implements CartService {
 
     @Override
     public CartDto upsertCartItem(String customerId, AddToCartDto request) {
-        if (request == null || request.getArticleId() == null) {
-            throw new IllegalArgumentException("articleId is required");
+        if (request == null) {
+            throw new IllegalArgumentException("item requis");
         }
         int quantity = safeQuantity(request.getQuantity());
-        if (quantity <= 0) {
+        CommerceItemType itemType = resolveItemType(request);
+        if (quantity <= 0 && itemType == CommerceItemType.ARTICLE) {
             return removeArticleFromCart(customerId, request.getArticleId(), request.getColor(), request.getSize());
+        }
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("La quantité doit être strictement positive");
         }
 
         Cart cart = requireOrCreateCart(customerId);
-        Article article = requireAvailableArticle(request.getArticleId());
+        Article article = itemType == CommerceItemType.ARTICLE ? requireAvailableArticle(request.getArticleId()) : null;
+        TicketEvent ticketEvent = itemType == CommerceItemType.TICKET ? requireAvailableTicket(request.getTicketEventId(), quantity) : null;
         String color = normalizeVariant(request.getColor());
         String size = normalizeVariant(request.getSize());
 
-        CartArticle line = cartArticleRepository
-                .findByCartAndArticleAndVariant(cart, article, color, size)
-                .orElse(null);
+        CartArticle line = itemType == CommerceItemType.ARTICLE
+                ? cartArticleRepository.findByCartAndArticleAndVariant(cart, article, color, size).orElse(null)
+                : cartArticleRepository.findByCartAndTicketEvent(cart, ticketEvent).orElse(null);
         if (line == null) {
             line = CartArticle.builder()
                     .cart(cart)
+                    .itemType(itemType)
                     .article(article)
+                    .ticketEvent(ticketEvent)
                     .quantity(quantity)
                     .color(color)
                     .size(size)
-                    .priceAtAddedTime(article.getPrice())
+                    .priceAtAddedTime(resolveUnitPrice(article, ticketEvent))
                     .build();
         } else {
+            line.setItemType(itemType);
+            line.setArticle(article);
+            line.setTicketEvent(ticketEvent);
             line.setQuantity(quantity);
-            line.setColor(color);
-            line.setSize(size);
+            line.setColor(itemType == CommerceItemType.ARTICLE ? color : null);
+            line.setSize(itemType == CommerceItemType.ARTICLE ? size : null);
             if (line.getPriceAtAddedTime() == null) {
-                line.setPriceAtAddedTime(article.getPrice());
+                line.setPriceAtAddedTime(resolveUnitPrice(article, ticketEvent));
             }
         }
         cartArticleRepository.save(line);
@@ -161,26 +177,33 @@ public class CartServiceImpl implements CartService {
 
         Map<String, AddToCartDto> desiredByKey = new LinkedHashMap<>();
         Set<Long> articleIds = (items == null ? List.<AddToCartDto>of() : items).stream()
-                .filter(item -> item != null && item.getArticleId() != null && safeQuantity(item.getQuantity()) > 0)
+                .filter(item -> resolveItemType(item) == CommerceItemType.ARTICLE && item.getArticleId() != null && safeQuantity(item.getQuantity()) > 0)
                 .map(AddToCartDto::getArticleId)
+                .collect(Collectors.toSet());
+        Set<Long> ticketEventIds = (items == null ? List.<AddToCartDto>of() : items).stream()
+                .filter(item -> resolveItemType(item) == CommerceItemType.TICKET && item.getTicketEventId() != null && safeQuantity(item.getQuantity()) > 0)
+                .map(AddToCartDto::getTicketEventId)
                 .collect(Collectors.toSet());
 
         for (AddToCartDto raw : items == null ? List.<AddToCartDto>of() : items) {
-            if (raw == null || raw.getArticleId() == null) {
+            if (raw == null) {
                 continue;
             }
             int qty = safeQuantity(raw.getQuantity());
             if (qty <= 0) {
                 continue;
             }
+            CommerceItemType itemType = resolveItemType(raw);
             String color = normalizeVariant(raw.getColor());
             String size = normalizeVariant(raw.getSize());
-            String key = cartKey(raw.getArticleId(), color, size);
+            String key = cartKey(itemType, raw.getArticleId(), raw.getTicketEventId(), color, size);
             AddToCartDto normalized = AddToCartDto.builder()
+                    .itemType(itemType)
                     .articleId(raw.getArticleId())
+                    .ticketEventId(raw.getTicketEventId())
                     .quantity(qty)
-                    .color(color)
-                    .size(size)
+                    .color(itemType == CommerceItemType.ARTICLE ? color : null)
+                    .size(itemType == CommerceItemType.ARTICLE ? size : null)
                     .build();
             desiredByKey.merge(key, normalized, (left, right) -> {
                 left.setQuantity(safeQuantity(left.getQuantity()) + safeQuantity(right.getQuantity()));
@@ -199,10 +222,24 @@ public class CartServiceImpl implements CartService {
                 throw new RuntimeException("Article is not available");
             }
         }
+        Map<Long, TicketEvent> ticketEventsById = ticketEventRepository.findAllById(ticketEventIds).stream()
+                .collect(Collectors.toMap(TicketEvent::getId, ticketEvent -> ticketEvent));
+        for (Long ticketEventId : ticketEventIds) {
+            TicketEvent ticketEvent = ticketEventsById.get(ticketEventId);
+            if (ticketEvent == null) {
+                throw new ResourceNotFoundException("TicketEvent", "id", String.valueOf(ticketEventId));
+            }
+        }
 
         Map<String, CartArticle> existingByKey = existingLines.stream()
                 .collect(Collectors.toMap(
-                        line -> cartKey(line.getArticle().getId(), normalizeVariant(line.getColor()), normalizeVariant(line.getSize())),
+                        line -> cartKey(
+                                line.getItemType(),
+                                line.getArticle() == null ? null : line.getArticle().getId(),
+                                line.getTicketEvent() == null ? null : line.getTicketEvent().getId(),
+                                normalizeVariant(line.getColor()),
+                                normalizeVariant(line.getSize())
+                        ),
                         line -> line,
                         (left, right) -> left,
                         LinkedHashMap::new
@@ -221,17 +258,27 @@ public class CartServiceImpl implements CartService {
         for (Map.Entry<String, AddToCartDto> entry : desiredByKey.entrySet()) {
             AddToCartDto desired = entry.getValue();
             CartArticle existing = existingByKey.get(entry.getKey());
-            Article article = articlesById.get(desired.getArticleId());
+            CommerceItemType itemType = resolveItemType(desired);
+            Article article = itemType == CommerceItemType.ARTICLE ? articlesById.get(desired.getArticleId()) : null;
+            TicketEvent ticketEvent = itemType == CommerceItemType.TICKET ? ticketEventsById.get(desired.getTicketEventId()) : null;
+            if (itemType == CommerceItemType.TICKET) {
+                requireSellableQuantity(ticketEvent, safeQuantity(desired.getQuantity()));
+            }
             if (existing == null) {
                 cartArticleRepository.save(CartArticle.builder()
                         .cart(cart)
+                        .itemType(itemType)
                         .article(article)
+                        .ticketEvent(ticketEvent)
                         .quantity(safeQuantity(desired.getQuantity()))
-                        .color(normalizeVariant(desired.getColor()))
-                        .size(normalizeVariant(desired.getSize()))
-                        .priceAtAddedTime(article.getPrice())
+                        .color(itemType == CommerceItemType.ARTICLE ? normalizeVariant(desired.getColor()) : null)
+                        .size(itemType == CommerceItemType.ARTICLE ? normalizeVariant(desired.getSize()) : null)
+                        .priceAtAddedTime(resolveUnitPrice(article, ticketEvent))
                         .build());
             } else if (!existing.getQuantity().equals(safeQuantity(desired.getQuantity()))) {
+                existing.setItemType(itemType);
+                existing.setArticle(article);
+                existing.setTicketEvent(ticketEvent);
                 existing.setQuantity(safeQuantity(desired.getQuantity()));
                 cartArticleRepository.save(existing);
             }
@@ -285,17 +332,19 @@ public class CartServiceImpl implements CartService {
         List<CartItemDto> items = cartArticles.stream()
                 .map(line -> CartItemDto.builder()
                         .id(line.getId())
+                        .itemType(line.getItemType())
                         .articleId(line.getArticle() == null ? null : line.getArticle().getId())
+                        .ticketEventId(line.getTicketEvent() == null ? null : line.getTicketEvent().getId())
                         .sku(line.getArticle() == null ? null : line.getArticle().getSku())
                         .referenceProduitPartenaire(line.getArticle() == null ? null : line.getArticle().getSku())
-                        .articleName(line.getArticle() == null ? null : line.getArticle().getName())
-                        .articleImage(line.getArticle() == null ? null : line.getArticle().getMainImageUrl())
+                        .articleName(resolveLineName(line))
+                        .articleImage(resolveLineImage(line))
                         .color(normalizeVariant(line.getColor()))
                         .size(normalizeVariant(line.getSize()))
                         .quantity(safeQuantity(line.getQuantity()))
-                        .price(line.getArticle() == null ? 0D : line.getArticle().getPrice())
+                        .price(resolveUnitPrice(line.getArticle(), line.getTicketEvent()))
                         .priceAtAddedTime(line.getPriceAtAddedTime())
-                        .subtotal((line.getArticle() == null ? 0D : line.getArticle().getPrice()) * safeQuantity(line.getQuantity()))
+                        .subtotal(resolveUnitPrice(line.getArticle(), line.getTicketEvent()) * safeQuantity(line.getQuantity()))
                         .build())
                 .toList();
         return CartDto.builder()
@@ -310,7 +359,7 @@ public class CartServiceImpl implements CartService {
 
     private Pair<Double, Integer> getTotalQuantityAndPrice(List<CartArticle> cartArticles){
         return cartArticles.stream()
-                .map(cartArticle -> new Pair<Double, Integer>(cartArticle.getArticle().getPrice() * cartArticle.getQuantity(), cartArticle.getQuantity()))
+                .map(cartArticle -> new Pair<Double, Integer>(resolveUnitPrice(cartArticle.getArticle(), cartArticle.getTicketEvent()) * cartArticle.getQuantity(), cartArticle.getQuantity()))
                 .reduce(new Pair<Double, Integer>(0.0, 0), (acc, e) -> new Pair<Double, Integer>(acc.a + e.a, acc.b + e.b));
     }
 
@@ -338,6 +387,16 @@ public class CartServiceImpl implements CartService {
         return quantity == null ? 0 : Math.max(0, quantity);
     }
 
+    private CommerceItemType resolveItemType(AddToCartDto item) {
+        if (item != null && item.getItemType() != null) {
+            return item.getItemType();
+        }
+        if (item != null && item.getTicketEventId() != null) {
+            return CommerceItemType.TICKET;
+        }
+        return CommerceItemType.ARTICLE;
+    }
+
     private String normalizeVariant(String value) {
         if (value == null) {
             return null;
@@ -346,9 +405,51 @@ public class CartServiceImpl implements CartService {
         return normalized.isEmpty() ? null : normalized;
     }
 
-    private String cartKey(Long articleId, String color, String size) {
+    private String cartKey(CommerceItemType itemType, Long articleId, Long ticketEventId, String color, String size) {
         String colorKey = Optional.ofNullable(normalizeVariant(color)).orElse("").toLowerCase();
         String sizeKey = Optional.ofNullable(normalizeVariant(size)).orElse("").toLowerCase();
-        return articleId + "::" + colorKey + "::" + sizeKey;
+        long articleKey = articleId == null ? 0L : articleId;
+        long ticketKey = ticketEventId == null ? 0L : ticketEventId;
+        return (itemType == null ? CommerceItemType.ARTICLE : itemType).name() + "::" + articleKey + "::" + ticketKey + "::" + colorKey + "::" + sizeKey;
+    }
+
+    private TicketEvent requireAvailableTicket(Long ticketEventId, int quantity) {
+        if (ticketEventId == null) {
+            throw new IllegalArgumentException("ticketEventId is required");
+        }
+        TicketEvent ticketEvent = ticketEventRepository.findById(ticketEventId)
+                .orElseThrow(() -> new ResourceNotFoundException("TicketEvent", "id", String.valueOf(ticketEventId)));
+        requireSellableQuantity(ticketEvent, quantity);
+        return ticketEvent;
+    }
+
+    private void requireSellableQuantity(TicketEvent ticketEvent, int quantity) {
+        if (!ticketInventoryService.isSellable(ticketEvent)) {
+            throw new IllegalArgumentException("Ticket indisponible");
+        }
+        if (safeQuantity(ticketEvent.getQuantityAvailable()) < quantity) {
+            throw new IllegalArgumentException("Stock insuffisant pour le ticket " + ticketEvent.getId());
+        }
+    }
+
+    private Double resolveUnitPrice(Article article, TicketEvent ticketEvent) {
+        if (article != null && article.getPrice() != null) {
+            return article.getPrice();
+        }
+        return ticketEvent != null && ticketEvent.getPrice() != null ? ticketEvent.getPrice() : 0D;
+    }
+
+    private String resolveLineName(CartArticle line) {
+        if (line.getArticle() != null) {
+            return line.getArticle().getName();
+        }
+        return line.getTicketEvent() == null ? null : line.getTicketEvent().getTitle();
+    }
+
+    private String resolveLineImage(CartArticle line) {
+        if (line.getArticle() != null) {
+            return line.getArticle().getMainImageUrl();
+        }
+        return line.getTicketEvent() == null ? null : line.getTicketEvent().getImageUrl();
     }
 }

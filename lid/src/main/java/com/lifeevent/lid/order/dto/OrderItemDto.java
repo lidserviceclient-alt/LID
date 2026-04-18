@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.lifeevent.lid.common.enumeration.CommerceItemType;
 
 /**
  * DTO pour un article d'une commande
@@ -13,8 +14,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderItemDto {
+    private CommerceItemType itemType;
     
     private Long articleId;
+
+    private Long ticketEventId;
     
     private String articleName;
     

@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 /**
@@ -43,7 +44,10 @@ public class PaydunyaConfig {
     }
 
     @Bean
-    public RestTemplate paydunyaRestTemplate() {
-        return new RestTemplate();
+    public RestTemplate paydunyaRestTemplate(PaydunyaProperties properties) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Math.max(1000, properties.getDisbursementConnectTimeoutMs()));
+        factory.setReadTimeout(Math.max(1000, properties.getDisbursementReadTimeoutMs()));
+        return new RestTemplate(factory);
     }
 }

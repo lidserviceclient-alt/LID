@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 public record BackOfficePartnerTransactionDto(
         Long id,
         Long orderId,
+        LocalDateTime orderCreatedAt,
+        BigDecimal orderAmount,
         String partnerId,
         String partnerName,
         String currency,
@@ -20,6 +22,7 @@ public record BackOfficePartnerTransactionDto(
         BigDecimal netAmount,
         LocalDateTime transactionDate,
         LocalDateTime eligibleAt,
+        LocalDateTime scheduledAt,
         LocalDateTime paidOutAt,
         String payoutReference,
         PartnerSettlementStatus payoutStatus

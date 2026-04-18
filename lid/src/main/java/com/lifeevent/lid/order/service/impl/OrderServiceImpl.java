@@ -6,8 +6,9 @@ import com.lifeevent.lid.cart.entity.Cart;
 import com.lifeevent.lid.cart.entity.CartArticle;
 import com.lifeevent.lid.cart.repository.CartArticleRepository;
 import com.lifeevent.lid.cart.repository.CartRepository;
-import com.lifeevent.lid.backoffice.lid.setting.repository.BackOfficeAppConfigRepository;
+import com.lifeevent.lid.common.enumeration.CommerceItemType;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.common.pricing.VatPricingService;
 import com.lifeevent.lid.common.security.SecurityUtils;
 import com.lifeevent.lid.common.util.PhoneNumberUtils;
 import com.lifeevent.lid.discount.entity.Discount;
@@ -42,6 +43,9 @@ import com.lifeevent.lid.payment.enums.PaymentOperator;
 import com.lifeevent.lid.payment.service.PaymentService;
 import com.lifeevent.lid.stock.entity.Stock;
 import com.lifeevent.lid.stock.repository.StockRepository;
+import com.lifeevent.lid.ticket.entity.TicketEvent;
+import com.lifeevent.lid.ticket.repository.TicketEventRepository;
+import com.lifeevent.lid.ticket.service.TicketInventoryService;
 import com.lifeevent.lid.user.customer.entity.Customer;
 import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
@@ -85,10 +89,12 @@ public class OrderServiceImpl implements OrderService {
     private final UserService userService;
     private final StockRepository stockRepository;
     private final ArticleRepository articleRepository;
+    private final TicketEventRepository ticketEventRepository;
+    private final TicketInventoryService ticketInventoryService;
     private final DiscountRepository discountRepository;
     private final LoyaltyTierRepository loyaltyTierRepository;
     private final LoyaltyPointAdjustmentRepository loyaltyPointAdjustmentRepository;
-    private final BackOfficeAppConfigRepository appConfigRepository;
+    private final VatPricingService vatPricingService;
     private final PaymentService paymentService;
     private final PaydunyaProperties paydunyaProperties;
     private final ApplicationEventPublisher eventPublisher;
@@ -100,7 +106,7 @@ public class OrderServiceImpl implements OrderService {
         CheckoutData checkoutData = resolveCheckoutData(customerId, request);
         QuoteComputation quote = computeQuote(checkoutData.lines(), request, true);
         double shippingCost = normalizeShippingCost(request);
-        double totalAmount = calculateGrossAmount(quote.totalAmount() + shippingCost);
+        double totalAmount = round2(quote.totalAmount() + shippingCost);
         return executeCheckout(customer, request, checkoutData.lines(), checkoutData.cartToClear(), totalAmount);
     }
 
@@ -109,14 +115,14 @@ public class OrderServiceImpl implements OrderService {
     public OrderQuoteResponseDto checkoutQuote(String customerId, CheckoutCartRequestDto request) {
         CheckoutData checkoutData = resolveCheckoutData(customerId, request);
         QuoteComputation quote = computeQuote(checkoutData.lines(), request, false);
-        double vatAmount = calculateVatAmount(quote.totalAmount());
+        double vatAmount = calculateVatIncludedAmount(quote.totalAmount());
         return OrderQuoteResponseDto.builder()
                 .subTotal(round2(quote.subTotal()))
                 .discountAmount(round2(quote.promo().discountAmount()))
                 .loyaltyDiscountAmount(round2(quote.loyalty().discountAmount()))
                 .vatAmount(vatAmount)
                 .vatRate(round2(resolveConfiguredVatRate() * 100d))
-                .total(calculateGrossAmount(quote.totalAmount()))
+                .total(round2(quote.totalAmount()))
                 .promoApplied(quote.promo().applied())
                 .promoCode(quote.promo().code())
                 .promoMessage(quote.promo().message())
@@ -134,7 +140,7 @@ public class OrderServiceImpl implements OrderService {
         List<CheckoutLine> lines = buildSelectedCheckoutLines(request);
         QuoteComputation quote = computeQuote(lines, request, true);
         double shippingCost = normalizeShippingCost(request);
-        double totalAmount = calculateGrossAmount(quote.totalAmount() + shippingCost);
+        double totalAmount = round2(quote.totalAmount() + shippingCost);
         return executeCheckout(customer, request, lines, null, totalAmount);
     }
 
@@ -269,14 +275,22 @@ public class OrderServiceImpl implements OrderService {
         }
 
         List<CheckoutLine> lines = cartItems.stream()
-                .collect(Collectors.groupingBy(ca -> ca.getArticle().getId(),
+                .collect(Collectors.groupingBy(ca -> cartCheckoutKey(ca),
                         Collectors.collectingAndThen(Collectors.toList(), groupedItems -> {
-                            Article article = groupedItems.get(0).getArticle();
+                            CartArticle first = groupedItems.get(0);
+                            Article article = first.getArticle();
+                            TicketEvent ticketEvent = first.getTicketEvent();
                             int totalQuantity = groupedItems.stream()
                                     .map(CartArticle::getQuantity)
                                     .mapToInt(this::normalizeQuantity)
                                     .sum();
-                            return new CheckoutLine(article, totalQuantity, article.getPrice());
+                            return new CheckoutLine(
+                                    first.getItemType(),
+                                    article,
+                                    ticketEvent,
+                                    totalQuantity,
+                                    resolveUnitPrice(article, ticketEvent)
+                            );
                         })))
                 .values()
                 .stream()
@@ -290,37 +304,45 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalArgumentException("La liste des articles est obligatoire");
         }
 
-        Map<Long, CheckoutAggregation> aggregatedByArticleId = items.stream()
+        Map<String, CheckoutAggregation> aggregatedByLineKey = items.stream()
                 .peek(this::validatePayloadItem)
                 .map(this::toAggregationEntry)
                 .collect(Collectors.toMap(
-                        CheckoutAggregation::articleId,
+                        CheckoutAggregation::lineKey,
                         entry -> entry,
                         (left, right) -> new CheckoutAggregation(
-                                left.articleId(),
+                                left.lineKey(),
+                                left.itemType(),
                                 left.article(),
+                                left.ticketEvent(),
                                 left.quantity() + right.quantity()
                         )
                 ));
 
-        if (aggregatedByArticleId.isEmpty()) {
+        if (aggregatedByLineKey.isEmpty()) {
             throw new IllegalArgumentException("Le panier est vide");
         }
 
-        return aggregatedByArticleId.values().stream()
+        return aggregatedByLineKey.values().stream()
                 .map(entry -> new CheckoutLine(
+                        entry.itemType(),
                         entry.article(),
+                        entry.ticketEvent(),
                         entry.quantity(),
-                        entry.article().getPrice() == null ? 0d : entry.article().getPrice()
+                        resolveUnitPrice(entry.article(), entry.ticketEvent())
                 ))
                 .toList();
     }
 
     private CheckoutAggregation toAggregationEntry(CheckoutItemRequestDto item) {
-        Article article = resolveArticle(item);
+        CommerceItemType itemType = resolveItemType(item);
+        Article article = itemType == CommerceItemType.ARTICLE ? resolveArticle(item) : null;
+        TicketEvent ticketEvent = itemType == CommerceItemType.TICKET ? resolveTicketEvent(item) : null;
         return new CheckoutAggregation(
-                article.getId(),
+                checkoutKey(itemType, article == null ? null : article.getId(), ticketEvent == null ? null : ticketEvent.getId()),
+                itemType,
                 article,
+                ticketEvent,
                 normalizeQuantity(item.getQuantity())
         );
     }
@@ -353,12 +375,24 @@ public class OrderServiceImpl implements OrderService {
         throw new IllegalArgumentException("articleId ou referenceProduitPartenaire est obligatoire");
     }
 
+    private TicketEvent resolveTicketEvent(CheckoutItemRequestDto item) {
+        if (item.getTicketEventId() == null) {
+            throw new IllegalArgumentException("ticketEventId est obligatoire");
+        }
+        return ticketEventRepository.findById(item.getTicketEventId())
+                .orElseThrow(() -> new ResourceNotFoundException("TicketEvent", "id", item.getTicketEventId().toString()));
+    }
+
     private void validatePayloadItem(CheckoutItemRequestDto item) {
         if (item == null) {
             throw new IllegalArgumentException("Ligne article invalide");
         }
-        if (item.getArticleId() == null && safeTrim(item.getReferenceProduitPartenaire()).isEmpty()) {
+        CommerceItemType itemType = resolveItemType(item);
+        if (itemType == CommerceItemType.ARTICLE && item.getArticleId() == null && safeTrim(item.getReferenceProduitPartenaire()).isEmpty()) {
             throw new IllegalArgumentException("articleId ou referenceProduitPartenaire est obligatoire");
+        }
+        if (itemType == CommerceItemType.TICKET && item.getTicketEventId() == null) {
+            throw new IllegalArgumentException("ticketEventId est obligatoire");
         }
         if (normalizeQuantity(item.getQuantity()) <= 0) {
             throw new IllegalArgumentException("La quantité doit être strictement positive");
@@ -371,6 +405,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         List<Long> articleIds = lines.stream()
+                .filter(line -> line.itemType() == CommerceItemType.ARTICLE)
                 .map(CheckoutLine::article)
                 .filter(java.util.Objects::nonNull)
                 .map(Article::getId)
@@ -386,11 +421,18 @@ public class OrderServiceImpl implements OrderService {
                 ));
 
         for (CheckoutLine line : lines) {
-            Long articleId = line.article().getId();
-            int requested = line.quantity();
-            int available = availableByArticleId.getOrDefault(articleId, 0);
-            if (available < requested) {
-                throw new IllegalArgumentException("Stock insuffisant pour l'article " + articleId);
+            if (line.itemType() == CommerceItemType.ARTICLE) {
+                Long articleId = line.article().getId();
+                int requested = line.quantity();
+                int available = availableByArticleId.getOrDefault(articleId, 0);
+                if (available < requested) {
+                    throw new IllegalArgumentException("Stock insuffisant pour l'article " + articleId);
+                }
+                continue;
+            }
+            TicketEvent ticketEvent = line.ticketEvent();
+            if (!ticketInventoryService.isSellable(ticketEvent) || normalizeTicketAvailable(ticketEvent) < line.quantity()) {
+                throw new IllegalArgumentException("Stock insuffisant pour le ticket " + (ticketEvent == null ? "" : ticketEvent.getId()));
             }
         }
     }
@@ -566,6 +608,7 @@ public class OrderServiceImpl implements OrderService {
         appendStatusHistory(savedOrder, Status.PENDING, "Commande créée - En attente de paiement");
         orderRepository.save(savedOrder);
         publishPartnerOrderChanged(lines.stream()
+                .filter(line -> line.itemType() == CommerceItemType.ARTICLE)
                 .map(line -> line.article() == null ? null : safeTrim(line.article().getReferencePartner()))
                 .filter(id -> !id.isEmpty())
                 .collect(Collectors.toSet()));
@@ -634,11 +677,11 @@ public class OrderServiceImpl implements OrderService {
         }
         return order.getArticles().stream()
                 .map(orderArticle -> PaymentItemDto.builder()
-                        .name(orderArticle.getArticle().getName())
+                        .name(resolveOrderLineName(orderArticle))
                         .quantity(orderArticle.getQuantity())
                         .unitPrice(BigDecimal.valueOf(orderArticle.getPriceAtOrder()))
                         .totalPrice(BigDecimal.valueOf(orderArticle.getPriceAtOrder() * orderArticle.getQuantity()))
-                        .description(orderArticle.getArticle().getDescription())
+                        .description(resolveOrderLineDescription(orderArticle))
                         .build())
                 .toList();
     }
@@ -654,11 +697,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private double resolveConfiguredVatRate() {
-        return appConfigRepository.findTopByOrderByIdAsc()
-                .map(cfg -> cfg.getVatPercent())
-                .filter(value -> value != null && Double.isFinite(value) && value >= 0d)
-                .map(value -> value > 1d ? value / 100d : value)
-                .orElse(0.18d);
+        return vatPricingService.resolveConfiguredVatRate();
     }
 
     private double calculateVatAmount(double netAmount) {
@@ -669,21 +708,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private double calculateGrossAmount(double netAmount) {
-        if (!Double.isFinite(netAmount) || netAmount <= 0d) {
-            return 0d;
-        }
-        return round2(netAmount + calculateVatAmount(netAmount));
+        return vatPricingService.grossFromNet(netAmount);
     }
 
     private double calculateVatIncludedAmount(double grossAmount) {
-        if (!Double.isFinite(grossAmount) || grossAmount <= 0d) {
-            return 0d;
-        }
-        double vatRate = resolveConfiguredVatRate();
-        if (vatRate <= 0d) {
-            return 0d;
-        }
-        return round2(grossAmount - (grossAmount / (1d + vatRate)));
+        return vatPricingService.includedVatFromGross(grossAmount);
     }
 
     private String resolveCustomerEmail(Customer customer, CheckoutCartRequestDto request) {
@@ -749,7 +778,13 @@ public class OrderServiceImpl implements OrderService {
         return quantitiesByArticleId.entrySet().stream()
                 .map(entry -> {
                     Article article = articlesById.get(entry.getKey());
-                    return new CheckoutLine(article, entry.getValue(), article.getPrice());
+                    return new CheckoutLine(
+                            CommerceItemType.ARTICLE,
+                            article,
+                            null,
+                            entry.getValue(),
+                            resolveUnitPrice(article, null)
+                    );
                 })
                 .toList();
     }
@@ -767,8 +802,24 @@ public class OrderServiceImpl implements OrderService {
         return quantity == null ? 1 : quantity;
     }
 
+    private CommerceItemType resolveItemType(CheckoutItemRequestDto item) {
+        if (item != null && item.getItemType() != null) {
+            return item.getItemType();
+        }
+        if (item != null && item.getTicketEventId() != null) {
+            return CommerceItemType.TICKET;
+        }
+        return CommerceItemType.ARTICLE;
+    }
+
     private void reserveStocks(List<CheckoutLine> lines) {
-        lines.forEach(line -> reserveStock(line.article().getId(), line.quantity()));
+        lines.forEach(line -> {
+            if (line.itemType() == CommerceItemType.ARTICLE) {
+                reserveStock(line.article().getId(), line.quantity());
+            } else {
+                ticketInventoryService.reserve(line.ticketEvent().getId(), line.quantity());
+            }
+        });
     }
 
     private double calculateSubTotal(List<CheckoutLine> lines) {
@@ -799,7 +850,9 @@ public class OrderServiceImpl implements OrderService {
         return lines.stream()
                 .map(line -> (OrderArticle) OrderArticle.builder()
                         .order(order)
+                        .itemType(line.itemType())
                         .article(line.article())
+                        .ticketEvent(line.ticketEvent())
                         .quantity(line.quantity())
                         .priceAtOrder(line.unitPrice())
                         .build())
@@ -834,16 +887,28 @@ public class OrderServiceImpl implements OrderService {
 
     private void releaseReservedStocks(Order order) {
         aggregateOrderQuantitiesByArticle(order).forEach(this::releaseReservedStock);
+        aggregateOrderQuantitiesByTicket(order).forEach(ticketInventoryService::releaseReserved);
     }
 
     private void consumeReservedStocks(Order order) {
         aggregateOrderQuantitiesByArticle(order).forEach(this::consumeReservedStock);
+        aggregateOrderQuantitiesByTicket(order).forEach(ticketInventoryService::consumeReserved);
     }
 
     private Map<Long, Integer> aggregateOrderQuantitiesByArticle(Order order) {
         return order.getArticles().stream()
+                .filter(oa -> oa.getItemType() == CommerceItemType.ARTICLE && oa.getArticle() != null)
                 .collect(Collectors.groupingBy(
                         oa -> oa.getArticle().getId(),
+                        Collectors.summingInt(oa -> normalizeQuantity(oa.getQuantity()))
+                ));
+    }
+
+    private Map<Long, Integer> aggregateOrderQuantitiesByTicket(Order order) {
+        return order.getArticles().stream()
+                .filter(oa -> oa.getItemType() == CommerceItemType.TICKET && oa.getTicketEvent() != null)
+                .collect(Collectors.groupingBy(
+                        oa -> oa.getTicketEvent().getId(),
                         Collectors.summingInt(oa -> normalizeQuantity(oa.getQuantity()))
                 ));
     }
@@ -865,8 +930,10 @@ public class OrderServiceImpl implements OrderService {
     private OrderDetailDto mapToDetailDto(Order order) {
         List<OrderItemDto> items = order.getArticles().stream()
                 .map(oa -> OrderItemDto.builder()
-                        .articleId(oa.getArticle().getId())
-                        .articleName(oa.getArticle().getName())
+                        .itemType(oa.getItemType())
+                        .articleId(oa.getArticle() == null ? null : oa.getArticle().getId())
+                        .ticketEventId(oa.getTicketEvent() == null ? null : oa.getTicketEvent().getId())
+                        .articleName(resolveOrderLineName(oa))
                         .quantity(oa.getQuantity())
                         .priceAtOrder(oa.getPriceAtOrder())
                         .subtotal(oa.getPriceAtOrder() * oa.getQuantity())
@@ -925,6 +992,46 @@ public class OrderServiceImpl implements OrderService {
         return value == null ? "" : value.trim();
     }
 
+    private String cartCheckoutKey(CartArticle cartArticle) {
+        return checkoutKey(
+                cartArticle.getItemType(),
+                cartArticle.getArticle() == null ? null : cartArticle.getArticle().getId(),
+                cartArticle.getTicketEvent() == null ? null : cartArticle.getTicketEvent().getId()
+        );
+    }
+
+    private String checkoutKey(CommerceItemType itemType, Long articleId, Long ticketEventId) {
+        return (itemType == null ? CommerceItemType.ARTICLE : itemType).name() + "::" + (articleId == null ? 0L : articleId) + "::" + (ticketEventId == null ? 0L : ticketEventId);
+    }
+
+    private Double resolveUnitPrice(Article article, TicketEvent ticketEvent) {
+        if (article != null && article.getPrice() != null) {
+            return calculateGrossAmount(article.getPrice());
+        }
+        return ticketEvent != null && ticketEvent.getPrice() != null ? ticketEvent.getPrice() : 0d;
+    }
+
+    private int normalizeTicketAvailable(TicketEvent ticketEvent) {
+        if (ticketEvent == null || ticketEvent.getQuantityAvailable() == null) {
+            return 0;
+        }
+        return Math.max(0, ticketEvent.getQuantityAvailable());
+    }
+
+    private String resolveOrderLineName(OrderArticle orderArticle) {
+        if (orderArticle.getArticle() != null) {
+            return orderArticle.getArticle().getName();
+        }
+        return orderArticle.getTicketEvent() == null ? "Ticket" : orderArticle.getTicketEvent().getTitle();
+    }
+
+    private String resolveOrderLineDescription(OrderArticle orderArticle) {
+        if (orderArticle.getArticle() != null) {
+            return orderArticle.getArticle().getDescription();
+        }
+        return orderArticle.getTicketEvent() == null ? null : orderArticle.getTicketEvent().getDescription();
+    }
+
     private String normalizeShippingMethodCode(String value) {
         String trimmed = safeTrim(value);
         if (trimmed.isEmpty()) {
@@ -952,13 +1059,13 @@ public class OrderServiceImpl implements OrderService {
         return value;
     }
 
-    private record CheckoutLine(Article article, int quantity, double unitPrice) {
+    private record CheckoutLine(CommerceItemType itemType, Article article, TicketEvent ticketEvent, int quantity, double unitPrice) {
     }
 
     private record CheckoutData(List<CheckoutLine> lines, Cart cartToClear) {
     }
 
-    private record CheckoutAggregation(Long articleId, Article article, int quantity) {
+    private record CheckoutAggregation(String lineKey, CommerceItemType itemType, Article article, TicketEvent ticketEvent, int quantity) {
     }
 
     private record PromoApplication(boolean applied, String code, double discountAmount, String message, Discount discount) {

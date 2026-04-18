@@ -1,6 +1,8 @@
 package com.lifeevent.lid.backoffice.lid.ticket.controller;
 
 import com.lifeevent.lid.backoffice.lid.ticket.dto.BackOfficeTicketEventDto;
+import com.lifeevent.lid.backoffice.lid.ticket.dto.BackOfficeTicketInventoryDto;
+import com.lifeevent.lid.backoffice.lid.ticket.dto.AdjustTicketInventoryRequest;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -47,5 +49,18 @@ public interface IBackOfficeTicketEventController {
     ResponseEntity<Void> delete(
             @Parameter(description = "ID de l'évènement", required = true)
             @PathVariable Long id
+    );
+
+    @GetMapping("/{id}/inventory")
+    ResponseEntity<BackOfficeTicketInventoryDto> getInventory(
+            @Parameter(description = "ID de l'évènement", required = true)
+            @PathVariable Long id
+    );
+
+    @PostMapping("/{id}/inventory")
+    ResponseEntity<BackOfficeTicketInventoryDto> adjustInventory(
+            @Parameter(description = "ID de l'évènement", required = true)
+            @PathVariable Long id,
+            @RequestBody AdjustTicketInventoryRequest request
     );
 }

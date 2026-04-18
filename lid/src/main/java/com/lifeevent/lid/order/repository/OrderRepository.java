@@ -137,29 +137,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("""
         SELECT DISTINCT o
         FROM Order o
-        LEFT JOIN FETCH o.statusHistory
-        LEFT JOIN FETCH o.articles oa
-        LEFT JOIN FETCH oa.article
-        WHERE o.id = :id
-    """)
-    Optional<Order> findWithStatusHistoryAndArticlesById(@Param("id") Long id);
-
-    @Query("""
-        SELECT DISTINCT o
-        FROM Order o
-        LEFT JOIN FETCH o.statusHistory
-        LEFT JOIN FETCH o.articles oa
-        LEFT JOIN FETCH oa.article
-        WHERE o.trackingNumber = :trackingNumber
-    """)
-    Optional<Order> findWithStatusHistoryAndArticlesByTrackingNumber(@Param("trackingNumber") String trackingNumber);
-
-    @Query("""
-        SELECT DISTINCT o
-        FROM Order o
         LEFT JOIN FETCH o.customer
         LEFT JOIN FETCH o.articles a
         LEFT JOIN FETCH a.article
+        LEFT JOIN FETCH a.ticketEvent
         WHERE o.id = :id
     """)
     Optional<Order> findWithCustomerAndArticlesById(@Param("id") Long id);
@@ -170,6 +151,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         LEFT JOIN FETCH o.customer
         LEFT JOIN FETCH o.articles a
         LEFT JOIN FETCH a.article
+        LEFT JOIN FETCH a.ticketEvent
         WHERE o.id = :id
     """)
     Optional<Order> findWithDetailsById(@Param("id") Long id);

@@ -7,6 +7,7 @@ import com.lifeevent.lid.common.dto.PageResponse;
 import com.lifeevent.lid.user.partner.entity.PartnerRegistrationStatus;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface BackOfficePartnerAdminService {
@@ -19,4 +20,12 @@ public interface BackOfficePartnerAdminService {
     BackOfficePartnerSettingsDto rejectPartner(String partnerId, String comment);
 
     PageResponse<BackOfficePartnerTransactionDto> getPartnerTransactions(String partnerId, LocalDate fromDate, LocalDate toDate, int page, int size);
+
+    BackOfficePartnerTransactionDto payPartnerTransactionManual(String partnerId, Long transactionId);
+
+    BackOfficePartnerTransactionDto payPartnerTransactionDirect(String partnerId, Long transactionId);
+
+    BackOfficePartnerTransactionDto schedulePartnerTransaction(String partnerId, Long transactionId, LocalDateTime scheduledAt);
+
+    BackOfficePartnerTransactionDto cancelPartnerTransaction(String partnerId, Long transactionId);
 }

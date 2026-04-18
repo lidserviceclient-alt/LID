@@ -4,6 +4,7 @@ import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransaction
 import com.lifeevent.lid.common.dto.PageResponse;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public interface PartnerSettlementService {
 
@@ -16,4 +17,14 @@ public interface PartnerSettlementService {
             int page,
             int size
     );
+
+    BackOfficePartnerTransactionDto markSettlementPaidManual(String partnerId, Long settlementId);
+
+    BackOfficePartnerTransactionDto paySettlementDirect(String partnerId, Long settlementId);
+
+    BackOfficePartnerTransactionDto scheduleSettlement(String partnerId, Long settlementId, LocalDateTime scheduledAt);
+
+    BackOfficePartnerTransactionDto cancelSettlement(String partnerId, Long settlementId);
+
+    int processDueScheduledSettlements(int batchSize);
 }

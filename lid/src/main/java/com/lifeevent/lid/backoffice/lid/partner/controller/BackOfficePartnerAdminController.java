@@ -2,6 +2,7 @@ package com.lifeevent.lid.backoffice.lid.partner.controller;
 
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerAdminDto;
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerDecisionRequest;
+import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransactionScheduleRequest;
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransactionDto;
 import com.lifeevent.lid.backoffice.lid.partner.service.BackOfficePartnerAdminService;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
@@ -60,6 +61,38 @@ public class BackOfficePartnerAdminController implements IBackOfficePartnerAdmin
             int size
     ) {
         return ResponseEntity.ok(backOfficePartnerAdminService.getPartnerTransactions(partnerId, fromDate, toDate, page, size));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<BackOfficePartnerTransactionDto> payPartnerTransaction(String partnerId, Long transactionId) {
+        return ResponseEntity.ok(backOfficePartnerAdminService.payPartnerTransactionDirect(partnerId, transactionId));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<BackOfficePartnerTransactionDto> payPartnerTransactionManual(String partnerId, Long transactionId) {
+        return ResponseEntity.ok(backOfficePartnerAdminService.payPartnerTransactionManual(partnerId, transactionId));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<BackOfficePartnerTransactionDto> schedulePartnerTransaction(
+            String partnerId,
+            Long transactionId,
+            BackOfficePartnerTransactionScheduleRequest request
+    ) {
+        return ResponseEntity.ok(backOfficePartnerAdminService.schedulePartnerTransaction(
+                partnerId,
+                transactionId,
+                request == null ? null : request.scheduledAt()
+        ));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<BackOfficePartnerTransactionDto> cancelPartnerTransaction(String partnerId, Long transactionId) {
+        return ResponseEntity.ok(backOfficePartnerAdminService.cancelPartnerTransaction(partnerId, transactionId));
     }
 
     private List<PartnerRegistrationStatus> parseStatuses(String raw) {

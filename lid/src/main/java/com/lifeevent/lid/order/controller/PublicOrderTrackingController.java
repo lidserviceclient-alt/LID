@@ -3,6 +3,7 @@ package com.lifeevent.lid.order.controller;
 import com.lifeevent.lid.order.dto.PublicOrderTrackingResponseDto;
 import com.lifeevent.lid.order.dto.PublicOrderTrackingItemDto;
 import com.lifeevent.lid.order.dto.PublicOrderTrackingStepDto;
+import com.lifeevent.lid.order.entity.OrderArticle;
 import com.lifeevent.lid.logistics.entity.Shipment;
 import com.lifeevent.lid.logistics.repository.ShipmentRepository;
 import com.lifeevent.lid.order.entity.Order;
@@ -129,21 +130,37 @@ public class PublicOrderTrackingController {
             return List.of();
         }
         return order.getArticles().stream()
-                .filter(oa -> oa != null && oa.getArticle() != null)
-                .map(oa -> {
-                    Integer quantity = oa.getQuantity() == null ? 0 : Math.max(oa.getQuantity(), 0);
-                    Double unitPrice = oa.getPriceAtOrder() == null ? 0d : oa.getPriceAtOrder();
-                    Double subtotal = unitPrice * quantity;
-                    return new PublicOrderTrackingItemDto(
-                            oa.getArticle().getId(),
-                            oa.getArticle().getName(),
-                            oa.getArticle().getMainImageUrl(),
-                            quantity,
-                            unitPrice,
-                            subtotal
-                    );
-                })
+                .filter(oa -> oa != null && (oa.getArticle() != null || oa.getTicketEvent() != null))
+                .map(this::toTrackingItem)
                 .toList();
+    }
+
+    private PublicOrderTrackingItemDto toTrackingItem(OrderArticle orderArticle) {
+        Integer quantity = orderArticle.getQuantity() == null ? 0 : Math.max(orderArticle.getQuantity(), 0);
+        Double unitPrice = orderArticle.getPriceAtOrder() == null ? 0d : orderArticle.getPriceAtOrder();
+        Double subtotal = unitPrice * quantity;
+        if (orderArticle.getTicketEvent() != null) {
+            return new PublicOrderTrackingItemDto(
+                    orderArticle.getItemType(),
+                    null,
+                    orderArticle.getTicketEvent().getId(),
+                    orderArticle.getTicketEvent().getTitle(),
+                    orderArticle.getTicketEvent().getImageUrl(),
+                    quantity,
+                    unitPrice,
+                    subtotal
+            );
+        }
+        return new PublicOrderTrackingItemDto(
+                orderArticle.getItemType(),
+                orderArticle.getArticle().getId(),
+                null,
+                orderArticle.getArticle().getName(),
+                orderArticle.getArticle().getMainImageUrl(),
+                quantity,
+                unitPrice,
+                subtotal
+        );
     }
 
     private record TrackingPayload(

@@ -10,6 +10,9 @@ import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotif
 import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationType;
 import com.lifeevent.lid.backoffice.lid.notification.service.BackOfficeNotificationService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.order.dto.OrderDetailDto;
+import com.lifeevent.lid.order.enumeration.Status;
+import com.lifeevent.lid.order.service.OrderService;
 import com.lifeevent.lid.payment.config.PaydunyaProperties;
 import com.lifeevent.lid.payment.dto.CreatePaymentRequestDto;
 import com.lifeevent.lid.payment.dto.PaymentResponseDto;
@@ -26,6 +29,7 @@ import com.lifeevent.lid.payment.service.PaydunyaSecurityService;
 import com.lifeevent.lid.realtime.service.RealtimeEventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,6 +62,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final RealtimeEventPublisher realtimeEventPublisher;
     private final BackOfficeNotificationService backOfficeNotificationService;
     private final PartnerSettlementService partnerSettlementService;
+    private final ObjectProvider<OrderService> orderServiceProvider;
     
     @Override
     public PaymentResponseDto createPayment(CreatePaymentRequestDto request) {
@@ -120,6 +125,7 @@ public class PaymentServiceImpl implements PaymentService {
                 "Paiement local confirmé",
                 "LOCAL"
         );
+        syncOrderStatusAfterCompletedPayment(savedPayment);
         createNotificationForPaymentStatus(savedPayment, null);
         partnerSettlementService.syncOrderSettlements(savedPayment.getOrderId());
         return paymentMapper.toDto(savedPayment);
@@ -179,6 +185,7 @@ public class PaymentServiceImpl implements PaymentService {
         realtimeEventPublisher.publishPaymentStatusUpdated(payment, "verify_api");
         createNotificationForPaymentStatus(payment, previousStatus);
         if (payment.getStatus() == PaymentStatus.COMPLETED) {
+            syncOrderStatusAfterCompletedPayment(payment);
             partnerSettlementService.syncOrderSettlements(payment.getOrderId());
         }
         return buildStatusResponse(payment, invoice);
@@ -230,6 +237,7 @@ public class PaymentServiceImpl implements PaymentService {
         realtimeEventPublisher.publishPaymentStatusUpdated(payment, "webhook");
         createNotificationForPaymentStatus(payment, previousStatus);
         if (payment.getStatus() == PaymentStatus.COMPLETED) {
+            syncOrderStatusAfterCompletedPayment(payment);
             partnerSettlementService.syncOrderSettlements(payment.getOrderId());
         }
     }
@@ -454,6 +462,21 @@ public class PaymentServiceImpl implements PaymentService {
             .customerEmail(payment.getCustomerEmail())
             .customerPhone(payment.getCustomerPhone())
             .build();
+    }
+
+    private void syncOrderStatusAfterCompletedPayment(Payment payment) {
+        if (payment == null || payment.getOrderId() == null || payment.getStatus() != PaymentStatus.COMPLETED) {
+            return;
+        }
+        OrderService orderService = orderServiceProvider.getIfAvailable();
+        if (orderService == null) {
+            return;
+        }
+        OrderDetailDto order = orderService.getOrderById(payment.getOrderId()).orElse(null);
+        if (order == null || order.getCurrentStatus() != Status.PENDING) {
+            return;
+        }
+        orderService.confirmPayment(payment.getOrderId());
     }
 
     private void createNotificationForPaymentStatus(Payment payment, PaymentStatus previousStatus) {

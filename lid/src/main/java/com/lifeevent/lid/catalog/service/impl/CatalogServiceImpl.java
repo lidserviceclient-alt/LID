@@ -15,6 +15,7 @@ import com.lifeevent.lid.catalog.mapper.CatalogMapper;
 import com.lifeevent.lid.catalog.service.CatalogService;
 import com.lifeevent.lid.catalog.service.PartnerCatalogService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.common.pricing.VatPricingService;
 import com.lifeevent.lid.common.security.SecurityUtils;
 import com.lifeevent.lid.review.entity.ProductReview;
 import com.lifeevent.lid.review.entity.ProductReviewLike;
@@ -26,6 +27,7 @@ import com.lifeevent.lid.stock.repository.StockRepository;
 import com.lifeevent.lid.ticket.dto.TicketEventDto;
 import com.lifeevent.lid.ticket.entity.TicketEvent;
 import com.lifeevent.lid.ticket.repository.TicketEventRepository;
+import com.lifeevent.lid.ticket.service.TicketInventoryService;
 import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.common.service.UserService;
@@ -77,8 +79,10 @@ public class CatalogServiceImpl implements CatalogService {
     private final CustomerRepository customerRepository;
     private final BlogPostRepository blogPostRepository;
     private final TicketEventRepository ticketEventRepository;
+    private final TicketInventoryService ticketInventoryService;
     private final CatalogMapper catalogMapper;
     private final PartnerCatalogService partnerCatalogService;
+    private final VatPricingService vatPricingService;
     private final ApplicationEventPublisher eventPublisher;
     private final PlatformTransactionManager transactionManager;
     @Resource(name = "aggregatorExecutor")
@@ -165,7 +169,13 @@ public class CatalogServiceImpl implements CatalogService {
     public CatalogProductDetailsDto getProductDetails(Long id) {
         Article article = getActiveArticleOrThrow(id);
         List<String> images = buildProductImages(article);
-        return catalogMapper.toCatalogProductDetailsDto(article, computeStock(article.getId()), images);
+        return catalogMapper.toCatalogProductDetailsDto(
+                article,
+                computeStock(article.getId()),
+                images,
+                vatPricingService.grossFromNet(article.getPrice()),
+                toBigDecimal(article.getPrice())
+        );
     }
 
     @Override
@@ -178,7 +188,13 @@ public class CatalogServiceImpl implements CatalogService {
     public CatalogProductDetailsDto getProductDetails(String idOrReference) {
         Article article = resolveActiveArticleOrThrow(idOrReference);
         List<String> images = buildProductImages(article);
-        return catalogMapper.toCatalogProductDetailsDto(article, computeStock(article.getId()), images);
+        return catalogMapper.toCatalogProductDetailsDto(
+                article,
+                computeStock(article.getId()),
+                images,
+                vatPricingService.grossFromNet(article.getPrice()),
+                toBigDecimal(article.getPrice())
+        );
     }
 
     @Override
@@ -714,6 +730,9 @@ public class CatalogServiceImpl implements CatalogService {
                 .category(entity.getCategory())
                 .price(entity.getPrice())
                 .available(entity.getAvailable())
+                .quantityAvailable(entity.getQuantityAvailable())
+                .quantityReserved(entity.getQuantityReserved())
+                .sellable(ticketInventoryService.isSellable(entity))
                 .build();
     }
 
@@ -833,10 +852,16 @@ public class CatalogServiceImpl implements CatalogService {
                             article,
                             stockByArticleId.getOrDefault(article.getId(), 0),
                             stats.avgRating(),
-                            stats.reviews()
+                            stats.reviews(),
+                            vatPricingService.grossFromNet(article.getPrice()),
+                            toBigDecimal(article.getPrice())
                     );
                 })
                 .toList();
+    }
+
+    private java.math.BigDecimal toBigDecimal(Double value) {
+        return value == null ? null : java.math.BigDecimal.valueOf(value);
     }
 
     private Map<Long, Integer> loadStockByArticleId(List<Long> articleIds) {

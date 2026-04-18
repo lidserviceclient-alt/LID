@@ -11,6 +11,7 @@ import com.lifeevent.lid.catalog.dto.PartnerCatalogProductsPageDto;
 import com.lifeevent.lid.catalog.service.PartnerCatalogService;
 import com.lifeevent.lid.common.cache.CatalogCacheNames;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.common.pricing.VatPricingService;
 import com.lifeevent.lid.common.service.PublicAssetUrlResolver;
 import com.lifeevent.lid.user.partner.entity.Partner;
 import com.lifeevent.lid.user.partner.entity.PartnerRegistrationStatus;
@@ -44,6 +45,7 @@ public class PartnerCatalogServiceImpl implements PartnerCatalogService {
     private final PartnerRepository partnerRepository;
     private final ArticleRepository articleRepository;
     private final PublicAssetUrlResolver publicAssetUrlResolver;
+    private final VatPricingService vatPricingService;
     private final PlatformTransactionManager transactionManager;
     @Resource(name = "aggregatorExecutor")
     private Executor aggregatorExecutor;
@@ -143,6 +145,7 @@ public class PartnerCatalogServiceImpl implements PartnerCatalogService {
                 article.getName(),
                 article.getSku(),
                 article.getEan(),
+                vatPricingService.grossFromNet(article.getPrice()).doubleValue(),
                 article.getPrice(),
                 toPublicAssetUrl(article.getMainImageUrl()),
                 secondary,

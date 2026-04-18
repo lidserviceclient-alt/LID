@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.lifeevent.lid.common.enumeration.CommerceItemType;
 
 /**
  * DTO pour un item du panier (CartArticle)
@@ -15,8 +16,12 @@ import lombok.NoArgsConstructor;
 public class CartItemDto {
     
     private Integer id;
+
+    private CommerceItemType itemType;
     
     private Long articleId;
+
+    private Long ticketEventId;
 
     private String sku;
 

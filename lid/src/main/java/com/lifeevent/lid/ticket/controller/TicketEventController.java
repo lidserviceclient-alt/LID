@@ -5,6 +5,7 @@ import com.lifeevent.lid.common.cache.CatalogCacheNames;
 import com.lifeevent.lid.ticket.dto.TicketEventDto;
 import com.lifeevent.lid.ticket.entity.TicketEvent;
 import com.lifeevent.lid.ticket.repository.TicketEventRepository;
+import com.lifeevent.lid.ticket.service.TicketInventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +24,7 @@ import java.util.List;
 public class TicketEventController {
 
     private final TicketEventRepository ticketEventRepository;
+    private final TicketInventoryService ticketInventoryService;
 
     @GetMapping
     @Cacheable(
@@ -66,6 +68,9 @@ public class TicketEventController {
                 .imageUrl(entity.getImageUrl())
                 .category(entity.getCategory())
                 .available(entity.getAvailable())
+                .quantityAvailable(entity.getQuantityAvailable())
+                .quantityReserved(entity.getQuantityReserved())
+                .sellable(ticketInventoryService.isSellable(entity))
                 .build();
     }
 }

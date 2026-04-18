@@ -10,6 +10,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Data
 @ConfigurationProperties(prefix = "paydunya")
 public class PaydunyaProperties {
+
+    private static final int DEFAULT_DISBURSEMENT_CONNECT_TIMEOUT_MS = 5000;
+    private static final int DEFAULT_DISBURSEMENT_READ_TIMEOUT_MS = 15000;
+    private static final int DEFAULT_DISBURSEMENT_RETRY_MAX_ATTEMPTS = 3;
+    private static final long DEFAULT_DISBURSEMENT_RETRY_INITIAL_DELAY_MS = 500L;
     
     // API Keys
     private String masterKey;
@@ -33,7 +38,11 @@ public class PaydunyaProperties {
     private String cancelUrl;
     private String returnUrl;
     private String disbursementCallbackUrl;
-    private String apiBaseUrl = "https://app.paydunya.com";
+    private String apiBaseUrl;
+    private int disbursementConnectTimeoutMs = DEFAULT_DISBURSEMENT_CONNECT_TIMEOUT_MS;
+    private int disbursementReadTimeoutMs = DEFAULT_DISBURSEMENT_READ_TIMEOUT_MS;
+    private int disbursementRetryMaxAttempts = DEFAULT_DISBURSEMENT_RETRY_MAX_ATTEMPTS;
+    private long disbursementRetryInitialDelayMs = DEFAULT_DISBURSEMENT_RETRY_INITIAL_DELAY_MS;
     
     // Pays supportés (liste des opérateurs)
     private String supportedCountries = "CI,SN,BJ,BF,CM,CG,GA,GW,ML"; // Côte d'Ivoire par défaut + autres pays africains

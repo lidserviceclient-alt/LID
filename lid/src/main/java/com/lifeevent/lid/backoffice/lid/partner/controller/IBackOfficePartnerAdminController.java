@@ -2,6 +2,7 @@ package com.lifeevent.lid.backoffice.lid.partner.controller;
 
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerAdminDto;
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerDecisionRequest;
+import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransactionScheduleRequest;
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransactionDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
 import com.lifeevent.lid.common.dto.PageResponse;
@@ -42,5 +43,30 @@ public interface IBackOfficePartnerAdminController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
+    );
+
+    @PostMapping("/{partnerId}/transactions/{transactionId}/pay")
+    ResponseEntity<BackOfficePartnerTransactionDto> payPartnerTransaction(
+            @PathVariable String partnerId,
+            @PathVariable Long transactionId
+    );
+
+    @PostMapping("/{partnerId}/transactions/{transactionId}/pay-manual")
+    ResponseEntity<BackOfficePartnerTransactionDto> payPartnerTransactionManual(
+            @PathVariable String partnerId,
+            @PathVariable Long transactionId
+    );
+
+    @PostMapping("/{partnerId}/transactions/{transactionId}/schedule")
+    ResponseEntity<BackOfficePartnerTransactionDto> schedulePartnerTransaction(
+            @PathVariable String partnerId,
+            @PathVariable Long transactionId,
+            @RequestBody BackOfficePartnerTransactionScheduleRequest request
+    );
+
+    @PostMapping("/{partnerId}/transactions/{transactionId}/cancel")
+    ResponseEntity<BackOfficePartnerTransactionDto> cancelPartnerTransaction(
+            @PathVariable String partnerId,
+            @PathVariable Long transactionId
     );
 }

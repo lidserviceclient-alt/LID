@@ -7,6 +7,7 @@ import com.lifeevent.lid.common.cache.event.TicketCatalogChangedEvent;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.ticket.entity.TicketEvent;
 import com.lifeevent.lid.ticket.repository.TicketEventRepository;
+import com.lifeevent.lid.ticket.service.TicketInventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
@@ -24,6 +25,7 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
     private final TicketEventRepository ticketEventRepository;
     private final BackOfficeTicketEventMapper backOfficeTicketEventMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final TicketInventoryService ticketInventoryService;
 
     @Override
     @Transactional(readOnly = true)
@@ -33,13 +35,13 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
         List<TicketEvent> entities = ticketEventRepository
                 .findAll(PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "eventDate")))
                 .getContent();
-        return backOfficeTicketEventMapper.toDtoList(entities);
+        return entities.stream().map(this::toDto).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public BackOfficeTicketEventDto getById(Long id) {
-        return backOfficeTicketEventMapper.toDto(findByIdOrThrow(id));
+        return toDto(findByIdOrThrow(id));
     }
 
     @Override
@@ -74,10 +76,24 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
         if (entity.getAvailable() == null) {
             entity.setAvailable(Boolean.TRUE);
         }
+        if (entity.getQuantityAvailable() == null || entity.getQuantityAvailable() < 0) {
+            entity.setQuantityAvailable(0);
+        }
+        if (entity.getQuantityReserved() == null || entity.getQuantityReserved() < 0) {
+            entity.setQuantityReserved(0);
+        }
     }
 
     private TicketEvent findByIdOrThrow(Long id) {
         return ticketEventRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TicketEvent", "id", id.toString()));
+    }
+
+    private BackOfficeTicketEventDto toDto(TicketEvent entity) {
+        BackOfficeTicketEventDto dto = backOfficeTicketEventMapper.toDto(entity);
+        dto.setQuantityAvailable(entity.getQuantityAvailable());
+        dto.setQuantityReserved(entity.getQuantityReserved());
+        dto.setSellable(ticketInventoryService.isSellable(entity));
+        return dto;
     }
 }

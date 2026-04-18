@@ -3,6 +3,7 @@ package com.lifeevent.lid.cart.repository;
 import com.lifeevent.lid.article.entity.Article;
 import com.lifeevent.lid.cart.entity.Cart;
 import com.lifeevent.lid.cart.entity.CartArticle;
+import com.lifeevent.lid.ticket.entity.TicketEvent;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -19,6 +20,8 @@ public interface CartArticleRepository extends JpaRepository<CartArticle, Long> 
      */
     Optional<CartArticle> findByCartAndArticle(Cart cart, Article article);
 
+    Optional<CartArticle> findByCartAndTicketEvent(Cart cart, TicketEvent ticketEvent);
+
     @Query("""
             SELECT ca FROM CartArticle ca
             WHERE ca.cart = :cart
@@ -34,6 +37,8 @@ public interface CartArticleRepository extends JpaRepository<CartArticle, Long> 
     );
 
     List<CartArticle> findAllByCartAndArticle(Cart cart, Article article);
+
+    List<CartArticle> findAllByCartAndTicketEvent(Cart cart, TicketEvent ticketEvent);
     
     /**
      * Trouver tous les CartArticles d'un panier
