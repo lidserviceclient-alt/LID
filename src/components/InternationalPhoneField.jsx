@@ -11,8 +11,9 @@ export default function InternationalPhoneField({
   inputClassName = '',
   containerClassName = ''
 }) {
-  const [country, setCountry] = useState(defaultCountry);
-  const [nationalNumber, setNationalNumber] = useState('');
+  const initialPhone = splitPhoneNumber(value, defaultCountry);
+  const [country, setCountry] = useState(initialPhone.country);
+  const [nationalNumber, setNationalNumber] = useState(initialPhone.nationalNumber);
   const lastEmittedValueRef = useRef(value || '');
 
   useEffect(() => {

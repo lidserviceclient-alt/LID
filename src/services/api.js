@@ -28,6 +28,12 @@ const refreshClient = axios.create({
   timeout: 10000,
 });
 
+function isPublicRequest(url = '') {
+  return url.includes('/api/v1/public/')
+    || url.includes('/api/v1/catalog/')
+    || url.includes('/api/v1/realtime/ws-access/public');
+}
+
 // Request Interceptor
 // Useful for adding authorization tokens (JWT) to every request
 api.interceptors.request.use(
@@ -35,7 +41,9 @@ api.interceptors.request.use(
     // Retrieve the user from OIDC storage
     const storedToken = getAccessToken();
     const accessToken = storedToken && !isTokenExpired(storedToken) ? storedToken : null;
-    const isAuthLogin = (config.url || '').includes('/api/v1/auth/login');
+    const url = `${config.url || ''}`;
+    const isAuthLogin = url.includes('/api/v1/auth/login');
+    const isPublic = isPublicRequest(url);
     const clientId = import.meta.env.VITE_CLIENT_ID;
 
     if (storedToken && !accessToken) {
@@ -53,7 +61,7 @@ api.interceptors.request.use(
     if (clientId && !config.headers?.['X-Client-ID']) {
       config.headers['X-Client-ID'] = clientId;
     }
-    if (!isAuthLogin && accessToken && !existingAuth) {
+    if (!isAuthLogin && !isPublic && accessToken && !existingAuth) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
     if (isDebug) {
@@ -81,13 +89,15 @@ api.interceptors.response.use(
 
       const originalRequest = error.config || {};
       const url = `${originalRequest.url || ''}`;
+      const skipAuthRefresh = originalRequest.skipAuthRefresh === true;
       const isAuthLogin = url.includes('/api/v1/auth/login');
       const isRefresh = url.includes('/api/v1/auth/refresh');
+      const isPublic = isPublicRequest(url);
       const isAuthEndpoint = isAuthLogin || isRefresh || url.includes('/api/v1/auth/password');
       const currentToken = getAccessToken();
       const hadAccessToken = Boolean(currentToken && !isTokenExpired(currentToken));
 
-      if (status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+      if (status === 401 && !originalRequest._retry && !isAuthEndpoint && !isPublic && !skipAuthRefresh) {
         originalRequest._retry = true;
         try {
           const refreshResponse = await refreshClient.post('/api/v1/auth/refresh');

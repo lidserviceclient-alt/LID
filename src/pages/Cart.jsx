@@ -136,10 +136,19 @@ export default function Cart() {
         .map((item) => {
           const quantity = Number(item?.quantity) || 0;
           if (quantity <= 0) return null;
+          const itemType = `${item?.itemType || (item?.ticketEventId ? "TICKET" : "ARTICLE")}`.trim().toUpperCase();
           const referenceProduitPartenaire = item?.referenceProduitPartenaire || item?.referencePartenaire || item?.sku;
           const articleId = item?.articleId ?? toArticleId(item?.id);
-          if (!articleId && !referenceProduitPartenaire) return null;
-          return { articleId: articleId ?? undefined, referenceProduitPartenaire: referenceProduitPartenaire ?? undefined, quantity };
+          const ticketEventId = item?.ticketEventId ?? (itemType === "TICKET" ? toArticleId(item?.id) : null);
+          if (itemType === "ARTICLE" && !articleId && !referenceProduitPartenaire) return null;
+          if (itemType === "TICKET" && !ticketEventId) return null;
+          return {
+            itemType,
+            articleId: itemType === "ARTICLE" ? articleId ?? undefined : undefined,
+            ticketEventId: itemType === "TICKET" ? ticketEventId ?? undefined : undefined,
+            referenceProduitPartenaire: itemType === "ARTICLE" ? referenceProduitPartenaire ?? undefined : undefined,
+            quantity
+          };
         })
         .filter(Boolean);
       if (items.length === 0) {
@@ -173,9 +182,8 @@ export default function Cart() {
   const loyaltyDiscountAmount = appliedPromo ? 0 : (Number(loyaltyPricing?.discountAmount) || 0);
   const vatRate = normalizeVatRate(appConfig?.vatPercent);
   const vatPercentLabel = Math.round(vatRate * 100);
-  const netTotal = Math.max(0, cartTotal - discountAmount - loyaltyDiscountAmount + shippingCost);
-  const taxAmount = roundAmount(netTotal * vatRate);
-  const finalTotal = roundAmount(netTotal + taxAmount);
+  const finalTotal = Math.max(0, roundAmount(cartTotal - discountAmount - loyaltyDiscountAmount + shippingCost));
+  const taxAmount = vatRate > 0 ? roundAmount(finalTotal - (finalTotal / (1 + vatRate))) : 0;
   const remainingToFreeShipping = isFreeShippingEnabled ? Math.max(freeShippingThreshold - cartTotal, 0) : 0;
   const progressToFreeShipping = isFreeShippingEnabled ? Math.min((cartTotal / freeShippingThreshold) * 100, 100) : 0;
   const freeShippingMessage = useMemo(() => {
@@ -252,10 +260,19 @@ export default function Cart() {
           .map((item) => {
             const quantity = Number(item?.quantity) || 0;
             if (quantity <= 0) return null;
+            const itemType = `${item?.itemType || (item?.ticketEventId ? "TICKET" : "ARTICLE")}`.trim().toUpperCase();
             const referenceProduitPartenaire = item?.referenceProduitPartenaire || item?.referencePartenaire || item?.sku;
             const articleId = item?.articleId ?? toArticleId(item?.id);
-            if (!articleId && !referenceProduitPartenaire) return null;
-            return { articleId: articleId ?? undefined, referenceProduitPartenaire: referenceProduitPartenaire ?? undefined, quantity };
+            const ticketEventId = item?.ticketEventId ?? (itemType === "TICKET" ? toArticleId(item?.id) : null);
+            if (itemType === "ARTICLE" && !articleId && !referenceProduitPartenaire) return null;
+            if (itemType === "TICKET" && !ticketEventId) return null;
+            return {
+              itemType,
+              articleId: itemType === "ARTICLE" ? articleId ?? undefined : undefined,
+              ticketEventId: itemType === "TICKET" ? ticketEventId ?? undefined : undefined,
+              referenceProduitPartenaire: itemType === "ARTICLE" ? referenceProduitPartenaire ?? undefined : undefined,
+              quantity
+            };
           })
           .filter(Boolean);
         if (items.length === 0) {
@@ -392,8 +409,16 @@ export default function Cart() {
               <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                 <AnimatePresence>
                   {cartItems.map((item) => (
+                    (() => {
+                      const isTicket = `${item?.itemType || ""}`.trim().toUpperCase() === "TICKET" || Number(item?.ticketEventId) > 0;
+                      const detailId = isTicket ? (item?.ticketEventId ?? item?.id) : (item?.articleId ?? item?.id);
+                      const detailPath = `${isTicket ? "/tickets" : "/product"}/${detailId}`;
+                      const imageSrc = isTicket
+                        ? resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/wall-1.jpg"
+                        : resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png";
+                      return (
                     <motion.div 
-                      key={`${item.id}-${item.color}-${item.size}`}
+                      key={`${item.itemType || "ARTICLE"}-${item.id}-${item.color}-${item.size}`}
                       variants={itemVariants}
                       layout
                       exit={{ opacity: 0, height: 0 }}
@@ -401,25 +426,38 @@ export default function Cart() {
                     >
                       {/* Product Info */}
                       <div className="col-span-2 md:col-span-6 flex gap-4">
-                        <Link to={`/product/${item.id}`} className="w-20 h-20 md:w-24 md:h-24 bg-neutral-100 dark:bg-neutral-800 rounded-xl overflow-hidden flex-shrink-0 p-2 cursor-pointer">
+                        <Link
+                          to={detailPath}
+                          className={`w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer ${
+                            isTicket ? "bg-neutral-900 dark:bg-black p-0" : "bg-neutral-100 dark:bg-neutral-800 p-2"
+                          }`}
+                        >
                           <img 
-                            src={resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png"} 
+                            src={imageSrc}
                             alt={item.name} 
-                            className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal group-hover:scale-105 transition-transform duration-500" 
+                            className={`w-full h-full transition-transform duration-500 group-hover:scale-105 ${
+                              isTicket ? "object-cover" : "object-contain mix-blend-multiply dark:mix-blend-normal"
+                            }`}
                             onError={(e) => {
                               e.currentTarget.onerror = null;
-                              e.currentTarget.src = "/imgs/logo.png";
+                              e.currentTarget.src = isTicket ? "/imgs/wall-1.jpg" : "/imgs/logo.png";
                             }}
                           />
                         </Link>
                         <div className="flex flex-col justify-between py-1">
                           <div>
                             <h3 className="font-bold text-neutral-900 dark:text-white text-base md:text-lg mb-1 hover:text-orange-600 transition-colors cursor-pointer line-clamp-1 md:line-clamp-none">
-                              <Link to={`/product/${item.id}`}>{item.name}</Link>
+                              <Link to={detailPath}>{item.name}</Link>
                             </h3>
-                            <p className="text-sm text-neutral-500 dark:text-neutral-400">{item.brand}</p>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400">{isTicket ? "Billetterie LID" : item.brand}</p>
                           </div>
                           <div className="flex items-center gap-3 text-sm text-neutral-500">
+                            {isTicket ? (
+                              <span className="px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-xs uppercase font-medium">
+                                Ticket
+                              </span>
+                            ) : (
+                              <>
                             <span className="px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-xs uppercase font-medium">
                               {item.size || "TU"}
                             </span>
@@ -427,6 +465,8 @@ export default function Cart() {
                               <span className="w-3 h-3 rounded-full border border-neutral-200 shadow-sm" style={{ backgroundColor: item.hex || item.color }}></span>
                               <span className="hidden md:inline">{item.color}</span>
                             </span>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -451,7 +491,8 @@ export default function Cart() {
                           <span className="w-8 text-center font-medium text-neutral-900 dark:text-white">{item.quantity}</span>
                           <button
                             onClick={() => updateQuantity(item.id, item.color, item.size, 1)}
-                            className="w-8 h-8 flex items-center justify-center hover:bg-white dark:hover:bg-neutral-700 rounded-full text-neutral-600 dark:text-neutral-300 transition-colors shadow-sm"
+                            className="w-8 h-8 flex items-center justify-center hover:bg-white dark:hover:bg-neutral-700 rounded-full text-neutral-600 dark:text-neutral-300 transition-colors shadow-sm disabled:opacity-50"
+                            disabled={isTicket && Number(item?.quantityAvailable) > 0 && Number(item.quantity) >= Number(item.quantityAvailable)}
                           >
                             <Plus className="w-3 h-3" />
                           </button>
@@ -475,6 +516,8 @@ export default function Cart() {
                         </div>
                       </div>
                     </motion.div>
+                      );
+                    })()
                   ))}
                 </AnimatePresence>
               </div>

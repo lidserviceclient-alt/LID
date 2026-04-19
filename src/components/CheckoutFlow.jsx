@@ -262,12 +262,30 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     ? cartItems.reduce((acc, item) => acc + (Number(item?.price) || 0) * (Number(item?.quantity) || 0), 0)
     : (Number(product?.price) || 0) * normalizedQuantity;
 
-  const netTotal = Math.max(0, itemsTotal + normalizedShippingCost - normalizedDiscountAmount - normalizedLoyaltyDiscountAmount);
-  const taxAmount = roundAmount(netTotal * vatRate);
-  const finalTotal = roundAmount(netTotal + taxAmount);
+  const finalTotal = Math.max(0, roundAmount(itemsTotal + normalizedShippingCost - normalizedDiscountAmount - normalizedLoyaltyDiscountAmount));
+  const taxAmount = vatRate > 0 ? roundAmount(finalTotal - (finalTotal / (1 + vatRate))) : 0;
   const vatPercentLabel = Math.round(vatRate * 100);
   const phoneIsValid = isValidInternationalPhone(formData.phone);
   const mobilePhoneIsValid = !formData.mobilePhone || isValidMobileMoneyPhone(formData.mobilePhone);
+
+  const toCheckoutItem = (item, fallbackQuantity = 1) => {
+    const itemType = `${item?.itemType || (item?.ticketEventId ? "TICKET" : item?.type === "ticket" ? "TICKET" : "ARTICLE")}`.trim().toUpperCase();
+    const quantityValue = Number(item?.quantity) || fallbackQuantity;
+    if (itemType === "TICKET") {
+      const ticketEventId = Number(item?.ticketEventId ?? item?.id);
+      if (!Number.isFinite(ticketEventId) || ticketEventId <= 0) return null;
+      return { itemType, ticketEventId: Math.trunc(ticketEventId), quantity: quantityValue };
+    }
+    const articleId = Number(item?.articleId ?? item?.id);
+    const referenceProduitPartenaire = `${item?.referenceProduitPartenaire || item?.referencePartenaire || item?.sku || ""}`.trim();
+    if ((!Number.isFinite(articleId) || articleId <= 0) && !referenceProduitPartenaire) return null;
+    return {
+      itemType,
+      articleId: Number.isFinite(articleId) && articleId > 0 ? Math.trunc(articleId) : undefined,
+      referenceProduitPartenaire: referenceProduitPartenaire || undefined,
+      quantity: quantityValue
+    };
+  };
 
   const steps = [
     { id: 1, label: 'Informations', icon: User },
@@ -403,6 +421,22 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     }
   };
 
+  const setPaymentMethod = (method) => {
+    setFormData((prev) => {
+      if (method === 'mobile') {
+        return {
+          ...prev,
+          paymentMethod: 'mobile',
+          mobilePhone: prev.phone || prev.mobilePhone
+        };
+      }
+      return {
+        ...prev,
+        paymentMethod: method
+      };
+    });
+  };
+
   const handleSubmitInfo = (e) => {
     e.preventDefault();
     setPhoneTouched(true);
@@ -445,7 +479,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
         shippingMethodCode,
         shippingMethodLabel,
         shippingCost: normalizedShippingCost,
-        items: isCartCheckout ? cartItems.map(i => ({ articleId: i.id, quantity: i.quantity })) : [{ articleId: product.id, quantity: normalizedQuantity }],
+        items: (isCartCheckout ? cartItems.map((i) => toCheckoutItem(i, i?.quantity)) : [toCheckoutItem({ ...product, quantity: normalizedQuantity }, normalizedQuantity)]).filter(Boolean),
         paymentProvider: import.meta.env.VITE_PAYMENT_PROVIDER || 'PAYDUNYA'
       });
       setLoadingStep(3);
@@ -615,8 +649,8 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                   {step === 2 && (
                     <motion.form key="s2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} onSubmit={handlePayment} className="space-y-8">
                       <div className="flex bg-neutral-100 dark:bg-neutral-900 p-1 rounded-2xl">
-                        <button type="button" onClick={() => setFormData(p => ({ ...p, paymentMethod: 'card' }))} className={cn("flex-1 py-3 rounded-xl font-bold transition-all", formData.paymentMethod === 'card' ? "bg-white dark:bg-neutral-800 shadow-sm" : "text-neutral-400")}>Carte</button>
-                        <button type="button" onClick={() => setFormData(p => ({ ...p, paymentMethod: 'mobile' }))} className={cn("flex-1 py-3 rounded-xl font-bold transition-all", formData.paymentMethod === 'mobile' ? "bg-white dark:bg-neutral-800 shadow-sm" : "text-neutral-400")}>Mobile</button>
+                        <button type="button" onClick={() => setPaymentMethod('card')} className={cn("flex-1 py-3 rounded-xl font-bold transition-all", formData.paymentMethod === 'card' ? "bg-white dark:bg-neutral-800 shadow-sm" : "text-neutral-400")}>Carte</button>
+                        <button type="button" onClick={() => setPaymentMethod('mobile')} className={cn("flex-1 py-3 rounded-xl font-bold transition-all", formData.paymentMethod === 'mobile' ? "bg-white dark:bg-neutral-800 shadow-sm" : "text-neutral-400")}>Mobile</button>
                       </div>
                       {formData.paymentMethod === 'card' ? (
                         <div className="space-y-6">

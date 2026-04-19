@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Calendar, MapPin, Ticket as TicketIcon, ArrowLeft, Zap, ShieldCheck } from "lucide-react";
+import { Calendar, MapPin, Ticket as TicketIcon, ArrowLeft, Zap, ShieldCheck, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { getTicketEvent } from "@/services/ticketService";
@@ -46,6 +46,7 @@ export default function TicketDetails() {
   const [ticket, setTicket] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
 
   const theme = useMemo(() => getTheme(ticket?.category), [ticket?.category]);
 
@@ -80,9 +81,13 @@ export default function TicketDetails() {
     };
   }, [id]);
 
+  useEffect(() => {
+    setSelectedQuantity((prev) => Math.max(1, Math.min(prev, Math.max(1, Number(ticket?.quantityAvailable) || 1))));
+  }, [ticket?.quantityAvailable]);
+
   const handleAddToCart = () => {
     if (!ticket) return;
-    if (ticket?.available === false) {
+    if (!ticket?.sellable) {
       toast.error("Événement indisponible");
       return;
     }
@@ -94,9 +99,12 @@ export default function TicketDetails() {
       type: "ticket",
       name: ticket.title,
       brand: "LID Events",
+      quantity: selectedQuantity,
     });
     toast.success("Ajouté au panier");
   };
+
+  const maxQuantity = Math.max(1, Number(ticket?.quantityAvailable) || 1);
 
   return (
     <div className="min-h-screen pt-24 pb-12 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white">
@@ -148,7 +156,7 @@ export default function TicketDetails() {
                       <TicketIcon className="w-4 h-4" />
                       {ticket.category || "Événement"}
                     </span>
-                    {ticket.available === false && (
+                    {!ticket.sellable && (
                       <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-black/70 text-white text-xs font-bold">
                         Indisponible
                       </span>
@@ -192,10 +200,34 @@ export default function TicketDetails() {
                 <p className={`text-xs font-bold uppercase tracking-[0.25em] ${theme.accent}`}>Billet</p>
                 <p className="mt-2 text-3xl font-black">{formatPrice(ticket.price)}</p>
 
+                <div className="mt-5">
+                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-neutral-500 dark:text-neutral-400">Quantité</p>
+                  <div className="mt-3 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQuantity((prev) => Math.max(1, prev - 1))}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-neutral-200 dark:border-neutral-800"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <div className="min-w-[72px] rounded-2xl border border-neutral-200 dark:border-neutral-800 px-4 py-3 text-center text-lg font-black">
+                      {selectedQuantity}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQuantity((prev) => Math.min(maxQuantity, prev + 1))}
+                      disabled={selectedQuantity >= maxQuantity}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-neutral-200 dark:border-neutral-800 disabled:opacity-40"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  disabled={ticket.available === false}
+                  disabled={!ticket.sellable}
                   className="mt-6 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-black text-white dark:bg-white dark:text-black font-bold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Zap className="w-5 h-5" />
@@ -209,7 +241,7 @@ export default function TicketDetails() {
                   </div>
                   <div className="flex items-center justify-between rounded-xl bg-neutral-50 dark:bg-neutral-950/40 border border-neutral-200 dark:border-neutral-800 px-4 py-3">
                     <span className="text-neutral-600 dark:text-neutral-300">Disponibilité</span>
-                    <span className="font-bold">{ticket.available === false ? "Indisponible" : "Disponible"}</span>
+                    <span className="font-bold">{ticket.sellable ? "En vente" : ticket.available === false ? "Désactivé" : "Rupture"}</span>
                   </div>
                   <div className="flex items-center justify-between rounded-xl bg-neutral-50 dark:bg-neutral-950/40 border border-neutral-200 dark:border-neutral-800 px-4 py-3">
                     <span className="text-neutral-600 dark:text-neutral-300">Référence</span>
@@ -224,4 +256,3 @@ export default function TicketDetails() {
     </div>
   );
 }
-
