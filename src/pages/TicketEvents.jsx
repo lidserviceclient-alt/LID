@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, Edit2, Trash2, AlertCircle, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, AlertCircle, Calendar as CalendarIcon, Package2, Minus, PlusCircle } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Badge from "../components/ui/Badge.jsx";
@@ -53,7 +53,10 @@ export default function TicketEvents() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [current, setCurrent] = useState(null);
+  const [inventory, setInventory] = useState(null);
+  const [inventoryQuantity, setInventoryQuantity] = useState("1");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -62,6 +65,7 @@ export default function TicketEvents() {
     date: "",
     location: "",
     price: "",
+    quantityAvailable: "0",
     imageUrl: "",
     category: "",
     available: true,
@@ -105,6 +109,7 @@ export default function TicketEvents() {
       date: "",
       location: "",
       price: "",
+      quantityAvailable: "0",
       imageUrl: "",
       category: "",
       available: true,
@@ -121,6 +126,7 @@ export default function TicketEvents() {
       date: row?.date || "",
       location: row?.location || "",
       price: row?.price === null || row?.price === undefined ? "" : `${row.price}`,
+      quantityAvailable: row?.quantityAvailable === null || row?.quantityAvailable === undefined ? "0" : `${row.quantityAvailable}`,
       imageUrl: row?.imageUrl || "",
       category: row?.category || "",
       available: Boolean(row?.available),
@@ -145,6 +151,11 @@ export default function TicketEvents() {
       setFormError("Prix invalide.");
       return;
     }
+    const quantityAvailable = Number(form.quantityAvailable);
+    if (!Number.isFinite(quantityAvailable) || quantityAvailable < 0 || !Number.isInteger(quantityAvailable)) {
+      setFormError("Stock initial invalide.");
+      return;
+    }
     const payload = {
       title,
       date: normalizeDateTime(form.date),
@@ -153,6 +164,8 @@ export default function TicketEvents() {
       imageUrl: form.imageUrl.trim(),
       category: form.category.trim(),
       available: Boolean(form.available),
+      quantityAvailable,
+      quantityReserved: current?.quantityReserved ?? 0,
       description: form.description.trim()
     };
     setSaving(true);
@@ -186,6 +199,46 @@ export default function TicketEvents() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const openInventory = async (row) => {
+    setCurrent(row);
+    setInventory(row);
+    setInventoryQuantity("1");
+    setFormError("");
+    setIsInventoryOpen(true);
+    try {
+      const res = await backofficeApi.ticketInventory(row.id);
+      setInventory(res);
+    } catch (err) {
+      setFormError(err?.message || "Impossible de charger le stock.");
+    }
+  };
+
+  const adjustInventory = async (mode) => {
+    if (!current?.id) return;
+    const qty = Number(inventoryQuantity);
+    if (!Number.isFinite(qty) || qty < 0) {
+      setFormError("Quantité invalide.");
+      return;
+    }
+    setSaving(true);
+    setFormError("");
+    try {
+      const res = await backofficeApi.adjustTicketInventory(current.id, { mode, quantity: qty });
+      setInventory(res);
+      await reloadTicketEventsResolver();
+    } catch (err) {
+      setFormError(err?.message || "Échec de mise à jour du stock.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const ticketStatus = (row) => {
+    if (!row?.available) return { label: "Désactivé", variant: "default" };
+    if (!row?.sellable) return { label: "Rupture", variant: "default" };
+    return { label: "En vente", variant: "outline" };
   };
 
   return (
@@ -242,10 +295,11 @@ export default function TicketEvents() {
           <Table>
             <THead
               columns={[
-                { label: "Événement", width: "30%" },
+                { label: "Événement", width: "26%" },
                 { label: "Date", width: "20%" },
-                { label: "Catégorie", width: "15%" },
-                { label: "Prix", width: "15%" },
+                { label: "Catégorie", width: "12%" },
+                { label: "Prix", width: "12%" },
+                { label: "Quantité", width: "10%" },
                 { label: "Statut", width: "10%" },
                 { label: "", width: "10%" }
               ]}
@@ -272,10 +326,17 @@ export default function TicketEvents() {
                   <TCell><Badge label={p.category || "-"} /></TCell>
                   <TCell>{formatCurrency(p.price)}</TCell>
                   <TCell>
-                    {p.available ? <Badge label="Disponible" variant="outline" /> : <Badge label="Indisponible" />}
+                    <p className="text-sm font-semibold">{Number(p.quantityAvailable) || 0}</p>
+                  </TCell>
+                  <TCell>
+                    <Badge label={ticketStatus(p).label} variant={ticketStatus(p).variant} />
                   </TCell>
                   <TCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => openInventory(p)}>
+                        <Package2 className="mr-2 h-4 w-4" />
+                        Stock
+                      </Button>
                       <Button variant="outline" size="sm" onClick={() => openEdit(p)}>
                         <Edit2 className="mr-2 h-4 w-4" />
                         Modifier
@@ -290,7 +351,7 @@ export default function TicketEvents() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-sm text-muted-foreground">
+                  <td colSpan={7} className="p-6 text-center text-sm text-muted-foreground">
                     {isLoading ? "Chargement..." : "Aucun événement"}
                   </td>
                 </tr>
@@ -343,6 +404,16 @@ export default function TicketEvents() {
             <Input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
           </div>
           <div className="space-y-2">
+            <Label>Stock initial</Label>
+            <Input
+              type="number"
+              min="0"
+              step="1"
+              value={form.quantityAvailable}
+              onChange={(e) => setForm({ ...form, quantityAvailable: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
             <Label>Disponibilité</Label>
             <Select value={form.available ? "YES" : "NO"} onChange={(e) => setForm({ ...form, available: e.target.value === "YES" })}>
               <option value="YES">Disponible</option>
@@ -383,6 +454,57 @@ export default function TicketEvents() {
         <p className="text-sm text-muted-foreground">
           Confirmez la suppression de l’événement « {current?.title || "-"} ». Cette action est irréversible.
         </p>
+      </Modal>
+
+      <Modal
+        isOpen={isInventoryOpen}
+        onClose={() => setIsInventoryOpen(false)}
+        title={`Stock billetterie${current?.title ? ` - ${current.title}` : ""}`}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsInventoryOpen(false)} disabled={saving}>
+              Fermer
+            </Button>
+            <Button variant="outline" onClick={() => adjustInventory("DECREMENT")} disabled={saving}>
+              <Minus className="mr-2 h-4 w-4" />
+              Décrémenter
+            </Button>
+            <Button variant="outline" onClick={() => adjustInventory("INCREMENT")} disabled={saving}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Incrémenter
+            </Button>
+            <Button onClick={() => adjustInventory("SET")} disabled={saving}>
+              Définir
+            </Button>
+          </>
+        }
+      >
+        {formError && (
+          <div className="mb-3 p-3 rounded-lg border border-destructive/30 bg-destructive/10 text-sm text-destructive flex items-center gap-2">
+            <AlertCircle size={16} /> {formError}
+          </div>
+        )}
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Disponible</p>
+            <p className="mt-2 text-2xl font-bold">{Number(inventory?.quantityAvailable) || 0}</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Réservé</p>
+            <p className="mt-2 text-2xl font-bold">{Number(inventory?.quantityReserved) || 0}</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Total</p>
+            <p className="mt-2 text-2xl font-bold">{Number(inventory?.quantityTotal) || 0}</p>
+          </Card>
+        </div>
+        <div className="mt-6 space-y-2">
+          <Label>Quantité</Label>
+          <Input type="number" min="0" value={inventoryQuantity} onChange={(e) => setInventoryQuantity(e.target.value)} />
+          <p className="text-xs text-muted-foreground">
+            Définir remplace le stock disponible. Incrémenter et Décrémenter modifient uniquement le disponible.
+          </p>
+        </div>
       </Modal>
     </>
   );

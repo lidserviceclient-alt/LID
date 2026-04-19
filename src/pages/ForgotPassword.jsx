@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, ArrowRight, ShieldCheck, Key, CheckCircle, ChevronLeft, AlertCircle } from "lucide-react";
 import Button from "../components/ui/Button";
@@ -7,6 +7,7 @@ import { backofficeApi } from "../services/api";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
+  const codeInputRef = useRef(null);
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -88,14 +89,41 @@ export default function ForgotPassword() {
     }
   };
 
-  const handleCodeChange = (index, value) => {
-    const next = value.replace(/\D/g, "").slice(-1);
-    setCodeDigits((prev) => {
-      const updated = [...prev];
-      updated[index] = next;
-      return updated;
-    });
+  const focusCodeInput = () => {
+  setTimeout(() => {
+    codeInputRef.current?.focus();
+  }, 0);
+};
+
+  const handleCodeInputChange = (value) => {
+    const digits = value.replace(/\D/g, "").slice(0, 6);
+    const nextDigits = Array.from({ length: 6 }, (_, index) => digits[index] || "");
+    setCodeDigits(nextDigits);
   };
+
+  const handleCodeKeyDown = (e) => {
+    if (e.key === "Backspace" && !codeValue) {
+      setCodeDigits(["", "", "", "", "", ""]);
+    }
+  };
+
+  const handleCodePaste = (e) => {
+  e.preventDefault();
+
+  const pastedData = e.clipboardData
+    .getData("text")
+    .replace(/\D/g, "")
+    .slice(0, 6);
+
+  const newDigits = pastedData.split("");
+  const filledDigits = Array.from({ length: 6 }, (_, i) => newDigits[i] || "");
+
+  setCodeDigits(filledDigits);
+
+  if (codeInputRef.current) {
+    codeInputRef.current.value = pastedData;
+  }
+};
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -186,21 +214,45 @@ export default function ForgotPassword() {
           {step === 2 && (
             <form onSubmit={handleVerifyCode} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="space-y-2">
-                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                <label
+                  htmlFor="reset-code"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
                   Code de vérification
                 </label>
-                <div className="flex gap-2 justify-between">
-                  {[0, 1, 2, 3, 4, 5].map((i) => (
-                    <input
-                      key={i}
-                      type="text"
-                      maxLength={1}
-                      autoComplete={i === 0 ? "one-time-code" : "off"}
-                      className="w-12 h-14 text-center text-xl font-bold rounded-lg border border-input bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                      value={codeDigits[i]}
-                      onChange={(e) => handleCodeChange(i, e.target.value)}
-                    />
-                  ))}
+                <div className="relative" onClick={focusCodeInput}>
+                  <input
+                    id="reset-code"
+                    ref={codeInputRef}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={codeValue}
+                    onChange={(e) => handleCodeInputChange(e.target.value)}
+                    onKeyDown={handleCodeKeyDown}
+                    onPaste={handleCodePaste}
+                    className="absolute inset-0 z-10 h-full w-full cursor-text opacity-0 pointer-events-auto"
+                    aria-label="Code de verification"
+                  />
+                  <div className="flex gap-2 justify-between">
+                    {[0, 1, 2, 3, 4, 5].map((i) => {
+                      const isActive = i === Math.min(codeValue.length, codeDigits.length - 1);
+                      return (
+                        <div
+                          key={i}
+                          aria-hidden="true"
+                          className={`flex h-14 w-12 items-center justify-center rounded-lg border bg-background text-center text-xl font-bold transition-all ${
+                            isActive
+                              ? "border-primary ring-2 ring-primary"
+                              : "border-input"
+                          }`}
+                        >
+                          {codeDigits[i]}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2 text-center">
                   Vous n'avez rien reçu ? <button type="button" className="text-primary hover:underline" onClick={handleResendCode}>Renvoyer le code</button>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, X, Eye } from "lucide-react";
+import { Check, X, Eye, Wallet } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Badge from "../components/ui/Badge.jsx";
@@ -35,9 +35,29 @@ const formatMoney = (value) => {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XOF", maximumFractionDigits: 0 }).format(amount);
 };
 
+const computePartnerPayoutAmount = (orderAmount, shippingAllocation) => {
+  const grossOrder = Number(orderAmount);
+  const shipping = Number(shippingAllocation);
+  if (!Number.isFinite(grossOrder)) return null;
+  if (!Number.isFinite(shipping)) return grossOrder;
+  return Math.max(0, grossOrder - shipping);
+};
+
 const csvValue = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
 const todayInput = () => new Date().toISOString().slice(0, 10);
+
+const toDateTimeLocalValue = (value) => {
+  if (!value) return "";
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return "";
+  const year = dt.getFullYear();
+  const month = `${dt.getMonth() + 1}`.padStart(2, "0");
+  const day = `${dt.getDate()}`.padStart(2, "0");
+  const hours = `${dt.getHours()}`.padStart(2, "0");
+  const minutes = `${dt.getMinutes()}`.padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
 
 const statusUi = (status) => {
   const s = `${status || ""}`.trim().toUpperCase();
@@ -46,6 +66,30 @@ const statusUi = (status) => {
   if (s === "REJECTED") return { label: "Refusé", variant: "destructive" };
   if (s.startsWith("STEP_")) return { label: "En inscription", variant: "neutral" };
   return { label: s || "-", variant: "outline" };
+};
+
+const payoutUi = (status) => {
+  const normalized = `${status || ""}`.trim().toUpperCase();
+  if (normalized === "PAID_MANUAL") {
+    return { label: "Paiement manuel effectué", variant: "success" };
+  }
+  if (normalized === "DIRECT_PAID") {
+    return { label: "Paiement direct effectué", variant: "success" };
+  }
+  if (normalized === "DIRECT_FAILED") {
+    return { label: "Paiement direct en échec", variant: "destructive" };
+  }
+  if (normalized === "SCHEDULED" || normalized === "ELIGIBLE") {
+    return { label: "Paiement programmé", variant: "warning" };
+  }
+  if (normalized === "SCHEDULED_PAID" || normalized === "PAID_AUTOMATIC") return { label: "Paiement programmé effectué", variant: "success" };
+  if (normalized === "SCHEDULED_FAILED" || normalized === "FAILED_AUTOMATIC") return { label: "Paiement programmé en échec", variant: "destructive" };
+  if (normalized === "CANCELLED_MANUAL" || normalized === "FAILED_MANUAL") {
+    return { label: "Annulation manuelle", variant: "outline" };
+  }
+  if (normalized === "PENDING_WINDOW") return { label: "Fenêtre d'attente", variant: "neutral" };
+  if (normalized === "RETURN_ADJUSTED") return { label: "Ajusté après retour", variant: "outline" };
+  return { label: normalized || "-", variant: "outline" };
 };
 
 function DocumentPreview({ label, url }) {
@@ -68,7 +112,7 @@ export default function Partners() {
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(20);
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState("UNDER_REVIEW");
+  const [status, setStatus] = useState("ALL");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
@@ -83,6 +127,9 @@ export default function Partners() {
   const [transactionError, setTransactionError] = useState("");
   const [transactionPage, setTransactionPage] = useState(0);
   const [transactionFilters, setTransactionFilters] = useState({ fromDate: todayInput(), toDate: todayInput() });
+  const [paymentModalTransaction, setPaymentModalTransaction] = useState(null);
+  const [paymentModalScheduledAt, setPaymentModalScheduledAt] = useState("");
+  const [paymentActionLoading, setPaymentActionLoading] = useState(false);
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
@@ -148,17 +195,18 @@ export default function Partners() {
   const exportTransactionsCsv = () => {
     if (!paymentPartnerId || transactionRows.length === 0) return;
     const csvRows = [
-      ["Date", "Commande", "Statut", "Brut", "Livraison", "Retour", "Marge", "Net", "Reference"],
+      ["Commande", "Date commande", "Paiement prevu", "Montant commande", "Montant article", "Livraison", "Retour", "Marge", "A verser", "Statut"],
       ...transactionRows.map((row) => [
-        formatDate(row.transactionDate),
         row.orderId ? `ORD-${row.orderId}` : "-",
-        row.payoutStatus || "-",
+        formatDate(row.orderCreatedAt),
+        formatDate(row.scheduledAt || row.eligibleAt),
+        formatMoney(row.orderAmount),
         formatMoney(row.grossAmount),
         formatMoney(row.shippingAllocation),
         formatMoney(row.returnCostAllocation),
         formatMoney(row.marginAmount),
-        formatMoney(row.netAmount),
-        row.payoutReference || "-"
+        formatMoney(computePartnerPayoutAmount(row.orderAmount, row.shippingAllocation)),
+        payoutUi(row.payoutStatus).label
       ])
     ];
     const blob = new Blob([csvRows.map((row) => row.map(csvValue).join(",")).join("\n")], { type: "text/csv;charset=utf-8;" });
@@ -188,6 +236,78 @@ export default function Partners() {
     setTransactionError("");
     setTransactionPage(0);
     await loadTransactions(partnerId, 0, transactionFilters);
+  };
+
+  const openPaymentModal = (row) => {
+    setPaymentModalTransaction(row || null);
+    setPaymentModalScheduledAt(toDateTimeLocalValue(row?.scheduledAt || row?.eligibleAt));
+  };
+
+  const closePaymentModal = () => {
+    setPaymentModalTransaction(null);
+    setPaymentModalScheduledAt("");
+    setPaymentActionLoading(false);
+  };
+
+  const reloadTransactionsAfterAction = async () => {
+    await loadTransactions(paymentPartnerId, transactionPage, transactionFilters);
+  };
+
+  const scheduleTransaction = async () => {
+    if (!paymentPartnerId || !paymentModalTransaction?.id || !paymentModalScheduledAt) return;
+    setPaymentActionLoading(true);
+    setTransactionError("");
+    try {
+      const scheduledAt = paymentModalScheduledAt.length === 16 ? `${paymentModalScheduledAt}:00` : paymentModalScheduledAt;
+      await backofficeApi.schedulePartnerTransaction(paymentPartnerId, paymentModalTransaction.id, scheduledAt);
+      await reloadTransactionsAfterAction();
+      closePaymentModal();
+    } catch (err) {
+      setTransactionError(err?.message || "Impossible de programmer le paiement partenaire.");
+      setPaymentActionLoading(false);
+    }
+  };
+
+  const directPayTransaction = async () => {
+    if (!paymentPartnerId || !paymentModalTransaction?.id) return;
+    setPaymentActionLoading(true);
+    setTransactionError("");
+    try {
+      await backofficeApi.payPartnerTransactionDirect(paymentPartnerId, paymentModalTransaction.id);
+      await reloadTransactionsAfterAction();
+      closePaymentModal();
+    } catch (err) {
+      setTransactionError(err?.message || "Impossible de lancer le paiement direct du partenaire.");
+      setPaymentActionLoading(false);
+    }
+  };
+
+  const manualPayTransaction = async () => {
+    if (!paymentPartnerId || !paymentModalTransaction?.id) return;
+    setPaymentActionLoading(true);
+    setTransactionError("");
+    try {
+      await backofficeApi.payPartnerTransactionManual(paymentPartnerId, paymentModalTransaction.id);
+      await reloadTransactionsAfterAction();
+      closePaymentModal();
+    } catch (err) {
+      setTransactionError(err?.message || "Impossible d'enregistrer le paiement manuel du partenaire.");
+      setPaymentActionLoading(false);
+    }
+  };
+
+  const cancelTransaction = async () => {
+    if (!paymentPartnerId || !paymentModalTransaction?.id) return;
+    setPaymentActionLoading(true);
+    setTransactionError("");
+    try {
+      await backofficeApi.cancelPartnerTransaction(paymentPartnerId, paymentModalTransaction.id);
+      await reloadTransactionsAfterAction();
+      closePaymentModal();
+    } catch (err) {
+      setTransactionError(err?.message || "Impossible d'annuler manuellement ce paiement partenaire.");
+      setPaymentActionLoading(false);
+    }
   };
 
   const closeDetail = () => {
@@ -352,17 +472,20 @@ export default function Partners() {
           rightSlot={
             selectedPartnerSummary ? (
               <div className="flex flex-wrap items-center gap-2">
+                <div className="mr-2 text-xs text-muted-foreground">Filtre sur la date de commande</div>
                 <Input
                   type="date"
                   value={transactionFilters.fromDate}
                   onChange={(e) => setTransactionFilters((s) => ({ ...s, fromDate: e.target.value }))}
                   className="w-[165px]"
+                  aria-label="Date de commande du"
                 />
                 <Input
                   type="date"
                   value={transactionFilters.toDate}
                   onChange={(e) => setTransactionFilters((s) => ({ ...s, toDate: e.target.value }))}
                   className="w-[165px]"
+                  aria-label="Date de commande au"
                 />
                 <Button
                   variant="outline"
@@ -415,21 +538,24 @@ export default function Partners() {
         <Table>
           <THead>
             <TRow>
-              <TCell>Date</TCell>
               <TCell>Commande</TCell>
-              <TCell>Statut</TCell>
-              <TCell>Brut</TCell>
+              <TCell>Date commande</TCell>
+              <TCell>Paiement prévu</TCell>
+              <TCell>Montant commande</TCell>
+              <TCell>Montant article</TCell>
               <TCell>Livraison</TCell>
               <TCell>Retour</TCell>
               <TCell>Marge</TCell>
-              <TCell>Net</TCell>
-              <TCell>Référence</TCell>
+              <TCell>À verser</TCell>
+              <TCell>Statut</TCell>
+              <TCell className="text-right">Action</TCell>
             </TRow>
           </THead>
           <tbody>
             {!selectedPartnerSummary ? (
               <TRow>
                 <TCell>Sélectionnez un partenaire via le bouton “Paiements”.</TCell>
+                <TCell />
                 <TCell />
                 <TCell />
                 <TCell />
@@ -450,6 +576,7 @@ export default function Partners() {
                 <TCell />
                 <TCell />
                 <TCell />
+                <TCell />
               </TRow>
             ) : transactionRows.length === 0 ? (
               <TRow>
@@ -462,21 +589,34 @@ export default function Partners() {
                 <TCell />
                 <TCell />
                 <TCell />
+                <TCell />
               </TRow>
             ) : (
-              transactionRows.map((row) => (
+              transactionRows.map((row) => {
+                const payout = payoutUi(row.payoutStatus);
+                const payoutAmount = computePartnerPayoutAmount(row.orderAmount, row.shippingAllocation);
+                return (
                 <TRow key={`ledger-${row.id}`}>
-                  <TCell>{formatDate(row.transactionDate)}</TCell>
                   <TCell>{row.orderId ? `ORD-${row.orderId}` : "-"}</TCell>
-                  <TCell>{row.payoutStatus || "-"}</TCell>
+                  <TCell>{formatDate(row.orderCreatedAt)}</TCell>
+                  <TCell>{formatDate(row.scheduledAt || row.eligibleAt)}</TCell>
+                  <TCell>{formatMoney(row.orderAmount)}</TCell>
                   <TCell>{formatMoney(row.grossAmount)}</TCell>
                   <TCell>{formatMoney(row.shippingAllocation)}</TCell>
                   <TCell>{formatMoney(row.returnCostAllocation)}</TCell>
                   <TCell>{formatMoney(row.marginAmount)}</TCell>
-                  <TCell className="font-semibold text-foreground">{formatMoney(row.netAmount)}</TCell>
-                  <TCell>{row.payoutReference || "-"}</TCell>
+                  <TCell className="font-semibold text-foreground">{formatMoney(payoutAmount)}</TCell>
+                  <TCell>
+                    <Badge label={payout.label} variant={payout.variant} />
+                  </TCell>
+                  <TCell className="text-right">
+                    <Button variant="outline" size="sm" onClick={() => openPaymentModal(row)}>
+                      <Wallet className="mr-2 h-4 w-4" />
+                      Gérer
+                    </Button>
+                  </TCell>
                 </TRow>
-              ))
+              )})
             )}
           </tbody>
         </Table>
@@ -505,6 +645,108 @@ export default function Partners() {
           </div>
         ) : null}
       </Card>
+
+      <Modal
+        isOpen={Boolean(paymentModalTransaction)}
+        onClose={closePaymentModal}
+        title="Ordre de paiement partenaire"
+        footer={
+          <div className="flex w-full flex-wrap items-center justify-between gap-2">
+            <div className="text-xs text-muted-foreground">
+              {paymentModalTransaction?.orderId ? `Commande ORD-${paymentModalTransaction.orderId}` : ""}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(() => {
+                const currentStatus = `${paymentModalTransaction?.payoutStatus || ""}`.trim().toUpperCase();
+                const isAlreadyClosed = ["DIRECT_PAID", "SCHEDULED_PAID", "PAID_MANUAL", "RETURN_ADJUSTED", "PAID_AUTOMATIC"].includes(currentStatus);
+                const isAlreadyCancelled = ["CANCELLED_MANUAL", "FAILED_MANUAL"].includes(currentStatus);
+                return (
+                  <>
+              <Button variant="outline" onClick={closePaymentModal} disabled={paymentActionLoading}>
+                Fermer
+              </Button>
+              <Button
+                variant="outline"
+                onClick={manualPayTransaction}
+                disabled={paymentActionLoading || !paymentModalTransaction || isAlreadyClosed}
+              >
+                {paymentActionLoading ? "Traitement..." : "Paiement manuel"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={cancelTransaction}
+                disabled={paymentActionLoading || !paymentModalTransaction || isAlreadyClosed || isAlreadyCancelled}
+              >
+                {paymentActionLoading ? "Traitement..." : "Annulation manuelle"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={scheduleTransaction}
+                disabled={paymentActionLoading || !paymentModalTransaction || !paymentModalScheduledAt || isAlreadyClosed}
+              >
+                {paymentActionLoading ? "Traitement..." : "Enregistrer le paiement programmé"}
+              </Button>
+              <Button
+                onClick={directPayTransaction}
+                disabled={paymentActionLoading || !paymentModalTransaction || isAlreadyClosed}
+              >
+                {paymentActionLoading ? "Traitement..." : "Paiement direct"}
+              </Button>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        }
+      >
+        {paymentModalTransaction ? (
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-border bg-muted/20 p-3">
+                <div className="text-xs text-muted-foreground">Partenaire</div>
+                <div className="font-semibold text-foreground">{paymentModalTransaction.partnerName || "-"}</div>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/20 p-3">
+                <div className="text-xs text-muted-foreground">Statut courant</div>
+                <div className="mt-1">
+                  <Badge {...payoutUi(paymentModalTransaction.payoutStatus)} />
+                </div>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/20 p-3">
+                <div className="text-xs text-muted-foreground">Montant commande</div>
+                <div className="font-semibold text-foreground">{formatMoney(paymentModalTransaction.orderAmount)}</div>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/20 p-3">
+                <div className="text-xs text-muted-foreground">À verser</div>
+                <div className="font-semibold text-foreground">
+                  {formatMoney(computePartnerPayoutAmount(paymentModalTransaction.orderAmount, paymentModalTransaction.shippingAllocation))}
+                </div>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/20 p-3">
+                <div className="text-xs text-muted-foreground">Date d’éligibilité</div>
+                <div className="font-semibold text-foreground">{formatDate(paymentModalTransaction.eligibleAt)}</div>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/20 p-3">
+                <div className="text-xs text-muted-foreground">Paiement réellement effectué</div>
+                <div className="font-semibold text-foreground">{formatDate(paymentModalTransaction.paidOutAt)}</div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="partner-payment-scheduled-at">Paiement programmé</Label>
+              <Input
+                id="partner-payment-scheduled-at"
+                type="datetime-local"
+                value={paymentModalScheduledAt}
+                onChange={(e) => setPaymentModalScheduledAt(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Par défaut, la date vient de la date prévue en base. L’enregistrement met à jour l’ordre de paiement programmé qui sera exécuté par le worker backend.
+              </p>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
 
       <Modal
         isOpen={Boolean(detailPartnerId)}

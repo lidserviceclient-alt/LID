@@ -4,10 +4,9 @@ import SectionHeader from "../components/ui/SectionHeader.jsx";
 import LineChart from "../components/charts/LineChart.jsx";
 import Select from "../components/ui/Select.jsx";
 import Button from "../components/ui/Button.jsx";
-import { analyticsSeries as analyticsSeriesMock, channelMix } from "../data/mockData.js";
+import { analyticsSeries as analyticsSeriesMock } from "../data/mockData.js";
 import { useOverviewContext } from "../contexts/OverviewContext.jsx";
 import { useNotificationsContext } from "../contexts/NotificationsContext.jsx";
-import { backofficeApi } from "../services/api.js";
 
 const ranges = [
   { value: "week", label: "Cette semaine", days: 7 },
@@ -66,10 +65,6 @@ export default function Analytics() {
     unreadNotificationsCount,
     loadNotifications
   } = useNotificationsContext();
-  const [channelMixState, setChannelMixState] = useState(channelMix);
-  const [funnelState, setFunnelState] = useState(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
-  const [analyticsError, setAnalyticsError] = useState("");
 
   const selected = useMemo(
     () => ranges.find((item) => item.value === range) || ranges[0],
@@ -79,36 +74,6 @@ export default function Analytics() {
   useEffect(() => {
     loadOverview(selected.days).catch(() => {});
   }, [loadOverview, selected.days]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setAnalyticsLoading(true);
-    setAnalyticsError("");
-    backofficeApi
-      .analyticsCollection(selected.days)
-      .then((res) => {
-        if (cancelled) return;
-        if (Array.isArray(res?.channelMix) && res.channelMix.length > 0) {
-          setChannelMixState(res.channelMix);
-        } else {
-          setChannelMixState(channelMix);
-        }
-        setFunnelState(res?.conversionFunnel || null);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setAnalyticsError(err?.message || "Impossible de charger les analytics.");
-        setChannelMixState(channelMix);
-        setFunnelState(null);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setAnalyticsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selected.days]);
 
   const overviewEntry = getOverviewEntry(selected.days);
   const rawSeries = useMemo(() => {
@@ -143,10 +108,10 @@ export default function Analytics() {
   }, [range]);
 
   const conversionSteps = useMemo(() => {
-    const purchases = Number.isFinite(Number(funnelState?.purchases)) ? Number(funnelState.purchases) : sumSeries(rawSeries);
-    const checkout = Number.isFinite(Number(funnelState?.checkout)) ? Number(funnelState.checkout) : purchases ? Math.max(Math.round(purchases / 0.52), purchases) : 0;
-    const addToCart = Number.isFinite(Number(funnelState?.addToCart)) ? Number(funnelState.addToCart) : checkout ? Math.max(Math.round(checkout / 0.62), checkout) : 0;
-    const visitors = Number.isFinite(Number(funnelState?.visitors)) ? Number(funnelState.visitors) : addToCart ? Math.max(Math.round(addToCart / 0.13), addToCart) : 0;
+    const purchases = sumSeries(rawSeries);
+    const checkout = purchases ? Math.max(Math.round(purchases / 0.52), purchases) : 0;
+    const addToCart = checkout ? Math.max(Math.round(checkout / 0.62), checkout) : 0;
+    const visitors = addToCart ? Math.max(Math.round(addToCart / 0.13), addToCart) : 0;
 
     const steps = [
       { label: "Visiteurs", value: visitors },
@@ -170,7 +135,7 @@ export default function Analytics() {
     <div className="space-y-6">
       <SectionHeader
         title="Analytics"
-        subtitle="Analysez vos canaux et la conversion."
+        subtitle="Analysez la performance et la conversion."
         titleClassName="text-4xl"
         rightSlot={
           <div className="w-40">
@@ -186,7 +151,7 @@ export default function Analytics() {
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 p-6 space-y-4">
+        <Card className="lg:col-span-3 p-6 space-y-4">
           <SectionHeader title="Trafic & revenus" subtitle={trafficSubtitle} />
           {error && <div className="text-sm text-destructive">{error}</div>}
           <LineChart
@@ -196,25 +161,6 @@ export default function Analytics() {
           />
         </Card>
 
-        <Card className="p-6 space-y-4">
-          <SectionHeader title="Mix canaux" subtitle="Part du CA" />
-          <div className="space-y-4">
-            {channelMixState.map((channel) => (
-              <div key={channel.label} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-foreground">{channel.label}</span>
-                  <span className="text-muted-foreground">{channel.value}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-secondary">
-                  <div
-                    className="h-2 rounded-full"
-                    style={{ background: channel.color, width: `${channel.value}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -244,9 +190,9 @@ export default function Analytics() {
 
         <Card className="p-6 space-y-3">
           <SectionHeader title="Notifications" subtitle={`${unreadNotificationsCount} non lue(s)`} />
-          {(analyticsError || notificationsError) && (
+          {notificationsError && (
             <div className="text-sm text-destructive">
-              {[analyticsError, notificationsError].filter(Boolean).join(" · ")}
+              {notificationsError}
             </div>
           )}
           <div className="flex items-center gap-2">
@@ -257,7 +203,6 @@ export default function Analytics() {
             >
               {notificationsLoading ? "Chargement..." : "Charger"}
             </Button>
-            {analyticsLoading && <span className="text-xs text-muted-foreground">Mise à jour…</span>}
           </div>
           {Array.isArray(notifications) && notifications.length > 0 ? (
             <div className="space-y-2 text-sm text-muted-foreground">
