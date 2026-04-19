@@ -1,4 +1,5 @@
 import { backofficeApi } from './api.js'
+import { clearAccessToken } from './auth.js'
 
 const DEFAULT_TOPICS = [
   'backoffice.notifications.count.updated',
@@ -84,7 +85,10 @@ async function connect() {
 
       socket.onclose = scheduleReconnect
       socket.onerror = scheduleReconnect
-    } catch {
+    } catch (error) {
+      if (error?.message?.includes?.('Session expirée') || error?.message?.includes?.('accès refusé')) {
+        clearAccessToken()
+      }
       scheduleReconnect()
     } finally {
       connectPromise = null

@@ -35,7 +35,8 @@ async function refreshAccessToken() {
 
 async function request(path, options = {}, retryAuth = true) {
   const accessToken = getAccessToken();
-  const { headers: optionHeaders, ...restOptions } = options || {};
+  const { headers: optionHeaders, retryAuth: retryAuthOverride, ...restOptions } = options || {};
+  const shouldRetryAuth = typeof retryAuthOverride === "boolean" ? retryAuthOverride : retryAuth;
   let res;
   try {
     res = await fetch(`${BASE_URL}${path}`, {
@@ -63,7 +64,7 @@ async function request(path, options = {}, retryAuth = true) {
       if (text) message = text;
     }
 
-    if (res.status === 401 && retryAuth && !path.includes("/api/v1/auth/refresh") && !path.includes("/api/v1/auth/login")) {
+    if (res.status === 401 && shouldRetryAuth && !path.includes("/api/v1/auth/refresh") && !path.includes("/api/v1/auth/login")) {
       try {
         const refreshedToken = await refreshAccessToken();
         const nextHeaders = {
@@ -102,7 +103,8 @@ async function request(path, options = {}, retryAuth = true) {
 
 async function requestBlob(path, options = {}, retryAuth = true) {
   const accessToken = getAccessToken();
-  const { headers: optionHeaders, ...restOptions } = options || {};
+  const { headers: optionHeaders, retryAuth: retryAuthOverride, ...restOptions } = options || {};
+  const shouldRetryAuth = typeof retryAuthOverride === "boolean" ? retryAuthOverride : retryAuth;
   let res;
   try {
     res = await fetch(`${BASE_URL}${path}`, {
@@ -129,7 +131,7 @@ async function requestBlob(path, options = {}, retryAuth = true) {
       if (text) message = text;
     }
 
-    if (res.status === 401 && retryAuth && !path.includes("/api/v1/auth/refresh") && !path.includes("/api/v1/auth/login")) {
+    if (res.status === 401 && shouldRetryAuth && !path.includes("/api/v1/auth/refresh") && !path.includes("/api/v1/auth/login")) {
       try {
         const refreshedToken = await refreshAccessToken();
         const nextHeaders = {
@@ -161,7 +163,8 @@ async function requestBlob(path, options = {}, retryAuth = true) {
 
 async function requestForm(path, options = {}, retryAuth = true) {
   const accessToken = getAccessToken();
-  const { headers: optionHeaders, ...restOptions } = options || {};
+  const { headers: optionHeaders, retryAuth: retryAuthOverride, ...restOptions } = options || {};
+  const shouldRetryAuth = typeof retryAuthOverride === "boolean" ? retryAuthOverride : retryAuth;
   let res;
   try {
     res = await fetch(`${BASE_URL}${path}`, {
@@ -188,7 +191,7 @@ async function requestForm(path, options = {}, retryAuth = true) {
       if (text) message = text;
     }
 
-    if (res.status === 401 && retryAuth && !path.includes("/api/v1/auth/refresh") && !path.includes("/api/v1/auth/login")) {
+    if (res.status === 401 && shouldRetryAuth && !path.includes("/api/v1/auth/refresh") && !path.includes("/api/v1/auth/login")) {
       try {
         const refreshedToken = await refreshAccessToken();
         const nextHeaders = {
@@ -238,6 +241,7 @@ export const backofficeApi = {
   realtimeWsAccess: (topics = []) =>
     request("/api/v1/realtime/ws-access", {
       method: "POST",
+      retryAuth: false,
       body: JSON.stringify({ topics: Array.isArray(topics) ? topics : [] })
     }),
   verifyAdminMfa: (mfaTokenId, code) =>
@@ -400,6 +404,12 @@ export const backofficeApi = {
   deleteTicketEvent: (id) =>
     request(`/api/v1/backoffice/tickets/${id}`, {
       method: "DELETE"
+    }),
+  ticketInventory: (id) => request(`/api/v1/backoffice/tickets/${id}/inventory`),
+  adjustTicketInventory: (id, payload) =>
+    request(`/api/v1/backoffice/tickets/${id}/inventory`, {
+      method: "POST",
+      body: JSON.stringify(payload)
     }),
   marketingOverview: (days = 30) => {
     const params = new URLSearchParams();
@@ -664,6 +674,23 @@ export const backofficeApi = {
     if (toDate) params.set("toDate", toDate);
     return request(`/api/v1/backoffice/partners/${encodeURIComponent(id)}/transactions?${params.toString()}`);
   },
+  payPartnerTransactionDirect: (partnerId, transactionId) =>
+    request(`/api/v1/backoffice/partners/${encodeURIComponent(partnerId)}/transactions/${encodeURIComponent(transactionId)}/pay`, {
+      method: "POST"
+    }),
+  payPartnerTransactionManual: (partnerId, transactionId) =>
+    request(`/api/v1/backoffice/partners/${encodeURIComponent(partnerId)}/transactions/${encodeURIComponent(transactionId)}/pay-manual`, {
+      method: "POST"
+    }),
+  schedulePartnerTransaction: (partnerId, transactionId, scheduledAt) =>
+    request(`/api/v1/backoffice/partners/${encodeURIComponent(partnerId)}/transactions/${encodeURIComponent(transactionId)}/schedule`, {
+      method: "POST",
+      body: JSON.stringify({ scheduledAt })
+    }),
+  cancelPartnerTransaction: (partnerId, transactionId) =>
+    request(`/api/v1/backoffice/partners/${encodeURIComponent(partnerId)}/transactions/${encodeURIComponent(transactionId)}/cancel`, {
+      method: "POST"
+    }),
   returns: (page = 0, size = 20, status = "", q = "") => {
     const params = new URLSearchParams({ page, size });
     if (status) params.set("status", status);

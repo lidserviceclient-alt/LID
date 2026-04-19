@@ -145,8 +145,8 @@ export default function Marketing() {
   }, [newsletterEntry.data, newsletterEntry.error, newsletterEntry.loading, tab]);
 
   function openCreateCampaign(preset = {}) {
-    const type = preset.type || "EMAIL";
-    const audience = preset.audience || (type === "SMS" ? "CLIENTS" : type === "SOCIAL" ? "ALL" : "NEWSLETTER");
+    const type = "EMAIL";
+    const audience = preset.audience || "NEWSLETTER";
     setCurrentCampaign(null);
     setCampaignFormError("");
     setCampaignForm({
@@ -166,7 +166,7 @@ export default function Marketing() {
     setCampaignFormError("");
     setCampaignForm({
       name: row?.name || "",
-      type: row?.type || "EMAIL",
+      type: "EMAIL",
       audience: row?.audience || "NEWSLETTER",
       status: row?.status || "ACTIVE",
       scheduledAt: toDateTimeLocalValue(row?.scheduledAt),
@@ -178,10 +178,7 @@ export default function Marketing() {
 
   function updateCampaignType(type) {
     setCampaignForm((p) => {
-      const next = { ...p, type };
-      if (type === "SMS") next.audience = "CLIENTS";
-      if (type === "SOCIAL") next.audience = "ALL";
-      return next;
+      return { ...p, type: "EMAIL", audience: p.audience || "NEWSLETTER" };
     });
   }
 
@@ -206,11 +203,10 @@ export default function Marketing() {
 
     const payload = {
       name,
-      type: campaignForm.type,
+      type: "EMAIL",
       status: campaignForm.status,
-      audience:
-        campaignForm.type === "EMAIL" ? campaignForm.audience : campaignForm.type === "SMS" ? "CLIENTS" : "ALL",
-      subject: campaignForm.type === "EMAIL" ? (campaignForm.subject || "").trim() || null : null,
+      audience: campaignForm.audience,
+      subject: (campaignForm.subject || "").trim() || null,
       content: content || null,
       scheduledAt: campaignForm.status === "SCHEDULED" ? scheduledAt : null,
       openRate: currentCampaign?.openRate ?? null,
@@ -356,7 +352,7 @@ export default function Marketing() {
     <div className="space-y-6">
       <SectionHeader
         title="Marketing"
-        subtitle="Automatisation multi-canaux (Email, SMS, Social) + gestion newsletter."
+        subtitle="Campagnes email et gestion newsletter."
         rightSlot={rightSlot}
       />
 
@@ -374,7 +370,7 @@ export default function Marketing() {
       {tab === "campaigns" ? (
         <Card>
           <div className="p-4 space-y-4">
-            <SectionHeader title="Campagnes" subtitle="Planifiez / envoyez sur différents canaux" />
+            <SectionHeader title="Campagnes" subtitle="Planifiez et envoyez vos campagnes email" />
             <div className="flex flex-wrap items-end gap-3">
               <div className="w-56 space-y-1">
                 <p className="text-xs text-muted-foreground">Filtre statut</p>
@@ -629,19 +625,9 @@ export default function Marketing() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium">Canal</p>
-            <Select value={campaignForm.type} onChange={(e) => updateCampaignType(e.target.value)}>
-              <option value="EMAIL">Email</option>
-              <option value="SMS">SMS</option>
-              <option value="SOCIAL">Réseaux sociaux</option>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
             <p className="text-sm font-medium">Audience</p>
             <Select
-              value={campaignForm.type === "EMAIL" ? campaignForm.audience : campaignForm.type === "SMS" ? "CLIENTS" : "ALL"}
-              disabled={campaignForm.type !== "EMAIL"}
+              value={campaignForm.audience}
               onChange={(e) => setCampaignForm((p) => ({ ...p, audience: e.target.value }))}
             >
               <option value="NEWSLETTER">Newsletter</option>
@@ -672,12 +658,10 @@ export default function Marketing() {
             <p className="text-xs text-muted-foreground">En statut \"Planifiée\", l'envoi est automatique.</p>
           </div>
 
-          {campaignForm.type === "EMAIL" ? (
-            <div className="space-y-2 md:col-span-2">
-              <p className="text-sm font-medium">Sujet (Email)</p>
-              <Input value={campaignForm.subject} onChange={(e) => setCampaignForm((p) => ({ ...p, subject: e.target.value }))} />
-            </div>
-          ) : null}
+          <div className="space-y-2 md:col-span-2">
+            <p className="text-sm font-medium">Sujet (Email)</p>
+            <Input value={campaignForm.subject} onChange={(e) => setCampaignForm((p) => ({ ...p, subject: e.target.value }))} />
+          </div>
 
           <div className="space-y-2 md:col-span-2">
             <p className="text-sm font-medium">Contenu</p>
@@ -685,7 +669,7 @@ export default function Marketing() {
               rows={8}
               value={campaignForm.content}
               onChange={(e) => setCampaignForm((p) => ({ ...p, content: e.target.value }))}
-              placeholder={campaignForm.type === "SMS" ? "Message SMS…" : "Message de campagne…"}
+              placeholder="Message de campagne…"
               className="flex w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200"
             />
           </div>
