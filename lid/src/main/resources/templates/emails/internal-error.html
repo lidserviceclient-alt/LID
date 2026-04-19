@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alerte système critique</title>
+</head>
+
+<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;">
+    <tr>
+      <td align="center">
+
+        <!-- Container -->
+        <table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background:#161c19;border-radius:10px;border:1px solid #24332b;overflow:hidden;">
+
+          <!-- HEADER AVEC LOGO -->
+          <tr>
+            <td style="padding:18px 24px;background:#1b2a22;border-bottom:1px solid #24332b;">
+              <table width="100%">
+                <tr>
+
+                  <!-- Logo + branding -->
+                  <td align="left">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align:middle;">
+                          <img src="https://lid-shop.web.app/imgs/favicon.ico" 
+                               alt="LID" 
+                               style="display:block;height:30px;">
+                        </td>
+                        
+                      </tr>
+                    </table>
+                  </td>
+
+                  <!-- Status -->
+                  <td align="right">
+                    <span style="color:#ef5350;font-size:12px;font-weight:bold;">
+                      INCIDENT CRITIQUE
+                    </span>
+                  </td>
+
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- TITLE -->
+          <tr>
+            <td style="padding:24px 28px 10px;">
+              <span style="color:#ff6b6b;font-size:18px;font-weight:bold;">
+                {{exception}}
+              </span>
+            </td>
+          </tr>
+
+          <!-- META -->
+          <tr>
+            <td style="padding:0 28px 20px;">
+              <span style="color:#888;font-size:12px;">
+                Détecté le {{time}}
+              </span>
+            </td>
+          </tr>
+
+          <!-- MAIN BLOCK -->
+          <tr>
+            <td style="padding:0 28px 24px;">
+
+              <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #24332b;border-radius:6px;overflow:hidden;">
+
+                <tr>
+                  <td style="padding:12px;background:#121916;border-bottom:1px solid #24332b;">
+                    <span style="color:#81c784;font-size:12px;">PATH</span><br>
+                    <span style="color:#e0e0e0;font-size:13px;">{{path}}</span>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:12px;background:#121916;border-bottom:1px solid #24332b;">
+                    <span style="color:#81c784;font-size:12px;">MESSAGE</span><br>
+                    <span style="color:#e0e0e0;font-size:13px;word-break:break-word;">
+                      {{message}}
+                    </span>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:12px;background:#121916;border-bottom:1px solid #24332b;">
+                    <span style="color:#81c784;font-size:12px;">STACK TRACE</span><br>
+                    <span style="color:#ffcc80;font-size:12px;word-break:break-word;">
+                      {{topStack}}
+                    </span>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:12px;background:#121916;">
+                    <span style="color:#81c784;font-size:12px;">FINGERPRINT</span><br>
+                    <span style="color:#ce93d8;font-size:12px;word-break:break-word;">
+                      {{fingerprint}}
+                    </span>
+                  </td>
+                </tr>
+
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- CTA -->
+          <tr>
+            <td style="padding:0 28px 30px;">
+              <a href="https://lid-ecommerce.com"
+                 style="display:inline-block;background:#2e7d32;color:#fff;text-decoration:none;padding:12px 22px;border-radius:6px;font-size:13px;font-weight:bold;">
+                Voir les logs
+              </a>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="padding:18px 28px;background:#121916;border-top:1px solid #24332b;text-align:center;">
+              <span style="color:#666;font-size:11px;">
+                LID Monitoring — Alerte automatique — Ne pas répondre
+              </span>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

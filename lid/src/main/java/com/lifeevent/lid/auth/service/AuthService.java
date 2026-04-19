@@ -12,6 +12,7 @@ import com.lifeevent.lid.auth.repository.PasswordResetTokenRepository;
 import com.lifeevent.lid.backoffice.lid.setting.repository.BackOfficeSecuritySettingRepository;
 import com.lifeevent.lid.cart.service.CartService;
 import com.lifeevent.lid.common.service.EmailService;
+import com.lifeevent.lid.common.service.EmailTemplateService;
 import com.lifeevent.lid.common.util.PhoneNumberUtils;
 import com.lifeevent.lid.user.common.dto.UserDto;
 import com.lifeevent.lid.user.common.entity.UserEntity;
@@ -44,6 +45,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.Map;
 
 import static org.springframework.http.HttpStatus.FORBIDDEN;
 
@@ -64,6 +66,7 @@ public class AuthService {
     private final DelivryDriverProfileRepository delivryDriverProfileRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
+    private final EmailTemplateService emailTemplateService;
     private final PasswordEncoder passwordEncoder;
     private final CartService cartService;
     private final BackOfficeSecuritySettingRepository backOfficeSecuritySettingRepository;
@@ -641,19 +644,19 @@ public class AuthService {
     }
 
     private void sendPasswordResetCode(String to, String code) {
-        emailService.send(
-                to,
-                "Code de reinitialisation",
-                "Votre code de reinitialisation est : " + code
-        );
+        String html = emailTemplateService.render("password-reset", Map.of(
+                "code", code,
+                "expiryMinutes", String.valueOf(resetCodeTtlMinutes)
+        ));
+        emailService.sendHtml(to, "Code de réinitialisation de mot de passe", html);
     }
 
     private void sendAdminLoginCode(String to, String code) {
-        emailService.send(
-                to,
-                "Code de connexion (Admin)",
-                "Votre code de connexion est : " + code
-        );
+        String html = emailTemplateService.render("admin-mfa", Map.of(
+                "code", code,
+                "expiryMinutes", "10"
+        ));
+        emailService.sendHtml(to, "Code de connexion administrateur", html);
     }
 
     private void setRefreshCookie(HttpServletResponse response, UUID id) {
