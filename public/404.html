@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>404 – Page introuvable | Lid</title>
+    <meta name="description" content="Cette page n'existe pas. Retournez sur Lid pour continuer vos achats." />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/x-icon" href="/imgs/favicon.ico" />
+    <link rel="icon" sizes="192x192" href="/favicon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon-192x192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pacifico&family=Inter:wght@400;500;600&display=swap" />
+
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        background: #ffffff;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 2rem 1.5rem;
+        overflow: hidden;
+      }
+
+      /* Logo discret en haut */
+      .logo {
+        position: fixed;
+        top: 1.5rem;
+        left: 2rem;
+        font-family: 'Pacifico', cursive;
+        font-size: 1.4rem;
+        color: #6aa200;
+        text-decoration: none;
+        z-index: 10;
+      }
+
+      /* ── SCÈNE 404 ── */
+      .scene {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 2.5rem;
+      }
+
+      /* Cercle derrière le "0" */
+      .circle {
+        position: absolute;
+        width: clamp(180px, 28vw, 320px);
+        height: clamp(180px, 28vw, 320px);
+        border-radius: 50%;
+        background: radial-gradient(circle at 50% 45%, #e9f8cf 0%, #d3f0a3 55%, transparent 100%);
+        border: 1px solid rgba(106,162,0,0.15);
+        pointer-events: none;
+      }
+
+      /* ── TEXTE 3D ── */
+      .num-wrap {
+        position: relative;
+        line-height: 1;
+        user-select: none;
+      }
+
+      /* Couche du bas : profondeur / extrusion */
+      .num-depth {
+        position: absolute;
+        inset: 0;
+        font-size: clamp(7rem, 24vw, 19rem);
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        color: #3d6200;
+        text-shadow:
+          1px  2px 0   #365800,
+          2px  4px 0   #2d4c00,
+          3px  6px 0   #254000,
+          4px  8px 0   #1e3400,
+          5px 10px 10px rgba(0,0,0,0.20);
+        white-space: nowrap;
+      }
+
+      /* Couche du dessus : dégradé vert glossy */
+      .num-gloss {
+        position: relative;
+        z-index: 1;
+        font-size: clamp(7rem, 24vw, 19rem);
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        white-space: nowrap;
+        background: linear-gradient(
+          180deg,
+          #3d6200  0%,
+          #4a7800  14%,
+          #95d639  30%,
+          #e9f8cf  46%,
+          #558200  64%,
+          #3a5c00  82%,
+          #253d00 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      /* ── TEXTE SOUS LES CHIFFRES ── */
+      h1 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #111;
+        letter-spacing: .01em;
+        margin-bottom: .45rem;
+      }
+
+      .sub {
+        font-size: .83rem;
+        color: #999;
+        max-width: 320px;
+        line-height: 1.6;
+        margin-bottom: 1.75rem;
+      }
+
+      /* ── BOUTON ── */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        font-size: .84rem;
+        font-weight: 500;
+        color: #333;
+        text-decoration: none;
+        padding: .55rem 1.3rem;
+        border: 1px solid #d0d0d0;
+        border-radius: .5rem;
+        letter-spacing: .01em;
+        transition: border-color .2s, color .2s, box-shadow .2s;
+      }
+      .btn:hover {
+        border-color: #6aa200;
+        color: #6aa200;
+        box-shadow: 0 2px 10px rgba(106,162,0,.15);
+      }
+    </style>
+  </head>
+  <body>
+
+
+    <div class="scene">
+      <div class="circle"></div>
+      <div class="num-wrap">
+        <div class="num-depth" aria-hidden="true">404</div>
+        <div class="num-gloss" role="img" aria-label="Erreur 404">404</div>
+      </div>
+    </div>
+
+    <h1>Page introuvable</h1>
+    <p class="sub">Une erreur s'est produite lors du chargement de cette page. Veuillez retourner à l'accueil.</p>
+    <a href="/" class="btn">Retour à l'accueil</a>
+
+  </body>
+</html>

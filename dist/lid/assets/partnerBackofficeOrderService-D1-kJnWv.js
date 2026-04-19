@@ -1,1 +1,0 @@
-import{a as t}from"./index-CC53a3V6.js";const s="/api/v1/backoffice/partners/me/orders-crud";async function c({page:a=0,size:r=50}={}){return(await t.get(s,{params:{page:a,size:r}}))?.data}async function o(a){return(await t.get(`${s}/${a}`))?.data}async function i(a,r){return(await t.put(`${s}/${a}`,r))?.data}export{o as g,c as l,i as u};

@@ -334,10 +334,7 @@ export default function Footer() {
           
           <div className="flex items-center gap-8 mt-4 md:mt-0">
              <div className="flex items-center gap-2">
-               <div className="relative">
-                 <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                 <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
-               </div>
+               
              </div>
              <motion.button 
                whileHover={{ scale: 1.05 }}
