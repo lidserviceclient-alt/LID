@@ -16,6 +16,15 @@ import { subscribeNewsletter } from '../../services/newsletterService';
 import { useAppConfig } from '@/features/appConfig/useAppConfig.js';
 import { useCatalogCategories } from '@/features/catalog/useCatalogCategories';
 
+const sameFooterItems = (left, right) => {
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  if (left.length !== right.length) return false;
+  return left.every((item, index) => {
+    const other = right[index];
+    return item?.name === other?.name && item?.path === other?.path;
+  });
+};
+
 export default function Footer() {
   const [email, setEmail] = useState('');
   const containerRef = useRef(null);
@@ -63,7 +72,7 @@ export default function Footer() {
       }));
 
     const items = chosen.filter((it) => it.name && it.path && !it.path.includes("category=&"));
-    setFooterCategories(items);
+    setFooterCategories((prev) => (sameFooterItems(prev, items) ? prev : items));
   }, [categoriesData]);
 
   const collectionsLinks = footerCategories.length > 0
@@ -71,7 +80,7 @@ export default function Footer() {
     : [
         { name: "Nouveautés", path: "/shop?sort=newest" },
         { name: "Boutique", path: "/shop" },
-        { name: "Blog", path: "/blog" },
+        { name: "Billetterie", path: "/tickets" },
       ];
 
   const links = {
@@ -86,8 +95,8 @@ export default function Footer() {
     legal: [
       { name: "Confidentialité", path: "/privacy" },
       { name: "CGV", path: "/terms" },
-      { name: "Mentions Légales", path: "/terms" },
-      { name: "Cookies", path: "/privacy" },
+      { name: "Mentions légales", path: "/help" },
+      { name: "Cookies", path: "/privacy#cookies" },
     ],
   };
 

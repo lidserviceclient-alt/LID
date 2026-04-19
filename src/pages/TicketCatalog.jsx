@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
-import { Search, Ticket, MapPin, Calendar, Star, TrendingUp, Music, Globe, Trophy, ShieldCheck, Mail, ArrowRight, Zap } from "lucide-react";
+import { Search, Ticket, MapPin, Calendar, Star, TrendingUp, Music, Globe, Trophy, ShieldCheck, Mail, ArrowRight, Zap, Minus, Plus } from "lucide-react";
 import Barcode from "react-barcode";
 import { getTicketEvents, normalizeTicketEvent } from "@/services/ticketService";
 import { useCart } from "@/features/cart/CartContext";
@@ -51,6 +51,7 @@ const ModernTicket = ({ ticket }) => {
     const { addToCart } = useCart();
     const { theme: appTheme } = useTheme();
     const navigate = useNavigate();
+    const [selectedQuantity, setSelectedQuantity] = useState(1);
     const theme = getTheme(ticket?.category);
     const dateValue = ticket?.date ? new Date(ticket.date) : null;
     const hasValidDate = Boolean(dateValue) && !Number.isNaN(dateValue.getTime());
@@ -67,6 +68,7 @@ const ModernTicket = ({ ticket }) => {
 
     const safeImage = ticket?.image || "/imgs/wall-1.jpg";
     const safeLocation = ticket?.location || "Lieu à confirmer";
+    const maxQuantity = Math.max(1, Number(ticket?.quantityAvailable) || 1);
 
     return (
         <div
@@ -155,7 +157,7 @@ const ModernTicket = ({ ticket }) => {
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                if (ticket?.available === false) {
+                                if (!ticket?.sellable) {
                                   toast.error("Événement indisponible");
                                   return;
                                 }
@@ -164,17 +166,50 @@ const ModernTicket = ({ ticket }) => {
                                   price: hasPrice ? priceNumber : 0,
                                   type: "ticket",
                                   name: ticket.title,
-                                  brand: "LID Events"
+                                  brand: "LID Events",
+                                  quantity: selectedQuantity,
                                 });
                                 toast.success("Ajouté au panier");
                               }}
                               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-black text-white dark:bg-white dark:text-black text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                              disabled={ticket?.available === false}
+                              disabled={!ticket?.sellable}
                            >
                               <Zap className="w-4 h-4" />
                               Ajouter
                            </button>
                          </div>
+                     </div>
+
+                     <div className="mt-3 flex items-center justify-between gap-3">
+                       <div className="inline-flex items-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 px-2 py-2">
+                         <button
+                           type="button"
+                           onClick={(e) => {
+                             e.preventDefault();
+                             e.stopPropagation();
+                             setSelectedQuantity((prev) => Math.max(1, prev - 1));
+                           }}
+                           className="inline-flex h-8 w-8 items-center justify-center rounded-lg"
+                         >
+                           <Minus className="w-4 h-4" />
+                         </button>
+                         <span className="min-w-[24px] text-center text-sm font-bold">{selectedQuantity}</span>
+                         <button
+                           type="button"
+                           onClick={(e) => {
+                             e.preventDefault();
+                             e.stopPropagation();
+                             setSelectedQuantity((prev) => Math.min(maxQuantity, prev + 1));
+                           }}
+                           disabled={selectedQuantity >= maxQuantity}
+                           className="inline-flex h-8 w-8 items-center justify-center rounded-lg disabled:opacity-40"
+                         >
+                           <Plus className="w-4 h-4" />
+                         </button>
+                       </div>
+                       <span className="text-xs font-bold uppercase tracking-[0.2em] text-neutral-400">
+                         {ticket?.sellable ? "en vente" : ticket?.available === false ? "désactivé" : "rupture"}
+                       </span>
                      </div>
                 </div>
 

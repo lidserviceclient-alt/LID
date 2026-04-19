@@ -55,6 +55,39 @@ const normalizeSortParam = (value) => {
 };
 
 const FALLBACK_PRODUCT_IMAGE = "/imgs/logo.png";
+const INITIAL_CATALOG_PAGE_TTL_MS = 4000;
+const initialCatalogPageCache = new Map();
+const initialCatalogPageInflight = new Map();
+
+const readInitialCatalogPageCache = (key) => {
+  const cached = initialCatalogPageCache.get(key);
+  if (!cached) return null;
+  if (Date.now() - cached.at > INITIAL_CATALOG_PAGE_TTL_MS) {
+    initialCatalogPageCache.delete(key);
+    return null;
+  }
+  return cached.data;
+};
+
+const loadInitialCatalogPage = async (key, loader) => {
+  const cached = readInitialCatalogPageCache(key);
+  if (cached) {
+    return cached;
+  }
+  if (initialCatalogPageInflight.has(key)) {
+    return initialCatalogPageInflight.get(key);
+  }
+  const request = loader()
+    .then((data) => {
+      initialCatalogPageCache.set(key, { at: Date.now(), data });
+      return data;
+    })
+    .finally(() => {
+      initialCatalogPageInflight.delete(key);
+    });
+  initialCatalogPageInflight.set(key, request);
+  return request;
+};
 
 const ProductSection = ({ title, products, onSeeAll }) => {
   if (!products || products.length === 0) return null;
@@ -598,6 +631,12 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
   const sortMenuRef = useRef(null);
 
   useEffect(() => {
+    const initialQueryKey = JSON.stringify({
+      q: `${searchQuery || ""}`.trim(),
+      category: `${categoryParam || ""}`.trim(),
+      sort: normalizeSortParam(sortParam),
+      limit: limit == null ? null : Number(limit),
+    });
     let cancelled = false;
     if (hasBootstrapProducts) {
       const content = Array.isArray(bootstrapProductsPage?.content) ? bootstrapProductsPage.content : [];
@@ -648,7 +687,7 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
     setCatalogProducts([]);
     setLoadedPages(0);
     setTotalPages(1);
-    fetchPage(0)
+    loadInitialCatalogPage(initialQueryKey, () => fetchPage(0))
       .then(({ content, pages, total }) => {
         if (cancelled) return;
         setCatalogProducts(Array.isArray(content) ? content : []);

@@ -18,6 +18,10 @@ const CartContext = createContext({
 });
 
 const LOCAL_CART_KEY = "cart";
+const ITEM_TYPES = {
+  ARTICLE: "ARTICLE",
+  TICKET: "TICKET",
+};
 
 const normalizeVariant = (value) => {
   const normalized = `${value ?? ""}`.trim();
@@ -25,10 +29,12 @@ const normalizeVariant = (value) => {
 };
 
 const lineKey = (item) => {
-  const articleId = Number(item?.articleId ?? item?.id);
+  const itemType = `${item?.itemType || (item?.ticketEventId ? ITEM_TYPES.TICKET : ITEM_TYPES.ARTICLE)}`.trim().toUpperCase();
+  const articleId = Number(item?.articleId ?? (itemType === ITEM_TYPES.ARTICLE ? item?.id : null));
+  const ticketEventId = Number(item?.ticketEventId ?? (itemType === ITEM_TYPES.TICKET ? item?.id : null));
   const color = `${normalizeVariant(item?.color) || ""}`.toLowerCase();
   const size = `${normalizeVariant(item?.size) || ""}`.toLowerCase();
-  return `${articleId || 0}::${color}::${size}`;
+  return `${itemType}::${articleId || 0}::${ticketEventId || 0}::${color}::${size}`;
 };
 
 const toPositiveInt = (value, fallback = 0) => {
@@ -45,20 +51,25 @@ const toSignedInt = (value, fallback = 0) => {
 
 const normalizeCartItem = (item) => {
   if (!item) return null;
-  const articleId = toPositiveInt(item?.articleId ?? item?.id, 0);
-  if (!articleId) return null;
+  const itemType = `${item?.itemType || (item?.ticketEventId ? ITEM_TYPES.TICKET : item?.type === "ticket" ? ITEM_TYPES.TICKET : ITEM_TYPES.ARTICLE)}`.trim().toUpperCase();
+  const articleId = itemType === ITEM_TYPES.ARTICLE ? toPositiveInt(item?.articleId ?? item?.id, 0) : 0;
+  const ticketEventId = itemType === ITEM_TYPES.TICKET ? toPositiveInt(item?.ticketEventId ?? item?.id, 0) : 0;
+  if (itemType === ITEM_TYPES.ARTICLE && !articleId) return null;
+  if (itemType === ITEM_TYPES.TICKET && !ticketEventId) return null;
   const quantity = toPositiveInt(item?.quantity, 0);
   if (!quantity) return null;
   const price = Number(item?.price);
   return {
     ...item,
-    id: articleId,
+    id: itemType === ITEM_TYPES.TICKET ? ticketEventId : articleId,
+    itemType,
     articleId,
+    ticketEventId,
     quantity,
-    color: normalizeVariant(item?.color),
-    size: normalizeVariant(item?.size),
+    color: itemType === ITEM_TYPES.ARTICLE ? normalizeVariant(item?.color) : null,
+    size: itemType === ITEM_TYPES.ARTICLE ? normalizeVariant(item?.size) : null,
     price: Number.isFinite(price) ? price : 0,
-    name: `${item?.name ?? item?.articleName ?? ""}`.trim(),
+    name: `${item?.name ?? item?.articleName ?? item?.title ?? ""}`.trim(),
     image: `${item?.image ?? item?.articleImage ?? item?.imageUrl ?? ""}`.trim(),
     imageUrl: `${item?.imageUrl ?? item?.articleImage ?? item?.image ?? ""}`.trim(),
     referenceProduitPartenaire: `${item?.referenceProduitPartenaire ?? item?.referencePartenaire ?? item?.sku ?? ""}`.trim(),
@@ -98,6 +109,7 @@ const mapServerCartToItems = (cart) => {
       normalizeCartItem({
         id: line?.article?.id,
         articleId: line?.article?.id,
+        itemType: ITEM_TYPES.ARTICLE,
         quantity: line?.quantity,
         color: line?.color,
         size: line?.size,
@@ -117,7 +129,9 @@ const toServerPayload = (items) =>
     .map((item) => normalizeCartItem(item))
     .filter(Boolean)
     .map((item) => ({
-      articleId: item.articleId,
+      itemType: item.itemType || ITEM_TYPES.ARTICLE,
+      articleId: item.articleId || undefined,
+      ticketEventId: item.ticketEventId || undefined,
       quantity: item.quantity,
       color: item.color || null,
       size: item.size || null,
@@ -273,7 +287,7 @@ export function CartProvider({ children }) {
 
   const removeFromCart = (itemId, color, size) => {
     setCartItems((prevItems) => {
-      const targetKey = lineKey({ id: itemId, color, size });
+      const targetKey = lineKey({ id: itemId, color, size, itemType: prevItems.find((item) => `${item?.id}` === `${itemId}` && `${item?.color || ""}` === `${color || ""}` && `${item?.size || ""}` === `${size || ""}`)?.itemType });
       const next = prevItems.filter((item) => lineKey(item) !== targetKey);
       scheduleSync(next);
       return next;
@@ -282,7 +296,7 @@ export function CartProvider({ children }) {
 
   const updateQuantity = (itemId, color, size, delta) => {
     setCartItems((prevItems) => {
-      const targetKey = lineKey({ id: itemId, color, size });
+      const targetKey = lineKey({ id: itemId, color, size, itemType: prevItems.find((item) => `${item?.id}` === `${itemId}` && `${item?.color || ""}` === `${color || ""}` && `${item?.size || ""}` === `${size || ""}`)?.itemType });
       const next = prevItems
         .map((item) => {
           if (lineKey(item) !== targetKey) return item;
@@ -327,16 +341,21 @@ export function CartProvider({ children }) {
         let remaining = Math.max(0, Math.trunc(Number(line?.quantity) || 0));
         if (remaining <= 0) return;
 
+        const lineType = `${line?.itemType || (line?.ticketEventId ? ITEM_TYPES.TICKET : ITEM_TYPES.ARTICLE)}`.trim().toUpperCase();
         const lineId = toNumberId(line?.articleId);
+        const ticketId = toNumberId(line?.ticketEventId);
         const lineRef = normalizeRef(line?.referenceProduitPartenaire);
 
         for (let i = 0; i < nextItems.length && remaining > 0; i += 1) {
           const item = nextItems[i];
+          const itemType = `${item?.itemType || (item?.ticketEventId ? ITEM_TYPES.TICKET : ITEM_TYPES.ARTICLE)}`.trim().toUpperCase();
           const itemId = toNumberId(item?.articleId ?? item?.id);
+          const itemTicketId = toNumberId(item?.ticketEventId);
           const itemRef = normalizeRef(item?.referenceProduitPartenaire || item?.referencePartenaire || item?.sku);
-          const idMatch = lineId !== null && itemId !== null && lineId === itemId;
+          const idMatch = lineType === ITEM_TYPES.ARTICLE && itemType === ITEM_TYPES.ARTICLE && lineId !== null && itemId !== null && lineId === itemId;
+          const ticketMatch = lineType === ITEM_TYPES.TICKET && itemType === ITEM_TYPES.TICKET && ticketId !== null && itemTicketId !== null && ticketId === itemTicketId;
           const refMatch = !!lineRef && !!itemRef && lineRef === itemRef;
-          if (!idMatch && !refMatch) continue;
+          if (!idMatch && !ticketMatch && !refMatch) continue;
 
           const itemQty = Math.max(0, Math.trunc(Number(item?.quantity) || 0));
           if (itemQty <= remaining) {

@@ -124,16 +124,20 @@ export default function OrderTracking() {
       const items = Array.isArray(data?.items)
         ? data.items
             .map((item) => {
+              const itemType = `${item?.itemType || (item?.ticketEventId ? "TICKET" : "ARTICLE")}`.trim().toUpperCase();
               const qty = Number(item?.quantity || 0);
               const unitPrice = Number(item?.unitPrice || 0);
               const subtotal = Number(item?.subtotal);
+              const fallbackImage = itemType === "TICKET" ? "/imgs/wall-1.jpg" : "/imgs/logo.png";
               return {
-                id: item?.articleId || `${item?.articleName || "item"}-${Math.random()}`,
+                id: item?.articleId || item?.ticketEventId || `${item?.articleName || "item"}-${Math.random()}`,
+                itemType,
                 name: `${item?.articleName || "Article"}`.trim(),
-                imageUrl: resolveBackendAssetUrl(item?.mainImageUrl) || "/imgs/logo.png",
+                imageUrl: resolveBackendAssetUrl(item?.mainImageUrl) || fallbackImage,
                 quantity: Number.isFinite(qty) ? qty : 0,
                 unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
                 subtotal: Number.isFinite(subtotal) ? subtotal : ((Number.isFinite(unitPrice) ? unitPrice : 0) * (Number.isFinite(qty) ? qty : 0)),
+                fallbackImage,
               };
             })
             .filter((item) => item.name)
@@ -310,14 +314,14 @@ export default function OrderTracking() {
                               className="h-full w-full object-cover"
                               onError={(e) => {
                                 e.currentTarget.onerror = null;
-                                e.currentTarget.src = "/imgs/logo.png";
+                                e.currentTarget.src = item.fallbackImage || "/imgs/logo.png";
                               }}
                             />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-neutral-900 dark:text-white truncate">{item.name}</p>
                             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                              Qté: {item.quantity} • {formatMoney(item.unitPrice, trackingData.currency)}
+                              {item.itemType === "TICKET" ? "Ticket" : "Article"} • Qté: {item.quantity} • {formatMoney(item.unitPrice, trackingData.currency)}
                             </p>
                           </div>
                           <div className="text-sm font-bold whitespace-nowrap">{formatMoney(item.subtotal, trackingData.currency)}</div>

@@ -1,5 +1,6 @@
 import api from './api';
-import { getAccessToken } from './auth';
+import { clearAccessToken, getAccessToken } from './auth';
+import { clearCustomerSessionCache } from './sessionCleanup';
 
 const DEFAULT_TOPICS = [];
 const PUBLIC_TOPICS = new Set(['catalog.updated']);
@@ -76,10 +77,14 @@ async function connect() {
       let data = null;
       try {
         const path = authMode === 'private' ? '/api/v1/realtime/ws-access' : '/api/v1/realtime/ws-access/public';
-        const response = await api.post(path, { topics });
+        const response = await api.post(path, { topics }, authMode === 'private' ? { skipAuthRefresh: true } : undefined);
         data = response?.data;
       } catch (err) {
         if (authMode === 'private' && publicTopics.length > 0) {
+          if (err?.response?.status === 401) {
+            clearCustomerSessionCache();
+            clearAccessToken();
+          }
           authMode = 'public';
           topics = publicTopics;
           const fallback = await api.post('/api/v1/realtime/ws-access/public', { topics });
