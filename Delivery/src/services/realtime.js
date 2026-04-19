@@ -1,4 +1,4 @@
-import { getAccessToken } from './auth'
+import { clearAccessToken, getAccessToken } from './auth'
 import { apiRequest } from './http'
 
 const DEFAULT_TOPICS = ['delivery.shipment.updated']
@@ -56,11 +56,19 @@ function rememberEventId(eventId) {
 async function requestTicket() {
   const token = getAccessToken()
   if (!token) return null
-  return apiRequest('/api/v1/realtime/ws-access', {
-    method: 'POST',
-    token,
-    body: { topics: Array.from(subscribedTopics) },
-  })
+  try {
+    return await apiRequest('/api/v1/realtime/ws-access', {
+      method: 'POST',
+      token,
+      body: { topics: Array.from(subscribedTopics) },
+    })
+  } catch (error) {
+    if (error?.status === 401) {
+      clearAccessToken()
+      return null
+    }
+    throw error
+  }
 }
 
 async function connect() {
