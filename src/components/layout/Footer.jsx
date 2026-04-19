@@ -81,6 +81,7 @@ export default function Footer() {
         { name: "Nouveautés", path: "/shop?sort=newest" },
         { name: "Boutique", path: "/shop" },
         { name: "Billetterie", path: "/tickets" },
+
       ];
 
   const links = {
