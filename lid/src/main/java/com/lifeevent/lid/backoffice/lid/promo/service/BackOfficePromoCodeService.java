@@ -2,11 +2,10 @@ package com.lifeevent.lid.backoffice.lid.promo.service;
 
 import com.lifeevent.lid.backoffice.lid.promo.dto.BackOfficePromoCodeDto;
 import com.lifeevent.lid.backoffice.lid.promo.dto.PromoCodeStatsDto;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
 
 public interface BackOfficePromoCodeService {
-    List<BackOfficePromoCodeDto> getAll(int page, int size);
+    Page<BackOfficePromoCodeDto> getAll(int page, int size);
     BackOfficePromoCodeDto getById(Long id);
     BackOfficePromoCodeDto create(BackOfficePromoCodeDto dto);
     BackOfficePromoCodeDto update(Long id, BackOfficePromoCodeDto dto);

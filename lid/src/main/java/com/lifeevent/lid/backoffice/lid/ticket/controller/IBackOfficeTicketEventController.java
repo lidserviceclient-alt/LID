@@ -3,6 +3,7 @@ package com.lifeevent.lid.backoffice.lid.ticket.controller;
 import com.lifeevent.lid.backoffice.lid.ticket.dto.BackOfficeTicketEventDto;
 import com.lifeevent.lid.backoffice.lid.ticket.dto.BackOfficeTicketInventoryDto;
 import com.lifeevent.lid.backoffice.lid.ticket.dto.AdjustTicketInventoryRequest;
+import com.lifeevent.lid.common.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -12,14 +13,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @Tag(name = "BackOffice - Tickets", description = "API back-office pour gérer les évènements billetterie")
 public interface IBackOfficeTicketEventController {
 
     @GetMapping
     @ApiResponse(responseCode = "200", description = "Liste des évènements")
-    ResponseEntity<List<BackOfficeTicketEventDto>> getAll(
+    ResponseEntity<PageResponse<BackOfficeTicketEventDto>> getAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     );

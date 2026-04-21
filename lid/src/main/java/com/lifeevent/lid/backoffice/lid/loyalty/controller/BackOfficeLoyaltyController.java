@@ -37,8 +37,10 @@ public class BackOfficeLoyaltyController implements IBackOfficeLoyaltyController
     }
 
     @Override
-    public ResponseEntity<List<BackOfficeLoyaltyTierDto>> getTiers() {
-        return ResponseEntity.ok(backOfficeLoyaltyService.getTiers());
+    public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<BackOfficeLoyaltyTierDto>> getTiers(int page, int size) {
+        return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(
+                backOfficeLoyaltyService.getTiers(PageRequest.of(page, size))
+        ));
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.lid.blog.controller;
 
 import com.lifeevent.lid.backoffice.lid.blog.dto.BackOfficeBlogPostDto;
+import com.lifeevent.lid.common.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -10,14 +11,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @Tag(name = "BackOffice - Blog", description = "API back-office pour gérer les articles du blog")
 public interface IBackOfficeBlogPostController {
 
     @GetMapping
     @ApiResponse(responseCode = "200", description = "Liste des articles blog")
-    ResponseEntity<List<BackOfficeBlogPostDto>> getAll(
+    ResponseEntity<PageResponse<BackOfficeBlogPostDto>> getAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     );

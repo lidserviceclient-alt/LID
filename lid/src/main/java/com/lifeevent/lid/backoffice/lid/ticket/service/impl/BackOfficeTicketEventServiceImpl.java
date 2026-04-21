@@ -10,12 +10,11 @@ import com.lifeevent.lid.ticket.repository.TicketEventRepository;
 import com.lifeevent.lid.ticket.service.TicketInventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @Transactional
@@ -29,13 +28,12 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
 
     @Override
     @Transactional(readOnly = true)
-    public List<BackOfficeTicketEventDto> getAll(int page, int size) {
+    public Page<BackOfficeTicketEventDto> getAll(int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, size);
-        List<TicketEvent> entities = ticketEventRepository
+        return ticketEventRepository
                 .findAll(PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "eventDate")))
-                .getContent();
-        return entities.stream().map(this::toDto).toList();
+                .map(this::toDto);
     }
 
     @Override

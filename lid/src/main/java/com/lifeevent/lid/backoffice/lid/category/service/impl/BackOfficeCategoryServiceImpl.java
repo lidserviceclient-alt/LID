@@ -13,6 +13,9 @@ import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +38,19 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
     @Transactional(readOnly = true)
     public List<BackOfficeCategoryDto> getAll() {
         return backOfficeCategoryMapper.toDtoList(categoryRepository.findAllByOrderByOrderIdxAsc());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BackOfficeCategoryDto> getAll(Pageable pageable) {
+        Pageable safePageable = pageable == null
+                ? org.springframework.data.domain.PageRequest.of(0, 20, defaultSort())
+                : org.springframework.data.domain.PageRequest.of(
+                        Math.max(0, pageable.getPageNumber()),
+                        Math.max(1, pageable.getPageSize()),
+                        pageable.getSort().isSorted() ? pageable.getSort() : defaultSort()
+                );
+        return categoryRepository.findAll(safePageable).map(backOfficeCategoryMapper::toDto);
     }
 
     @Override
@@ -131,6 +147,10 @@ public class BackOfficeCategoryServiceImpl implements BackOfficeCategoryService 
     private Category findCategoryOrThrow(Integer id) {
         return categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id.toString()));
+    }
+
+    private Sort defaultSort() {
+        return Sort.by(Sort.Direction.ASC, "orderIdx").and(Sort.by(Sort.Direction.ASC, "name"));
     }
 
     private void deactivateAndSave(Category entity) {

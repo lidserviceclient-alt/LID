@@ -7,8 +7,8 @@ import com.lifeevent.lid.backoffice.lid.loyalty.dto.BackOfficeLoyaltyCustomerDto
 import com.lifeevent.lid.backoffice.lid.loyalty.dto.BackOfficeLoyaltyOverviewDto;
 import com.lifeevent.lid.backoffice.lid.loyalty.dto.BackOfficeLoyaltyTierDto;
 import com.lifeevent.lid.backoffice.lid.loyalty.dto.BackOfficeLoyaltyTransactionDto;
+import com.lifeevent.lid.common.dto.PageResponse;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,8 +19,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @Tag(name = "BackOffice - Loyalty", description = "API back-office pour la fidélité")
 public interface IBackOfficeLoyaltyController {
@@ -39,7 +37,10 @@ public interface IBackOfficeLoyaltyController {
 
     @GetMapping("/tiers")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les niveaux de fidélité")
-    ResponseEntity<List<BackOfficeLoyaltyTierDto>> getTiers();
+    ResponseEntity<PageResponse<BackOfficeLoyaltyTierDto>> getTiers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    );
 
     @PostMapping("/tiers")
     ResponseEntity<BackOfficeLoyaltyTierDto> createTier(@Valid @RequestBody BackOfficeLoyaltyTierDto dto);

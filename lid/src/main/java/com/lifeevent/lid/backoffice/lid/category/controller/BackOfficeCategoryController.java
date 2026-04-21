@@ -5,7 +5,9 @@ import com.lifeevent.lid.backoffice.lid.category.dto.BulkCategoryCreateRequest;
 import com.lifeevent.lid.backoffice.lid.category.dto.BulkCategoryDeleteRequest;
 import com.lifeevent.lid.backoffice.lid.category.dto.BulkCategoryResult;
 import com.lifeevent.lid.backoffice.lid.category.service.BackOfficeCategoryService;
+import com.lifeevent.lid.common.dto.PageResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,8 +22,8 @@ public class BackOfficeCategoryController implements IBackOfficeCategoryControll
     private final BackOfficeCategoryService backOfficeCategoryService;
 
     @Override
-    public ResponseEntity<List<BackOfficeCategoryDto>> getAll() {
-        return ResponseEntity.ok(backOfficeCategoryService.getAll());
+    public ResponseEntity<PageResponse<BackOfficeCategoryDto>> getAll(int page, int size) {
+        return ResponseEntity.ok(PageResponse.from(backOfficeCategoryService.getAll(PageRequest.of(page, size))));
     }
 
     @Override

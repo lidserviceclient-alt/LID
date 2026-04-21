@@ -4,6 +4,7 @@ import com.lifeevent.lid.backoffice.lid.category.dto.BackOfficeCategoryDto;
 import com.lifeevent.lid.backoffice.lid.category.dto.BulkCategoryCreateRequest;
 import com.lifeevent.lid.backoffice.lid.category.dto.BulkCategoryDeleteRequest;
 import com.lifeevent.lid.backoffice.lid.category.dto.BulkCategoryResult;
+import com.lifeevent.lid.common.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -23,7 +24,10 @@ public interface IBackOfficeCategoryController {
     @GetMapping
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les catégories")
     @ApiResponse(responseCode = "200", description = "Liste des catégories")
-    ResponseEntity<List<BackOfficeCategoryDto>> getAll();
+    ResponseEntity<PageResponse<BackOfficeCategoryDto>> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    );
 
     @GetMapping("/{id}")
     ResponseEntity<BackOfficeCategoryDto> getById(@PathVariable Integer id);

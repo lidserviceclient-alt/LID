@@ -1,11 +1,10 @@
 package com.lifeevent.lid.backoffice.lid.ticket.service;
 
 import com.lifeevent.lid.backoffice.lid.ticket.dto.BackOfficeTicketEventDto;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
 
 public interface BackOfficeTicketEventService {
-    List<BackOfficeTicketEventDto> getAll(int page, int size);
+    Page<BackOfficeTicketEventDto> getAll(int page, int size);
     BackOfficeTicketEventDto getById(Long id);
     BackOfficeTicketEventDto create(BackOfficeTicketEventDto dto);
     BackOfficeTicketEventDto update(Long id, BackOfficeTicketEventDto dto);

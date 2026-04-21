@@ -83,6 +83,7 @@ public class RealtimeEventPublisher {
         payload.put("orderId", payment.getOrderId());
         payload.put("invoiceToken", payment.getInvoiceToken());
         payload.put("status", payment.getStatus() == null ? null : payment.getStatus().name());
+        payload.put("orderStatus", resolveOrderStatus(payment));
         payload.put("trigger", trigger);
         payload.put("targetUserId", targetUserId);
 
@@ -102,6 +103,16 @@ public class RealtimeEventPublisher {
         return orderRepository.findCustomerUserIdByOrderId(orderId)
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
+                .orElse(null);
+    }
+
+    private String resolveOrderStatus(Payment payment) {
+        Long orderId = payment.getOrderId();
+        if (orderId == null) {
+            return null;
+        }
+        return orderRepository.findById(orderId)
+                .map(order -> order.getCurrentStatus() == null ? null : order.getCurrentStatus().name())
                 .orElse(null);
     }
 

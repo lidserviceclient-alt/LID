@@ -94,6 +94,14 @@ public class BackOfficeLoyaltyServiceImpl implements BackOfficeLoyaltyService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<BackOfficeLoyaltyTierDto> getTiers(Pageable pageable) {
+        List<BackOfficeLoyaltyTierDto> tiers = getTiers();
+        Pageable safePageable = pageable == null ? PageRequest.of(0, tiers.size() == 0 ? 1 : tiers.size()) : pageable;
+        return paginateList(tiers, safePageable, tiers.size());
+    }
+
+    @Override
     public BackOfficeLoyaltyTierDto createTier(BackOfficeLoyaltyTierDto dto) {
         validateTierDto(dto);
         ensureTierNameUnique(dto.getName(), null);

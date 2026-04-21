@@ -10,6 +10,7 @@ import com.lifeevent.lid.discount.enumeration.DiscountTarget;
 import com.lifeevent.lid.discount.repository.DiscountRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -33,16 +34,16 @@ public class BackOfficePromoCodeServiceImpl implements BackOfficePromoCodeServic
 
     @Override
     @Transactional(readOnly = true)
-    public List<BackOfficePromoCodeDto> getAll(int page, int size) {
+    public Page<BackOfficePromoCodeDto> getAll(int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, size);
-        List<BackOfficePromoCodeDto> dtos = backOfficePromoCodeMapper.toDtoList(
-                discountRepository.findAll(PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent()
-        );
-        for (BackOfficePromoCodeDto dto : dtos) {
-            enrichDto(dto);
-        }
-        return dtos;
+        return discountRepository
+                .findAll(PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt")))
+                .map(entity -> {
+                    BackOfficePromoCodeDto dto = backOfficePromoCodeMapper.toDto(entity);
+                    enrichDto(dto);
+                    return dto;
+                });
     }
 
     @Override

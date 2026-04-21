@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.lid.promo.dto;
 
 import com.lifeevent.lid.backoffice.lid.shop.dto.BackOfficeShopDto;
+import com.lifeevent.lid.common.dto.PageResponse;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -16,7 +17,7 @@ import java.util.List;
 @Builder
 public class BackOfficePromoCodeCollectionDto {
     private List<BackOfficePromoCodeDto> promoCodes;
+    private PageResponse<BackOfficePromoCodeDto> promoCodesPage;
     private List<BackOfficeShopDto> boutiques;
     private PromoCodeStatsDto stats;
 }
-

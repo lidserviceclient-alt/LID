@@ -3,6 +3,7 @@ package com.lifeevent.lid.backoffice.lid.finance.controller;
 import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceOverviewDto;
 import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceTransactionDto;
 import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceCollectionDto;
+import com.lifeevent.lid.common.dto.PageResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -14,6 +15,7 @@ public interface IBackOfficeFinanceController {
     @GetMapping("/collection")
     ResponseEntity<BackOfficeFinanceCollectionDto> getCollection(
             @RequestParam(defaultValue = "30") Integer days,
+            @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "50") Integer size
     );
 
@@ -21,7 +23,10 @@ public interface IBackOfficeFinanceController {
     ResponseEntity<BackOfficeFinanceOverviewDto> getOverview(@RequestParam(defaultValue = "30") Integer days);
 
     @GetMapping("/transactions")
-    ResponseEntity<List<BackOfficeFinanceTransactionDto>> getTransactions(@RequestParam(defaultValue = "50") Integer size);
+    ResponseEntity<PageResponse<BackOfficeFinanceTransactionDto>> getTransactions(
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "50") Integer size
+    );
 
     @GetMapping(value = "/export", produces = "text/csv")
     ResponseEntity<byte[]> export(@RequestParam(defaultValue = "30") Integer days);

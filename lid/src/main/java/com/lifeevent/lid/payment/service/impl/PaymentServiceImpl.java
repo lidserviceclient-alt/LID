@@ -126,8 +126,9 @@ public class PaymentServiceImpl implements PaymentService {
                 "LOCAL"
         );
         syncOrderStatusAfterCompletedPayment(savedPayment);
-        createNotificationForPaymentStatus(savedPayment, null);
         partnerSettlementService.syncOrderSettlements(savedPayment.getOrderId());
+        realtimeEventPublisher.publishPaymentStatusUpdated(savedPayment, "local_confirm");
+        createNotificationForPaymentStatus(savedPayment, null);
         return paymentMapper.toDto(savedPayment);
     }
     
@@ -146,6 +147,10 @@ public class PaymentServiceImpl implements PaymentService {
                     "Statut local: " + payment.getStatus().getCode(),
                     "LOCAL"
             );
+            if (payment.getStatus() == PaymentStatus.COMPLETED) {
+                syncOrderStatusAfterCompletedPayment(payment);
+                partnerSettlementService.syncOrderSettlements(payment.getOrderId());
+            }
             realtimeEventPublisher.publishPaymentStatusUpdated(payment, "verify_local");
             return PaymentStatusResponseDto.builder()
                     .paymentId(payment.getId())
@@ -182,12 +187,12 @@ public class PaymentServiceImpl implements PaymentService {
                 "Statut confirmé: " + safeText(invoice.getResponseText(), payment.getStatus().getCode()),
                 "API"
         );
-        realtimeEventPublisher.publishPaymentStatusUpdated(payment, "verify_api");
-        createNotificationForPaymentStatus(payment, previousStatus);
         if (payment.getStatus() == PaymentStatus.COMPLETED) {
             syncOrderStatusAfterCompletedPayment(payment);
             partnerSettlementService.syncOrderSettlements(payment.getOrderId());
         }
+        realtimeEventPublisher.publishPaymentStatusUpdated(payment, "verify_api");
+        createNotificationForPaymentStatus(payment, previousStatus);
         return buildStatusResponse(payment, invoice);
     }
     
@@ -234,12 +239,12 @@ public class PaymentServiceImpl implements PaymentService {
                 "Callback reçu et traité",
                 "WEBHOOK"
         );
-        realtimeEventPublisher.publishPaymentStatusUpdated(payment, "webhook");
-        createNotificationForPaymentStatus(payment, previousStatus);
         if (payment.getStatus() == PaymentStatus.COMPLETED) {
             syncOrderStatusAfterCompletedPayment(payment);
             partnerSettlementService.syncOrderSettlements(payment.getOrderId());
         }
+        realtimeEventPublisher.publishPaymentStatusUpdated(payment, "webhook");
+        createNotificationForPaymentStatus(payment, previousStatus);
     }
     
     @Override

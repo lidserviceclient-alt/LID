@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import com.lifeevent.lid.common.dto.PageResponse;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
@@ -17,8 +18,8 @@ import java.util.List;
 public class BackOfficeLoyaltyCollectionDto {
     private BackOfficeLoyaltyOverviewDto overview;
     private List<BackOfficeLoyaltyTierDto> tiers;
+    private PageResponse<BackOfficeLoyaltyTierDto> tiersPage;
     private List<BackOfficeLoyaltyCustomerDto> topCustomers;
     private BackOfficeLoyaltyConfigDto config;
     private Page<BackOfficeLoyaltyCustomerDto> customersPage;
 }
-

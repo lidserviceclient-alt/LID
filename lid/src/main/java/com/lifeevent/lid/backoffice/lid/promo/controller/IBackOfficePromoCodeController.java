@@ -3,6 +3,7 @@ package com.lifeevent.lid.backoffice.lid.promo.controller;
 import com.lifeevent.lid.backoffice.lid.promo.dto.BackOfficePromoCodeDto;
 import com.lifeevent.lid.backoffice.lid.promo.dto.BackOfficePromoCodeCollectionDto;
 import com.lifeevent.lid.backoffice.lid.promo.dto.PromoCodeStatsDto;
+import com.lifeevent.lid.common.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -14,20 +15,20 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @Tag(name = "BackOffice - Promo Codes", description = "API back-office pour gérer les codes promo")
 public interface IBackOfficePromoCodeController {
 
     @GetMapping("/collection")
     ResponseEntity<BackOfficePromoCodeCollectionDto> getCollection(
-            @RequestParam(required = false) Integer days
+            @RequestParam(required = false) Integer days,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
     );
 
     @GetMapping
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Lister les codes promo")
     @ApiResponse(responseCode = "200", description = "Liste des codes promo")
-    ResponseEntity<List<BackOfficePromoCodeDto>> getAll(
+    ResponseEntity<PageResponse<BackOfficePromoCodeDto>> getAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     );

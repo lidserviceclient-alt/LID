@@ -2,13 +2,12 @@ package com.lifeevent.lid.backoffice.lid.blog.controller;
 
 import com.lifeevent.lid.backoffice.lid.blog.dto.BackOfficeBlogPostDto;
 import com.lifeevent.lid.backoffice.lid.blog.service.BackOfficeBlogPostService;
+import com.lifeevent.lid.common.dto.PageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/backoffice/blog-posts")
@@ -18,8 +17,8 @@ public class BackOfficeBlogPostController implements IBackOfficeBlogPostControll
     private final BackOfficeBlogPostService backOfficeBlogPostService;
 
     @Override
-    public ResponseEntity<List<BackOfficeBlogPostDto>> getAll(int page, int size) {
-        return ResponseEntity.ok(backOfficeBlogPostService.getAll(page, size));
+    public ResponseEntity<PageResponse<BackOfficeBlogPostDto>> getAll(int page, int size) {
+        return ResponseEntity.ok(PageResponse.from(backOfficeBlogPostService.getAll(page, size)));
     }
 
     @Override

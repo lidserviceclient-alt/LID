@@ -4,14 +4,13 @@ import com.lifeevent.lid.backoffice.lid.ticket.dto.BackOfficeTicketEventDto;
 import com.lifeevent.lid.backoffice.lid.ticket.dto.BackOfficeTicketInventoryDto;
 import com.lifeevent.lid.backoffice.lid.ticket.dto.AdjustTicketInventoryRequest;
 import com.lifeevent.lid.backoffice.lid.ticket.service.BackOfficeTicketEventService;
+import com.lifeevent.lid.common.dto.PageResponse;
 import com.lifeevent.lid.ticket.service.TicketInventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/backoffice/tickets")
@@ -22,8 +21,8 @@ public class BackOfficeTicketEventController implements IBackOfficeTicketEventCo
     private final TicketInventoryService ticketInventoryService;
 
     @Override
-    public ResponseEntity<List<BackOfficeTicketEventDto>> getAll(int page, int size) {
-        return ResponseEntity.ok(backOfficeTicketEventService.getAll(page, size));
+    public ResponseEntity<PageResponse<BackOfficeTicketEventDto>> getAll(int page, int size) {
+        return ResponseEntity.ok(PageResponse.from(backOfficeTicketEventService.getAll(page, size)));
     }
 
     @Override

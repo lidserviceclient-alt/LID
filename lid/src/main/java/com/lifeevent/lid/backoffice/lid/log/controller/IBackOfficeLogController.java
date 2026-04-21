@@ -1,7 +1,9 @@
 package com.lifeevent.lid.backoffice.lid.log.controller;
 
+import com.lifeevent.lid.backoffice.lid.log.dto.BackOfficeLogEntryDto;
 import com.lifeevent.lid.backoffice.lid.log.dto.BackOfficeLogPageDto;
 import com.lifeevent.lid.backoffice.lid.log.dto.BackOfficeLogPurgeResultDto;
+import com.lifeevent.lid.common.dto.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,7 +18,7 @@ public interface IBackOfficeLogController {
 
     @GetMapping
     @Operation(summary = "Lister les logs", description = "Retourne les dernières entrées avec filtres standards")
-    ResponseEntity<BackOfficeLogPageDto> list(
+    ResponseEntity<PageResponse<BackOfficeLogEntryDto>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "100") int size,
             @RequestParam(required = false) String from,

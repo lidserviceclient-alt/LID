@@ -3,6 +3,7 @@ package com.lifeevent.lid.common.logging;
 import com.lifeevent.lid.auth.constant.UserRole;
 import com.lifeevent.lid.auth.repository.AuthenticationRepository;
 import com.lifeevent.lid.common.service.EmailService;
+import com.lifeevent.lid.common.service.EmailTemplateService;
 import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -30,6 +32,7 @@ public class InternalErrorAlertService {
     private final AuthenticationRepository authenticationRepository;
     private final UserEntityRepository userEntityRepository;
     private final EmailService emailService;
+    private final EmailTemplateService emailTemplateService;
 
     @Value("${config.alerts.internal-error.enabled:true}")
     private boolean enabled;
@@ -62,11 +65,22 @@ public class InternalErrorAlertService {
         }
 
         String subject = "[LID][INTERNAL_ERROR] " + ex.getClass().getSimpleName();
-        String body = buildBody(apiPath, ex, fingerprint);
+        String topStack = buildTopStack(ex);
+        String time = DateTimeFormatter.ISO_DATE_TIME.format(LocalDateTime.now(ZoneId.systemDefault()));
+
+        Map<String, String> vars = new HashMap<>();
+        vars.put("exception", ex.getClass().getName());
+        vars.put("time", time);
+        vars.put("path", apiPath != null ? apiPath : "");
+        vars.put("message", ex.getMessage() != null ? ex.getMessage() : "");
+        vars.put("fingerprint", fingerprint);
+        vars.put("topStack", topStack);
+
+        String html = emailTemplateService.render("internal-error", vars);
 
         for (String to : recipients) {
             try {
-                emailService.send(to, subject, body);
+                emailService.sendHtml(to, subject, html);
             } catch (Exception mailEx) {
                 log.warn("Failed to send internal error alert to {}: {}", to, mailEx.getMessage());
             }
@@ -129,20 +143,12 @@ public class InternalErrorAlertService {
                 .toList();
     }
 
-    private String buildBody(String apiPath, Exception ex, String fingerprint) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Internal error detected").append(System.lineSeparator());
-        sb.append("Time: ").append(DateTimeFormatter.ISO_DATE_TIME.format(LocalDateTime.now(ZoneId.systemDefault()))).append(System.lineSeparator());
-        sb.append("Path: ").append(apiPath).append(System.lineSeparator());
-        sb.append("Exception: ").append(ex.getClass().getName()).append(System.lineSeparator());
-        sb.append("Message: ").append(ex.getMessage()).append(System.lineSeparator());
-        sb.append("Fingerprint: ").append(fingerprint).append(System.lineSeparator());
+    private String buildTopStack(Exception ex) {
         if (ex.getStackTrace() != null && ex.getStackTrace().length > 0) {
             StackTraceElement ste = ex.getStackTrace()[0];
-            sb.append("Top stack: ").append(ste.getClassName()).append("#")
-                    .append(ste.getMethodName()).append(":").append(ste.getLineNumber());
+            return ste.getClassName() + "#" + ste.getMethodName() + ":" + ste.getLineNumber();
         }
-        return sb.toString();
+        return "";
     }
 
     private String normalize(String value) {

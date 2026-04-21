@@ -182,9 +182,38 @@ public class MediaAssetServiceImpl implements MediaAssetService {
     private String buildStorageFolder(MediaOwner owner, String normalizedFolder) {
         String safeFolder = StoragePathUtils.normalizeFolder(normalizedFolder);
         if (owner.scope() == MediaOwnerScope.PARTNER) {
-            return safeFolder + "/" + PARTNER_STORAGE_SEGMENT + "/" + StoragePathUtils.sanitizePathSegment(owner.userId());
+            return joinStorageSegments(
+                    PARTNER_STORAGE_SEGMENT,
+                    StoragePathUtils.sanitizePathSegment(owner.userId()),
+                    stripLeadingStorageSegment(safeFolder, PARTNER_STORAGE_SEGMENT)
+            );
         }
-        return safeFolder + "/" + LID_STORAGE_SEGMENT;
+        return joinStorageSegments(LID_STORAGE_SEGMENT, stripLeadingStorageSegment(safeFolder, LID_STORAGE_SEGMENT));
+    }
+
+    private String stripLeadingStorageSegment(String folder, String segment) {
+        String safeFolder = StoragePathUtils.normalizeFolder(folder);
+        String safeSegment = StoragePathUtils.sanitizePathSegment(segment);
+        if (safeFolder.equals(safeSegment)) {
+            return "";
+        }
+        String prefix = safeSegment + "/";
+        if (safeFolder.startsWith(prefix)) {
+            return safeFolder.substring(prefix.length());
+        }
+        return safeFolder;
+    }
+
+    private String joinStorageSegments(String... segments) {
+        List<String> safeSegments = new ArrayList<>();
+        for (String segment : segments == null ? new String[0] : segments) {
+            String safeSegment = StoragePathUtils.normalizeObjectKey(segment);
+            if (safeSegment.isBlank()) {
+                continue;
+            }
+            safeSegments.add(safeSegment);
+        }
+        return String.join("/", safeSegments);
     }
 
     private String buildQueryPattern(String query) {

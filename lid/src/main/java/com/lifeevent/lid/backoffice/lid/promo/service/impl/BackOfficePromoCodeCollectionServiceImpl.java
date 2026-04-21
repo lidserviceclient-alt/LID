@@ -7,8 +7,10 @@ import com.lifeevent.lid.backoffice.lid.promo.service.BackOfficePromoCodeCollect
 import com.lifeevent.lid.backoffice.lid.promo.service.BackOfficePromoCodeService;
 import com.lifeevent.lid.backoffice.lid.shop.dto.BackOfficeShopDto;
 import com.lifeevent.lid.backoffice.lid.shop.service.BackOfficeShopService;
+import com.lifeevent.lid.common.dto.PageResponse;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,16 +35,17 @@ public class BackOfficePromoCodeCollectionServiceImpl implements BackOfficePromo
     private Executor aggregatorExecutor;
 
     @Override
-    public BackOfficePromoCodeCollectionDto getCollection(Integer days) {
-        CompletableFuture<List<BackOfficePromoCodeDto>> promoCodesFuture =
-                supplyAggregationAsync(() -> backOfficePromoCodeService.getAll(0, 10));
+    public BackOfficePromoCodeCollectionDto getCollection(Integer days, int page, int size) {
+        CompletableFuture<Page<BackOfficePromoCodeDto>> promoCodesFuture =
+                supplyAggregationAsync(() -> backOfficePromoCodeService.getAll(page, size));
         CompletableFuture<List<BackOfficeShopDto>> boutiquesFuture = supplyAggregationAsync(backOfficeShopService::getShops);
         CompletableFuture<PromoCodeStatsDto> statsFuture = supplyAggregationAsync(() -> backOfficePromoCodeService.getStats(days));
 
         CompletableFuture.allOf(promoCodesFuture, boutiquesFuture, statsFuture).join();
 
         return BackOfficePromoCodeCollectionDto.builder()
-                .promoCodes(promoCodesFuture.join())
+                .promoCodes(promoCodesFuture.join().getContent())
+                .promoCodesPage(PageResponse.from(promoCodesFuture.join()))
                 .boutiques(boutiquesFuture.join())
                 .stats(statsFuture.join())
                 .build();

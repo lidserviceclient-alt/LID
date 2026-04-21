@@ -14,6 +14,7 @@ import java.util.List;
 public interface BackOfficeLoyaltyService {
     BackOfficeLoyaltyOverviewDto getOverview();
     List<BackOfficeLoyaltyTierDto> getTiers();
+    Page<BackOfficeLoyaltyTierDto> getTiers(Pageable pageable);
     BackOfficeLoyaltyTierDto createTier(BackOfficeLoyaltyTierDto dto);
     BackOfficeLoyaltyConfigDto getConfig();
     BackOfficeLoyaltyConfigDto updateConfig(BackOfficeLoyaltyConfigDto dto);

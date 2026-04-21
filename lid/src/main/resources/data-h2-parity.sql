@@ -7,6 +7,9 @@ SET REFERENTIAL_INTEGRITY FALSE;
 TRUNCATE TABLE marketing_campaign_delivery;
 TRUNCATE TABLE email_message_recipient;
 TRUNCATE TABLE return_request_item;
+TRUNCATE TABLE partner_settlement;
+TRUNCATE TABLE payment;
+TRUNCATE TABLE status_history;
 TRUNCATE TABLE order_article;
 TRUNCATE TABLE stock;
 TRUNCATE TABLE article_categories;
@@ -68,7 +71,7 @@ INSERT INTO category (
   created_by,
   updated_by
 ) VALUES (
-  100,
+  1000,
   1,
   'Boissons locales',
   'PRINCIPALE',
@@ -81,6 +84,17 @@ INSERT INTO category (
   'u-admin',
   'u-admin'
 );
+
+-- Keep H2 generated IDs away from the seeded dataset and from low IDs used in tests/manual scenarios.
+ALTER TABLE category ALTER COLUMN id RESTART WITH 2000;
+ALTER TABLE shop ALTER COLUMN shop_id RESTART WITH 2000;
+ALTER TABLE article ALTER COLUMN id RESTART WITH 2000;
+ALTER TABLE stock ALTER COLUMN id RESTART WITH 2000;
+ALTER TABLE orders ALTER COLUMN id RESTART WITH 2000;
+ALTER TABLE status_history ALTER COLUMN id RESTART WITH 2000;
+ALTER TABLE order_article ALTER COLUMN id RESTART WITH 2000;
+ALTER TABLE payment ALTER COLUMN id RESTART WITH 2000;
+ALTER TABLE partner_settlement ALTER COLUMN id RESTART WITH 2000;
 
 -- Partner user
 INSERT INTO user_entity (
@@ -144,13 +158,13 @@ INSERT INTO shop (
   created_by,
   updated_by
 ) VALUES (
-  100,
+  1000,
   'Cave de Cocody',
   'Boissons artisanales et coffrets frais.',
   'https://images.unsplash.com/photo-1563225409-127c18758bd5?auto=format&fit=crop&w=800&q=80',
   'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=1600&q=80',
   'PRINCIPALE',
-  100,
+  1000,
   'Sélection de boissons locales, tonics premium et coffrets prêts à offrir.',
   CURRENT_TIMESTAMP,
   CURRENT_TIMESTAMP,
@@ -187,7 +201,7 @@ INSERT INTO partner_profile (
 ) VALUES (
   'u-partner-p1',
   '+2250700000001',
-  100,
+  1000,
   '12 boulevard Latrille',
   'Abidjan',
   'Côte d''Ivoire',
@@ -234,7 +248,7 @@ INSERT INTO article (
   created_by,
   updated_by
 ) VALUES (
-  100,
+  1000,
   'SKU-P1-0001',
   '2000000001001',
   'Pack Gingembre Premium',
@@ -257,7 +271,7 @@ INSERT INTO article (
 );
 
 INSERT INTO article_categories (article_id, categories_id) VALUES
-  (100, 100);
+  (1000, 1000);
 
 INSERT INTO stock (
   id,
@@ -271,8 +285,8 @@ INSERT INTO stock (
   created_by,
   updated_by
 ) VALUES (
-  100,
-  100,
+  1000,
+  1000,
   25,
   0,
   'LOT-P1-001',
@@ -373,12 +387,12 @@ INSERT INTO orders (
   created_by,
   updated_by
 ) VALUES (
-  1,
+  1000,
   'u-customer-c1',
   15750,
   'PAID',
   NULL,
-  'ORD-1',
+  'ORD-1000',
   'XOF',
   'Riviera Palmeraie, Abidjan',
   '+2250102030405',
@@ -405,8 +419,8 @@ INSERT INTO status_history (
   updated_by
 ) VALUES
   (
-    1,
-    1,
+    1000,
+    1000,
     'PENDING',
     'Commande créée - En attente de paiement',
     TIMESTAMP '2026-04-18 10:15:00',
@@ -416,8 +430,8 @@ INSERT INTO status_history (
     'u-customer-c1'
   ),
   (
-    2,
-    1,
+    1001,
+    1000,
     'PAID',
     'Paiement confirmé',
     TIMESTAMP '2026-04-18 10:18:00',
@@ -440,10 +454,10 @@ INSERT INTO order_article (
   created_by,
   updated_by
 ) VALUES (
-  1,
-  1,
+  1000,
+  1000,
   'ARTICLE',
-  100,
+  1000,
   NULL,
   1,
   12500,
@@ -477,9 +491,9 @@ INSERT INTO payment (
   created_by,
   updated_by
 ) VALUES (
-  1,
-  1,
-  'LOCAL-H2-ORDER-1',
+  1000,
+  1000,
+  'LOCAL-H2-ORDER-1000',
   15750,
   'XOF',
   'Commande H2 partenaire Cave de Cocody',
@@ -493,7 +507,7 @@ INSERT INTO payment (
   'http://localhost:5173/payment/cancel',
   TIMESTAMP '2026-04-18 10:18:00',
   NULL,
-  'TX-H2-ORDER-1',
+  'TX-H2-ORDER-1000',
   NULL,
   TIMESTAMP '2026-04-18 10:18:00',
   TIMESTAMP '2026-04-18 10:18:00',
@@ -527,9 +541,9 @@ INSERT INTO partner_settlement (
   created_by,
   updated_by
 ) VALUES (
-  1,
-  1,
-  1,
+  1000,
+  1000,
+  1000,
   'u-partner-p1',
   'Paul Marchand',
   'XOF',

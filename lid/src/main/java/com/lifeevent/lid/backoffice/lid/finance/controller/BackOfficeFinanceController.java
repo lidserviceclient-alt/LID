@@ -4,6 +4,7 @@ import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceOverviewDto
 import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceTransactionDto;
 import com.lifeevent.lid.backoffice.lid.finance.dto.BackOfficeFinanceCollectionDto;
 import com.lifeevent.lid.backoffice.lid.finance.service.BackOfficeFinanceService;
+import com.lifeevent.lid.common.dto.PageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -12,8 +13,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/v1/backoffice/finance")
 @RequiredArgsConstructor
@@ -22,10 +21,15 @@ public class BackOfficeFinanceController implements IBackOfficeFinanceController
     private final BackOfficeFinanceService backOfficeFinanceService;
 
     @Override
-    public ResponseEntity<BackOfficeFinanceCollectionDto> getCollection(Integer days, Integer size) {
+    public ResponseEntity<BackOfficeFinanceCollectionDto> getCollection(Integer days, Integer page, Integer size) {
+        var transactionsPage = backOfficeFinanceService.getTransactions(
+                page == null ? 0 : page,
+                size == null ? 50 : size
+        );
         return ResponseEntity.ok(new BackOfficeFinanceCollectionDto(
                 backOfficeFinanceService.getOverview(days),
-                backOfficeFinanceService.getTransactions(size)
+                transactionsPage.getContent(),
+                PageResponse.from(transactionsPage)
         ));
     }
 
@@ -35,8 +39,11 @@ public class BackOfficeFinanceController implements IBackOfficeFinanceController
     }
 
     @Override
-    public ResponseEntity<List<BackOfficeFinanceTransactionDto>> getTransactions(Integer size) {
-        return ResponseEntity.ok(backOfficeFinanceService.getTransactions(size));
+    public ResponseEntity<PageResponse<BackOfficeFinanceTransactionDto>> getTransactions(Integer page, Integer size) {
+        return ResponseEntity.ok(PageResponse.from(backOfficeFinanceService.getTransactions(
+                page == null ? 0 : page,
+                size == null ? 50 : size
+        )));
     }
 
     @Override

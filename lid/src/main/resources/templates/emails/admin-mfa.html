@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code de connexion administrateur</title>
+</head>
+
+<body style="margin:0;padding:0;background-color:#eef7f1;font-family:Arial,Helvetica,sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;background:#eef7f1;">
+    <tr>
+      <td align="center">
+
+        <!-- Container -->
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:10px;border:1px solid #e3e8e5;overflow:hidden;">
+
+          <!-- HEADER AVEC LOGO -->
+          <tr>
+            <td style="padding:22px 28px;border-bottom:1px solid #e6ece9;">
+              <table width="100%">
+                <tr>
+
+                  <!-- Logo -->
+                  <td align="left">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align:middle;">
+                          <img src="https://lid-shop.web.app/imgs/favicon.ico" 
+                               alt="LID" 
+                               style="display:block;height:32px;">
+                        </td>
+                        
+                      </tr>
+                    </table>
+                  </td>
+
+                  <!-- Label -->
+                  <td align="right">
+                    <span style="font-size:12px;color:#888;">
+                      Authentification
+                    </span>
+                  </td>
+
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- TITLE -->
+          <tr>
+            <td style="padding:30px 28px 10px;">
+              <h2 style="margin:0;font-size:22px;color:#1b5e20;">
+                Code de connexion
+              </h2>
+            </td>
+          </tr>
+
+          <!-- Accent -->
+          <tr>
+            <td style="padding:0 28px 24px;">
+              <div style="width:45px;height:3px;background:#43a047;border-radius:2px;"></div>
+            </td>
+          </tr>
+
+          <!-- TEXT -->
+          <tr>
+            <td style="padding:0 28px 30px;">
+              <p style="color:#444;font-size:15px;line-height:1.7;margin:0;">
+                Une tentative de connexion à votre espace administrateur a été détectée.  
+                Utilisez le code ci-dessous pour valider votre identité.
+              </p>
+            </td>
+          </tr>
+
+          <!-- CODE BLOCK -->
+          <tr>
+            <td style="padding:0 28px 30px;text-align:center;">
+              <div style="display:inline-block;background:#f4fbf6;border:2px solid #43a047;border-radius:10px;padding:20px 36px;">
+                <span style="font-size:38px;font-weight:bold;letter-spacing:14px;color:#1b5e20;">
+                  {{code}}
+                </span>
+              </div>
+            </td>
+          </tr>
+
+          <!-- INFO -->
+          <tr>
+            <td style="padding:0 28px 20px;">
+              <span style="color:#666;font-size:13px;">
+               Ce code expire dans <strong>{{expiryMinutes}} minutes</strong>
+              </span>
+            </td>
+          </tr>
+
+          <!-- WARNING -->
+          <tr>
+            <td style="padding:0 28px 30px;">
+              <div style="background:#fff5f5;border:1px solid #f5c2c2;border-radius:6px;padding:12px;">
+                <span style="color:#c62828;font-size:13px;">
+                  Si vous n'êtes pas à l'origine de cette tentative, sécurisez immédiatement votre compte.
+                </span>
+              </div>
+            </td>
+          </tr>
+
+          <!-- DIVIDER -->
+          <tr>
+            <td style="padding:0 28px;">
+              <hr style="border:none;border-top:1px solid #eaeaea;margin:0;">
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="padding:20px 28px;background:#fafdfb;text-align:center;">
+
+              <p style="color:#999;font-size:12px;margin:0 0 6px;">
+                © 2025 LID – Life Distribution
+              </p>
+
+              <p style="color:#bbb;font-size:11px;margin:0;">
+                Email automatique — ne pas répondre
+              </p>
+
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

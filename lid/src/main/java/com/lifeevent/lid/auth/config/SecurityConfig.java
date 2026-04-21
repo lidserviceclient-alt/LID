@@ -94,11 +94,11 @@ public class SecurityConfig {
                             "/api/v1/blog/**",
                             "/api/v1/tickets/**",
                             "/api/v1/partners/register/step-1",
-                            "/api/v1/catalog/**",
                             "/api/v1/articles/search/**",
                             "/api/v1/newsletter/**",
                             "/api/v1/cdn/**"
                     ).permitAll();
+                    auth.requestMatchers(HttpMethod.GET, "/api/v1/catalog/**").permitAll();
 
                     if (isLocal) {
                         auth.requestMatchers("/api/v1/checkout/**").permitAll();

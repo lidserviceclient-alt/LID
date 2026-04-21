@@ -11,6 +11,8 @@ import com.lifeevent.lid.payment.repository.RefundRepository;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -108,19 +110,32 @@ public class BackOfficeFinanceServiceImpl implements BackOfficeFinanceService {
             sync = true
     )
     public List<BackOfficeFinanceTransactionDto> getTransactions(Integer size) {
+        return getTransactions(0, normalizeSize(size)).getContent();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(
+            cacheNames = CatalogCacheNames.BACKOFFICE_FINANCE_TRANSACTIONS,
+            key = "'page:' + #page + ':' + #size",
+            sync = true
+    )
+    public Page<BackOfficeFinanceTransactionDto> getTransactions(int page, int size) {
+        int safePage = Math.max(0, page);
         int safeSize = normalizeSize(size);
+        int fetchSize = Math.max(safeSize, Math.min(1000, (safePage + 1) * safeSize));
 
         List<BackOfficeFinanceTransactionDto> transactions = new ArrayList<>();
-        transactions.addAll(mapPaymentsToTransactions(safeSize));
-        transactions.addAll(mapRefundsToTransactions(safeSize));
+        transactions.addAll(mapPaymentsToTransactions(fetchSize));
+        transactions.addAll(mapRefundsToTransactions(fetchSize));
 
         transactions.sort(Comparator.comparing(BackOfficeFinanceTransactionDto::getDate,
                 Comparator.nullsLast(LocalDateTime::compareTo)).reversed());
 
-        if (transactions.size() > safeSize) {
-            return transactions.subList(0, safeSize);
-        }
-        return transactions;
+        int from = Math.min(safePage * safeSize, transactions.size());
+        int to = Math.min(from + safeSize, transactions.size());
+        long total = paymentRepository.count() + refundRepository.count();
+        return new PageImpl<>(List.copyOf(transactions.subList(from, to)), PageRequest.of(safePage, safeSize), total);
     }
 
     @Override

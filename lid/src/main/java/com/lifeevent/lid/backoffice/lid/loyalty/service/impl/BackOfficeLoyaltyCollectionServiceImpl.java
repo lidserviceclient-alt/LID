@@ -7,6 +7,7 @@ import com.lifeevent.lid.backoffice.lid.loyalty.dto.BackOfficeLoyaltyOverviewDto
 import com.lifeevent.lid.backoffice.lid.loyalty.dto.BackOfficeLoyaltyTierDto;
 import com.lifeevent.lid.backoffice.lid.loyalty.service.BackOfficeLoyaltyCollectionService;
 import com.lifeevent.lid.backoffice.lid.loyalty.service.BackOfficeLoyaltyService;
+import com.lifeevent.lid.common.dto.PageResponse;
 import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -42,8 +43,8 @@ public class BackOfficeLoyaltyCollectionServiceImpl implements BackOfficeLoyalty
                 : supplyAggregationAsync(() -> backOfficeLoyaltyService.topCustomers(topLimit));
         CompletableFuture<BackOfficeLoyaltyOverviewDto> overviewFuture =
                 supplyAggregationAsync(backOfficeLoyaltyService::getOverview);
-        CompletableFuture<List<BackOfficeLoyaltyTierDto>> tiersFuture =
-                supplyAggregationAsync(backOfficeLoyaltyService::getTiers);
+        CompletableFuture<Page<BackOfficeLoyaltyTierDto>> tiersFuture =
+                supplyAggregationAsync(() -> backOfficeLoyaltyService.getTiers(PageRequest.of(0, 50)));
         CompletableFuture<BackOfficeLoyaltyConfigDto> configFuture =
                 supplyAggregationAsync(backOfficeLoyaltyService::getConfig);
 
@@ -57,7 +58,8 @@ public class BackOfficeLoyaltyCollectionServiceImpl implements BackOfficeLoyalty
 
         return BackOfficeLoyaltyCollectionDto.builder()
                 .overview(overviewFuture.join())
-                .tiers(tiersFuture.join())
+                .tiers(tiersFuture.join().getContent())
+                .tiersPage(PageResponse.from(tiersFuture.join()))
                 .topCustomers(topCustomersFuture.join())
                 .config(configFuture.join())
                 .customersPage(customersPageFuture.join())

@@ -5,12 +5,11 @@ import com.lifeevent.lid.backoffice.lid.promo.dto.BackOfficePromoCodeCollectionD
 import com.lifeevent.lid.backoffice.lid.promo.dto.PromoCodeStatsDto;
 import com.lifeevent.lid.backoffice.lid.promo.service.BackOfficePromoCodeCollectionService;
 import com.lifeevent.lid.backoffice.lid.promo.service.BackOfficePromoCodeService;
+import com.lifeevent.lid.common.dto.PageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/backoffice/promo-codes")
@@ -21,13 +20,13 @@ public class BackOfficePromoCodeController implements IBackOfficePromoCodeContro
     private final BackOfficePromoCodeCollectionService backOfficePromoCodeCollectionService;
 
     @Override
-    public ResponseEntity<BackOfficePromoCodeCollectionDto> getCollection(Integer days) {
-        return ResponseEntity.ok(backOfficePromoCodeCollectionService.getCollection(days));
+    public ResponseEntity<BackOfficePromoCodeCollectionDto> getCollection(Integer days, int page, int size) {
+        return ResponseEntity.ok(backOfficePromoCodeCollectionService.getCollection(days, page, size));
     }
 
     @Override
-    public ResponseEntity<List<BackOfficePromoCodeDto>> getAll(int page, int size) {
-        return ResponseEntity.ok(backOfficePromoCodeService.getAll(page, size));
+    public ResponseEntity<PageResponse<BackOfficePromoCodeDto>> getAll(int page, int size) {
+        return ResponseEntity.ok(PageResponse.from(backOfficePromoCodeService.getAll(page, size)));
     }
 
     @Override
