@@ -1,15 +1,15 @@
 import { backofficeApi } from "../services/api.js";
 import { createResolverStore } from "../utils/createResolverStore.js";
 
-const blogPostsResolverStore = createResolverStore(async () => {
-  const data = await backofficeApi.blogPosts();
-  return Array.isArray(data) ? data : [];
-}, () => "blog-posts");
+const blogPostsResolverStore = createResolverStore(
+  async (page = 0, size = 10) => backofficeApi.blogPosts(page, size),
+  (page = 0, size = 10) => JSON.stringify({ page, size })
+);
 
-export function useBlogPostsResolver() {
-  return blogPostsResolverStore.useResolver();
+export function useBlogPostsResolver(page = 0, size = 10) {
+  return blogPostsResolverStore.useResolver(page, size);
 }
 
-export async function reloadBlogPostsResolver() {
-  return blogPostsResolverStore.load([], { force: true });
+export async function reloadBlogPostsResolver(page = 0, size = 10) {
+  return blogPostsResolverStore.load([page, size], { force: true });
 }

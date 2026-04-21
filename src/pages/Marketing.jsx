@@ -70,6 +70,9 @@ export default function Marketing() {
 
   // Campaigns
   const [campaigns, setCampaigns] = useState([]);
+  const [campaignPage, setCampaignPage] = useState(0);
+  const campaignPageSize = 20;
+  const [campaignsPage, setCampaignsPage] = useState(null);
   const [campaignStatusFilter, setCampaignStatusFilter] = useState("");
   const [campaignLoading, setCampaignLoading] = useState(true);
   const [campaignError, setCampaignError] = useState("");
@@ -93,6 +96,9 @@ export default function Marketing() {
   // Newsletter
   const [newsletterStats, setNewsletterStats] = useState(null);
   const [subscribers, setSubscribers] = useState([]);
+  const [subscriberPage, setSubscriberPage] = useState(0);
+  const subscriberPageSize = 20;
+  const [subscribersPage, setSubscribersPage] = useState(null);
   const [subscriberStatusFilter, setSubscriberStatusFilter] = useState("");
   const [subscriberQuery, setSubscriberQuery] = useState("");
   const [newsletterLoading, setNewsletterLoading] = useState(false);
@@ -127,12 +133,13 @@ export default function Marketing() {
     }));
   }, [subscribers]);
 
-  const campaignsEntry = useMarketingCampaignsResolver(0, 50, campaignStatusFilter);
-  const newsletterEntry = useMarketingNewsletterResolver(0, 50, subscriberStatusFilter, subscriberQuery.trim());
+  const campaignsEntry = useMarketingCampaignsResolver(campaignPage, campaignPageSize, campaignStatusFilter);
+  const newsletterEntry = useMarketingNewsletterResolver(subscriberPage, subscriberPageSize, subscriberStatusFilter, subscriberQuery.trim());
 
   useEffect(() => {
     setCampaignLoading(campaignsEntry.loading);
     setCampaignError(campaignsEntry.error);
+    setCampaignsPage(campaignsEntry.data || null);
     setCampaigns(Array.isArray(campaignsEntry.data?.content) ? campaignsEntry.data.content : []);
   }, [campaignsEntry.data, campaignsEntry.error, campaignsEntry.loading]);
 
@@ -141,8 +148,14 @@ export default function Marketing() {
     setNewsletterLoading(newsletterEntry.loading);
     setNewsletterError(newsletterEntry.error);
     setNewsletterStats(newsletterEntry.data?.stats || null);
+    setSubscribersPage(newsletterEntry.data?.subscribersPage || null);
     setSubscribers(Array.isArray(newsletterEntry.data?.subscribersPage?.content) ? newsletterEntry.data.subscribersPage.content : []);
   }, [newsletterEntry.data, newsletterEntry.error, newsletterEntry.loading, tab]);
+
+  const campaignTotalPages = Number.isFinite(Number(campaignsPage?.totalPages)) ? Number(campaignsPage.totalPages) : 0;
+  const campaignTotalElements = Number.isFinite(Number(campaignsPage?.totalElements)) ? Number(campaignsPage.totalElements) : campaignRows.length;
+  const subscriberTotalPages = Number.isFinite(Number(subscribersPage?.totalPages)) ? Number(subscribersPage.totalPages) : 0;
+  const subscriberTotalElements = Number.isFinite(Number(subscribersPage?.totalElements)) ? Number(subscribersPage.totalElements) : subscriberRows.length;
 
   function openCreateCampaign(preset = {}) {
     const type = "EMAIL";
@@ -224,7 +237,7 @@ export default function Marketing() {
         await backofficeApi.createMarketingCampaign(payload);
       }
       setIsCampaignFormOpen(false);
-      await reloadMarketingCampaignsResolver(0, 50, campaignStatusFilter);
+      await reloadMarketingCampaignsResolver(campaignPage, campaignPageSize, campaignStatusFilter);
     } catch (err) {
       setCampaignFormError(err?.message || "Impossible d'enregistrer la campagne.");
     } finally {
@@ -240,7 +253,7 @@ export default function Marketing() {
       await backofficeApi.deleteMarketingCampaign(currentCampaign.id);
       setIsCampaignDeleteOpen(false);
       setCurrentCampaign(null);
-      await reloadMarketingCampaignsResolver(0, 50, campaignStatusFilter);
+      await reloadMarketingCampaignsResolver(campaignPage, campaignPageSize, campaignStatusFilter);
     } catch (err) {
       setCampaignFormError(err?.message || "Impossible de supprimer la campagne.");
     } finally {
@@ -254,7 +267,7 @@ export default function Marketing() {
     setSendingId(id);
     try {
       await backofficeApi.sendMarketingCampaign(id);
-      await reloadMarketingCampaignsResolver(0, 50, campaignStatusFilter);
+      await reloadMarketingCampaignsResolver(campaignPage, campaignPageSize, campaignStatusFilter);
     } catch (err) {
       setCampaignError(err?.message || "Impossible d'envoyer la campagne.");
     } finally {
@@ -270,7 +283,7 @@ export default function Marketing() {
     try {
       await backofficeApi.createNewsletterSubscriber({ email });
       setSubscriberEmail("");
-      await reloadMarketingNewsletterResolver(0, 50, subscriberStatusFilter, subscriberQuery.trim());
+      await reloadMarketingNewsletterResolver(subscriberPage, subscriberPageSize, subscriberStatusFilter, subscriberQuery.trim());
     } catch (err) {
       setNewsletterError(err?.message || "Impossible d'ajouter l'abonné.");
     } finally {
@@ -284,7 +297,7 @@ export default function Marketing() {
     setSubscriberSaving(true);
     try {
       await backofficeApi.unsubscribeNewsletterSubscriber(id);
-      await reloadMarketingNewsletterResolver(0, 50, subscriberStatusFilter, subscriberQuery.trim());
+      await reloadMarketingNewsletterResolver(subscriberPage, subscriberPageSize, subscriberStatusFilter, subscriberQuery.trim());
     } catch (err) {
       setNewsletterError(err?.message || "Impossible de désabonner.");
     } finally {
@@ -299,7 +312,7 @@ export default function Marketing() {
     setSubscriberSaving(true);
     try {
       await backofficeApi.createNewsletterSubscriber({ email: e });
-      await reloadMarketingNewsletterResolver(0, 50, subscriberStatusFilter, subscriberQuery.trim());
+      await reloadMarketingNewsletterResolver(subscriberPage, subscriberPageSize, subscriberStatusFilter, subscriberQuery.trim());
     } catch (err) {
       setNewsletterError(err?.message || "Impossible de réabonner.");
     } finally {
@@ -315,7 +328,7 @@ export default function Marketing() {
       await backofficeApi.deleteNewsletterSubscriber(currentSubscriber.id);
       setIsSubscriberDeleteOpen(false);
       setCurrentSubscriber(null);
-      await reloadMarketingNewsletterResolver(0, 50, subscriberStatusFilter, subscriberQuery.trim());
+      await reloadMarketingNewsletterResolver(subscriberPage, subscriberPageSize, subscriberStatusFilter, subscriberQuery.trim());
     } catch (err) {
       setNewsletterError(err?.message || "Impossible de supprimer l'abonné.");
     } finally {
@@ -374,7 +387,7 @@ export default function Marketing() {
             <div className="flex flex-wrap items-end gap-3">
               <div className="w-56 space-y-1">
                 <p className="text-xs text-muted-foreground">Filtre statut</p>
-                <Select value={campaignStatusFilter} onChange={(e) => setCampaignStatusFilter(e.target.value)}>
+                <Select value={campaignStatusFilter} onChange={(e) => { setCampaignPage(0); setCampaignStatusFilter(e.target.value); }}>
                   <option value="">Toutes</option>
                   <option value="ACTIVE">Actives</option>
                   <option value="SCHEDULED">Planifiées</option>
@@ -470,6 +483,18 @@ export default function Marketing() {
               )}
             </tbody>
           </Table>
+          <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+            <span>{campaignTotalElements} campagne{campaignTotalElements > 1 ? "s" : ""}</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setCampaignPage((p) => Math.max(0, p - 1))} disabled={campaignPage <= 0 || campaignLoading}>
+                Précédent
+              </Button>
+              <span>Page {campaignPage + 1} / {Math.max(campaignTotalPages, 1)}</span>
+              <Button variant="outline" size="sm" onClick={() => setCampaignPage((p) => p + 1)} disabled={campaignLoading || campaignPage + 1 >= campaignTotalPages}>
+                Suivant
+              </Button>
+            </div>
+          </div>
         </Card>
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
@@ -502,7 +527,7 @@ export default function Marketing() {
               <div className="flex flex-wrap items-end gap-3">
                 <div className="w-56 space-y-1">
                   <p className="text-xs text-muted-foreground">Statut</p>
-                  <Select value={subscriberStatusFilter} onChange={(e) => setSubscriberStatusFilter(e.target.value)}>
+                  <Select value={subscriberStatusFilter} onChange={(e) => { setSubscriberPage(0); setSubscriberStatusFilter(e.target.value); }}>
                     <option value="">Tous</option>
                     <option value="SUBSCRIBED">Abonnés</option>
                     <option value="UNSUBSCRIBED">Désabonnés</option>
@@ -513,7 +538,7 @@ export default function Marketing() {
                   <p className="text-xs text-muted-foreground">Recherche</p>
                   <div className="relative">
                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input className="pl-9" value={subscriberQuery} onChange={(e) => setSubscriberQuery(e.target.value)} placeholder="Email…" />
+                    <Input className="pl-9" value={subscriberQuery} onChange={(e) => { setSubscriberPage(0); setSubscriberQuery(e.target.value); }} placeholder="Email…" />
                   </div>
                 </div>
               </div>
@@ -598,6 +623,18 @@ export default function Marketing() {
                 )}
               </tbody>
             </Table>
+            <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+              <span>{subscriberTotalElements} abonné{subscriberTotalElements > 1 ? "s" : ""}</span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setSubscriberPage((p) => Math.max(0, p - 1))} disabled={subscriberPage <= 0 || newsletterLoading}>
+                  Précédent
+                </Button>
+                <span>Page {subscriberPage + 1} / {Math.max(subscriberTotalPages, 1)}</span>
+                <Button variant="outline" size="sm" onClick={() => setSubscriberPage((p) => p + 1)} disabled={newsletterLoading || subscriberPage + 1 >= subscriberTotalPages}>
+                  Suivant
+                </Button>
+              </div>
+            </div>
           </Card>
         </div>
       )}

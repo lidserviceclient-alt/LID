@@ -1,15 +1,15 @@
 import { backofficeApi } from "../services/api.js";
 import { createResolverStore } from "../utils/createResolverStore.js";
 
-const categoriesResolverStore = createResolverStore(async () => {
-  const data = await backofficeApi.categories();
-  return Array.isArray(data) ? data : [];
-}, () => "categories");
+const categoriesResolverStore = createResolverStore(
+  async (page = 0, size = 20) => backofficeApi.categories(page, size),
+  (page = 0, size = 20) => JSON.stringify({ page, size })
+);
 
-export function useCategoriesResolver() {
-  return categoriesResolverStore.useResolver();
+export function useCategoriesResolver(page = 0, size = 20) {
+  return categoriesResolverStore.useResolver(page, size);
 }
 
-export async function reloadCategoriesResolver() {
-  return categoriesResolverStore.load([], { force: true });
+export async function reloadCategoriesResolver(page = 0, size = 20) {
+  return categoriesResolverStore.load([page, size], { force: true });
 }

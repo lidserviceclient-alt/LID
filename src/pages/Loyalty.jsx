@@ -44,6 +44,9 @@ const parseDiscountPercent = (text) => {
 export default function Loyalty() {
   const [overview, setOverview] = useState(null);
   const [tiers, setTiers] = useState([]);
+  const [tiersPage, setTiersPage] = useState(null);
+  const [tiersPageIndex, setTiersPageIndex] = useState(0);
+  const tiersPageSize = 20;
   const [customers, setCustomers] = useState([]);
   const [customerQuery, setCustomerQuery] = useState("");
   const [customersPage, setCustomersPage] = useState(null);
@@ -103,7 +106,9 @@ export default function Loyalty() {
     setError(loyaltyEntry.error);
     const data = loyaltyEntry.data;
     setOverview(data?.overview || null);
-    setTiers(Array.isArray(data?.tiers) ? data.tiers : []);
+    const nextTiersPage = data?.tiersPage || null;
+    setTiersPage(nextTiersPage);
+    setTiers(Array.isArray(nextTiersPage?.content) ? nextTiersPage.content : Array.isArray(data?.tiers) ? data.tiers : []);
     setCustomers(Array.isArray(data?.topCustomers) ? data.topCustomers : []);
     setConfig(data?.config || null);
     setCustomersPage(data?.customersPage || null);
@@ -116,6 +121,18 @@ export default function Loyalty() {
       retentionDays: `${data?.config?.retentionDays ?? 30}`
     });
   }, [loyaltyEntry.data, loyaltyEntry.error, loyaltyEntry.loading]);
+
+  async function loadTiersPage(nextPage = 0) {
+    try {
+      setError("");
+      const res = await backofficeApi.loyaltyTiers(nextPage, tiersPageSize);
+      setTiersPage(res || null);
+      setTiers(Array.isArray(res?.content) ? res.content : []);
+      setTiersPageIndex(nextPage);
+    } catch (err) {
+      setError(err?.message || "Impossible de charger les niveaux.");
+    }
+  }
 
   const retentionLabel = useMemo(() => {
     const v = Number(overview?.retentionRate ?? 0);
@@ -439,6 +456,18 @@ export default function Loyalty() {
             )}
           </tbody>
         </Table>
+        <div className="mt-4 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>{tiersPage?.totalElements ?? tiers.length} niveau{(tiersPage?.totalElements ?? tiers.length) > 1 ? "x" : ""}</span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => loadTiersPage(Math.max(0, tiersPageIndex - 1))} disabled={loading || tiersPageIndex <= 0}>
+              Précédent
+            </Button>
+            <span>Page {tiersPageIndex + 1} / {Math.max(Number(tiersPage?.totalPages) || 0, 1)}</span>
+            <Button variant="outline" size="sm" onClick={() => loadTiersPage(tiersPageIndex + 1)} disabled={loading || tiersPageIndex + 1 >= (Number(tiersPage?.totalPages) || 0)}>
+              Suivant
+            </Button>
+          </div>
+        </div>
       </Card>
 
       <Card>

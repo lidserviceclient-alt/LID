@@ -67,6 +67,9 @@ export default function PromoCodes() {
   const [boutiques, setBoutiques] = useState([]);
   const [statsRange, setStatsRange] = useState("month");
   const [stats, setStats] = useState(null);
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const [promoPage, setPromoPage] = useState(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
@@ -101,7 +104,7 @@ export default function PromoCodes() {
     () => ranges.find((item) => item.value === statsRange) || ranges[1],
     [statsRange]
   );
-  const promoEntry = usePromoCodesResolver(selectedRange.days);
+  const promoEntry = usePromoCodesResolver(selectedRange.days, page, pageSize);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -115,10 +118,15 @@ export default function PromoCodes() {
     setIsStatsLoading(promoEntry.loading);
     setIsLoading(promoEntry.loading);
     setError(promoEntry.error);
-    setPromoCodes(Array.isArray(promoEntry.data?.promoCodes) ? promoEntry.data.promoCodes : []);
+    const nextPage = promoEntry.data?.promoCodesPage || null;
+    setPromoPage(nextPage);
+    setPromoCodes(Array.isArray(nextPage?.content) ? nextPage.content : Array.isArray(promoEntry.data?.promoCodes) ? promoEntry.data.promoCodes : []);
     setBoutiques(Array.isArray(promoEntry.data?.boutiques) ? promoEntry.data.boutiques : []);
     setStats(promoEntry.data?.stats || null);
   }, [promoEntry.data, promoEntry.error, promoEntry.loading]);
+
+  const totalPages = Number.isFinite(Number(promoPage?.totalPages)) ? Number(promoPage.totalPages) : 0;
+  const totalElements = Number.isFinite(Number(promoPage?.totalElements)) ? Number(promoPage.totalElements) : promoCodes.length;
 
   const boutiqueOptions = useMemo(() => {
     const list = Array.isArray(boutiques) ? boutiques : [];
@@ -254,7 +262,7 @@ export default function PromoCodes() {
         await backofficeApi.createPromoCode(payload);
       }
       setIsFormOpen(false);
-      await reloadPromoCodesResolver(selectedRange.days);
+      await reloadPromoCodesResolver(selectedRange.days, page, pageSize);
     } catch (err) {
       setError(err?.message || "Erreur lors de l'enregistrement.");
     }
@@ -267,7 +275,7 @@ export default function PromoCodes() {
       await backofficeApi.deletePromoCode(currentPromo.id);
       setIsDeleteOpen(false);
       setCurrentPromo(null);
-      await reloadPromoCodesResolver(selectedRange.days);
+      await reloadPromoCodesResolver(selectedRange.days, page, pageSize);
     } catch (err) {
       setError(err?.message || "Erreur lors de la suppression.");
     }
@@ -448,6 +456,18 @@ export default function PromoCodes() {
             )}
           </tbody>
         </Table>
+        <div className="mt-4 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>{totalElements} code{totalElements > 1 ? "s" : ""} promo</span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page <= 0 || isLoading}>
+              Précédent
+            </Button>
+            <span>Page {page + 1} / {Math.max(totalPages, 1)}</span>
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={isLoading || page + 1 >= totalPages}>
+              Suivant
+            </Button>
+          </div>
+        </div>
       </Card>
 
       <Modal

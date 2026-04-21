@@ -35,8 +35,13 @@ const normalizeDateTime = (value) => {
 };
 
 export default function BlogPosts() {
-  const postsEntry = useBlogPostsResolver();
-  const posts = Array.isArray(postsEntry.data) ? postsEntry.data : [];
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const postsEntry = useBlogPostsResolver(page, pageSize);
+  const postsPage = postsEntry.data || {};
+  const posts = Array.isArray(postsPage.content) ? postsPage.content : [];
+  const totalPages = Number.isFinite(Number(postsPage.totalPages)) ? Number(postsPage.totalPages) : 0;
+  const totalElements = Number.isFinite(Number(postsPage.totalElements)) ? Number(postsPage.totalElements) : posts.length;
   const isLoading = postsEntry.loading;
   const error = postsEntry.error;
 
@@ -157,7 +162,7 @@ export default function BlogPosts() {
         await backofficeApi.createBlogPost(payload);
       }
       setIsFormOpen(false);
-      await reloadBlogPostsResolver();
+      await reloadBlogPostsResolver(page, pageSize);
     } catch (err) {
       setFormError(err?.message || "Échec de l'enregistrement.");
     } finally {
@@ -173,7 +178,7 @@ export default function BlogPosts() {
       await backofficeApi.deleteBlogPost(current.id);
       setIsDeleteOpen(false);
       setCurrent(null);
-      await reloadBlogPostsResolver();
+      await reloadBlogPostsResolver(page, pageSize);
     } catch (err) {
       setFormError(err?.message || "Échec de la suppression.");
     } finally {
@@ -291,6 +296,18 @@ export default function BlogPosts() {
               )}
             </tbody>
           </Table>
+          <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+            <span>{totalElements} article{totalElements > 1 ? "s" : ""}</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page <= 0 || isLoading}>
+                Précédent
+              </Button>
+              <span>Page {page + 1} / {Math.max(totalPages, 1)}</span>
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={isLoading || page + 1 >= totalPages}>
+                Suivant
+              </Button>
+            </div>
+          </div>
         </Card>
       </div>
 

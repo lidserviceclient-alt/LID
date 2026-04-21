@@ -38,6 +38,8 @@ const slugify = (value) =>
     .replace(/-+/g, "-");
 
 export default function Categories() {
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
   const [query, setQuery] = useState("");
   const [levelFilter, setLevelFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL | ACTIVE | INACTIVE
@@ -67,8 +69,11 @@ export default function Categories() {
     estActive: true
   });
 
-  const categoriesEntry = useCategoriesResolver();
-  const categories = Array.isArray(categoriesEntry.data) ? categoriesEntry.data : [];
+  const categoriesEntry = useCategoriesResolver(page, pageSize);
+  const categoriesPage = categoriesEntry.data || {};
+  const categories = Array.isArray(categoriesPage.content) ? categoriesPage.content : [];
+  const totalPages = Number.isFinite(Number(categoriesPage.totalPages)) ? Number(categoriesPage.totalPages) : 0;
+  const totalElements = Number.isFinite(Number(categoriesPage.totalElements)) ? Number(categoriesPage.totalElements) : categories.length;
   const isLoading = categoriesEntry.loading;
   const error = pageError || categoriesEntry.error || "";
 
@@ -170,7 +175,7 @@ export default function Categories() {
         isFeatured: next
       };
       await backofficeApi.updateCategory(category.id, payload);
-      await reloadCategoriesResolver();
+      await reloadCategoriesResolver(page, pageSize);
     } catch (err) {
       setPageError(err?.message || "Impossible de mettre à jour l’état en phare.");
     }
@@ -230,7 +235,7 @@ export default function Categories() {
         await backofficeApi.createCategory(payload);
       }
       setIsFormOpen(false);
-      await reloadCategoriesResolver();
+      await reloadCategoriesResolver(page, pageSize);
     } catch (err) {
       setPageError(err?.message || "Erreur lors de l'enregistrement.");
     }
@@ -243,7 +248,7 @@ export default function Categories() {
       await backofficeApi.deleteCategory(currentCategory.id);
       setIsDeleteOpen(false);
       setCurrentCategory(null);
-      await reloadCategoriesResolver();
+      await reloadCategoriesResolver(page, pageSize);
     } catch (err) {
       setPageError(err?.message || "Erreur lors de la suppression.");
     }
@@ -256,7 +261,7 @@ export default function Categories() {
     try {
       const res = await backofficeApi.bulkCreateCategories(items);
       setBulkResult(res || null);
-      await reloadCategoriesResolver();
+      await reloadCategoriesResolver(page, pageSize);
     } catch (err) {
       setPageError(err?.message || "Impossible d'ajouter en masse.");
     } finally {
@@ -278,7 +283,7 @@ export default function Categories() {
       await backofficeApi.bulkDeleteCategories(ids);
       setSelectedIds(new Set());
       setIsBulkDeleteOpen(false);
-      await reloadCategoriesResolver();
+      await reloadCategoriesResolver(page, pageSize);
     } catch (err) {
       setBulkDeleteError(err?.message || "Suppression en masse impossible.");
     } finally {
@@ -301,7 +306,7 @@ export default function Categories() {
       await backofficeApi.purgeCategories(Boolean(withProducts));
       setSelectedIds(new Set());
       setIsDisableAllOpen(false);
-      await reloadCategoriesResolver();
+      await reloadCategoriesResolver(page, pageSize);
     } catch (err) {
       setDisableAllError(err?.message || "Suppression globale impossible.");
     } finally {
@@ -465,6 +470,18 @@ export default function Categories() {
             )}
           </tbody>
         </Table>
+        <div className="mt-4 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>{totalElements} catégorie{totalElements > 1 ? "s" : ""}</span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page <= 0 || isLoading}>
+              Précédent
+            </Button>
+            <span>Page {page + 1} / {Math.max(totalPages, 1)}</span>
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={isLoading || page + 1 >= totalPages}>
+              Suivant
+            </Button>
+          </div>
+        </div>
       </Card>
 
       <Modal

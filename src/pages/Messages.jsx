@@ -34,9 +34,13 @@ const statusVariant = (status) => {
 export default function Messages() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
-  const messagesEntry = useMessagesResolver(0, 50);
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
+  const messagesEntry = useMessagesResolver(page, pageSize);
   const loading = messagesEntry.loading;
   const items = Array.isArray(messagesEntry.data?.content) ? messagesEntry.data.content : [];
+  const totalPages = Number.isFinite(Number(messagesEntry.data?.totalPages)) ? Number(messagesEntry.data.totalPages) : 0;
+  const totalElements = Number.isFinite(Number(messagesEntry.data?.totalElements)) ? Number(messagesEntry.data.totalElements) : items.length;
 
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -103,7 +107,7 @@ export default function Messages() {
       });
       setSubject("");
       setBody("");
-      await reloadMessagesResolver(0, 50);
+      await reloadMessagesResolver(page, pageSize);
     } catch (e) {
       setError(e?.message || "Impossible d'envoyer le message.");
     } finally {
@@ -115,7 +119,7 @@ export default function Messages() {
     setError("");
     try {
       await backofficeApi.retryMessage(id);
-      await reloadMessagesResolver(0, 50);
+      await reloadMessagesResolver(page, pageSize);
     } catch (e) {
       setError(e?.message || "Retry impossible.");
     }
@@ -125,7 +129,7 @@ export default function Messages() {
     setError("");
     try {
       await backofficeApi.deleteMessage(id);
-      await reloadMessagesResolver(0, 50);
+      await reloadMessagesResolver(page, pageSize);
     } catch (e) {
       setError(e?.message || "Suppression impossible.");
     }
@@ -286,6 +290,18 @@ export default function Messages() {
               )}
             </tbody>
           </Table>
+          <div className="mt-4 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+            <span>{totalElements} message{totalElements > 1 ? "s" : ""}</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page <= 0 || loading}>
+                Précédent
+              </Button>
+              <span>Page {page + 1} / {Math.max(totalPages, 1)}</span>
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={loading || page + 1 >= totalPages}>
+                Suivant
+              </Button>
+            </div>
+          </div>
         </Card>
       </div>
     </div>

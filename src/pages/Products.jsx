@@ -57,6 +57,9 @@ export default function Products() {
   const navigate = useNavigate();
   // --- State Management ---
   const [products, setProducts] = useState([]);
+  const [productsPage, setProductsPage] = useState(null);
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -106,8 +109,9 @@ export default function Products() {
     setLoading(true);
     setError("");
     try {
-      const data = await backofficeApi.productCollection(0, 200);
+      const data = await backofficeApi.productCollection(page, pageSize);
       setCategories(Array.isArray(data?.categories) ? data.categories : []);
+      setProductsPage(data?.productsPage || null);
       setProducts(Array.isArray(data?.productsPage?.content) ? data.productsPage.content : []);
     } catch (e) {
       setError(e?.message || "Impossible de charger les produits.");
@@ -118,7 +122,7 @@ export default function Products() {
 
   useEffect(() => {
     reload();
-  }, []);
+  }, [page]);
 
   const hasActiveAdvancedFilters = useMemo(() => {
     const f = advancedFilters || DEFAULT_ADVANCED_FILTERS;
@@ -745,12 +749,23 @@ export default function Products() {
           </tbody>
         </Table>
         
-        {/* Pagination (Mock) */}
         <div className="p-4 border-t bg-muted/30 flex items-center justify-between text-xs text-muted-foreground">
-          <p>Affichage de {filteredProducts.length} sur {products.length} produits</p>
+          <p>Affichage de {filteredProducts.length} sur {productsPage?.totalElements ?? products.length} produits</p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled>Précédent</Button>
-            <Button variant="outline" size="sm" disabled>Suivant</Button>
+            <Button variant="outline" size="sm" disabled={loading || page <= 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
+              Précédent
+            </Button>
+            <span className="inline-flex items-center px-2">
+              Page {page + 1} / {Math.max(Number(productsPage?.totalPages) || 0, 1)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loading || page + 1 >= (Number(productsPage?.totalPages) || 0)}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Suivant
+            </Button>
           </div>
         </div>
       </Card>

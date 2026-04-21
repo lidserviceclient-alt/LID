@@ -11,7 +11,7 @@ import Label from "../components/ui/Label.jsx";
 import Modal from "../components/ui/Modal.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
-import { useCustomersResolver } from "../resolvers/customersResolver.js";
+import { reloadCustomersResolver, useCustomersResolver } from "../resolvers/customersResolver.js";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return "-";
@@ -42,6 +42,9 @@ export default function Customers() {
   const [selectedSegment, setSelectedSegment] = useState("");
   const [query, setQuery] = useState("");
   const [summary, setSummary] = useState(null);
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
+  const [customersPage, setCustomersPage] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -62,12 +65,13 @@ export default function Customers() {
       setSearchParams(nextParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
-  const customersEntry = useCustomersResolver(0, 50, query.trim(), selectedSegment);
+  const customersEntry = useCustomersResolver(page, pageSize, query.trim(), selectedSegment);
 
   useEffect(() => {
     const data = customersEntry.data;
     setSegments(Array.isArray(data?.segments) ? data.segments : []);
     setSummary(data?.loyaltySummary || null);
+    setCustomersPage(data?.customersPage || null);
     if (Array.isArray(data?.customersPage?.content)) {
       setCustomerList(
         data.customersPage.content.map((customer) => ({
@@ -83,6 +87,9 @@ export default function Customers() {
       setCustomerList([]);
     }
   }, [customersEntry.data]);
+
+  const totalPages = Number.isFinite(Number(customersPage?.totalPages)) ? Number(customersPage.totalPages) : 0;
+  const totalElements = Number.isFinite(Number(customersPage?.totalElements)) ? Number(customersPage.totalElements) : customerList.length;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -101,6 +108,7 @@ export default function Customers() {
         ...prev
       ]);
       setIsModalOpen(false);
+      await reloadCustomersResolver(page, pageSize, query.trim(), selectedSegment);
       setFormData({
         prenom: "",
         nom: "",
@@ -157,11 +165,11 @@ export default function Customers() {
             <Input
               placeholder="Rechercher un client"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => { setPage(0); setQuery(e.target.value); }}
             />
           </div>
           <div className="w-48">
-            <Select value={selectedSegment} onChange={(e) => setSelectedSegment(e.target.value)}>
+            <Select value={selectedSegment} onChange={(e) => { setPage(0); setSelectedSegment(e.target.value); }}>
               <option value="">Tous segments</option>
               {segments.map((segment) => (
                 <option key={segment} value={segment}>
@@ -199,6 +207,18 @@ export default function Customers() {
             ))}
           </tbody>
         </Table>
+        <div className="mt-4 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>{totalElements} client{totalElements > 1 ? "s" : ""}</span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page <= 0 || customersEntry.loading}>
+              Précédent
+            </Button>
+            <span>Page {page + 1} / {Math.max(totalPages, 1)}</span>
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={customersEntry.loading || page + 1 >= totalPages}>
+              Suivant
+            </Button>
+          </div>
+        </div>
       </Card>
 
       <Modal

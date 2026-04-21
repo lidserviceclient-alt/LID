@@ -42,8 +42,13 @@ const normalizeDateTime = (value) => {
 };
 
 export default function TicketEvents() {
-  const eventsEntry = useTicketEventsResolver();
-  const events = Array.isArray(eventsEntry.data) ? eventsEntry.data : [];
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const eventsEntry = useTicketEventsResolver(page, pageSize);
+  const eventsPage = eventsEntry.data || {};
+  const events = Array.isArray(eventsPage.content) ? eventsPage.content : [];
+  const totalPages = Number.isFinite(Number(eventsPage.totalPages)) ? Number(eventsPage.totalPages) : 0;
+  const totalElements = Number.isFinite(Number(eventsPage.totalElements)) ? Number(eventsPage.totalElements) : events.length;
   const isLoading = eventsEntry.loading;
   const error = eventsEntry.error;
 
@@ -177,7 +182,7 @@ export default function TicketEvents() {
         await backofficeApi.createTicketEvent(payload);
       }
       setIsFormOpen(false);
-      await reloadTicketEventsResolver();
+      await reloadTicketEventsResolver(page, pageSize);
     } catch (err) {
       setFormError(err?.message || "Échec de l'enregistrement.");
     } finally {
@@ -193,7 +198,7 @@ export default function TicketEvents() {
       await backofficeApi.deleteTicketEvent(current.id);
       setIsDeleteOpen(false);
       setCurrent(null);
-      await reloadTicketEventsResolver();
+      await reloadTicketEventsResolver(page, pageSize);
     } catch (err) {
       setFormError(err?.message || "Échec de la suppression.");
     } finally {
@@ -227,7 +232,7 @@ export default function TicketEvents() {
     try {
       const res = await backofficeApi.adjustTicketInventory(current.id, { mode, quantity: qty });
       setInventory(res);
-      await reloadTicketEventsResolver();
+      await reloadTicketEventsResolver(page, pageSize);
     } catch (err) {
       setFormError(err?.message || "Échec de mise à jour du stock.");
     } finally {
@@ -358,6 +363,18 @@ export default function TicketEvents() {
               )}
             </tbody>
           </Table>
+          <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+            <span>{totalElements} événement{totalElements > 1 ? "s" : ""}</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page <= 0 || isLoading}>
+                Précédent
+              </Button>
+              <span>Page {page + 1} / {Math.max(totalPages, 1)}</span>
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={isLoading || page + 1 >= totalPages}>
+                Suivant
+              </Button>
+            </div>
+          </div>
         </Card>
       </div>
 
