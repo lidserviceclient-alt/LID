@@ -1,32 +1,39 @@
 package com.lifeevent.lid.common.service.impl;
 
-import com.backblaze.b2.client.B2StorageClient;
-import com.backblaze.b2.client.contentSources.B2FileContentSource;
-import com.backblaze.b2.client.exceptions.B2Exception;
-import com.backblaze.b2.client.structures.B2UploadFileRequest;
 import com.lifeevent.lid.common.service.FileStorageService;
 import com.lifeevent.lid.common.storage.StoragePathUtils;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 @Service
-@Profile("!local")
-@RequiredArgsConstructor
+@Primary
 public class BackblazeFileStorageServiceImpl implements FileStorageService {
 
-    private final ObjectProvider<B2StorageClient> b2StorageClientProvider;
+    private final S3Client s3Client;
+    private final String bucketName;
+    private final String backblazeCdnBaseUrl;
 
-    @Value("${storage.backblaze.bucket-id:}")
-    private String bucketId;
+    public BackblazeFileStorageServiceImpl(
+            S3Client s3Client,
+            @Value("${storage.backblaze.bucket-name:lid-images-prod}") String bucketName,
+            @Value("${storage.backblaze.cdn-base-url:}") String backblazeCdnBaseUrl
+    ) {
+        this.s3Client = s3Client;
+        this.bucketName = bucketName;
+        this.backblazeCdnBaseUrl = backblazeCdnBaseUrl;
+    }
 
     @Override
     public String upload(MultipartFile file, String folder) {
@@ -37,9 +44,23 @@ public class BackblazeFileStorageServiceImpl implements FileStorageService {
         String objectKey = StoragePathUtils.buildObjectKey(folder, file.getOriginalFilename());
         String contentType = resolveContentType(file.getContentType());
 
-        B2StorageClient client = requireClient();
-        uploadToBackblaze(client, file, objectKey, contentType);
-        return "/" + objectKey;
+        try {
+            s3Client.putObject(
+                    PutObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(objectKey)
+                            .contentType(contentType)
+                            .build(),
+                    RequestBody.fromBytes(file.getBytes())
+            );
+            return "/" + objectKey;
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to store file in Backblaze", ex);
+        } catch (S3Exception | SdkClientException ex) {
+            throw new IllegalStateException("Failed to store file in Backblaze: " + ex.getMessage(), ex);
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException("Failed to store file in Backblaze", ex);
+        }
     }
 
     @Override
@@ -49,9 +70,22 @@ public class BackblazeFileStorageServiceImpl implements FileStorageService {
         }
 
         String objectKey = StoragePathUtils.buildObjectKey(folder, originalFilename);
-        B2StorageClient client = requireClient();
-        uploadToBackblaze(client, bytes, objectKey, resolveContentType(contentType));
-        return "/" + objectKey;
+
+        try {
+            s3Client.putObject(
+                    PutObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(objectKey)
+                            .contentType(resolveContentType(contentType))
+                            .build(),
+                    RequestBody.fromBytes(bytes)
+            );
+            return "/" + objectKey;
+        } catch (S3Exception | SdkClientException ex) {
+            throw new IllegalStateException("Failed to store file in Backblaze: " + ex.getMessage(), ex);
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException("Failed to store file in Backblaze", ex);
+        }
     }
 
     @Override
@@ -62,73 +96,22 @@ public class BackblazeFileStorageServiceImpl implements FileStorageService {
 
         try {
             String normalizedKey = StoragePathUtils.normalizeObjectKey(objectKey);
-            requireClient().hideFile(bucketId, normalizedKey);
-        } catch (B2Exception ex) {
-            throw new IllegalStateException("Failed to delete file from Backblaze", ex);
+            s3Client.deleteObject(
+                    DeleteObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(normalizedKey)
+                            .build()
+            );
+        } catch (S3Exception | SdkClientException ex) {
+            throw new IllegalStateException("Failed to delete Backblaze file: " + ex.getMessage(), ex);
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException("Failed to delete Backblaze file", ex);
         }
     }
 
-    private void uploadToBackblaze(B2StorageClient client, MultipartFile file, String objectKey, String contentType) {
-        Path temp = null;
-        try {
-            temp = Files.createTempFile("lid-b2-", ".tmp");
-            file.transferTo(temp);
-            B2UploadFileRequest request = B2UploadFileRequest.builder(
-                    bucketId,
-                    objectKey,
-                    contentType,
-                    B2FileContentSource.build(temp.toFile())
-            ).build();
-            client.uploadSmallFile(request);
-        } catch (IOException | B2Exception ex) {
-            throw new IllegalStateException("Failed to upload file to Backblaze", ex);
-        } finally {
-            if (temp != null) {
-                try {
-                    Files.deleteIfExists(temp);
-                } catch (IOException ignored) {
-                }
-            }
-        }
-    }
-
-    private void uploadToBackblaze(B2StorageClient client, byte[] bytes, String objectKey, String contentType) {
-        Path temp = null;
-        try {
-            temp = Files.createTempFile("lid-b2-", ".tmp");
-            Files.write(temp, bytes);
-            B2UploadFileRequest request = B2UploadFileRequest.builder(
-                    bucketId,
-                    objectKey,
-                    contentType,
-                    B2FileContentSource.build(temp.toFile())
-            ).build();
-            client.uploadSmallFile(request);
-        } catch (IOException | B2Exception ex) {
-            throw new IllegalStateException("Failed to upload file to Backblaze", ex);
-        } finally {
-            if (temp != null) {
-                try {
-                    Files.deleteIfExists(temp);
-                } catch (IOException ignored) {
-                }
-            }
-        }
-    }
-
-    private B2StorageClient requireClient() {
-        B2StorageClient client = b2StorageClientProvider.getIfAvailable();
-        if (client == null) {
-            throw new IllegalStateException("B2StorageClient bean is not configured");
-        }
-        if (!isBackblazeConfigured()) {
-            throw new IllegalStateException("Backblaze properties are not configured");
-        }
-        return client;
-    }
-
-    private boolean isBackblazeConfigured() {
-        return bucketId != null && !bucketId.isBlank();
+    @Override
+    public String publicBaseUrl() {
+        return StoragePathUtils.normalizeBaseUrl(backblazeCdnBaseUrl);
     }
 
     private String resolveContentType(String contentType) {
@@ -136,5 +119,4 @@ public class BackblazeFileStorageServiceImpl implements FileStorageService {
                 ? MediaType.APPLICATION_OCTET_STREAM_VALUE
                 : contentType;
     }
-
 }

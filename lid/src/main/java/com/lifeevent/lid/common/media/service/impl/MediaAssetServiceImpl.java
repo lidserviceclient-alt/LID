@@ -13,7 +13,6 @@ import com.lifeevent.lid.common.security.SecurityUtils;
 import com.lifeevent.lid.common.service.FileStorageService;
 import com.lifeevent.lid.common.service.ImageProcessingService;
 import com.lifeevent.lid.common.service.PublicAssetUrlResolver;
-import com.lifeevent.lid.common.service.impl.FileStorageSelector;
 import com.lifeevent.lid.common.storage.StoragePathUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -39,7 +38,7 @@ public class MediaAssetServiceImpl implements MediaAssetService {
     private static final String LID_STORAGE_SEGMENT = "lid";
     private static final String PARTNER_STORAGE_SEGMENT = "partners";
 
-    private final FileStorageSelector fileStorageSelector;
+    private final FileStorageService fileStorageService;
     private final PublicAssetUrlResolver publicAssetUrlResolver;
     private final ImageProcessingService imageProcessingService;
     private final MediaAssetRepository mediaAssetRepository;
@@ -49,7 +48,6 @@ public class MediaAssetServiceImpl implements MediaAssetService {
         MediaOwner owner = resolveUploadOwner(ownerScope, ownerUserId);
         String normalizedFolder = StoragePathUtils.normalizeFolder(folder);
         String storageFolder = buildStorageFolder(owner, normalizedFolder);
-        FileStorageService fileStorageService = fileStorageSelector.activeStorage();
         ProcessedImageFile image = imageProcessingService.compress(file);
         String originalFilename = fallback(file.getOriginalFilename(), image.filename());
         MediaAssetEntity existing = mediaAssetRepository
@@ -116,7 +114,7 @@ public class MediaAssetServiceImpl implements MediaAssetService {
     @Override
     public void delete(String objectKey) {
         String normalizedKey = StoragePathUtils.normalizeObjectKey(objectKey);
-        fileStorageSelector.activeStorage().delete(normalizedKey);
+        fileStorageService.delete(normalizedKey);
         mediaAssetRepository.deleteByObjectKey(normalizedKey);
     }
 

@@ -13,11 +13,13 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 @Service
-@Primary
 public class LocalFileStorageServiceImpl implements FileStorageService {
 
     @Value("${storage.local.base-path}")
     private String basePath;
+
+    @Value("${storage.local.cdn-base-url:}")
+    private String localCdnBaseUrl;
 
     @Override
     public String upload(MultipartFile file, String folder) {
@@ -56,5 +58,14 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
         } catch (IOException ex) {
             throw new IllegalStateException("Failed to delete local file", ex);
         }
+    }
+
+    @Override
+    public String publicBaseUrl() {
+        String cdnBase = StoragePathUtils.normalizeBaseUrl(localCdnBaseUrl);
+        if (cdnBase != null) {
+            return cdnBase;
+        }
+        return null;
     }
 }
