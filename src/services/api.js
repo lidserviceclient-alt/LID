@@ -28,9 +28,11 @@ const refreshClient = axios.create({
   timeout: 10000,
 });
 
-function isPublicRequest(url = '') {
+function isPublicRequest(url = '', method = 'get') {
+  const safeMethod = `${method || 'get'}`.toLowerCase();
+  const isReadRequest = safeMethod === 'get' || safeMethod === 'head' || safeMethod === 'options';
   return url.includes('/api/v1/public/')
-    || url.includes('/api/v1/catalog/')
+    || (isReadRequest && url.includes('/api/v1/catalog/'))
     || url.includes('/api/v1/realtime/ws-access/public');
 }
 
@@ -43,7 +45,7 @@ api.interceptors.request.use(
     const accessToken = storedToken && !isTokenExpired(storedToken) ? storedToken : null;
     const url = `${config.url || ''}`;
     const isAuthLogin = url.includes('/api/v1/auth/login');
-    const isPublic = isPublicRequest(url);
+    const isPublic = isPublicRequest(url, config.method);
     const clientId = import.meta.env.VITE_CLIENT_ID;
 
     if (storedToken && !accessToken) {
@@ -92,7 +94,7 @@ api.interceptors.response.use(
       const skipAuthRefresh = originalRequest.skipAuthRefresh === true;
       const isAuthLogin = url.includes('/api/v1/auth/login');
       const isRefresh = url.includes('/api/v1/auth/refresh');
-      const isPublic = isPublicRequest(url);
+      const isPublic = isPublicRequest(url, originalRequest.method);
       const isAuthEndpoint = isAuthLogin || isRefresh || url.includes('/api/v1/auth/password');
       const currentToken = getAccessToken();
       const hadAccessToken = Boolean(currentToken && !isTokenExpired(currentToken));
