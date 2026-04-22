@@ -70,11 +70,11 @@ public interface IBackOfficeOrderController {
     })
     ResponseEntity<BackOfficeOrderSummaryDto> createOrder(@RequestBody BackOfficeCreateOrderRequest request);
 
-    @PutMapping("/{id}/status")
+    @PutMapping("/{reference}/status")
     // (name = "Bearer Token")    // ("hasRole('ADMIN')")    @Operation(summary = "Mettre à jour le statut d'une commande")
     ResponseEntity<BackOfficeOrderSummaryDto> updateStatus(
-            @Parameter(description = "ID de la commande", required = true)
-            @PathVariable Long id,
+            @Parameter(description = "Numéro métier ou ID technique de la commande", required = true)
+            @PathVariable String reference,
             @RequestBody java.util.Map<String, String> payload
     );
 

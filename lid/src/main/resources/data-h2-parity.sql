@@ -369,6 +369,7 @@ INSERT INTO customer_profile (
 -- Paid customer order for the seeded partner article
 INSERT INTO orders (
   id,
+  order_number,
   customer_user_id,
   amount,
   current_status,
@@ -388,6 +389,7 @@ INSERT INTO orders (
   updated_by
 ) VALUES (
   1000,
+  'ORD-9XK3-7P2L',
   'u-customer-c1',
   15750,
   'PAID',

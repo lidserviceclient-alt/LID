@@ -18,6 +18,11 @@ public class CheckoutResponseDto {
      * ID de la commande créée
      */
     private Long orderId;
+
+    /**
+     * Numéro métier public de la commande.
+     */
+    private String orderNumber;
     
     /**
      * Montant à payer

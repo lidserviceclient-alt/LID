@@ -72,6 +72,14 @@ public class PaymentController {
         List<PaymentResponseDto> payments = paymentService.getPaymentsByOrderId(orderId);
         return ResponseEntity.ok(payments);
     }
+
+    @GetMapping("/order-number/{orderNumber}")
+    public ResponseEntity<List<PaymentResponseDto>> getPaymentsByOrderNumber(
+            @PathVariable String orderNumber) {
+        log.info("Récupération des paiements pour la commande: {}", orderNumber);
+        List<PaymentResponseDto> payments = paymentService.getPaymentsByOrderNumber(orderNumber);
+        return ResponseEntity.ok(payments);
+    }
     
     /**
      * Récupère tous les paiements d'un client

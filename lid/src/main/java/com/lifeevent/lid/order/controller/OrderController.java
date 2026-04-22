@@ -61,6 +61,14 @@ public class OrderController implements IOrderController {
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
+
+    @Override
+    @GetMapping("/orders/by-number/{orderNumber}")
+    public ResponseEntity<?> getOrderDetailByNumber(@PathVariable String orderNumber) {
+        return orderService.getOrderByNumber(orderNumber)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
     
     @Override
     @GetMapping("/orders/{id}/tracking")

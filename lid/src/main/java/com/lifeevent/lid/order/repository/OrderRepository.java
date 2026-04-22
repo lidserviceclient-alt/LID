@@ -59,6 +59,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         WHERE o.id = :orderId
     """)
     Optional<String> findCustomerUserIdByOrderId(@Param("orderId") Long orderId);
+
+    Optional<Order> findByOrderNumber(String orderNumber);
+
+    boolean existsByOrderNumber(String orderNumber);
     
     /**
      * Commandes d'un client avec pagination
@@ -110,7 +114,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             :q IS NULL OR :q = '' OR
             LOWER(CAST(c.user.firstName AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
             LOWER(CAST(c.user.lastName AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
-            LOWER(CAST(c.user.email AS string)) LIKE LOWER(CONCAT('%', :q, '%'))
+            LOWER(CAST(c.user.email AS string)) LIKE LOWER(CONCAT('%', :q, '%')) OR
+            LOWER(CAST(o.orderNumber AS string)) LIKE LOWER(CONCAT('%', :q, '%'))
           )
         ORDER BY o.createdAt DESC
     """)
@@ -124,6 +129,15 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         WHERE o.id = :id
     """)
     Optional<Order> findWithCustomerAndStatusHistoryById(@Param("id") Long id);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.customer
+        LEFT JOIN FETCH o.statusHistory
+        WHERE o.orderNumber = :orderNumber
+    """)
+    Optional<Order> findWithCustomerAndStatusHistoryByOrderNumber(@Param("orderNumber") String orderNumber);
 
     @Query("""
         SELECT DISTINCT o
@@ -152,9 +166,31 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         LEFT JOIN FETCH o.articles a
         LEFT JOIN FETCH a.article
         LEFT JOIN FETCH a.ticketEvent
+        WHERE o.orderNumber = :orderNumber
+    """)
+    Optional<Order> findWithCustomerAndArticlesByOrderNumber(@Param("orderNumber") String orderNumber);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.customer
+        LEFT JOIN FETCH o.articles a
+        LEFT JOIN FETCH a.article
+        LEFT JOIN FETCH a.ticketEvent
         WHERE o.id = :id
     """)
     Optional<Order> findWithDetailsById(@Param("id") Long id);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.customer
+        LEFT JOIN FETCH o.articles a
+        LEFT JOIN FETCH a.article
+        LEFT JOIN FETCH a.ticketEvent
+        WHERE o.orderNumber = :orderNumber
+    """)
+    Optional<Order> findWithDetailsByOrderNumber(@Param("orderNumber") String orderNumber);
 
     @Query("""
         SELECT o.id
@@ -187,11 +223,31 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         FROM Order o
         LEFT JOIN FETCH o.customer c
         LEFT JOIN FETCH c.user
+        WHERE o.orderNumber IN :orderNumbers
+    """)
+    List<Order> findWithCustomerByOrderNumberIn(@Param("orderNumbers") Collection<String> orderNumbers);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.customer c
+        LEFT JOIN FETCH c.user
         LEFT JOIN FETCH o.articles oa
         LEFT JOIN FETCH oa.article
         WHERE o.id IN :orderIds
     """)
     List<Order> findWithCustomerAndArticlesByIdIn(@Param("orderIds") Collection<Long> orderIds);
+
+    @Query("""
+        SELECT DISTINCT o
+        FROM Order o
+        LEFT JOIN FETCH o.customer c
+        LEFT JOIN FETCH c.user
+        LEFT JOIN FETCH o.articles oa
+        LEFT JOIN FETCH oa.article
+        WHERE o.orderNumber IN :orderNumbers
+    """)
+    List<Order> findWithCustomerAndArticlesByOrderNumberIn(@Param("orderNumbers") Collection<String> orderNumbers);
 
     @Query("""
         SELECT DISTINCT o

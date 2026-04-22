@@ -19,6 +19,7 @@ import com.lifeevent.lid.common.service.EmailService;
 import com.lifeevent.lid.logistics.entity.Shipment;
 import com.lifeevent.lid.logistics.enumeration.ShipmentStatus;
 import com.lifeevent.lid.logistics.repository.ShipmentRepository;
+import com.lifeevent.lid.logistics.service.ShipmentHandoffCodeGenerator;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.entity.OrderArticle;
 import com.lifeevent.lid.order.entity.StatusHistory;
@@ -68,6 +69,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     private final EmailService emailService;
     private final RealtimeEventPublisher realtimeEventPublisher;
     private final BackOfficeNotificationService backOfficeNotificationService;
+    private final ShipmentHandoffCodeGenerator handoffCodeGenerator;
 
     @Override
     @Transactional(readOnly = true)
@@ -132,6 +134,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
         Shipment shipment = resolveShipmentForUpsert(dto);
         validateOrderId(shipment.getOrderId());
+        ensureHandoffCode(shipment);
         applyDeliveryLifecycle(shipment, shipment.getStatus());
 
         Shipment saved = shipmentRepository.save(shipment);
@@ -141,9 +144,11 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     }
 
     @Override
-    @Transactional(readOnly = true)
     public BackOfficeShipmentDetailDto getShipment(Long id) {
         Shipment shipment = findShipmentById(id);
+        if (ensureHandoffCode(shipment)) {
+            shipment = shipmentRepository.save(shipment);
+        }
         return toDetail(shipment);
     }
 
@@ -154,6 +159,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         }
 
         Shipment shipment = findShipmentById(id);
+        ensureHandoffCode(shipment);
         boolean forceCommentRefresh = false;
         String issueComment = trimToNull(deliveryIssueComment);
         String customerComment = trimToNull(customerFacingComment);
@@ -180,6 +186,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
         Shipment shipment = resolveShipmentFromQr(request.getQr())
                 .orElseThrow(() -> new IllegalArgumentException("Expedition introuvable"));
+        ensureHandoffCode(shipment);
         Optional<Order> linkedOrder = findLinkedOrder(shipment);
         ensureOrderIsReadyForTransit(linkedOrder);
 
@@ -214,6 +221,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         }
 
         Shipment shipment = findShipmentById(id);
+        ensureHandoffCode(shipment);
         if (shipment.getStatus() != ShipmentStatus.EN_COURS) {
             throw new IllegalArgumentException("Livraison pas en transit");
         }
@@ -276,6 +284,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         } else {
             backOfficeShipmentMapper.updateEntityFromDto(dto, shipment);
         }
+        ensureHandoffCode(shipment);
 
         if (shipment.getStatus() == null) {
             shipment.setStatus(ShipmentStatus.EN_PREPARATION);
@@ -285,8 +294,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     }
 
     private void validateOrderId(String orderId) {
-        Long parsedOrderId = parseOrderId(orderId);
-        orderRepository.findById(parsedOrderId)
+        resolveOrderByReference(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Commande introuvable"));
     }
 
@@ -321,6 +329,11 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             return findShipmentByIdToken(extractQueryValue(token, "shipmentId"));
         }
 
+        Optional<Shipment> byHandoffCode = findShipmentByHandoffToken(token);
+        if (byHandoffCode.isPresent()) {
+            return byHandoffCode;
+        }
+
         Optional<Shipment> byOrder = shipmentRepository.findByOrderId(token);
         if (byOrder.isPresent()) {
             return byOrder;
@@ -332,6 +345,14 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         }
 
         return findShipmentByIdToken(token);
+    }
+
+    private Optional<Shipment> findShipmentByHandoffToken(String rawValue) {
+        String value = normalizeHandoffCode(rawValue);
+        if (value == null) {
+            return Optional.empty();
+        }
+        return shipmentRepository.findByHandoffCodeIgnoreCase(value);
     }
 
     private Optional<Shipment> resolvePrefixedShipmentToken(String rawValue) {
@@ -436,7 +457,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         if (email == null || code == null) {
             return;
         }
-        String orderLabel = "ORD-" + linkedOrder.getId();
+        String orderLabel = resolveOrderNumber(linkedOrder);
         String subject = "Votre code de livraison LID";
         String body = "Commande " + orderLabel + " - code de remise: " + code;
         try {
@@ -449,6 +470,23 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     private String generate4DigitCode() {
         int value = ThreadLocalRandom.current().nextInt(1000, 10000);
         return String.valueOf(value);
+    }
+
+    private boolean ensureHandoffCode(Shipment shipment) {
+        if (shipment == null || !isBlank(shipment.getHandoffCode())) {
+            return false;
+        }
+        shipment.setHandoffCode(handoffCodeGenerator.generateUnique());
+        return true;
+    }
+
+    private String normalizeHandoffCode(String value) {
+        String normalized = trimToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        normalized = normalized.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.ROOT);
+        return normalized.matches("[A-Z0-9]{5}") ? normalized : null;
     }
 
     private void applyDeliveryLifecycle(Shipment shipment, ShipmentStatus status) {
@@ -476,6 +514,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
                 .id(shipment.getId())
                 .trackingId(shipment.getTrackingId())
                 .orderId(shipment.getOrderId())
+                .handoffCode(shipment.getHandoffCode())
                 .carrier(shipment.getCarrier())
                 .status(shipment.getStatus())
                 .eta(resolveEtaAt(shipment))
@@ -504,6 +543,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         return BackOfficeShipmentDto.builder()
                 .id(shipment.getId())
                 .orderId(shipment.getOrderId())
+                .handoffCode(shipment.getHandoffCode())
                 .carrier(shipment.getCarrier())
                 .trackingId(shipment.getTrackingId())
                 .status(shipment.getStatus())
@@ -525,21 +565,36 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
     private Map<Long, Order> loadOrdersByShipmentOrderIds(List<Shipment> shipments, boolean withItems) {
         List<Long> orderIds = new ArrayList<>();
+        List<String> orderNumbers = new ArrayList<>();
         if (shipments != null) {
             for (Shipment shipment : shipments) {
-                Long orderId = parseOrderIdOrNull(shipment == null ? null : shipment.getOrderId());
+                String reference = shipment == null ? null : shipment.getOrderId();
+                Long orderId = parseOrderIdOrNull(reference);
                 if (orderId != null) {
                     orderIds.add(orderId);
+                    continue;
+                }
+                String orderNumber = trimToNull(reference);
+                if (orderNumber != null) {
+                    orderNumbers.add(orderNumber);
                 }
             }
         }
-        if (orderIds.isEmpty()) {
+        if (orderIds.isEmpty() && orderNumbers.isEmpty()) {
             return Map.of();
         }
 
-        List<Order> orders = withItems
-                ? orderRepository.findWithCustomerAndArticlesByIdIn(orderIds)
-                : orderRepository.findWithCustomerByIdIn(orderIds);
+        List<Order> orders = new ArrayList<>();
+        if (!orderIds.isEmpty()) {
+            orders.addAll(withItems
+                    ? orderRepository.findWithCustomerAndArticlesByIdIn(orderIds)
+                    : orderRepository.findWithCustomerByIdIn(orderIds));
+        }
+        if (!orderNumbers.isEmpty()) {
+            orders.addAll(withItems
+                    ? orderRepository.findWithCustomerAndArticlesByOrderNumberIn(orderNumbers)
+                    : orderRepository.findWithCustomerByOrderNumberIn(orderNumbers));
+        }
         Map<Long, Order> byId = new HashMap<>();
         for (Order order : orders) {
             if (order != null && order.getId() != null) {
@@ -554,7 +609,17 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             return null;
         }
         Long orderId = parseOrderIdOrNull(shipment.getOrderId());
-        return orderId == null ? null : ordersById.get(orderId);
+        if (orderId != null) {
+            return ordersById.get(orderId);
+        }
+        String orderNumber = trimToNull(shipment.getOrderId());
+        if (orderNumber == null) {
+            return null;
+        }
+        return ordersById.values().stream()
+                .filter(order -> orderNumber.equalsIgnoreCase(resolveOrderNumber(order)))
+                .findFirst()
+                .orElse(null);
     }
 
     private Pageable ensureDefaultSort(Pageable pageable) {
@@ -604,16 +669,12 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             return Optional.empty();
         }
 
-        String orderId = trimToNull(shipment.getOrderId());
-        if (orderId == null) {
+        String orderReference = trimToNull(shipment.getOrderId());
+        if (orderReference == null) {
             return Optional.empty();
         }
 
-        try {
-            return orderRepository.findById(Long.parseLong(orderId));
-        } catch (NumberFormatException ex) {
-            return Optional.empty();
-        }
+        return resolveOrderByReference(orderReference);
     }
 
     private List<BackOfficeShipmentItemDto> resolveItems(Order order) {
@@ -781,20 +842,22 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         appendOrderHistory(order, targetStatus, buildOrderHistoryComment(targetStatus, shipment));
         if (targetStatus == Status.DELIVERY_FAILED && order.getId() != null) {
             String issueComment = trimToNull(shipment == null ? null : shipment.getDeliveryIssueComment());
+            String orderNumber = resolveOrderNumber(order);
             backOfficeNotificationService.create(CreateBackOfficeNotificationRequest.builder()
                     .type(BackOfficeNotificationType.DELIVERY_ANOMALY)
                     .scope(BackOfficeNotificationScope.BACKOFFICE)
                     .targetRole(BackOfficeNotificationTargetRole.ADMIN)
                     .title("Anomalie de livraison")
                     .body(issueComment == null
-                            ? "Échec de livraison sur la commande ORD-" + order.getId()
-                            : "Échec de livraison sur la commande ORD-" + order.getId() + " • Motif: " + issueComment)
+                            ? "Échec de livraison sur la commande " + orderNumber
+                            : "Échec de livraison sur la commande " + orderNumber + " • Motif: " + issueComment)
                     .actionPath("/logistics")
                     .actionLabel("Ouvrir")
                     .severity(BackOfficeNotificationSeverity.WARNING)
                     .dedupeKey("DELIVERY_ANOMALY:" + order.getId())
                     .payload(java.util.Map.of(
                             "orderId", order.getId(),
+                            "orderNumber", orderNumber,
                             "status", targetStatus.name(),
                             "deliveryIssueComment", issueComment
                     ))
@@ -925,6 +988,27 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         } catch (NumberFormatException ex) {
             return null;
         }
+    }
+
+    private Optional<Order> resolveOrderByReference(String reference) {
+        String cleaned = trimToNull(reference);
+        if (cleaned == null) {
+            return Optional.empty();
+        }
+        Optional<Order> byNumber = orderRepository.findByOrderNumber(cleaned);
+        if (byNumber.isPresent()) {
+            return byNumber;
+        }
+        Long orderId = parseOrderIdOrNull(cleaned);
+        return orderId == null ? Optional.empty() : orderRepository.findById(orderId);
+    }
+
+    private String resolveOrderNumber(Order order) {
+        if (order == null) {
+            return "";
+        }
+        String orderNumber = trimToNull(order.getOrderNumber());
+        return orderNumber == null && order.getId() != null ? "ORD-" + order.getId() : orderNumber;
     }
 
     private String trimToNull(String value) {

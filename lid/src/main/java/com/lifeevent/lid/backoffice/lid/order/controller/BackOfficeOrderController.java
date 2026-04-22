@@ -64,9 +64,9 @@ public class BackOfficeOrderController implements IBackOfficeOrderController {
     }
 
     @Override
-    public ResponseEntity<BackOfficeOrderSummaryDto> updateStatus(Long id, Map<String, String> payload) {
+    public ResponseEntity<BackOfficeOrderSummaryDto> updateStatus(String reference, Map<String, String> payload) {
         BackOfficeOrderStatus status = parseStatus(payload);
-        return ResponseEntity.ok(backOfficeOrderService.updateStatus(id, status));
+        return ResponseEntity.ok(backOfficeOrderService.updateStatus(reference, status));
     }
 
     @Override

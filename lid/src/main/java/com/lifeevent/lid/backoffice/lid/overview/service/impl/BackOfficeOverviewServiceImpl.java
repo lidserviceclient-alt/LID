@@ -294,9 +294,8 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
     private List<BackOfficeOverviewOrderSummaryDto> buildRecentOrders() {
         List<BackOfficeOrderSummaryDto> recent = backOfficeOrderService.getRecentOrders();
         List<String> orderIds = recent.stream()
-                .map(BackOfficeOrderSummaryDto::getId)
+                .map(BackOfficeOrderSummaryDto::getOrderNumber)
                 .filter(Objects::nonNull)
-                .map(String::valueOf)
                 .toList();
         Map<String, Shipment> shipmentsByOrder = new HashMap<>();
         if (!orderIds.isEmpty()) {
@@ -309,7 +308,7 @@ public class BackOfficeOverviewServiceImpl implements BackOfficeOverviewService 
 
         List<BackOfficeOverviewOrderSummaryDto> rows = new ArrayList<>();
         for (BackOfficeOrderSummaryDto row : recent) {
-            String orderId = row.getId() == null ? null : String.valueOf(row.getId());
+            String orderId = row.getOrderNumber() == null ? (row.getId() == null ? null : String.valueOf(row.getId())) : row.getOrderNumber();
             Shipment shipment = orderId == null ? null : shipmentsByOrder.get(orderId);
             rows.add(BackOfficeOverviewOrderSummaryDto.builder()
                     .id(orderId)

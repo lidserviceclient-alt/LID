@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 public record BackOfficePartnerTransactionDto(
         Long id,
         Long orderId,
+        String orderNumber,
         LocalDateTime orderCreatedAt,
         BigDecimal orderAmount,
         String partnerId,

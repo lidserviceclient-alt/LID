@@ -81,6 +81,7 @@ public class RealtimeEventPublisher {
         Map<String, Object> payload = new HashMap<>();
         payload.put("paymentId", payment.getId());
         payload.put("orderId", payment.getOrderId());
+        payload.put("orderNumber", payment.getOrderNumber());
         payload.put("invoiceToken", payment.getInvoiceToken());
         payload.put("status", payment.getStatus() == null ? null : payment.getStatus().name());
         payload.put("orderStatus", resolveOrderStatus(payment));

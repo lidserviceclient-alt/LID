@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
         name = "shipment",
         indexes = {
                 @Index(name = "idx_shipment_order_id", columnList = "order_id"),
+                @Index(name = "idx_shipment_handoff_code", columnList = "handoff_code"),
                 @Index(name = "idx_shipment_tracking_id", columnList = "tracking_id"),
                 @Index(name = "idx_shipment_status_created_at", columnList = "status, created_at"),
                 @Index(name = "idx_shipment_carrier_created_at", columnList = "carrier, created_at")
@@ -32,6 +33,9 @@ public class Shipment extends BaseEntity {
 
     @Column(nullable = false)
     private String orderId;
+
+    @Column(name = "handoff_code", unique = true, length = 5)
+    private String handoffCode;
 
     private String carrier;
 

@@ -480,6 +480,7 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
         return new BackOfficePartnerTransactionDto(
                 view.getId(),
                 view.getOrderId(),
+                resolveOrderNumber(order),
                 order == null ? null : order.getCreatedAt(),
                 money(orderAmount),
                 view.getPartnerId(),
@@ -506,6 +507,7 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
         return new BackOfficePartnerTransactionDto(
                 settlement.getId(),
                 settlement.getOrderId(),
+                resolveOrderNumber(order),
                 order == null ? null : order.getCreatedAt(),
                 money(orderAmount),
                 settlement.getPartnerId(),
@@ -525,6 +527,14 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
                 settlement.getPayoutReference(),
                 normalizeStatus(settlement.getPayoutStatus())
         );
+    }
+
+    private String resolveOrderNumber(Order order) {
+        if (order == null) {
+            return null;
+        }
+        String orderNumber = order.getOrderNumber() == null ? "" : order.getOrderNumber().trim();
+        return orderNumber.isEmpty() && order.getId() != null ? "ORD-" + order.getId() : orderNumber;
     }
 
     private Map<Long, BigDecimal> resolveOrderAmounts(Collection<Long> orderIds) {

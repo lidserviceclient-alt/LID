@@ -69,14 +69,17 @@ public class PublicOrderTrackingController {
         Order orderWithArticles = orderRepository.findWithCustomerAndArticlesById(order.getId()).orElse(order);
         List<PublicOrderTrackingStepDto> history = toSteps(order.getStatusHistory());
         LocalDateTime updatedAt = !history.isEmpty() ? history.get(history.size() - 1).changedAt() : order.getCreatedAt();
-        Shipment shipment = shipmentRepository.findByOrderId(String.valueOf(order.getId())).orElse(null);
+        String orderNumber = resolveOrderNumber(order);
+        Shipment shipment = shipmentRepository.findByOrderId(orderNumber)
+                .or(() -> shipmentRepository.findByOrderId(String.valueOf(order.getId())))
+                .orElse(null);
         String deliveryType = shipment != null ? shipment.getCarrier() : null;
         LocalDateTime estimatedDeliveryDate = shipment != null && shipment.getEta() != null
                 ? shipment.getEta()
                 : order.getDeliveryDate();
         return new TrackingPayload(
                 order.getId(),
-                "ORD-" + order.getId(),
+                orderNumber,
                 order.getTrackingNumber(),
                 shipment != null ? shipment.getDeliveryCode() : null,
                 deliveryType,
@@ -97,9 +100,20 @@ public class PublicOrderTrackingController {
             order = orderRepository.findWithCustomerAndStatusHistoryById(id);
         }
         if (order.isEmpty()) {
+            order = orderRepository.findWithCustomerAndStatusHistoryByOrderNumber(ref);
+        }
+        if (order.isEmpty()) {
             order = orderRepository.findWithCustomerAndStatusHistoryByTrackingNumber(ref);
         }
         return order.orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Commande introuvable"));
+    }
+
+    private String resolveOrderNumber(Order order) {
+        if (order == null) {
+            return null;
+        }
+        String orderNumber = order.getOrderNumber() == null ? "" : order.getOrderNumber().trim();
+        return orderNumber.isEmpty() && order.getId() != null ? "ORD-" + order.getId() : orderNumber;
     }
 
     private Long tryExtractOrderId(String reference) {

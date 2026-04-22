@@ -33,6 +33,7 @@ import com.lifeevent.lid.order.entity.StatusHistory;
 import com.lifeevent.lid.order.enumeration.Status;
 import com.lifeevent.lid.order.repository.OrderArticleRepository;
 import com.lifeevent.lid.order.repository.OrderRepository;
+import com.lifeevent.lid.order.service.OrderNumberGenerator;
 import com.lifeevent.lid.order.service.OrderService;
 import com.lifeevent.lid.payment.config.PaydunyaProperties;
 import com.lifeevent.lid.payment.dto.CreatePaymentRequestDto;
@@ -95,6 +96,7 @@ public class OrderServiceImpl implements OrderService {
     private final LoyaltyTierRepository loyaltyTierRepository;
     private final LoyaltyPointAdjustmentRepository loyaltyPointAdjustmentRepository;
     private final VatPricingService vatPricingService;
+    private final OrderNumberGenerator orderNumberGenerator;
     private final PaymentService paymentService;
     private final PaydunyaProperties paydunyaProperties;
     private final ApplicationEventPublisher eventPublisher;
@@ -149,6 +151,18 @@ public class OrderServiceImpl implements OrderService {
     public Optional<OrderDetailDto> getOrderById(Long orderId) {
         log.info("Récupération de la commande: {}", orderId);
         return orderRepository.findWithDetailsById(orderId)
+                .map(this::attachStatusHistory)
+                .map(this::mapToDetailDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<OrderDetailDto> getOrderByNumber(String orderNumber) {
+        String cleaned = safeTrim(orderNumber);
+        if (cleaned.isEmpty()) {
+            return Optional.empty();
+        }
+        return orderRepository.findWithDetailsByOrderNumber(cleaned)
                 .map(this::attachStatusHistory)
                 .map(this::mapToDetailDto);
     }
@@ -619,6 +633,7 @@ public class OrderServiceImpl implements OrderService {
 
         return CheckoutResponseDto.builder()
                 .orderId(savedOrder.getId())
+                .orderNumber(savedOrder.getOrderNumber())
                 .amount(round2(totalAmount))
                 .paymentUrl(payment.getPaymentUrl())
                 .invoiceToken(payment.getInvoiceToken())
@@ -652,8 +667,9 @@ public class OrderServiceImpl implements OrderService {
 
         CreatePaymentRequestDto paymentRequest = CreatePaymentRequestDto.builder()
                 .orderId(order.getId())
+                .orderNumber(order.getOrderNumber())
                 .amount(BigDecimal.valueOf(order.getAmount()))
-                .description("Paiement commande ORD-" + order.getId())
+                .description("Paiement commande " + resolveOrderNumber(order))
                 .operator(PaymentOperator.CARD_CI)
                 .customerName(fullName)
                 .customerEmail(email)
@@ -830,6 +846,7 @@ public class OrderServiceImpl implements OrderService {
 
     private Order buildPendingOrder(Customer customer, String currency, double amount, CheckoutCartRequestDto request) {
         return Order.builder()
+                .orderNumber(orderNumberGenerator.generateUnique())
                 .customer(customer)
                 .amount(amount)
                 .currency(currency)
@@ -951,7 +968,7 @@ public class OrderServiceImpl implements OrderService {
 
         return OrderDetailDto.builder()
                 .id(order.getId())
-                .orderNumber("ORD-" + order.getId())
+                .orderNumber(resolveOrderNumber(order))
                 .amount(order.getAmount())
                 .currency(order.getCurrency())
                 .currentStatus(order.getCurrentStatus())
@@ -967,6 +984,14 @@ public class OrderServiceImpl implements OrderService {
                 .items(items)
                 .statusHistory(statusHistory)
                 .build();
+    }
+
+    private String resolveOrderNumber(Order order) {
+        if (order == null) {
+            return null;
+        }
+        String orderNumber = safeTrim(order.getOrderNumber());
+        return orderNumber.isEmpty() && order.getId() != null ? "ORD-" + order.getId() : orderNumber;
     }
 
     private Customer getOrCreateCustomerForCheckout(String customerId) {

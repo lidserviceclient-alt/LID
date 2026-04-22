@@ -15,6 +15,7 @@ public class BackOfficeShipmentDetailDto {
     private Long id;
     private String trackingId;
     private String orderId;
+    private String handoffCode;
     private String carrier;
     private ShipmentStatus status;
     private LocalDateTime eta;

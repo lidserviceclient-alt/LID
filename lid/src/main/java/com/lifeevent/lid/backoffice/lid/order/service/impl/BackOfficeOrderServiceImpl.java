@@ -15,12 +15,14 @@ import com.lifeevent.lid.discount.repository.DiscountRepository;
 import com.lifeevent.lid.logistics.entity.Shipment;
 import com.lifeevent.lid.logistics.enumeration.ShipmentStatus;
 import com.lifeevent.lid.logistics.repository.ShipmentRepository;
+import com.lifeevent.lid.logistics.service.ShipmentHandoffCodeGenerator;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.entity.OrderArticle;
 import com.lifeevent.lid.order.entity.StatusHistory;
 import com.lifeevent.lid.order.enumeration.Status;
 import com.lifeevent.lid.order.repository.OrderArticleRepository;
 import com.lifeevent.lid.order.repository.OrderRepository;
+import com.lifeevent.lid.order.service.OrderNumberGenerator;
 import com.lifeevent.lid.realtime.service.RealtimeEventPublisher;
 import com.lifeevent.lid.stock.repository.StockRepository;
 import com.lifeevent.lid.user.common.service.UserService;
@@ -56,6 +58,8 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
     private final StockRepository stockRepository;
     private final ShipmentRepository shipmentRepository;
     private final BackOfficeShippingMethodRepository shippingMethodRepository;
+    private final OrderNumberGenerator orderNumberGenerator;
+    private final ShipmentHandoffCodeGenerator handoffCodeGenerator;
     private final ApplicationEventPublisher eventPublisher;
     private final RealtimeEventPublisher realtimeEventPublisher;
 
@@ -149,6 +153,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
         double total = Math.max(0d, subTotal - discountAmount);
 
         Order order = Order.builder()
+                .orderNumber(orderNumberGenerator.generateUnique())
                 .customer(customer)
                 .amount(total)
                 .currency("FCF")
@@ -179,12 +184,12 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
     }
 
     @Override
-    public BackOfficeOrderSummaryDto updateStatus(Long orderId, BackOfficeOrderStatus status) {
-        if (orderId == null) throw new IllegalArgumentException("orderId requis");
+    public BackOfficeOrderSummaryDto updateStatus(String orderReference, BackOfficeOrderStatus status) {
+        if (orderReference == null || orderReference.isBlank()) throw new IllegalArgumentException("orderReference requis");
         if (status == null) throw new IllegalArgumentException("status requis");
 
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId.toString()));
+        Order order = resolveOrder(orderReference)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "reference", orderReference));
 
         Status mapped = mapToOrderStatus(status);
         if (mapped == null) throw new IllegalArgumentException("status invalide");
@@ -219,8 +224,8 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
             return;
         }
 
-        String orderId = String.valueOf(order.getId());
-        Shipment shipment = findOrCreateShipment(orderId);
+        String orderReference = resolveOrderNumber(order);
+        Shipment shipment = findOrCreateShipment(orderReference);
 
         switch (status) {
             case EXPEDIEE -> applyExpedieeShipmentState(shipment, order);
@@ -232,6 +237,7 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
         }
 
         if (shipment.getStatus() != null) {
+            ensureHandoffCode(shipment);
             Shipment saved = shipmentRepository.save(shipment);
             publishShipmentRealtime(saved, "order_status_sync");
         }
@@ -242,8 +248,14 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
                 .orElseGet(() -> Shipment.builder().orderId(orderId).build());
     }
 
+    private void ensureHandoffCode(Shipment shipment) {
+        if (shipment != null && isBlank(shipment.getHandoffCode())) {
+            shipment.setHandoffCode(handoffCodeGenerator.generateUnique());
+        }
+    }
+
     private void applyExpedieeShipmentState(Shipment shipment, Order order) {
-        String orderId = order == null || order.getId() == null ? "" : String.valueOf(order.getId());
+        String orderId = resolveOrderNumber(order);
         // Keep default handoff step for delivery app: "A recuperer" first.
         if (shipment.getStatus() == null || shipment.getStatus() == ShipmentStatus.ECHEC) {
             shipment.setStatus(ShipmentStatus.EN_PREPARATION);
@@ -393,12 +405,36 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
 
         return BackOfficeOrderSummaryDto.builder()
                 .id(order.getId())
+                .orderNumber(resolveOrderNumber(order))
                 .customer(customerLabel)
                 .items(itemsCount)
                 .total(order.getAmount())
                 .status(mapToBackOfficeStatus(order.getCurrentStatus()))
                 .dateCreation(order.getCreatedAt())
                 .build();
+    }
+
+    private Optional<Order> resolveOrder(String reference) {
+        String cleaned = reference == null ? "" : reference.trim();
+        if (cleaned.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<Order> byNumber = orderRepository.findByOrderNumber(cleaned);
+        if (byNumber.isPresent()) {
+            return byNumber;
+        }
+        if (cleaned.matches("^\\d+$")) {
+            return orderRepository.findById(Long.parseLong(cleaned));
+        }
+        return Optional.empty();
+    }
+
+    private String resolveOrderNumber(Order order) {
+        if (order == null) {
+            return "";
+        }
+        String orderNumber = order.getOrderNumber() == null ? "" : order.getOrderNumber().trim();
+        return orderNumber.isEmpty() && order.getId() != null ? "ORD-" + order.getId() : orderNumber;
     }
 
     private int countItems(Order order) {

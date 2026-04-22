@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 @Builder
 public class BackOfficeOrderSummaryDto {
     private Long id;
+    private String orderNumber;
     private String customer;
     private Integer items;
     private Double total;

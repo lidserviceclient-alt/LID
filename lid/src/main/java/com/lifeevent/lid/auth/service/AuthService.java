@@ -14,11 +14,12 @@ import com.lifeevent.lid.cart.service.CartService;
 import com.lifeevent.lid.common.service.EmailService;
 import com.lifeevent.lid.common.service.EmailTemplateService;
 import com.lifeevent.lid.common.util.PhoneNumberUtils;
-import com.lifeevent.lid.user.common.dto.UserDto;
 import com.lifeevent.lid.user.common.entity.UserEntity;
 import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import com.lifeevent.lid.user.common.service.UserService;
 import com.lifeevent.lid.user.customer.dto.CustomerDto;
+import com.lifeevent.lid.user.customer.entity.Customer;
+import com.lifeevent.lid.user.customer.repository.CustomerRepository;
 import com.lifeevent.lid.user.customer.service.CustomerService;
 import com.lifeevent.lid.user.deliverydriver.entity.DelivryDriverProfileEntity;
 import com.lifeevent.lid.user.deliverydriver.repository.DelivryDriverProfileRepository;
@@ -62,6 +63,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final AuthenticationRepository authenticationRepository;
     private final UserEntityRepository userEntityRepository;
+    private final CustomerRepository customerRepository;
     private final DelivryDriverProfileRepository delivryDriverProfileRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
@@ -187,15 +189,12 @@ public class AuthService {
         RefreshToken rt = refreshTokenService.validate(refreshTokenUuid);
         assertUserNotBlocked(rt.getUserId());
 
-        UserDto userDto = userService.getUserById(rt.getUserId());
+        UserEntity user = userEntityRepository.findById(rt.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
         Authentication authentication = authenticationRepository.findByUserId(rt.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("Authentication not found"));
 
-        String newAccessToken = jwtService.generateAccessToken(
-                userDto.getId(),
-                userDto.getEmail(),
-                toRoleNames(authentication.getRoles())
-        );
+        String newAccessToken = buildAccessTokenForUser(user, authentication);
         return new RefreshResponse(newAccessToken);
     }
 
@@ -520,22 +519,29 @@ public class AuthService {
         return token;
     }
 
-    private String buildAccessTokenForUser(UserEntity user, Authentication auth) {
+    private UserJwt buildUserJwtForUser(UserEntity user, Authentication auth) {
         String phoneNumber = null;
         if (auth != null && auth.getRoles() != null && auth.getRoles().contains(UserRole.LIVREUR)) {
             phoneNumber = userService.getDeliveryProfile(user.getUserId())
                     .map(DelivryDriverProfileEntity::getPhoneNumber)
                     .orElse(null);
         }
-        UserJwt userJwt = UserJwt.builder()
+        String avatarUrl = customerRepository.findByUserId(user.getUserId())
+                .map(Customer::getAvatarUrl)
+                .orElse(null);
+
+        return UserJwt.builder()
                 .userId(user.getUserId())
                 .email(user.getEmail())
                 .phoneNumber(phoneNumber)
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
-                .avatarUrl(null)
+                .avatarUrl(avatarUrl)
                 .build();
+    }
 
+    private String buildAccessTokenForUser(UserEntity user, Authentication auth) {
+        UserJwt userJwt = buildUserJwtForUser(user, auth);
         return jwtService.generateAccessToken(userJwt, toRoleNames(auth.getRoles()));
     }
 
@@ -624,17 +630,21 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
-    public String generateAccessToken(String userId, String email, List<String> roles) {
-        return jwtService.generateAccessToken(userId, email, roles);
-    }
-
-    @Transactional(readOnly = true)
     public String generatePartnerAccessToken(String userId, String email) {
-        return generateAccessToken(
-                userId,
-                email,
-                List.of(UserRole.PARTNER.name(), UserRole.CUSTOMER.name())
-        );
+        UserEntity user = userEntityRepository.findById(userId)
+                .orElseGet(() -> UserEntity.builder()
+                        .userId(userId)
+                        .email(email)
+                        .firstName(null)
+                        .lastName(null)
+                        .emailVerified(false)
+                        .blocked(Boolean.FALSE)
+                        .build());
+        UserJwt userJwt = buildUserJwtForUser(user, Authentication.builder()
+                .userId(userId)
+                .roles(new ArrayList<>(List.of(UserRole.PARTNER, UserRole.CUSTOMER)))
+                .build());
+        return jwtService.generateAccessToken(userJwt, List.of(UserRole.PARTNER.name(), UserRole.CUSTOMER.name()));
     }
 
     private void issueRefreshTokenCookie(HttpServletResponse response, String userId) {

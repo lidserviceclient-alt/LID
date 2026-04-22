@@ -24,6 +24,7 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
           AND (:carrierPattern IS NULL OR LOWER(CAST(s.carrier AS string)) LIKE :carrierPattern)
           AND (
             :queryPattern IS NULL OR
+            LOWER(CAST(s.handoffCode AS string)) LIKE :queryPattern OR
             LOWER(CAST(s.trackingId AS string)) LIKE :queryPattern OR
             LOWER(CAST(s.orderId AS string)) LIKE :queryPattern
           )
@@ -42,6 +43,7 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
           AND (:carrierPattern IS NULL OR LOWER(CAST(s.carrier AS string)) LIKE :carrierPattern)
           AND (
             :queryPattern IS NULL OR
+            LOWER(CAST(s.handoffCode AS string)) LIKE :queryPattern OR
             LOWER(CAST(s.trackingId AS string)) LIKE :queryPattern OR
             LOWER(CAST(s.orderId AS string)) LIKE :queryPattern
           )
@@ -54,6 +56,10 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     );
 
     Optional<Shipment> findByOrderId(String orderId);
+
+    Optional<Shipment> findByHandoffCodeIgnoreCase(String handoffCode);
+
+    boolean existsByHandoffCodeIgnoreCase(String handoffCode);
 
     Optional<Shipment> findByTrackingIdIgnoreCase(String trackingId);
 

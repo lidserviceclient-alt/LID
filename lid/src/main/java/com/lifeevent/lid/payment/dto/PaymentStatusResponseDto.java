@@ -16,6 +16,8 @@ import lombok.NoArgsConstructor;
 public class PaymentStatusResponseDto {
     
     private Long paymentId;
+    private Long orderId;
+    private String orderNumber;
     private String invoiceToken;
     private PaymentStatus status;
     private String statusLabel;

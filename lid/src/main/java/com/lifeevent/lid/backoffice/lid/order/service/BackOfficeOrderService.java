@@ -15,6 +15,6 @@ public interface BackOfficeOrderService {
     Page<BackOfficeOrderSummaryDto> getAllCustomersOrders(Pageable pageable, BackOfficeOrderStatus status, String q);
     Page<BackOfficeOrderSummaryDto> getOrdersByCustomer(String customerId, Pageable pageable, BackOfficeOrderStatus status);
     BackOfficeOrderSummaryDto createOrder(BackOfficeCreateOrderRequest request);
-    BackOfficeOrderSummaryDto updateStatus(Long orderId, BackOfficeOrderStatus status);
+    BackOfficeOrderSummaryDto updateStatus(String orderReference, BackOfficeOrderStatus status);
     BackOfficeOrderQuoteResponse quote(BackOfficeCreateOrderRequest request);
 }

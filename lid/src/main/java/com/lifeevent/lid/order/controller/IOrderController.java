@@ -104,6 +104,11 @@ public interface IOrderController {
     ResponseEntity<?> getOrderDetail(
             @Parameter(description = "ID de la commande", example = "1", required = true)
             @PathVariable Long id);
+
+    @GetMapping("/orders/by-number/{orderNumber}")
+    ResponseEntity<?> getOrderDetailByNumber(
+            @Parameter(description = "Numéro de commande", example = "ORD-9XK3-7P2L", required = true)
+            @PathVariable String orderNumber);
     
     @Operation(summary = "Suivi de la commande", description = "Retourne les informations de suivi incluant numéro de tracking et statut actuel (CUSTOMER or ADMIN)")
     @ApiResponses(value = {

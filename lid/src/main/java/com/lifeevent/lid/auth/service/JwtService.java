@@ -24,21 +24,6 @@ public class JwtService {
     @Value("${config.security.app.access-ttl-minutes}")
     private long accessTtlMinutes;
 
-    public String generateAccessToken(String userId, String email, List<String> roles) {
-        Instant now = Instant.now();
-        Instant exp = now.plusSeconds(accessTtlMinutes * 60);
-
-        return Jwts.builder()
-                .issuer(issuer)
-                .subject(userId)
-                .claim("email", email)
-                .claim("roles", roles)
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(exp))
-                .signWith(secretKey)
-                .compact();
-    }
-
     public String generateAccessToken(UserJwt userJwt, List<String> roles) {
         Instant now = Instant.now();
         Instant exp = now.plusSeconds(accessTtlMinutes * 60);

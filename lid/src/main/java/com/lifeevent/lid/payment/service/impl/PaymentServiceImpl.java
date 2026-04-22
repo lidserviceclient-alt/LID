@@ -11,7 +11,9 @@ import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotif
 import com.lifeevent.lid.backoffice.lid.notification.service.BackOfficeNotificationService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
 import com.lifeevent.lid.order.dto.OrderDetailDto;
+import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.enumeration.Status;
+import com.lifeevent.lid.order.repository.OrderRepository;
 import com.lifeevent.lid.order.service.OrderService;
 import com.lifeevent.lid.payment.config.PaydunyaProperties;
 import com.lifeevent.lid.payment.dto.CreatePaymentRequestDto;
@@ -59,6 +61,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaydunyaSetup paydunyaSetup;
     private final PaydunyaCheckoutStore paydunyaStore;
     private final PaymentMapper paymentMapper;
+    private final OrderRepository orderRepository;
     private final RealtimeEventPublisher realtimeEventPublisher;
     private final BackOfficeNotificationService backOfficeNotificationService;
     private final PartnerSettlementService partnerSettlementService;
@@ -67,6 +70,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public PaymentResponseDto createPayment(CreatePaymentRequestDto request) {
         validateCreateRequest(request);
+        normalizeOrderReference(request);
 
         PaydunyaCheckoutInvoice invoice = buildInvoice(request);
         if (!invoice.create()) {
@@ -89,9 +93,8 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public PaymentResponseDto createLocalPayment(CreatePaymentRequestDto request) {
-        if (request == null || request.getOrderId() == null) {
-            throw new IllegalArgumentException("orderId requis");
-        }
+        validateCreateRequest(request);
+        normalizeOrderReference(request);
 
         Payment existing = paymentRepository.findByOrderId(request.getOrderId()).stream()
                 .filter(payment -> payment != null && payment.getStatus() == PaymentStatus.COMPLETED)
@@ -103,6 +106,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         Payment payment = Payment.builder()
                 .orderId(request.getOrderId())
+                .orderNumber(request.getOrderNumber())
                 .invoiceToken("LOCAL-" + java.util.UUID.randomUUID())
                 .amount(request.getAmount())
                 .currency("XOF")
@@ -154,6 +158,8 @@ public class PaymentServiceImpl implements PaymentService {
             realtimeEventPublisher.publishPaymentStatusUpdated(payment, "verify_local");
             return PaymentStatusResponseDto.builder()
                     .paymentId(payment.getId())
+                    .orderId(payment.getOrderId())
+                    .orderNumber(resolveOrderNumber(payment))
                     .invoiceToken(payment.getInvoiceToken())
                     .status(payment.getStatus())
                     .statusLabel(payment.getStatus().getLabel())
@@ -206,6 +212,15 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public List<PaymentResponseDto> getPaymentsByOrderId(Long orderId) {
         return paymentMapper.toDtoList(paymentRepository.findByOrderId(orderId));
+    }
+
+    @Override
+    public List<PaymentResponseDto> getPaymentsByOrderNumber(String orderNumber) {
+        String cleaned = safeText(orderNumber, "");
+        if (cleaned.isBlank()) {
+            return List.of();
+        }
+        return paymentMapper.toDtoList(paymentRepository.findByOrderNumber(cleaned));
     }
     
     @Override
@@ -330,6 +345,28 @@ public class PaymentServiceImpl implements PaymentService {
         if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Le montant doit être supérieur à 0");
         }
+        if (request.getOrderId() == null && safeText(request.getOrderNumber(), "").isBlank()) {
+            throw new IllegalArgumentException("orderNumber requis");
+        }
+    }
+
+    private void normalizeOrderReference(CreatePaymentRequestDto request) {
+        if (request == null) {
+            return;
+        }
+        Order order = null;
+        if (!safeText(request.getOrderNumber(), "").isBlank()) {
+            order = orderRepository.findByOrderNumber(request.getOrderNumber().trim())
+                    .orElseThrow(() -> new ResourceNotFoundException("Order", "orderNumber", request.getOrderNumber()));
+        } else if (request.getOrderId() != null) {
+            order = orderRepository.findById(request.getOrderId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Order", "id", request.getOrderId().toString()));
+        }
+        if (order == null) {
+            return;
+        }
+        request.setOrderId(order.getId());
+        request.setOrderNumber(resolveOrderNumber(order));
     }
 
     private PaydunyaCheckoutInvoice buildInvoice(CreatePaymentRequestDto request) {
@@ -342,6 +379,7 @@ public class PaymentServiceImpl implements PaymentService {
         invoice.setCancelUrl(resolveCancelUrl(request));
         invoice.setCallbackUrl(properties.getCallbackUrl());
         invoice.addCustomData("orderId", String.valueOf(request.getOrderId()));
+        invoice.addCustomData("orderNumber", request.getOrderNumber());
         invoice.addCustomData("customerEmail", request.getCustomerEmail());
         invoice.addCustomData("operator", request.getOperator().getDisplayName());
         return invoice;
@@ -378,6 +416,7 @@ public class PaymentServiceImpl implements PaymentService {
     private Payment toPendingPayment(CreatePaymentRequestDto request, String invoiceToken) {
         return Payment.builder()
                 .orderId(request.getOrderId())
+                .orderNumber(request.getOrderNumber())
                 .invoiceToken(invoiceToken)
                 .amount(request.getAmount())
                 .currency("XOF")
@@ -457,6 +496,8 @@ public class PaymentServiceImpl implements PaymentService {
                                                          PaydunyaCheckoutInvoice invoice) {
         return PaymentStatusResponseDto.builder()
             .paymentId(payment.getId())
+            .orderId(payment.getOrderId())
+            .orderNumber(resolveOrderNumber(payment))
             .invoiceToken(payment.getInvoiceToken())
             .status(payment.getStatus())
             .statusLabel(payment.getStatus().getLabel())
@@ -494,13 +535,14 @@ public class PaymentServiceImpl implements PaymentService {
                     .scope(BackOfficeNotificationScope.BACKOFFICE)
                     .targetRole(BackOfficeNotificationTargetRole.ADMIN)
                     .title("Nouvelle commande validée")
-                    .body("Commande ORD-" + payment.getOrderId() + " payée avec succès")
+                    .body("Commande " + resolveOrderNumber(payment) + " payée avec succès")
                     .actionPath("/orders")
                     .actionLabel("Ouvrir")
                     .severity(BackOfficeNotificationSeverity.SUCCESS)
                     .dedupeKey("NEW_ORDER:" + payment.getOrderId())
                     .payload(java.util.Map.of(
                             "orderId", payment.getOrderId(),
+                            "orderNumber", resolveOrderNumber(payment),
                             "paymentId", payment.getId(),
                             "status", payment.getStatus().name()
                     ))
@@ -513,17 +555,34 @@ public class PaymentServiceImpl implements PaymentService {
                     .scope(BackOfficeNotificationScope.BACKOFFICE)
                     .targetRole(BackOfficeNotificationTargetRole.ADMIN)
                     .title("Paiement échoué")
-                    .body("Le paiement de la commande ORD-" + payment.getOrderId() + " a échoué")
+                    .body("Le paiement de la commande " + resolveOrderNumber(payment) + " a échoué")
                     .actionPath("/finance")
                     .actionLabel("Ouvrir")
                     .severity(BackOfficeNotificationSeverity.ERROR)
                     .dedupeKey("PAYMENT_FAILED:" + payment.getOrderId())
                     .payload(java.util.Map.of(
                             "orderId", payment.getOrderId(),
+                            "orderNumber", resolveOrderNumber(payment),
                             "paymentId", payment.getId(),
                             "status", payment.getStatus().name()
                     ))
                     .build());
         }
+    }
+
+    private String resolveOrderNumber(Order order) {
+        if (order == null) {
+            return null;
+        }
+        String orderNumber = safeText(order.getOrderNumber(), "");
+        return orderNumber.isBlank() && order.getId() != null ? "ORD-" + order.getId() : orderNumber;
+    }
+
+    private String resolveOrderNumber(Payment payment) {
+        if (payment == null) {
+            return null;
+        }
+        String orderNumber = safeText(payment.getOrderNumber(), "");
+        return orderNumber.isBlank() && payment.getOrderId() != null ? "ORD-" + payment.getOrderId() : orderNumber;
     }
 }

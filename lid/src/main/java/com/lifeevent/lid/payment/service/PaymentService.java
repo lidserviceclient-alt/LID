@@ -35,6 +35,8 @@ public interface PaymentService {
      * Récupère tous les paiements pour une commande
      */
     List<PaymentResponseDto> getPaymentsByOrderId(Long orderId);
+
+    List<PaymentResponseDto> getPaymentsByOrderNumber(String orderNumber);
     
     /**
      * Récupère tous les paiements pour un client

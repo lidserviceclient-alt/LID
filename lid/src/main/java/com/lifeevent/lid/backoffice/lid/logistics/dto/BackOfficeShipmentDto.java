@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 public class BackOfficeShipmentDto {
     private Long id;
     private String orderId;
+    private String handoffCode;
     private String carrier;
     private String trackingId;
     private ShipmentStatus status;

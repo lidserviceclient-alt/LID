@@ -34,6 +34,8 @@ public interface OrderService {
      * Récupérer une commande par ID
      */
     Optional<OrderDetailDto> getOrderById(Long orderId);
+
+    Optional<OrderDetailDto> getOrderByNumber(String orderNumber);
     
     /**
      * Récupérer les commandes d'un client avec pagination

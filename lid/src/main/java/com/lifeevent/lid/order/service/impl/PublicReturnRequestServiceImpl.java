@@ -47,12 +47,7 @@ public class PublicReturnRequestServiceImpl implements PublicReturnRequestServic
             throw new ResponseStatusException(BAD_REQUEST, "Numéro de commande requis");
         }
 
-        Long orderId = tryExtractOrderId(rawOrderNumber);
-        if (orderId == null) {
-            throw new ResponseStatusException(BAD_REQUEST, "Numéro de commande invalide");
-        }
-
-        Order order = orderRepository.findWithCustomerAndArticlesById(orderId)
+        Order order = resolveOrder(rawOrderNumber)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Commande introuvable"));
 
         String email = normalizeEmail(request.email());
@@ -96,7 +91,7 @@ public class PublicReturnRequestServiceImpl implements PublicReturnRequestServic
 
         ReturnRequest rr = new ReturnRequest();
         rr.setOrderId(order.getId());
-        rr.setOrderNumber("ORD-" + order.getId());
+        rr.setOrderNumber(resolveOrderNumber(order));
         rr.setEmail(email);
         rr.setReason(reason);
         rr.setDetails(trimToNull(request.details()));
@@ -152,6 +147,23 @@ public class PublicReturnRequestServiceImpl implements PublicReturnRequestServic
                 ))
                 .build());
         return new ReturnRequestResponseDto(saved.getId(), saved.getOrderNumber(), saved.getStatus(), saved.getCreatedAt());
+    }
+
+    private java.util.Optional<Order> resolveOrder(String reference) {
+        java.util.Optional<Order> byNumber = orderRepository.findWithCustomerAndArticlesByOrderNumber(reference.trim());
+        if (byNumber.isPresent()) {
+            return byNumber;
+        }
+        Long orderId = tryExtractOrderId(reference);
+        return orderId == null ? java.util.Optional.empty() : orderRepository.findWithCustomerAndArticlesById(orderId);
+    }
+
+    private String resolveOrderNumber(Order order) {
+        if (order == null) {
+            return null;
+        }
+        String orderNumber = order.getOrderNumber() == null ? "" : order.getOrderNumber().trim();
+        return orderNumber.isEmpty() && order.getId() != null ? "ORD-" + order.getId() : orderNumber;
     }
 
     private Long tryExtractOrderId(String orderNumber) {

@@ -21,8 +21,9 @@ import java.util.List;
 @Builder
 public class CreatePaymentRequestDto {
     
-    @NotNull(message = "L'ID de la commande est requis")
     private Long orderId;
+
+    private String orderNumber;
     
     @NotNull(message = "Le montant est requis")
     @DecimalMin(value = "0.01", message = "Le montant doit être supérieur à 0")

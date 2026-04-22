@@ -44,15 +44,10 @@ public class PublicReturnsController {
             throw new ResponseStatusException(BAD_REQUEST, "Numéro de commande requis");
         }
 
-        Long orderId = tryExtractOrderId(rawOrderNumber);
-        if (orderId == null) {
-            throw new ResponseStatusException(BAD_REQUEST, "Numéro de commande invalide");
-        }
-
         String normalizedEmail = normalizeEmail(email);
         validateEmail(normalizedEmail);
 
-        Order order = orderRepository.findWithCustomerAndArticlesById(orderId)
+        Order order = resolveOrder(rawOrderNumber)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Commande introuvable"));
 
         String expected = normalizeEmail(order.getCustomer() != null ? order.getCustomer().getEmail() : null);
@@ -73,11 +68,28 @@ public class PublicReturnsController {
 
         return new PublicReturnOrderDto(
                 order.getId(),
-                "ORD-" + order.getId(),
+                resolveOrderNumber(order),
                 order.getAmount(),
                 order.getCurrency(),
                 items
         );
+    }
+
+    private java.util.Optional<Order> resolveOrder(String reference) {
+        java.util.Optional<Order> byNumber = orderRepository.findWithCustomerAndArticlesByOrderNumber(reference.trim());
+        if (byNumber.isPresent()) {
+            return byNumber;
+        }
+        Long orderId = tryExtractOrderId(reference);
+        return orderId == null ? java.util.Optional.empty() : orderRepository.findWithCustomerAndArticlesById(orderId);
+    }
+
+    private String resolveOrderNumber(Order order) {
+        if (order == null) {
+            return null;
+        }
+        String orderNumber = order.getOrderNumber() == null ? "" : order.getOrderNumber().trim();
+        return orderNumber.isEmpty() && order.getId() != null ? "ORD-" + order.getId() : orderNumber;
     }
 
     @PostMapping

@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_orders_customer_created_at", columnList = "customer_user_id, created_at"),
                 @Index(name = "idx_orders_status_created_at", columnList = "current_status, created_at"),
+                @Index(name = "idx_orders_order_number", columnList = "order_number"),
                 @Index(name = "idx_orders_tracking_number", columnList = "tracking_number")
         }
 )
@@ -34,6 +35,9 @@ public class Order extends BaseEntity {
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private Customer customer;
+
+    @Column(name = "order_number", nullable = false, unique = true, length = 14)
+    private String orderNumber;
 
     /**
      * Montant total de la commande (TTC)
