@@ -1,8 +1,9 @@
-import { createContext, useContext, useEffect, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCurrentUserPayload } from "@/services/authService";
 import { getMyCustomerProfileCollection } from "@/services/customerService";
 import { CUSTOMER_SESSION_CLEARED_EVENT } from "@/services/sessionCleanup";
+import { subscribeFrontendRealtime } from "@/services/realtimeService";
 
 const CustomerSessionContext = createContext(null);
 
@@ -10,6 +11,7 @@ export function CustomerSessionProvider({ children }) {
   const queryClient = useQueryClient();
   const tokenPayload = getCurrentUserPayload();
   const canLoadCustomerSession = Boolean(tokenPayload?.sub);
+  const refetchRef = useRef(null);
 
   const query = useQuery({
     queryKey: ["customer-session-collection"],
@@ -20,6 +22,10 @@ export function CustomerSessionProvider({ children }) {
     refetchOnMount: false,
     retry: 1,
   });
+
+  useEffect(() => {
+    refetchRef.current = query.refetch;
+  }, [query.refetch]);
 
   const updateCustomerCollection = (updater) => {
     queryClient.setQueryData(["customer-session-collection"], (prev) => {
@@ -37,6 +43,20 @@ export function CustomerSessionProvider({ children }) {
     window.addEventListener(CUSTOMER_SESSION_CLEARED_EVENT, clearCustomerQueryCache);
     return () => window.removeEventListener(CUSTOMER_SESSION_CLEARED_EVENT, clearCustomerQueryCache);
   }, [queryClient]);
+
+  useEffect(() => {
+    if (!canLoadCustomerSession) {
+      return undefined;
+    }
+
+    return subscribeFrontendRealtime((event) => {
+      if (event?.topic !== "payment.status.updated") {
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["customer-session-collection"], exact: true });
+      refetchRef.current?.();
+    }, ["payment.status.updated"]);
+  }, [canLoadCustomerSession, queryClient]);
 
   const value = useMemo(() => {
     const collection = query.data || null;

@@ -236,7 +236,7 @@ export default function OrderTracking() {
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-[#6aa200] transition-colors" />
                   <input
                     type="text"
-                    placeholder="Ex: LID-ORD-24 ou ORD-24"
+                    placeholder="Ex: ORD-9XK3-7P2L"
                     value={orderId}
                     onChange={(e) => setOrderId(e.target.value)}
                     className="w-full pl-12 pr-28 sm:pr-32 py-4 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-transparent focus:border-[#6aa200] focus:ring-2 focus:ring-[#6aa200]/20 outline-none transition-all text-base font-semibold"

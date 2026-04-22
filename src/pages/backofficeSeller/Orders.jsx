@@ -78,8 +78,9 @@ export default function Orders() {
       const page = await listMyOrders({ page: 0, size: 200 });
       const content = Array.isArray(page?.content) ? page.content : [];
       const normalized = content.map((o) => ({
-        id: `#ORD-${o.id}`,
+        id: `#${o.orderNumber || `ORD-${o.id}`}`,
         rawId: o.id,
+        orderNumber: o.orderNumber || null,
         customer: {
           name: o.customerName || "Client",
           email: o.customerEmail || "",
@@ -108,8 +109,9 @@ export default function Orders() {
     if (bootstrap?.data) {
       const content = Array.isArray(bootstrap.data?.content) ? bootstrap.data.content : [];
       const normalized = content.map((o) => ({
-        id: `#ORD-${o.id}`,
+        id: `#${o.orderNumber || `ORD-${o.id}`}`,
         rawId: o.id,
+        orderNumber: o.orderNumber || null,
         customer: {
           name: o.customerName || "Client",
           email: o.customerEmail || "",
@@ -380,7 +382,7 @@ export default function Orders() {
                         <QRCode
                             size={256}
                             style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                            value={`LID-ORDER-${selectedOrder.rawId}`}
+                            value={`LID-ORDER-${selectedOrder.orderNumber || selectedOrder.rawId}`}
                             viewBox={`0 0 256 256`}
                         />
                     </div>

@@ -88,7 +88,7 @@ export default function Dashboard() {
 
   const recentOrders = useMemo(() => {
     return orders.slice(0, 5).map((o) => ({
-      id: `#ORD-${o.id}`,
+      id: `#${o.orderNumber || `ORD-${o.id}`}`,
       customer: o.customerName || "Client",
       product: "-",
       amount: `${Number(o.amount || 0).toFixed(2)} FCFA`,

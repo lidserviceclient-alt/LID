@@ -482,9 +482,17 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
         items: (isCartCheckout ? cartItems.map((i) => toCheckoutItem(i, i?.quantity)) : [toCheckoutItem({ ...product, quantity: normalizedQuantity }, normalizedQuantity)]).filter(Boolean),
         paymentProvider: import.meta.env.VITE_PAYMENT_PROVIDER || 'PAYDUNYA'
       });
+      if (res?.orderNumber) {
+        setOrderNumber(res.orderNumber);
+      }
       setLoadingStep(3);
       if (res?.paymentUrl) window.location.href = res.paymentUrl;
-      else if (res?.invoiceToken) window.location.href = `${window.location.origin}/payment/success?token=${res.invoiceToken}`;
+      else if (res?.invoiceToken) {
+        const successUrl = new URL(`${window.location.origin}/payment/success`);
+        successUrl.searchParams.set('token', res.invoiceToken);
+        if (res?.orderNumber) successUrl.searchParams.set('orderNumber', res.orderNumber);
+        window.location.href = successUrl.toString();
+      }
     } catch (err) {
       setStep(2);
       toast.error(err?.message || "Erreur de paiement");
