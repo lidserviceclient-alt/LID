@@ -34,6 +34,9 @@ const formatDate = (value) => {
 export default function Users() {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
+  const [usersPage, setUsersPage] = useState(null);
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -57,11 +60,12 @@ export default function Users() {
     pays: ""
   });
 
-  const usersEntry = useUsersResolver(0, 200, roleFilter, query);
+  const usersEntry = useUsersResolver(page, pageSize, roleFilter, query);
 
   useEffect(() => {
     setLoading(usersEntry.loading);
     setError(usersEntry.error);
+    setUsersPage(usersEntry.data || null);
     setUsers(Array.isArray(usersEntry.data?.content) ? usersEntry.data.content : []);
   }, [usersEntry.data, usersEntry.error, usersEntry.loading]);
 
@@ -77,6 +81,9 @@ export default function Users() {
       };
     });
   }, [users]);
+
+  const totalPages = Number.isFinite(Number(usersPage?.totalPages)) ? Number(usersPage.totalPages) : 0;
+  const totalElements = Number.isFinite(Number(usersPage?.totalElements)) ? Number(usersPage.totalElements) : rows.length;
 
   const blockedUsers = useMemo(() => {
     return rows.filter((u) => Boolean(u?.blocked));
@@ -126,7 +133,7 @@ export default function Users() {
 
       const created = await backofficeApi.createUser(payload);
       setIsFormOpen(false);
-      await reloadUsersResolver(0, 200, roleFilter, query);
+      await reloadUsersResolver(page, pageSize, roleFilter, query);
       if (created?.id) {
         navigate(`/users/${created.id}`);
       }
@@ -145,7 +152,7 @@ export default function Users() {
       await backofficeApi.deleteUser(currentUser.id);
       setIsDeleteOpen(false);
       setCurrentUser(null);
-      await reloadUsersResolver(0, 200, roleFilter, query);
+      await reloadUsersResolver(page, pageSize, roleFilter, query);
     } catch (err) {
       setError(err?.message || "Impossible de supprimer l'utilisateur.");
     } finally {
@@ -161,7 +168,7 @@ export default function Users() {
     setError("");
     try {
       await backofficeApi.blockUser(u.id);
-      await reloadUsersResolver(0, 200, roleFilter, query);
+      await reloadUsersResolver(page, pageSize, roleFilter, query);
     } catch (err) {
       setError(err?.message || "Impossible de bloquer l'utilisateur.");
     } finally {
@@ -177,7 +184,7 @@ export default function Users() {
     setError("");
     try {
       await backofficeApi.unblockUser(u.id);
-      await reloadUsersResolver(0, 200, roleFilter, query);
+      await reloadUsersResolver(page, pageSize, roleFilter, query);
     } catch (err) {
       setError(err?.message || "Impossible de débloquer l'utilisateur.");
     } finally {
@@ -215,14 +222,14 @@ export default function Users() {
               placeholder="Rechercher (nom, prénom, email)..."
               className="pl-9 bg-background"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => { setPage(0); setQuery(e.target.value); }}
             />
           </div>
           <div className="w-full md:w-56">
             <Select
               className="bg-background"
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
+              onChange={(e) => { setPage(0); setRoleFilter(e.target.value); }}
               options={[{ value: "", label: "Tous rôles" }, ...roles]}
             />
           </div>
@@ -319,6 +326,18 @@ export default function Users() {
             )}
           </tbody>
         </Table>
+        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+          <span>{totalElements} utilisateur{totalElements > 1 ? "s" : ""}</span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page <= 0 || loading}>
+              Précédent
+            </Button>
+            <span>Page {page + 1} / {Math.max(totalPages, 1)}</span>
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={loading || page + 1 >= totalPages}>
+              Suivant
+            </Button>
+          </div>
+        </div>
       </Card>
 
       <Card className="space-y-4">

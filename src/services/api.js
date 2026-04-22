@@ -3,6 +3,21 @@ import { setAccessToken } from "./auth.js";
 
 const BASE_URL = import.meta.env.VITE_BACKOFFICE_API_URL || "http://localhost:9000";
 let refreshPromise = null;
+const inflightGetRequests = new Map();
+
+function requestMethod(options = {}) {
+  return `${options?.method || "GET"}`.trim().toUpperCase();
+}
+
+function shouldDedupeRequest(path, options = {}) {
+  return !options?.skipDedupe && requestMethod(options) === "GET" && !options?.signal;
+}
+
+function dedupeKey(path, options = {}) {
+  const headers = options?.headers || {};
+  const accept = headers.Accept || headers.accept || "";
+  return `${requestMethod(options)} ${path} ${accept}`;
+}
 
 async function refreshAccessToken() {
   if (refreshPromise) {
@@ -34,8 +49,22 @@ async function refreshAccessToken() {
 }
 
 async function request(path, options = {}, retryAuth = true) {
+  if (shouldDedupeRequest(path, options)) {
+    const key = dedupeKey(path, options);
+    const existing = inflightGetRequests.get(key);
+    if (existing) {
+      return existing;
+    }
+    const pending = request(path, { ...options, method: requestMethod(options), skipDedupe: true }, retryAuth)
+      .finally(() => {
+        inflightGetRequests.delete(key);
+      });
+    inflightGetRequests.set(key, pending);
+    return pending;
+  }
+
   const accessToken = getAccessToken();
-  const { headers: optionHeaders, retryAuth: retryAuthOverride, ...restOptions } = options || {};
+  const { headers: optionHeaders, retryAuth: retryAuthOverride, skipDedupe, ...restOptions } = options || {};
   const shouldRetryAuth = typeof retryAuthOverride === "boolean" ? retryAuthOverride : retryAuth;
   let res;
   try {
@@ -241,7 +270,6 @@ export const backofficeApi = {
   realtimeWsAccess: (topics = []) =>
     request("/api/v1/realtime/ws-access", {
       method: "POST",
-      retryAuth: false,
       body: JSON.stringify({ topics: Array.isArray(topics) ? topics : [] })
     }),
   verifyAdminMfa: (mfaTokenId, code) =>
@@ -268,7 +296,10 @@ export const backofficeApi = {
   dashboard: () => request("/api/v1/backoffice/dashboard"),
   settingsCollection: () => request("/api/v1/backoffice/setting/collection"),
   recentOrders: () => request("/api/v1/backoffice/orders/recent"),
-  categories: () => request("/api/v1/backoffice/categories"),
+  categories: (page = 0, size = 20) => {
+    const params = new URLSearchParams({ page, size });
+    return request(`/api/v1/backoffice/categories?${params.toString()}`);
+  },
   createCategory: (payload) =>
     request("/api/v1/backoffice/categories", {
       method: "POST",
@@ -344,12 +375,17 @@ export const backofficeApi = {
       method: "DELETE"
     }),
   boutiques: () => request("/api/v1/backoffice/shops"),
-  promoCodes: () => request("/api/v1/backoffice/promo-codes"),
-  promoCodesCollection: (days) => {
+  promoCodes: (page = 0, size = 10) => {
+    const params = new URLSearchParams({ page, size });
+    return request(`/api/v1/backoffice/promo-codes?${params.toString()}`);
+  },
+  promoCodesCollection: (days, page = 0, size = 10) => {
     const params = new URLSearchParams();
     if (days !== null && days !== undefined && `${days}`.trim() !== "") {
       params.set("days", `${days}`);
     }
+    params.set("page", `${page}`);
+    params.set("size", `${size}`);
     const query = params.toString();
     return request(`/api/v1/backoffice/promo-codes/collection${query ? `?${query}` : ""}`);
   },
@@ -375,7 +411,10 @@ export const backofficeApi = {
     request(`/api/v1/backoffice/promo-codes/${id}`, {
       method: "DELETE"
     }),
-  blogPosts: () => request("/api/v1/backoffice/blog-posts"),
+  blogPosts: (page = 0, size = 10) => {
+    const params = new URLSearchParams({ page, size });
+    return request(`/api/v1/backoffice/blog-posts?${params.toString()}`);
+  },
   createBlogPost: (payload) =>
     request("/api/v1/backoffice/blog-posts", {
       method: "POST",
@@ -390,7 +429,10 @@ export const backofficeApi = {
     request(`/api/v1/backoffice/blog-posts/${id}`, {
       method: "DELETE"
     }),
-  ticketEvents: () => request("/api/v1/backoffice/tickets"),
+  ticketEvents: (page = 0, size = 10) => {
+    const params = new URLSearchParams({ page, size });
+    return request(`/api/v1/backoffice/tickets?${params.toString()}`);
+  },
   createTicketEvent: (payload) =>
     request("/api/v1/backoffice/tickets", {
       method: "POST",
@@ -471,7 +513,10 @@ export const backofficeApi = {
     if (q) params.set("q", q);
     return request(`/api/v1/backoffice/loyalty/collection?${params.toString()}`);
   },
-  loyaltyTiers: () => request("/api/v1/backoffice/loyalty/tiers"),
+  loyaltyTiers: (page = 0, size = 20) => {
+    const params = new URLSearchParams({ page, size });
+    return request(`/api/v1/backoffice/loyalty/tiers?${params.toString()}`);
+  },
   loyaltyCustomers: (limit = 10) => request(`/api/v1/backoffice/loyalty/customers?limit=${encodeURIComponent(limit)}`),
   loyaltyCustomersPage: (q = "", page = 0, size = 10) =>
     request(
@@ -512,8 +557,9 @@ export const backofficeApi = {
     if (days !== null && days !== undefined && `${days}`.trim() !== "") params.set("days", `${days}`);
     return request(`/api/v1/backoffice/finance/overview?${params.toString()}`);
   },
-  financeTransactions: (size = 50) => {
+  financeTransactions: (page = 0, size = 50) => {
     const params = new URLSearchParams();
+    params.set("page", `${page}`);
     if (size !== null && size !== undefined && `${size}`.trim() !== "") params.set("size", `${size}`);
     return request(`/api/v1/backoffice/finance/transactions?${params.toString()}`);
   },
@@ -536,7 +582,7 @@ export const backofficeApi = {
       body: JSON.stringify(payload)
     }),
   updateOrderStatus: (id, status) =>
-    request(`/api/v1/backoffice/orders/${id}/status`, {
+    request(`/api/v1/backoffice/orders/${encodeURIComponent(id)}/status`, {
       method: "PUT",
       body: JSON.stringify({ status })
     }),
@@ -953,8 +999,8 @@ export const backofficeApi = {
     if (usersQuery) params.set("usersQuery", usersQuery);
     return request(`/api/v1/backoffice/search/bootstrap?${params.toString()}`);
   },
-  financeCollection: (days = 30, size = 50) => {
-    const params = new URLSearchParams({ days, size });
+  financeCollection: (days = 30, page = 0, size = 50) => {
+    const params = new URLSearchParams({ days, page, size });
     return request(`/api/v1/backoffice/finance/collection?${params.toString()}`);
   }
 };

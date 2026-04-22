@@ -23,8 +23,8 @@ export default function ProductCreate() {
   const mainImageInputRef = useRef(null);
   const secondaryImagesInputRef = useRef(null);
   const [imageUploading, setImageUploading] = useState(false);
-  const categoriesEntry = useCategoriesResolver();
-  const categories = Array.isArray(categoriesEntry.data) ? categoriesEntry.data : [];
+  const categoriesEntry = useCategoriesResolver(0, 200);
+  const categories = Array.isArray(categoriesEntry.data?.content) ? categoriesEntry.data.content : [];
   const categoriesLoading = categoriesEntry.loading;
 
   const [formData, setFormData] = useState({

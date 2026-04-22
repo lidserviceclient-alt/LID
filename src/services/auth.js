@@ -53,12 +53,7 @@ export function isTokenExpired(token, skewSeconds = 30) {
 
 export function isAuthenticated() {
   const token = getAccessToken();
-  if (!token) return false;
-  if (isTokenExpired(token)) {
-    clearAccessToken();
-    return false;
-  }
-  return true;
+  return Boolean(token);
 }
 
 export function setAccessToken(token) {
@@ -73,10 +68,6 @@ export function clearAccessToken() {
 export function getAuthenticatedUser() {
   const token = getAccessToken();
   if (!token) return null;
-  if (isTokenExpired(token)) {
-    clearAccessToken();
-    return null;
-  }
 
   const payload = decodeJwtPayload(token);
   if (!payload) return null;

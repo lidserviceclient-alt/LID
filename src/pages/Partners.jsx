@@ -197,7 +197,7 @@ export default function Partners() {
     const csvRows = [
       ["Commande", "Date commande", "Paiement prevu", "Montant commande", "Montant article", "Livraison", "Retour", "Marge", "A verser", "Statut"],
       ...transactionRows.map((row) => [
-        row.orderId ? `ORD-${row.orderId}` : "-",
+        row.orderNumber || (row.orderId ? `ORD-${row.orderId}` : "-"),
         formatDate(row.orderCreatedAt),
         formatDate(row.scheduledAt || row.eligibleAt),
         formatMoney(row.orderAmount),
@@ -597,7 +597,7 @@ export default function Partners() {
                 const payoutAmount = computePartnerPayoutAmount(row.orderAmount, row.shippingAllocation);
                 return (
                 <TRow key={`ledger-${row.id}`}>
-                  <TCell>{row.orderId ? `ORD-${row.orderId}` : "-"}</TCell>
+                  <TCell>{row.orderNumber || (row.orderId ? `ORD-${row.orderId}` : "-")}</TCell>
                   <TCell>{formatDate(row.orderCreatedAt)}</TCell>
                   <TCell>{formatDate(row.scheduledAt || row.eligibleAt)}</TCell>
                   <TCell>{formatMoney(row.orderAmount)}</TCell>
@@ -653,7 +653,7 @@ export default function Partners() {
         footer={
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
             <div className="text-xs text-muted-foreground">
-              {paymentModalTransaction?.orderId ? `Commande ORD-${paymentModalTransaction.orderId}` : ""}
+              {paymentModalTransaction ? `Commande ${paymentModalTransaction.orderNumber || (paymentModalTransaction.orderId ? `ORD-${paymentModalTransaction.orderId}` : "")}` : ""}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {(() => {

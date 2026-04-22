@@ -78,7 +78,7 @@ export default function Dashboard() {
   const recentOrdersState = useMemo(() => {
     if (!Array.isArray(overviewRaw?.recentOrders)) return recentOrders;
     return overviewRaw.recentOrders.map((order) => ({
-      id: order.id,
+      id: order.orderNumber || order.id,
       customer: order.customer,
       channel: "Backoffice",
       amount: formatCurrency(order.total),

@@ -35,9 +35,18 @@ const formatDate = (value) => {
 export default function Finance() {
   const [exporting, setExporting] = useState(false);
   const [pageError, setPageError] = useState("");
-  const financeEntry = useFinanceResolver(30, 50);
+  const [page, setPage] = useState(0);
+  const pageSize = 50;
+  const financeEntry = useFinanceResolver(30, page, pageSize);
   const overview = financeEntry.data?.overview || null;
-  const transactions = Array.isArray(financeEntry.data?.transactions) ? financeEntry.data.transactions : [];
+  const transactionsPage = financeEntry.data?.transactionsPage || null;
+  const transactions = Array.isArray(transactionsPage?.content)
+    ? transactionsPage.content
+    : Array.isArray(financeEntry.data?.transactions)
+      ? financeEntry.data.transactions
+      : [];
+  const totalPages = Number.isFinite(Number(transactionsPage?.totalPages)) ? Number(transactionsPage.totalPages) : 0;
+  const totalElements = Number.isFinite(Number(transactionsPage?.totalElements)) ? Number(transactionsPage.totalElements) : transactions.length;
   const loading = financeEntry.loading;
   const error = pageError || financeEntry.error || "";
 
@@ -168,6 +177,18 @@ export default function Finance() {
             )}
           </tbody>
         </Table>
+        <div className="mt-4 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>{totalElements} transaction{totalElements > 1 ? "s" : ""}</span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page <= 0 || loading}>
+              Précédent
+            </Button>
+            <span>Page {page + 1} / {Math.max(totalPages, 1)}</span>
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={loading || page + 1 >= totalPages}>
+              Suivant
+            </Button>
+          </div>
+        </div>
       </Card>
     </div>
   );

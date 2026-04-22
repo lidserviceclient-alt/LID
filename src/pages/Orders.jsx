@@ -137,7 +137,9 @@ export default function Orders() {
   const rows = useMemo(() => {
     const list = Array.isArray(ordersPage?.content) ? ordersPage.content : [];
     return list.map((order) => ({
-      id: order.id,
+      id: order.orderNumber || order.id,
+      rawId: order.id,
+      orderNumber: order.orderNumber || null,
       customer: order.customer,
       items: order.items,
       channel: "Backoffice",
@@ -494,7 +496,7 @@ export default function Orders() {
               </TRow>
             ) : (
               rows.map((order) => (
-                <TRow key={order.id}>
+                <TRow key={order.rawId || order.id}>
                   <TCell className="font-semibold text-foreground">{order.id}</TCell>
                   <TCell>{order.customer}</TCell>
                   <TCell>{order.items}</TCell>
@@ -524,7 +526,7 @@ export default function Orders() {
                         size="sm"
                         variant="ghost"
                         className="h-8 px-2 text-xs rounded-none"
-                        onClick={() => changeOrderStatus(order.id, "EXPEDIEE")}
+                        onClick={() => changeOrderStatus(order.orderNumber || order.id, "EXPEDIEE")}
                         disabled={order.rawStatus === "EXPEDIEE" || order.rawStatus === "LIVREE"}
                       >
                         Expédier
@@ -533,7 +535,7 @@ export default function Orders() {
                         size="sm"
                         variant="ghost"
                         className="h-8 px-2 text-xs rounded-none"
-                        onClick={() => changeOrderStatus(order.id, "LIVREE")}
+                        onClick={() => changeOrderStatus(order.orderNumber || order.id, "LIVREE")}
                         disabled={order.rawStatus === "LIVREE"}
                       >
                         Livrer

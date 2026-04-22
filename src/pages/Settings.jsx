@@ -184,7 +184,7 @@ export default function Settings() {
   const [securityExporting, setSecurityExporting] = useState(false);
   const [securityModalOpen, setSecurityModalOpen] = useState(false);
   const [securityError, setSecurityError] = useState("");
-  const [logPage, setLogPage] = useState({ items: [], page: 0, size: 20, total: 0, hasMore: false });
+  const [logPage, setLogPage] = useState({ items: [], page: 0, size: 50, total: 0, totalPages: 0, hasMore: false });
   const [logLoading, setLogLoading] = useState(false);
   const [logError, setLogError] = useState("");
   const [logQuery, setLogQuery] = useState("");
@@ -606,7 +606,7 @@ export default function Settings() {
   }, [settingsEntry.data, settingsEntry.error, settingsEntry.loading, settingsEntry.loaded]);
 
   useEffect(() => {
-    loadLogs({ page: 0, append: false });
+    loadLogs({ page: 0 });
   }, [logLevel]);
 
   const toggleNotificationPref = (key) => {
@@ -1321,7 +1321,7 @@ export default function Settings() {
     }
   };
 
-  const loadLogs = async ({ page = 0, append = false } = {}) => {
+  const loadLogs = async ({ page = 0 } = {}) => {
     try {
       setLogLoading(true);
       setLogError("");
@@ -1331,19 +1331,18 @@ export default function Settings() {
         level: logLevel,
         q: logQuery
       });
-      const items = Array.isArray(data?.items) ? data.items : [];
-      setLogPage((prev) => ({
-        items: append ? [...(prev?.items || []), ...items] : items,
-        page: Number(data?.page) || page,
+      const items = Array.isArray(data?.content) ? data.content : [];
+      setLogPage({
+        items,
+        page: Number(data?.number) || page,
         size: Number(data?.size) || 50,
-        total: Number(data?.total) || 0,
-        hasMore: Boolean(data?.hasMore)
-      }));
+        total: Number(data?.totalElements) || 0,
+        totalPages: Number(data?.totalPages) || 0,
+        hasMore: !Boolean(data?.last)
+      });
     } catch (err) {
       setLogError(err?.message || "Impossible de charger les logs.");
-      if (!append) {
-        setLogPage({ items: [], page: 0, size: 20, total: 0, hasMore: false });
-      }
+      setLogPage({ items: [], page: 0, size: 50, total: 0, totalPages: 0, hasMore: false });
     } finally {
       setLogLoading(false);
     }
@@ -1357,7 +1356,7 @@ export default function Settings() {
       setLogPurging(true);
       setLogError("");
       await backofficeApi.purgeLogs();
-      await loadLogs({ page: 0, append: false });
+      await loadLogs({ page: 0 });
     } catch (err) {
       setLogError(err?.message || "Impossible de purger les logs.");
     } finally {
@@ -1748,7 +1747,7 @@ export default function Settings() {
                   ]}
                   className="w-[180px]"
                 />
-                <Button variant="outline" size="sm" onClick={() => loadLogs({ page: 0, append: false })} disabled={logLoading}>
+                <Button variant="outline" size="sm" onClick={() => loadLogs({ page: 0 })} disabled={logLoading}>
                   {logLoading ? "Chargement…" : "Actualiser"}
                 </Button>
                 <Button variant="destructive" size="sm" onClick={purgeLogs} disabled={logPurging}>
@@ -1809,18 +1808,28 @@ export default function Settings() {
                 })
               )}
             </div>
-            {logPage.hasMore ? (
-              <div className="mt-3 flex justify-center">
+            <div className="mt-3 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+              <span>{logPage.total} entrée{logPage.total > 1 ? "s" : ""}</span>
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => loadLogs({ page: (logPage.page || 0) + 1, append: true })}
-                  disabled={logLoading}
+                  onClick={() => loadLogs({ page: Math.max(0, (logPage.page || 0) - 1) })}
+                  disabled={logLoading || (logPage.page || 0) <= 0}
                 >
-                  {logLoading ? "Chargement…" : "Charger plus"}
+                  Précédent
+                </Button>
+                <span>Page {(logPage.page || 0) + 1} / {Math.max(logPage.totalPages || 0, 1)}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadLogs({ page: (logPage.page || 0) + 1 })}
+                  disabled={logLoading || !logPage.hasMore}
+                >
+                  Suivant
                 </Button>
               </div>
-            ) : null}
+            </div>
           </div>
         </Card>
       </div>

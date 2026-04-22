@@ -126,7 +126,7 @@ export default function Logistics() {
 
   const handlePrint = useReactToPrint({
     contentRef: labelRef,
-    documentTitle: printOrder ? `Invoice-${printOrder.orderId}` : 'Invoice',
+    documentTitle: printOrder ? `Invoice-${printOrder.orderNumber || printOrder.orderId}` : 'Invoice',
     onAfterPrint: () => setPrintOrder(null)
   });
 
@@ -141,7 +141,8 @@ export default function Logistics() {
       const details = await backofficeApi.shipment(shipmentId);
       setPrintOrder({
         ...details,
-        id: details.orderId,
+        id: details.orderNumber || details.orderId,
+        orderNumber: details.orderNumber || details.orderId,
         trackingId: details.trackingId,
         createdAt: details.scannedAt || new Date().toISOString(),
         customerName: details.customerName,
@@ -149,7 +150,8 @@ export default function Logistics() {
         phone: details.customerPhone,
         carrier: details.carrier,
         weight: "1.2 kg", 
-        qrValue: `SHIP:${details.id}`
+        handoffCode: details.handoffCode,
+        qrValue: details.handoffCode || `SHIP:${details.id}`
       });
     } catch (e) {
       console.error("Failed to fetch shipment details for print", e);
@@ -233,6 +235,7 @@ export default function Logistics() {
     const list = Array.isArray(shipmentsPage?.content) ? shipmentsPage.content : [];
     return list.map((s) => ({
       id: s.id,
+      handoffCode: s.handoffCode || "",
       trackingId: s.trackingId || "-",
       orderId: s.orderId || "-",
       customerName: s.customerName || "-",
@@ -244,7 +247,7 @@ export default function Logistics() {
       customerFacingComment: s.customerFacingComment || "",
       eta: formatEta(s.eta),
       cost: formatMoney(s.cost),
-      qr: s?.id && s.status !== "LIVREE" ? `SHIP:${s.id}` : null
+      qr: s?.handoffCode && s.status !== "LIVREE" ? s.handoffCode : null
     }));
   }, [shipmentsPage]);
 

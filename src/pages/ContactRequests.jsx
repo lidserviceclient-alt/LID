@@ -53,9 +53,13 @@ export default function ContactRequests() {
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const messagesEntry = useMessagesResolver(0, 200);
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
+  const messagesEntry = useMessagesResolver(page, pageSize);
   const loading = messagesEntry.loading;
   const items = Array.isArray(messagesEntry.data?.content) ? messagesEntry.data.content : [];
+  const totalPages = Number.isFinite(Number(messagesEntry.data?.totalPages)) ? Number(messagesEntry.data.totalPages) : 0;
+  const totalElements = Number.isFinite(Number(messagesEntry.data?.totalElements)) ? Number(messagesEntry.data.totalElements) : items.length;
 
   useEffect(() => {
     setError(messagesEntry.error);
@@ -87,7 +91,7 @@ export default function ContactRequests() {
         setDrawerOpen(false);
         setSelected(null);
       }
-      await reloadMessagesResolver(0, 200);
+      await reloadMessagesResolver(page, pageSize);
     } catch (e) {
       setError(e?.message || "Suppression impossible.");
     }
@@ -174,6 +178,18 @@ export default function ContactRequests() {
             )}
           </tbody>
         </Table>
+        <div className="mt-4 flex items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>{totalElements} message{totalElements > 1 ? "s" : ""}</span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page <= 0 || loading}>
+              Précédent
+            </Button>
+            <span>Page {page + 1} / {Math.max(totalPages, 1)}</span>
+            <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={loading || page + 1 >= totalPages}>
+              Suivant
+            </Button>
+          </div>
+        </div>
       </Card>
 
       <Drawer

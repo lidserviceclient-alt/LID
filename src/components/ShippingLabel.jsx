@@ -11,7 +11,7 @@ const ShippingLabel = forwardRef(({ order, customer, company }, ref) => {
   const companyPhone = company?.contactPhone || "+225 07 ** *** ***";
   const companyCountry = "Côte d'Ivoire";
 
-  const orderId = order.id || "INV-2026-XXXXX";
+  const orderId = order.orderNumber || order.orderId || order.id || "INV-2026-XXXXX";
   // Use created date or scanned date or current date
   const rawDate = order.scannedAt || order.createdAt || new Date();
   const date = new Date(rawDate).toLocaleDateString("fr-FR");
@@ -50,8 +50,7 @@ const ShippingLabel = forwardRef(({ order, customer, company }, ref) => {
 
   const incrementedTracking = getIncrementedTracking(trackingNumber);
 
-// QR Code Value: Use the one from props/order if available, otherwise generate
-  const qrValue = order.qrValue || order.qr || `SHIP:${orderId}:${trackingNumber}`;
+  const qrValue = order.handoffCode || order.qrValue || order.qr || `SHIP:${order.id || order.shipmentId || orderId}`;
 
   return (
     <div ref={ref} className="bg-white p-0 m-0 w-[384px] h-[576px] font-sans text-black relative print:w-full print:h-full overflow-hidden">

@@ -48,12 +48,15 @@ export default function Inventory() {
   const [productQuery, setProductQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [stockFilter, setStockFilter] = useState("");
+  const [productPage, setProductPage] = useState(0);
+  const productPageSize = 20;
 
   const [skuQuery, setSkuQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [movementPage, setMovementPage] = useState(0);
 
   const [products, setProducts] = useState([]);
+  const [productsPage, setProductsPage] = useState(null);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState("");
 
@@ -130,14 +133,15 @@ export default function Inventory() {
     setMovementSubmitError("");
   }
 
-  async function refreshInventoryCollection(nextMovementPage = movementPage) {
+  async function refreshInventoryCollection(nextMovementPage = movementPage, nextProductPage = productPage) {
     setProductsLoading(true);
     setMovementsLoading(true);
     setCategoriesError("");
     setProductsError("");
     setMovementsError("");
     try {
-      const data = await backofficeApi.inventoryCollection(0, 500, nextMovementPage, 20, skuQuery.trim(), typeFilter);
+      const data = await backofficeApi.inventoryCollection(nextProductPage, productPageSize, nextMovementPage, 20, skuQuery.trim(), typeFilter);
+      setProductsPage(data?.productsPage || null);
       setProducts(Array.isArray(data?.productsPage?.content) ? data.productsPage.content : []);
       setCategories(Array.isArray(data?.categories) ? data.categories : []);
       setMovementsPage(data?.movementsPage || null);
@@ -156,7 +160,7 @@ export default function Inventory() {
     let cancelled = false;
     const timer = setTimeout(() => {
       if (!cancelled) {
-        refreshInventoryCollection(movementPage);
+        refreshInventoryCollection(movementPage, productPage);
       }
     }, 250);
 
@@ -164,7 +168,7 @@ export default function Inventory() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [movementPage, skuQuery, typeFilter]);
+  }, [movementPage, productPage, skuQuery, typeFilter]);
 
   const categoryOptions = useMemo(() => {
     const list = Array.isArray(categories) ? categories : [];
@@ -256,6 +260,12 @@ export default function Inventory() {
     return { totalPages, totalElements };
   }, [movementsPage]);
 
+  const productsMeta = useMemo(() => {
+    const totalPages = Number.isFinite(productsPage?.totalPages) ? productsPage.totalPages : 1;
+    const totalElements = Number.isFinite(productsPage?.totalElements) ? productsPage.totalElements : 0;
+    return { totalPages, totalElements };
+  }, [productsPage]);
+
   async function submitMovement() {
     if (!movementForm.productId) {
       setMovementSubmitError("Sélectionne un produit.");
@@ -295,7 +305,7 @@ export default function Inventory() {
     setMovementSubmitError("");
     try {
       await backofficeApi.createStockMovement(payload);
-      await refreshInventoryCollection(movementPage);
+      await refreshInventoryCollection(movementPage, productPage);
       closeMovementModal();
     } catch (err) {
       setMovementSubmitError(err?.message || "Impossible de créer le mouvement.");
@@ -386,12 +396,12 @@ export default function Inventory() {
                 <p className="text-xs text-muted-foreground">Recherche</p>
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input className="pl-10" placeholder="SKU ou nom produit..." value={productQuery} onChange={(e) => setProductQuery(e.target.value)} />
+                  <Input className="pl-10" placeholder="SKU ou nom produit..." value={productQuery} onChange={(e) => { setProductPage(0); setProductQuery(e.target.value); }} />
                 </div>
               </div>
               <div className="w-full sm:w-56 space-y-1">
                 <p className="text-xs text-muted-foreground">Catégorie</p>
-                <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                <Select value={categoryFilter} onChange={(e) => { setProductPage(0); setCategoryFilter(e.target.value); }}>
                   <option value="">Toutes</option>
                   {categoryOptions.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -403,14 +413,14 @@ export default function Inventory() {
               </div>
               <div className="w-full sm:w-44 space-y-1">
                 <p className="text-xs text-muted-foreground">État stock</p>
-                <Select value={stockFilter} onChange={(e) => setStockFilter(e.target.value)}>
+                <Select value={stockFilter} onChange={(e) => { setProductPage(0); setStockFilter(e.target.value); }}>
                   <option value="">Tous</option>
                   <option value="LOW">Faible</option>
                   <option value="OUT">Rupture</option>
                 </Select>
               </div>
               <div className="flex-1" />
-              <Button variant="outline" onClick={() => refreshInventoryCollection(movementPage)} disabled={productsLoading || movementsLoading}>
+              <Button variant="outline" onClick={() => refreshInventoryCollection(movementPage, productPage)} disabled={productsLoading || movementsLoading}>
                 Rafraîchir
               </Button>
             </div>
@@ -512,6 +522,29 @@ export default function Inventory() {
                 )}
               </tbody>
             </Table>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {formatMoney(productsMeta.totalElements)} produits • page {productPage + 1}/{productsMeta.totalPages}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={productPage <= 0 || productsLoading}
+                  onClick={() => setProductPage((p) => Math.max(0, p - 1))}
+                >
+                  Précédent
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={productPage + 1 >= productsMeta.totalPages || productsLoading}
+                  onClick={() => setProductPage((p) => p + 1)}
+                >
+                  Suivant
+                </Button>
+              </div>
+            </div>
           </Card>
 
           <Card className="p-4 space-y-4">
