@@ -122,9 +122,11 @@ export default function HomePage() {
                       <MapPin size={24} className="text-neutral-900" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                        <h3 className="font-bold text-neutral-900 truncate">Commande #{mission.orderId || mission.id}</h3>
-                        <span className={`${statusUi.className} text-[10px] font-bold px-2 py-1 rounded-full`}>{statusUi.label}</span>
+                      <div className="flex justify-between items-start gap-2">
+                        <h3 className="min-w-0 flex-1 truncate text-[13px] font-bold text-neutral-900">
+                          Commande {mission.orderNumber || mission.orderId || mission.id}
+                        </h3>
+                        <span className={`${statusUi.className} shrink-0 text-[10px] font-bold px-2 py-1 rounded-full`}>{statusUi.label}</span>
                       </div>
                       <p className="text-neutral-500 text-sm mt-1 truncate">
                         {mission.customerAddress || 'Adresse non disponible'}

@@ -4,7 +4,7 @@ import { QrCode, Search, X, Package, MapPin } from 'lucide-react'
 import { Html5Qrcode } from 'html5-qrcode'
 
 import { DEFAULT_DELIVERY_BOOTSTRAP_PARAMS, useDeliveryBootstrap, useShipmentDetailResolver } from '../context/LogisticsResolverContext'
-import { getShipments, scanShipment } from '../services/logistics'
+import { getShipments, normalizeShipmentQr, scanShipment } from '../services/logistics'
 
 const TABS = [
   { label: 'Toutes', value: '' },
@@ -128,7 +128,7 @@ export default function DeliveriesPage() {
   }
 
   const submitScan = async (qrValue) => {
-    const qr = `${qrValue || ''}`.trim()
+    const qr = normalizeShipmentQr(qrValue)
     if (!qr || isScanningRef.current) return
 
     isScanningRef.current = true
@@ -302,14 +302,14 @@ export default function DeliveriesPage() {
           <div className="p-6 bg-white rounded-t-3xl">
             <p className="text-center font-bold text-neutral-900 mb-2">Ou saisir le code QR manuellement</p>
             <p className="text-center text-sm text-neutral-500 mb-4">
-              Saisissez exactement le code affiché sous le QR, par exemple <span className="font-mono">SHIP:123</span>.
+              Saisissez exactement le code affiché sous le QR, par exemple <span className="font-mono">A7K2P</span>.
             </p>
             <div className="flex gap-2">
               <input
                 value={manualQr}
-                onChange={(e) => setManualQr(e.target.value)}
+                onChange={(e) => setManualQr(e.target.value.toUpperCase())}
                 className="flex-1 bg-neutral-100 rounded-xl px-4 py-3 font-mono font-bold outline-none focus:ring-2 focus:ring-[#6aa200]"
-                placeholder="Code QR, ex: SHIP:123"
+                placeholder="Code QR, ex: A7K2P"
               />
               <button
                 onClick={() => submitScan(manualQr)}

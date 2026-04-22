@@ -8,7 +8,7 @@ import { useShipmentDetailResolver } from '../context/LogisticsResolverContext'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { geocodeAddress } from '../services/geocoding'
 import { getDrivingRoute } from '../services/routing'
-import { confirmDelivery, scanShipment, updateShipmentStatus } from '../services/logistics'
+import { confirmDelivery, normalizeShipmentQr, scanShipment, updateShipmentStatus } from '../services/logistics'
 
 const MotionDiv = motion.div
 
@@ -95,7 +95,7 @@ export default function DeliveryDetailsPage() {
   }, [detail?.status, id])
 
   const unlockWithManualCode = async () => {
-    const qr = `${manualQr || ''}`.trim()
+    const qr = normalizeShipmentQr(manualQr)
     if (!qr || unlockLoading) return
 
     setUnlockLoading(true)
@@ -287,13 +287,13 @@ export default function DeliveryDetailsPage() {
             <p className="text-sm font-bold text-neutral-900">Ou entrer le code QR</p>
             <input
               value={manualQr}
-              onChange={(event) => setManualQr(event.target.value)}
-              placeholder="Code QR, ex: SHIP:123"
+              onChange={(event) => setManualQr(event.target.value.toUpperCase())}
+              placeholder="Code QR, ex: A7K2P"
               className="w-full rounded-xl bg-neutral-100 px-4 py-3 font-mono font-bold outline-none focus:ring-2 focus:ring-[#6aa200]"
             />
             <button
               onClick={unlockWithManualCode}
-              disabled={unlockLoading || !`${manualQr || ''}`.trim()}
+              disabled={unlockLoading || !normalizeShipmentQr(manualQr)}
               className="w-full rounded-xl bg-[#6aa200] px-4 py-3 font-bold text-white disabled:opacity-50"
             >
               {unlockLoading ? 'Vérification...' : 'Valider le code'}
