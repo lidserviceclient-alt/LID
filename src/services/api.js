@@ -270,7 +270,6 @@ export const backofficeApi = {
   realtimeWsAccess: (topics = []) =>
     request("/api/v1/realtime/ws-access", {
       method: "POST",
-      retryAuth: false,
       body: JSON.stringify({ topics: Array.isArray(topics) ? topics : [] })
     }),
   verifyAdminMfa: (mfaTokenId, code) =>
@@ -583,7 +582,7 @@ export const backofficeApi = {
       body: JSON.stringify(payload)
     }),
   updateOrderStatus: (id, status) =>
-    request(`/api/v1/backoffice/orders/${id}/status`, {
+    request(`/api/v1/backoffice/orders/${encodeURIComponent(id)}/status`, {
       method: "PUT",
       body: JSON.stringify({ status })
     }),

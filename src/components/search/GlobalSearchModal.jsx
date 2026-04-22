@@ -167,7 +167,7 @@ export default function GlobalSearchModal({ isOpen, onClose, shortcuts }) {
           results.push({
             id: `order:${o.id}`,
             type: "orders",
-            title: `Commande #${o.id}`,
+            title: `Commande ${o.orderNumber || o.id}`,
             subtitle: `${o.customer || "-"} • ${o.status || "-"}`,
             to: "/orders",
             score
