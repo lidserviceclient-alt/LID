@@ -68,6 +68,7 @@ export function updateShipmentStatus(id, status, { deliveryIssueComment, custome
 }
 
 export function scanShipment(qr, { courierReference, courierName, courierPhone } = {}) {
+  const normalizedQr = normalizeShipmentQr(qr)
   const token = getAccessToken()
   const payload = decodeJwt(token)
   const inferredName = `${payload?.firstName || ''} ${payload?.lastName || ''}`.trim()
@@ -75,12 +76,19 @@ export function scanShipment(qr, { courierReference, courierName, courierPhone }
   return authorizedApiRequest('/api/v1/backoffice/logistics/shipments/scan', {
     method: 'POST',
     body: {
-      qr,
+      qr: normalizedQr,
       courierReference: courierReference || inferredRef || null,
       courierName: courierName || inferredName || null,
       courierPhone: courierPhone || null,
     },
   })
+}
+
+export function normalizeShipmentQr(qr) {
+  const raw = `${qr || ''}`.trim()
+  if (!raw) return ''
+  const shortCode = raw.replace(/[^a-z0-9]/gi, '').toUpperCase()
+  return shortCode.length === 5 ? shortCode : raw
 }
 
 export function confirmDelivery(id, code) {

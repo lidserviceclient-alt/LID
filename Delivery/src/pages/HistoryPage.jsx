@@ -84,8 +84,8 @@ export default function HistoryPage() {
                   <p className="text-sm font-semibold text-slate-900">{s?.trackingId || s?.id}</p>
                   <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">LIVRÉE</span>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  Commande: <span className="font-semibold text-slate-700">{s?.orderId || '-'}</span>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Commande: <span className="font-semibold text-slate-700">{s?.orderNumber || s?.orderId || '-'}</span>
                   {s?.carrier ? <> • <span className="font-semibold text-slate-700">{s.carrier}</span></> : null}
                 </p>
               </div>
