@@ -3,7 +3,6 @@ import { Plus, Search, Edit2, Trash2, MoreVertical, Package, Image as ImageIcon,
 import { motion, AnimatePresence } from 'framer-motion';
 import Papa from 'papaparse';
 import { createMyProduct, deleteMyProduct, listMyProducts, updateMyProduct } from '@/services/partnerBackofficeProductService';
-import { getMyCategoriesCollection } from '@/services/partnerBackofficeCategoryService';
 import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 import { uploadFile } from '@/services/fileStorageService';
 
@@ -28,7 +27,6 @@ export default function ProductManagement() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isImportGuideOpen, setIsImportGuideOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [manualCategories, setManualCategories] = useState([]);
   const fileInputRef = useRef(null);
   const productImageInputRef = useRef(null);
   const [productImageUrl, setProductImageUrl] = useState("");
@@ -36,7 +34,7 @@ export default function ProductManagement() {
   const categoryOptions = useMemo(() => {
     const list = Array.isArray(bootstrap?.categoriesCollection?.categories)
       ? bootstrap.categoriesCollection.categories
-      : (Array.isArray(manualCategories) ? manualCategories : []);
+      : [];
     return list
       .filter((c) => !c?.parentId && !c?.parent_id)
       .map((c) => ({
@@ -45,7 +43,7 @@ export default function ProductManagement() {
         slug: `${c?.slug || ''}`.trim(),
       }))
       .filter((c) => c.id && c.label);
-  }, [bootstrap?.categoriesCollection?.categories, manualCategories]);
+  }, [bootstrap?.categoriesCollection?.categories]);
   const selectableCategoryOptions = useMemo(() => {
     if (categoryOptions.length > 0) return categoryOptions;
     const seen = new Set();
@@ -109,22 +107,6 @@ export default function ProductManagement() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (bootstrap?.routeKey !== 'products') {
-      return;
-    }
-    if (Array.isArray(bootstrap?.categoriesCollection?.categories) && bootstrap.categoriesCollection.categories.length > 0) {
-      return;
-    }
-    getMyCategoriesCollection()
-      .then((collection) => {
-        setManualCategories(Array.isArray(collection?.categories) ? collection.categories : []);
-      })
-      .catch(() => {
-        setManualCategories([]);
-      });
-  }, [bootstrap?.routeKey, bootstrap?.categoriesCollection?.categories]);
 
   useEffect(() => {
     if (bootstrap?.routeKey !== 'products') {

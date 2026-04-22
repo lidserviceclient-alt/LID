@@ -232,7 +232,7 @@ export default function Returns() {
                     <label className="text-sm font-medium text-neutral-500">Numéro de commande</label>
                     <input 
                       type="text" 
-                      placeholder="Ex: ORD-12"
+                      placeholder="Ex: ORD-9XK3-7P2L"
                       value={formData.orderId}
                       onChange={(e) => setFormData({...formData, orderId: e.target.value})}
                       className="w-full p-4 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 focus:border-[#6aa200] outline-none"

@@ -33,7 +33,7 @@ export default function Categories() {
   const refresh = async () => {
     setLoading(true);
     try {
-      const collection = await getMyCategoriesCollection();
+      const collection = await getMyCategoriesCollection({ force: true });
       const mains = (Array.isArray(collection?.categories) ? collection.categories : [])
         .filter((c) => !c?.parentId && !c?.parent_id)
         .map((c, idx) => ({
@@ -112,15 +112,6 @@ export default function Categories() {
     setSubCategories([]);
     setLoading(false);
   }, [bootstrap]);
-
-  useEffect(() => {
-    if (bootstrap?.routeKey !== 'categories') {
-      return;
-    }
-    refresh().catch(() => {
-      setLoading(false);
-    });
-  }, [bootstrap?.routeKey]);
 
   const toggleCategory = (id) => {
     setExpandedCategories(prev => 

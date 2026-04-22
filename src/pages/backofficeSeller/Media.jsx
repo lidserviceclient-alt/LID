@@ -24,7 +24,7 @@ export default function SellerMedia() {
   const mediaItems = Array.isArray(mediaPage?.content) ? mediaPage.content : [];
   const isDuplicateError = (item) => `${item?.errorMessage || ''}`.toLowerCase().includes('existe déjà');
 
-  const loadMedia = async (nextPage = page) => {
+  const loadMedia = async (nextPage = page, { force = false } = {}) => {
     setLoading(true);
     setError('');
     try {
@@ -33,6 +33,7 @@ export default function SellerMedia() {
         q: query.trim(),
         page: nextPage,
         size: 24,
+        force,
       });
       setMediaPage(response);
       setPage(response?.number ?? nextPage);
@@ -59,7 +60,7 @@ export default function SellerMedia() {
       if (duplicateCount > 0 && window.confirm(`${duplicateCount} image(s) portent déjà le même nom. Voulez-vous les écraser ?`)) {
         await uploadFiles(selected, { folder, overwrite: true });
       }
-      await loadMedia(0);
+      await loadMedia(0, { force: true });
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Upload impossible.');
     } finally {
@@ -80,7 +81,7 @@ export default function SellerMedia() {
     setError('');
     try {
       await deleteFile(objectKey);
-      await loadMedia(mediaItems.length === 1 && page > 0 ? page - 1 : page);
+      await loadMedia(mediaItems.length === 1 && page > 0 ? page - 1 : page, { force: true });
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Suppression impossible.');
     } finally {
