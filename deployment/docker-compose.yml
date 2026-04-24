@@ -299,7 +299,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=web
-      - traefik.http.routers.lid.rule=Host(`jean-emmanuel-diap.com`) && PathPrefix(`/lid`)
+      - traefik.http.routers.lid.rule=Host(`${DOMAIN}`) && PathPrefix(`/lid`)
       - traefik.http.routers.lid.entrypoints=websecure
       - traefik.http.routers.lid.tls.certresolver=letsencrypt
       - traefik.http.services.lid.loadbalancer.server.port=9000
