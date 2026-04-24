@@ -6,6 +6,14 @@ on:
       - "v*.*.*"
   workflow_dispatch:
     inputs:
+      target_vps:
+        description: "VPS cible"
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - prod
       release_tag:
         description: "Image tag format vX.Y.Z"
         required: true
@@ -27,7 +35,7 @@ on:
         type: boolean
 
 concurrency:
-  group: deploy-lid-${{ github.ref }}
+  group: deploy-lid-${{ github.ref }}-${{ inputs.target_vps || 'dev' }}
   cancel-in-progress: false
 
 jobs:
@@ -35,6 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       LID_IMAGE_REPO: jeanemmanuel01/lid
+      TARGET_VPS: ${{ inputs.target_vps || 'dev' }}
 
     steps:
       - name: Checkout
@@ -125,9 +134,9 @@ jobs:
       - name: Clean remote deployment directory
         uses: appleboy/ssh-action@v1.2.4
         with:
-          host: ${{ secrets.VPS_HOST }}
+          host: ${{ env.TARGET_VPS == 'prod' && secrets.VPS_PROD_HOST || secrets.VPS_DEV_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          key: ${{ env.TARGET_VPS == 'prod' && secrets.VPS_PROD_SSH_KEY || secrets.VPS_DEV_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
           script: |
             set -euo pipefail
@@ -138,9 +147,9 @@ jobs:
       - name: Upload deployment files (deployment/* -> ~/apps/lid/)
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.VPS_HOST }}
+          host: ${{ env.TARGET_VPS == 'prod' && secrets.VPS_PROD_HOST || secrets.VPS_DEV_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          key: ${{ env.TARGET_VPS == 'prod' && secrets.VPS_PROD_SSH_KEY || secrets.VPS_DEV_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
           source: "deployment/docker-compose.yml,deployment/.env,deployment/ddl.sql,deployment/scripts/**"
           target: "~/apps/lid"
@@ -150,9 +159,9 @@ jobs:
       - name: Deploy with docker compose
         uses: appleboy/ssh-action@v1.2.4
         with:
-          host: ${{ secrets.VPS_HOST }}
+          host: ${{ env.TARGET_VPS == 'prod' && secrets.VPS_PROD_HOST || secrets.VPS_DEV_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          key: ${{ env.TARGET_VPS == 'prod' && secrets.VPS_PROD_SSH_KEY || secrets.VPS_DEV_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
           script: |
             set -euo pipefail
