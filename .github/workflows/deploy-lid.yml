@@ -44,9 +44,6 @@ jobs:
     env:
       LID_IMAGE_REPO: jeanemmanuel01/lid
       TARGET_VPS: ${{ inputs.target_vps || 'dev' }}
-      DOMAIN_DEV: ${{ vars.DOMAIN_DEV }}
-      DOMAIN_PROD: ${{ vars.DOMAIN_PROD }}
-      DOMAIN: ${{ (inputs.target_vps || 'dev') == 'prod' && vars.DOMAIN_PROD || vars.DOMAIN_DEV }}
 
     steps:
       - name: Checkout
@@ -111,9 +108,10 @@ jobs:
           -Djib.to.image="${{ env.LID_IMAGE_REPO }}"
           -Djib.to.tags="${{ steps.release.outputs.release_tag }},${{ steps.release.outputs.release_tag }}-${{ steps.release.outputs.short_sha }}"
 
-      - name: Build deployment .env from GitHub secret
+      - name: Build deployment .env from GitHub secret by target
         env:
-          LID_BUSINESS_ENV_FILE: ${{ secrets.LID_BUSINESS_ENV_FILE }}
+          LID_BUSINESS_ENV_FILE_DEV: ${{ secrets.LID_BUSINESS_ENV_FILE_DEV }}
+          LID_BUSINESS_ENV_FILE_PROD: ${{ secrets.LID_BUSINESS_ENV_FILE_PROD }}
         run: |
           set -euo pipefail
           ensure_env_var() {
@@ -123,26 +121,26 @@ jobs:
               echo "${key}=${value}" >> deployment/.env
             fi
           }
-          set_env_var() {
-            local key="$1"
-            local value="$2"
-            awk -v key="${key}" 'index($0, key "=") != 1 { print }' deployment/.env > deployment/.env.tmp
-            mv deployment/.env.tmp deployment/.env
-            echo "${key}=${value}" >> deployment/.env
-          }
-          if [ -z "${LID_BUSINESS_ENV_FILE:-}" ]; then
-            echo "Missing GitHub secret: LID_BUSINESS_ENV_FILE"
-            exit 1
+          if [ "${TARGET_VPS}" = "prod" ]; then
+            LID_BUSINESS_ENV_FILE="${LID_BUSINESS_ENV_FILE_PROD:-}"
+          else
+            LID_BUSINESS_ENV_FILE="${LID_BUSINESS_ENV_FILE_DEV:-}"
           fi
-          if [ -z "${DOMAIN:-}" ]; then
-            echo "Missing GitHub variable: DOMAIN_${TARGET_VPS^^}"
+
+          if [ -z "${LID_BUSINESS_ENV_FILE:-}" ]; then
+            echo "Missing GitHub secret: LID_BUSINESS_ENV_FILE_${TARGET_VPS^^}"
             exit 1
           fi
           printf '%s\n' "${LID_BUSINESS_ENV_FILE}" > deployment/.env
+
+          DOMAIN="$(grep -E '^DOMAIN=' deployment/.env | tail -n 1 | cut -d '=' -f 2-)"
+          if [ -z "${DOMAIN:-}" ]; then
+            echo "Missing DOMAIN in LID_BUSINESS_ENV_FILE_${TARGET_VPS^^}"
+            exit 1
+          fi
           ensure_env_var "LOCAL_STORAGE_BASE_PATH" "/opt/lid/storage"
           ensure_env_var "LOCAL_STORAGE_PUBLIC_BASE_URL" "/api/v1/cdn"
           ensure_env_var "LOCAL_STORAGE_CDN_BASE_URL" ""
-          set_env_var "DOMAIN" "${DOMAIN}"
           echo "LID_API_IMAGE=${{ steps.release.outputs.deploy_image }}" >> deployment/.env
           echo "Configured deployment image: ${{ steps.release.outputs.deploy_image }}"
           echo "Configured deployment domain: ${DOMAIN}"
