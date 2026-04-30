@@ -1,6 +1,5 @@
 import PageSEO from "@/components/PageSEO";
 import { useState, useEffect, useMemo } from 'react';
-import PageSEO from "@/components/PageSEO";
 import { motion as Motion } from 'framer-motion';
 import { 
   User, 
