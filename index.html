@@ -90,16 +90,87 @@
     </noscript>
 
     <!-- STRUCTURED DATA (JSON-LD) - WebApplication -->
-    <script type="application/ld+json" src="/seo-webapp.jsonld"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Lid App",
+      "alternateName": "Life Distribution",
+      "url": "https://lid-shop.web.app",
+      "applicationCategory": "ECommerceApplication",
+      "operatingSystem": "Web, iOS, Android",
+      "description": "Marketplace e-commerce innovante permettant l'achat et la vente de produits en ligne avec paiements sécurisés et interface moderne.",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "XOF" },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Life Distribution",
+        "logo": { "@type": "ImageObject", "url": "https://lid-shop.web.app/imgs/logo.png", "width": "600", "height": "60" }
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://lid-shop.web.app/search?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
 
     <!-- STRUCTURED DATA (JSON-LD) - Organization -->
-    <script type="application/ld+json" src="/seo-organization.jsonld"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Life Distribution",
+      "alternateName": "Lid App",
+      "url": "https://lid-shop.web.app",
+      "logo": "https://lid-shop.web.app/imgs/logo.png",
+      "description": "Plateforme e-commerce qui connecte acheteurs et vendeurs en Afrique avec des solutions de paiement sécurisées",
+      "foundingDate": "2023",
+      "areaServed": { "@type": "Country", "name": "Côte d'Ivoire" },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "Customer Service",
+        "availableLanguage": ["French"]
+      }
+    }
+    </script>
 
     <!-- STRUCTURED DATA (JSON-LD) - BreadcrumbList -->
-    <script type="application/ld+json" src="/seo-breadcrumb.jsonld"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Accueil", "item": "https://lid-shop.web.app/" },
+        { "@type": "ListItem", "position": 2, "name": "Boutique", "item": "https://lid-shop.web.app/shop" },
+        { "@type": "ListItem", "position": 3, "name": "Blog", "item": "https://lid-shop.web.app/blog" }
+      ]
+    }
+    </script>
 
     <!-- STRUCTURED DATA (JSON-LD) - FAQ -->
-    <script type="application/ld+json" src="/seo-faq.jsonld"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Comment fonctionne Lid App ?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Lid est une marketplace e-commerce qui permet aux utilisateurs d'acheter et de vendre des produits en ligne facilement. Créez votre compte, parcourez des milliers de produits ou ouvrez votre boutique en quelques clics." }
+        },
+        {
+          "@type": "Question",
+          "name": "Les paiements sont-ils sécurisés ?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Oui, tous les paiements sur Lid sont 100% sécurisés. Nous utilisons des protocoles de sécurité avancés et supportons Mobile Money, cartes bancaires et autres méthodes de paiement fiables." }
+        },
+        {
+          "@type": "Question",
+          "name": "Comment vendre sur Lid App ?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Pour vendre sur Lid, inscrivez-vous gratuitement, créez votre boutique, ajoutez vos produits avec photos et descriptions, puis commencez à recevoir des commandes." }
+        }
+      ]
+    }
+    </script>
 
    
     <!-- BING SITE VERIFICATION (À activer une fois le code obtenu) -->
