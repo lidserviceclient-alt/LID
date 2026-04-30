@@ -342,7 +342,7 @@ function TiltCard({ isFlipped, onClose, product, imageSrc, price }) {
                 animate={{ opacity: isFlipped ? 0 : 1 }}
                 transition={{ duration: 0.15, delay: 0.2 }}
             >
-                <div className="bg-white/10 backdrop-blur-md p-2 md:p-3 rounded-2xl border border-white/20 shadow-xl">
+                <div className="bg-black/50 backdrop-blur-md p-2 md:p-3 rounded-2xl border border-white/20 shadow-xl">
                     <h3 className="text-lg md:text-2xl font-bold text-white">
                       {price && Number(price) > 0 ? `${Number(price).toLocaleString()} FCFA` : "—"}
                     </h3>
