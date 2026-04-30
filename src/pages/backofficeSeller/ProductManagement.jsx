@@ -1,3 +1,4 @@
+import PageSEO from "@/components/PageSEO";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, MoreVertical, Package, Image as ImageIcon, DollarSign, Tag, Archive, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -314,6 +315,7 @@ export default function ProductManagement() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      <PageSEO title="Gestion des produits" noindex />
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>

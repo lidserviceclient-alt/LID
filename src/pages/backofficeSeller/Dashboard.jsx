@@ -1,3 +1,4 @@
+import PageSEO from "@/components/PageSEO";
 import {
   TrendingUp,
   ShoppingBag,
@@ -147,6 +148,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 p-2 max-w-7xl mx-auto">
+      <PageSEO title="Tableau de bord" noindex />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>

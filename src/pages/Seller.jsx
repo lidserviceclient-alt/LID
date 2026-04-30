@@ -1,3 +1,4 @@
+import PageSEO from "@/components/PageSEO";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -724,6 +725,11 @@ export default function Seller() {
 
   return (
     <div className="min-h-screen bg-[#f2f4f6] text-neutral-900 font-sans selection:bg-[#6aa200] selection:text-white flex items-center justify-center p-4 sm:p-6 lg:p-10">
+      <PageSEO
+        title="Devenir Vendeur"
+        description="Rejoignez la marketplace Lid et commencez à vendre vos produits en ligne en Côte d'Ivoire."
+        canonical="/seller-join"
+      />
       
       {/* Background Ambience */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">

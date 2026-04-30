@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import PageSEO from "@/components/PageSEO";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
     Search, MapPin, Star, Users, ArrowRight, Zap, SlidersHorizontal, Sparkles
@@ -228,7 +229,7 @@ export default function SellersList() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#050505] text-neutral-900 dark:text-neutral-100 font-sans pb-20 selection:bg-[#6aa200] selection:text-white">
-      
+      <PageSEO title="Vendeurs" description="Découvrez toutes les boutiques partenaires de Lid. Mode, tech, beauté et bien plus en Côte d'Ivoire." canonical="/sellers" />
       <div className="container mx-auto px-6 pt-32">
         
         <HeroSection featuredSellers={sellers} onOpenSeller={openSeller} />

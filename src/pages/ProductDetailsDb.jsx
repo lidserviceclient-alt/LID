@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import PageSEO from "@/components/PageSEO";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Check,
@@ -333,6 +334,13 @@ export default function ProductDetailsDb() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950">
+      <PageSEO
+        title={product?.name}
+        description={product?.name ? `Achetez ${product.name} sur Lid. Livraison rapide en Côte d'Ivoire.` : undefined}
+        canonical={product?.id ? `/product/${product.id}` : undefined}
+        image={product?.mainImageUrl ? `${product.mainImageUrl}` : undefined}
+        type="product"
+      />
       <FavoriteNotification
         isVisible={favNotification.show}
         onClose={() => setFavNotification((prev) => ({ ...prev, show: false }))}

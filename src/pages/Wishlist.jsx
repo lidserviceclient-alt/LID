@@ -1,4 +1,5 @@
 import React from 'react';
+import PageSEO from '@/components/PageSEO';
 import { Link } from 'react-router-dom';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
@@ -57,6 +58,7 @@ export default function Wishlist() {
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 py-12">
+      <PageSEO title="Favoris" description="Votre liste de souhaits Lid." noindex />
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">

@@ -1,4 +1,6 @@
+import PageSEO from "@/components/PageSEO";
 import { useState, useEffect, useMemo } from 'react';
+import PageSEO from "@/components/PageSEO";
 import { motion as Motion } from 'framer-motion';
 import { 
   User, 
@@ -861,6 +863,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-8 pb-20">
+      <PageSEO title="Mon Profil" noindex />
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
         
         {/* Header Section */}

@@ -1,3 +1,4 @@
+import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
 
@@ -15,7 +16,7 @@ export default function Terms() {
   const legalEmail = appConfig?.contactEmail || "legal@lid.ci";
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-20 pb-16 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-20 pb-16 px-4 sm:px-6 lg:px-8"><PageSEO title="Conditions générales" description="Conditions générales d'utilisation de la marketplace Lid." canonical="/terms" />
       <div className="max-w-4xl mx-auto bg-white dark:bg-neutral-900 rounded-3xl p-8 sm:p-12 border border-neutral-200 dark:border-neutral-800 shadow-sm">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

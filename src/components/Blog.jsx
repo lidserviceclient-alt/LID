@@ -151,6 +151,10 @@ export default function Blog({ initialPosts = null, deferFetch = false, disableF
                   <img
                     src={activePost.image}
                     alt={activePost.title}
+                    width="500"
+                    height="600"
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       e.currentTarget.onerror = null;

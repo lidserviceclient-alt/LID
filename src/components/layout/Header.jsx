@@ -205,6 +205,10 @@ export default function Header() {
                                     <img
                                         src={avatarUrl}
                                         alt="Profile"
+                                        width="22"
+                                        height="22"
+                                        loading="lazy"
+                                        decoding="async"
                                         className="w-[22px] h-[22px] rounded-full object-cover"
                                         onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_AVATAR; }}
                                     />
@@ -281,10 +285,14 @@ export default function Header() {
                         <Link to={isAuthenticated ? "/profile" : "/login"} className="flex items-center gap-3 bg-white/50 dark:bg-neutral-800/50 rounded-full p-1 pr-5 border border-white/20 shadow-sm transition-transform active:scale-95">
                             <div className="w-10 h-10 rounded-full border-2 border-white dark:border-neutral-950 overflow-hidden shadow-sm flex items-center justify-center bg-neutral-100 dark:bg-neutral-800">
                                 {isAuthenticated ? (
-                                    <img 
-                                        src={avatarUrl} 
-                                        alt="Profile" 
-                                        className="w-full h-full object-cover" 
+                                    <img
+                                        src={avatarUrl}
+                                        alt="Profile"
+                                        width="40"
+                                        height="40"
+                                        loading="lazy"
+                                        decoding="async"
+                                        className="w-full h-full object-cover"
                                         onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_AVATAR; }}
                                     />
                                 ) : (

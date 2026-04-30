@@ -1,7 +1,8 @@
+import PageSEO from "@/components/PageSEO";
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { 
-  Store, 
-  MapPin, 
+import {
+  Store,
+  MapPin,
   Phone, 
   Mail, 
   Globe, 
@@ -241,6 +242,7 @@ export default function Settings() {
 
   return (
     <div className="max-w-4xl mx-auto p-2 space-y-8">
+      <PageSEO title="Paramètres boutique" noindex />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Paramètres de la Boutique</h1>

@@ -79,14 +79,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
     <!-- PRELOAD CRITICAL ASSETS -->
-    
-    <!-- FONTS (Optimized Loading) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&family=Shrikhand&family=Modak&family=Pacifico&family=BBH+Bartle&display=swap" />
-    
+    <link rel="preload" as="image" href="/imgs/wall-1.jpg" />
+    <link rel="preload" as="image" href="/imgs/logo.png" />
+
+    <!-- FONTS (Non-render-blocking) -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&family=Shrikhand&family=Modak&family=Pacifico&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&family=Shrikhand&family=Modak&family=Pacifico&display=swap" media="print" onload="this.media='all'" />
     <noscript>
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&family=Shrikhand&family=Modak&family=Pacifico&family=BBH+Bartle&display=swap" />
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&family=Shrikhand&family=Modak&family=Pacifico&display=swap" />
     </noscript>
 
     <!-- STRUCTURED DATA (JSON-LD) - WebApplication -->

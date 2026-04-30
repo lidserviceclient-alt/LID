@@ -30,6 +30,7 @@
     "react-barcode": "^1.6.1",
     "react-credit-cards-2": "^1.2.0",
     "react-dom": "^19.2.0",
+    "react-helmet-async": "^3.0.0",
     "react-qr-code": "^2.0.18",
     "react-router-dom": "^7.11.0",
     "react-to-print": "^3.3.0",

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import PageSEO from "@/components/PageSEO";
 import { motion as Motion, AnimatePresence } from "framer-motion";
 import { Search, Package, Truck, MapPin, CheckCircle, Clock, ArrowRight, AlertTriangle } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
@@ -207,6 +208,7 @@ export default function OrderTracking() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white">
+      <PageSEO title="Suivi de commande" description="Suivez votre commande Lid en temps réel. Entrez votre numéro de commande pour voir son statut." canonical="/tracking" noindex />
       <div className="relative overflow-hidden">
         <div className="pointer-events-none absolute -top-24 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-[#6aa200]/15 blur-3xl" />
         <div className="pointer-events-none absolute -top-10 right-6 h-56 w-56 rounded-full bg-[#FF9900]/10 blur-3xl" />

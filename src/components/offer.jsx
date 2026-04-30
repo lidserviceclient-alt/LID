@@ -101,6 +101,11 @@ export default function Offer({ className, onClose, enableMotion = true }) {
                 <img
                   src={offerImageSrc}
                   alt={offerProduct?.name || "Produit"}
+                  width="400"
+                  height="500"
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
                     e.currentTarget.src = "/imgs/logo.png";
@@ -324,6 +329,11 @@ function TiltCard({ isFlipped, onClose, product, imageSrc, price }) {
                 <img
                     src={imageSrc}
                     alt={product?.name || "Produit"}
+                    width="400"
+                    height="500"
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
                       e.currentTarget.src = "/imgs/logo.png";

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import PageSEO from '@/components/PageSEO';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { verifyPayment } from '@/services/paymentService.js';
@@ -141,6 +142,7 @@ export default function PaymentSuccess() {
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4 py-16">
+      <PageSEO title="Paiement confirmé" description="Votre paiement a été confirmé." noindex />
       <div className="max-w-md w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-8 text-center">
         {state.loading ? (
           <>

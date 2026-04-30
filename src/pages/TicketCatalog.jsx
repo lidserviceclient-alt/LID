@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import PageSEO from "@/components/PageSEO";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Search, Ticket, MapPin, Calendar, Star, TrendingUp, Music, Globe, Trophy, ShieldCheck, Mail, ArrowRight, Zap, Minus, Plus } from "lucide-react";
@@ -396,7 +397,7 @@ export default function TicketCatalog() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-[#050505] text-neutral-900 dark:text-neutral-100 font-sans pb-20 selection:bg-purple-500 selection:text-white">
-      
+      <PageSEO title="Billetterie" description="Trouvez vos billets pour les meilleurs concerts, événements et spectacles en Côte d'Ivoire." canonical="/tickets" />
       {/* Immersive Hero Section */}
       <motion.div 
         style={{ opacity, scale }}

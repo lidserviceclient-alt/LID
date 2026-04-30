@@ -368,11 +368,13 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid', enab
           </div>
           
           <Link to={`/product/${wishlistId}`} className="block w-full h-full">
-            <ImageTag 
-              src={imageSrc} 
+            <ImageTag
+              src={imageSrc}
               alt={product.name}
               width="400"
               height="500"
+              loading="lazy"
+              decoding="async"
               onError={() => setImageFailed(true)}
               {...imageMotionProps}
               className={`w-full h-full object-contain ${imageIsPlaceholder ? "opacity-30" : "mix-blend-multiply dark:mix-blend-normal"}`}
@@ -514,12 +516,13 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid', enab
         </div>
 
         <Link to={`/product/${wishlistId}`} className="block w-full h-full">
-          <ImageTag 
-            src={imageSrc} 
+          <ImageTag
+            src={imageSrc}
             alt={product.name}
             width="400"
             height="500"
             loading="lazy"
+            decoding="async"
             onError={() => setImageFailed(true)}
             {...imageMotionProps}
             className={`w-full h-full ${imageIsPlaceholder ? "object-contain opacity-30 p-8" : "object-cover"}`}

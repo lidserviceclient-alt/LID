@@ -1,4 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
+import PageSEO from "@/components/PageSEO";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -191,7 +192,11 @@ export default function SellerDetails() {
 
     return (
         <div className="min-h-screen bg-neutral-50 font-sans text-neutral-900 pb-20">
-            
+            <PageSEO
+              title={seller?.name}
+              description={seller?.description || (seller?.name ? `Découvrez la boutique ${seller.name} sur Lid.` : undefined)}
+              canonical={seller?.id ? `/sellers/${seller.id}` : undefined}
+            />
             {/* --- Professional Header --- */}
             <header className="relative bg-white border-b border-neutral-200">
                 {/* Cover Area */}

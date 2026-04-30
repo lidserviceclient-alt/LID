@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import PageSEO from "@/components/PageSEO";
 import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Ticket as TicketIcon, ArrowLeft, Zap, ShieldCheck, Minus, Plus } from "lucide-react";
@@ -108,6 +109,12 @@ export default function TicketDetails() {
 
   return (
     <div className="min-h-screen pt-24 pb-12 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white">
+      <PageSEO
+        title={ticket?.title}
+        description={ticket?.title ? `Réservez vos billets pour "${ticket.title}" sur Lid Billetterie.` : undefined}
+        canonical={ticket?.id ? `/tickets/${ticket.id}` : undefined}
+        type="event"
+      />
       <div className="max-w-6xl mx-auto px-4">
         <div className="mb-6">
           <Link
@@ -140,6 +147,11 @@ export default function TicketDetails() {
                   <img
                     src={ticket.image}
                     alt={ticket.title}
+                    width="800"
+                    height="500"
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       e.currentTarget.onerror = null;

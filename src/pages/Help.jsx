@@ -1,3 +1,4 @@
+import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import { Search, Book, Shield, FileText, MessageCircle, Truck, RefreshCcw, CreditCard } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -37,7 +38,7 @@ export default function Help() {
   ];
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-20 pb-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-20 pb-10 px-4 sm:px-6 lg:px-8"><PageSEO title="Centre d'aide" description="Besoin d'aide ? Retrouvez tous nos guides pour profiter pleinement de Lid." canonical="/help" />
       {/* Hero Search */}
       <div className="max-w-3xl mx-auto text-center mb-16">
         <motion.h1 

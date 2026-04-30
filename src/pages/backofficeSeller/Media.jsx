@@ -1,3 +1,4 @@
+import PageSEO from "@/components/PageSEO";
 import { useEffect, useRef, useState } from 'react';
 import { Check, Copy, Image as ImageIcon, Search, Trash2, Upload } from 'lucide-react';
 import { deleteFile, listMedia, uploadFiles } from '@/services/fileStorageService';
@@ -91,6 +92,7 @@ export default function SellerMedia() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <PageSEO title="Médiathèque" noindex />
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Médias</h1>

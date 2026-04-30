@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PageSEO from "@/components/PageSEO";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
@@ -102,8 +103,14 @@ export default function BlogDetails() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 font-sans">
-      
-      <motion.div 
+      <PageSEO
+        title={post?.title}
+        description={post?.excerpt || (post?.title ? `Lire l'article "${post.title}" sur le blog Lid.` : undefined)}
+        canonical={post?.id ? `/blog/${post.id}` : undefined}
+        image={post?.image}
+        type="article"
+      />
+      <motion.div
         className="fixed top-0 left-0 right-0 h-1 bg-[#6aa200] origin-left z-50"
         style={{ scaleX: 0 }} 
         animate={{ scaleX: 1 }}
@@ -111,9 +118,14 @@ export default function BlogDetails() {
 
       {/* --- Header / Hero --- */}
       <div className="relative h-[60vh] min-h-[400px]">
-        <img 
-          src={post.image} 
-          alt={post.title} 
+        <img
+          src={post.image}
+          alt={post.title}
+          width="1200"
+          height="600"
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-black/50" />
@@ -208,9 +220,13 @@ export default function BlogDetails() {
                   className="group block bg-white dark:bg-neutral-950 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all"
                 >
                   <div className="h-48 overflow-hidden">
-                    <img 
-                      src={related.image} 
-                      alt={related.title} 
+                    <img
+                      src={related.image}
+                      alt={related.title}
+                      width="400"
+                      height="300"
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   </div>

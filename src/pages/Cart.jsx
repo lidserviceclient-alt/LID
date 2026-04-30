@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PageSEO from "@/components/PageSEO";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
@@ -358,6 +359,7 @@ export default function Cart() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 py-12">
+      <PageSEO title="Panier" description="Votre panier Lid." noindex />
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div 
           initial="hidden"

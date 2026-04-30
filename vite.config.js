@@ -51,7 +51,7 @@ export default defineConfig(({ mode }) => {
   },
   build: {
     outDir: 'dist/lid',
-    target: 'esnext',
+    target: 'es2020',
     minify: 'esbuild',
     cssMinify: true,
     sourcemap: false,

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import PageSEO from "@/components/PageSEO";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Search, 
@@ -162,14 +163,19 @@ export default function BlogPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 font-sans">
-      
+      <PageSEO title="Blog" description="Actualités, conseils et tendances e-commerce en Côte d'Ivoire sur Lid." canonical="/blog" />
       {/* --- Hero Section --- */}
       {featuredPost ? (
         <section className="relative w-full h-[60vh] min-h-[500px] overflow-hidden">
           <div className="absolute inset-0">
-            <img 
-              src={featuredPost.image} 
+            <img
+              src={featuredPost.image}
               alt={featuredPost.title}
+              width="1200"
+              height="600"
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
@@ -279,9 +285,13 @@ export default function BlogPage() {
                   <div className="absolute top-4 left-4 z-10 px-3 py-1 bg-black/50 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest rounded-full border border-white/20">
                     {post.category}
                   </div>
-                  <img 
-                    src={post.image} 
-                    alt={post.title} 
+                  <img
+                    src={post.image}
+                    alt={post.title}
+                    width="600"
+                    height="400"
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-500" />

@@ -1,8 +1,9 @@
+import PageSEO from "@/components/PageSEO";
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { 
-  ShoppingBag, 
-  Search, 
-  Filter, 
+import {
+  ShoppingBag,
+  Search,
+  Filter,
   ChevronDown, 
   Eye, 
   MoreVertical, 
@@ -179,6 +180,7 @@ export default function Orders() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto h-screen flex flex-col">
+      <PageSEO title="Commandes" noindex />
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
