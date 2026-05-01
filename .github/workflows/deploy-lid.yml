@@ -34,6 +34,10 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: read
+  actions: write
+
 concurrency:
   group: deploy-lid-${{ github.ref }}-${{ inputs.target_vps || 'dev' }}
   cancel-in-progress: false
@@ -219,3 +223,28 @@ jobs:
             done
 
             docker compose ps
+
+      - name: Cleanup workflow runs older than 1 day
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          CUTOFF_EPOCH="$(date -u -d '1 day ago' +%s)"
+
+          gh run list \
+            --workflow "${GITHUB_WORKFLOW}" \
+            --status completed \
+            --limit 100 \
+            --json databaseId,createdAt \
+          | jq -r --argjson cutoff "${CUTOFF_EPOCH}" --arg current "${GITHUB_RUN_ID}" '
+              .[]
+              | select((.databaseId | tostring) != $current)
+              | select((.createdAt | fromdateiso8601) < $cutoff)
+              | .databaseId
+            ' \
+          | while read -r run_id; do
+              [ -z "${run_id}" ] && continue
+              echo "Deleting workflow run ${run_id}"
+              gh run delete "${run_id}"
+            done

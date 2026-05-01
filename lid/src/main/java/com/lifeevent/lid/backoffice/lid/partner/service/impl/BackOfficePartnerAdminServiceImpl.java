@@ -75,6 +75,7 @@ public class BackOfficePartnerAdminServiceImpl implements BackOfficePartnerAdmin
     }
 
     @Override
+    @Transactional
     public PageResponse<BackOfficePartnerTransactionDto> getPartnerTransactions(String partnerId, LocalDate fromDate, LocalDate toDate, int page, int size) {
         requirePartner(partnerId);
         return partnerSettlementService.listPartnerTransactions(partnerId, fromDate, toDate, page, size);
