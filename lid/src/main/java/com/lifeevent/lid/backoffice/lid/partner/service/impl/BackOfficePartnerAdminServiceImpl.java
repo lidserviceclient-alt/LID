@@ -26,7 +26,7 @@ import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
 public class BackOfficePartnerAdminServiceImpl implements BackOfficePartnerAdminService {
 
     private static final int MAX_PAGE_SIZE = 100;

@@ -77,13 +77,11 @@ jobs:
 
           SHORT_SHA="$(echo "${GITHUB_SHA}" | cut -c1-7)"
           RELEASE_IMAGE="${LID_IMAGE_REPO}:${RELEASE_TAG}"
-          SHA_IMAGE="${LID_IMAGE_REPO}:${RELEASE_TAG}-${SHORT_SHA}"
 
           echo "release_tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
           echo "short_sha=${SHORT_SHA}" >> "${GITHUB_OUTPUT}"
           echo "lid_image_release=${RELEASE_IMAGE}" >> "${GITHUB_OUTPUT}"
-          echo "lid_image_sha=${SHA_IMAGE}" >> "${GITHUB_OUTPUT}"
-          echo "deploy_image=${SHA_IMAGE}" >> "${GITHUB_OUTPUT}"
+          echo "deploy_image=${RELEASE_IMAGE}" >> "${GITHUB_OUTPUT}"
 
       - name: Build phase (skip tests)
         working-directory: lid
@@ -109,8 +107,7 @@ jobs:
         working-directory: lid
         run: >
           mvn -B -DskipTests compile jib:build
-          -Djib.to.image="${{ env.LID_IMAGE_REPO }}"
-          -Djib.to.tags="${{ steps.release.outputs.release_tag }},${{ steps.release.outputs.release_tag }}-${{ steps.release.outputs.short_sha }}"
+          -Djib.to.image="${{ steps.release.outputs.deploy_image }}"
 
       - name: Build deployment .env from GitHub secret by target
         env:
