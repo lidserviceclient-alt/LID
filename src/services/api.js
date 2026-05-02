@@ -2,7 +2,7 @@ import axios from 'axios';
 import { clearAccessToken, getAccessToken, isTokenExpired, setAccessToken } from './auth';
 import { clearCustomerSessionCache } from './sessionCleanup';
 
-const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'https://jean-emmanuel-diap.com/lid';
+const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'https://api.lidshopping.com/lid';
 const isDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true';
 
 if (isDebug) {

@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
     port: 5173,
     strictPort: true,
     cors: true,
-    allowedHosts: ['olive-cycles-vanish.loca.lt', 'localhost', '127.0.0.1', 'jean-emmanuel-diap.com'],
+    allowedHosts: ['olive-cycles-vanish.loca.lt', 'localhost', '127.0.0.1', 'api.lidshopping.com'],
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
       'Cross-Origin-Embedder-Policy': 'unsafe-none',
