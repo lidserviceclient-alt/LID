@@ -11,7 +11,7 @@ export default defineConfig({
     https: true,
     proxy: {
       '/api': {
-        target: 'https://jean-emmanuel-diap.com/lid',
+        target: 'https://api.lidshopping.com/lid',
         changeOrigin: true,
         secure: false,
       },
