@@ -99,6 +99,24 @@ export default defineConfig(({ mode }) => {
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api\//, /^\/imgs\//],
+        runtimeCaching: [
+          {
+            // Jamais mettre en cache les appels API → toujours depuis le réseau
+            urlPattern: ({ url }) => url.hostname === 'api.lidshopping.com',
+            handler: 'NetworkOnly',
+          },
+          {
+            // Images locales → cache 30 jours, max 60 images
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'lid-images-v1',
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+        ],
       },
       manifest: {
         name: 'Lid - E-commerce',
