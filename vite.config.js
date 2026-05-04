@@ -95,6 +95,11 @@ export default defineConfig(({ mode }) => {
       registerType: 'autoUpdate',
       injectRegister: 'script-defer',
       includeAssets: ['favicon-48x48.png', 'favicon-192x192.png', 'favicon-512x512.png', 'imgs/logo.png'],
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+      },
       manifest: {
         name: 'Lid - E-commerce',
         short_name: 'Lid',
