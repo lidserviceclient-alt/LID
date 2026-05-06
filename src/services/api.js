@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import { clearAccessToken, getAccessToken } from "./auth.js";
+﻿﻿import { clearAccessToken, getAccessToken } from "./auth.js";
 import { setAccessToken } from "./auth.js";
 
 const BASE_URL = import.meta.env.VITE_BACKOFFICE_API_URL || "http://localhost:9000";
