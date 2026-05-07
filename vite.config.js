@@ -8,7 +8,7 @@ export default defineConfig({
     port: 5174,
     proxy: {
       "/api": {
-        target: "https://admin.lidshopping.com/lid",
+        target: "https://api.lidshopping.com/lid",
         changeOrigin: true
       }
     }
