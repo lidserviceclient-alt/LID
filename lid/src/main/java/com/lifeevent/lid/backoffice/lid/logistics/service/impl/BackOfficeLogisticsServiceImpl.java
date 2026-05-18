@@ -17,9 +17,12 @@ import com.lifeevent.lid.backoffice.lid.logistics.service.BackOfficeLogisticsSer
 import com.lifeevent.lid.common.cache.event.PartnerOrderChangedEvent;
 import com.lifeevent.lid.common.service.EmailService;
 import com.lifeevent.lid.logistics.entity.Shipment;
+import com.lifeevent.lid.logistics.enumeration.ShipmentHistorySource;
+import com.lifeevent.lid.logistics.enumeration.ShipmentShipperType;
 import com.lifeevent.lid.logistics.enumeration.ShipmentStatus;
 import com.lifeevent.lid.logistics.repository.ShipmentRepository;
 import com.lifeevent.lid.logistics.service.ShipmentHandoffCodeGenerator;
+import com.lifeevent.lid.logistics.service.ShipmentStatusTransitionService;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.entity.OrderArticle;
 import com.lifeevent.lid.order.entity.StatusHistory;
@@ -59,9 +62,6 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
     private static final String DEFAULT_DELIVERY_FAILURE_CUSTOMER_MESSAGE =
             "La livraison de votre commande a rencontré un contretemps. Notre équipe reviendra vers vous très prochainement avec des informations complémentaires.";
-    private static final String DEFAULT_DELIVERY_RETRY_CUSTOMER_MESSAGE =
-            "Une nouvelle tentative de livraison est en cours. Nous vous tiendrons informé de l’avancement.";
-
     private final ShipmentRepository shipmentRepository;
     private final OrderRepository orderRepository;
     private final BackOfficeShipmentMapper backOfficeShipmentMapper;
@@ -70,6 +70,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     private final RealtimeEventPublisher realtimeEventPublisher;
     private final BackOfficeNotificationService backOfficeNotificationService;
     private final ShipmentHandoffCodeGenerator handoffCodeGenerator;
+    private final ShipmentStatusTransitionService shipmentStatusTransitionService;
 
     @Override
     @Transactional(readOnly = true)
@@ -132,12 +133,21 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             throw new IllegalArgumentException("Requête invalide");
         }
 
+        ShipmentStatus previousStatus = resolveExistingShipmentStatus(dto);
         Shipment shipment = resolveShipmentForUpsert(dto);
+        boolean newShipment = shipment.getId() == null;
         validateOrderId(shipment.getOrderId());
         ensureHandoffCode(shipment);
-        applyDeliveryLifecycle(shipment, shipment.getStatus());
 
-        Shipment saved = shipmentRepository.save(shipment);
+        Shipment saved = newShipment
+                ? shipmentStatusTransitionService.create(shipment, "Livraison créée depuis le back-office", ShipmentHistorySource.BACKOFFICE)
+                : shipmentStatusTransitionService.transitionFromPrevious(
+                        shipment,
+                        previousStatus,
+                        shipment.getStatus(),
+                        "Livraison mise à jour depuis le back-office",
+                        ShipmentHistorySource.BACKOFFICE
+                );
         syncLinkedOrder(saved);
         publishShipmentRealtime(saved, "upsert");
         return toShipmentDto(saved, findLinkedOrder(saved).orElse(null));
@@ -147,7 +157,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
     public BackOfficeShipmentDetailDto getShipment(Long id) {
         Shipment shipment = findShipmentById(id);
         if (ensureHandoffCode(shipment)) {
-            shipment = shipmentRepository.save(shipment);
+            shipment = shipmentStatusTransitionService.saveWithoutStatusHistory(shipment);
         }
         return toDetail(shipment);
     }
@@ -170,9 +180,12 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         } else if (customerComment != null) {
             shipment.setCustomerFacingComment(customerComment);
         }
-        applyDeliveryLifecycle(shipment, status);
-
-        Shipment saved = shipmentRepository.save(shipment);
+        Shipment saved = shipmentStatusTransitionService.transition(
+                shipment,
+                status,
+                buildShipmentHistoryComment(status, shipment),
+                ShipmentHistorySource.BACKOFFICE
+        );
         syncLinkedOrder(saved, null, forceCommentRefresh);
         publishShipmentRealtime(saved, "status_update");
         return toShipmentDto(saved, findLinkedOrder(saved).orElse(null));
@@ -188,16 +201,14 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
                 .orElseThrow(() -> new IllegalArgumentException("Expedition introuvable"));
         ensureHandoffCode(shipment);
         Optional<Order> linkedOrder = findLinkedOrder(shipment);
-        ensureOrderIsReadyForTransit(linkedOrder);
+        ensureShipmentIsReadyForTransit(shipment, linkedOrder);
 
         if (shipment.getStatus() == ShipmentStatus.LIVREE) {
             throw new IllegalArgumentException("Commande déjà livrée");
         }
-
         boolean alreadyInTransit = shipment.getStatus() == ShipmentStatus.EN_COURS;
         fillCourierData(shipment, request, scannedBy);
         if (shipment.getStatus() != ShipmentStatus.EN_COURS) {
-            shipment.setStatus(ShipmentStatus.EN_COURS);
             shipment.setDeliveredAt(null);
             shipment.setScannedAt(LocalDateTime.now());
             shipment.setCustomerFacingComment(null);
@@ -207,7 +218,14 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
 
         boolean codeGenerated = ensureDeliveryCode(shipment);
 
-        Shipment saved = shipmentRepository.save(shipment);
+        Shipment saved = shipmentStatusTransitionService.transition(
+                shipment,
+                ShipmentStatus.EN_COURS,
+                "Livraison prise en charge",
+                ShipmentHistorySource.DELIVERY_APP,
+                scannedBy,
+                trimToNull(request.getCourierName())
+        );
         syncLinkedOrder(saved, linkedOrder.orElse(null));
         sendDeliveryCodeIfNeeded(saved, codeGenerated, alreadyInTransit, linkedOrder.orElse(null));
         publishShipmentRealtime(saved, "scan");
@@ -232,11 +250,14 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             throw new IllegalArgumentException("Code invalide");
         }
 
-        shipment.setStatus(ShipmentStatus.LIVREE);
-        shipment.setDeliveredAt(LocalDateTime.now());
         shipment.setCustomerFacingComment(null);
 
-        Shipment saved = shipmentRepository.save(shipment);
+        Shipment saved = shipmentStatusTransitionService.transition(
+                shipment,
+                ShipmentStatus.LIVREE,
+                "Livraison confirmée",
+                ShipmentHistorySource.DELIVERY_APP
+        );
         syncLinkedOrder(saved);
         publishShipmentRealtime(saved, "delivery_confirm");
         return toShipmentDto(saved, findLinkedOrder(saved).orElse(null));
@@ -275,8 +296,10 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             shipment = shipmentRepository.findById(dto.getId()).orElse(null);
         }
 
-        if (shipment == null && !isBlank(dto.getOrderId())) {
-            shipment = shipmentRepository.findByOrderId(dto.getOrderId().trim()).orElse(null);
+        if (shipment == null && !isBlank(dto.getOrderId()) && dto.getShipperType() != null && !isBlank(dto.getShipperId())) {
+            shipment = shipmentRepository
+                    .findByOrderIdAndShipperTypeAndShipperId(dto.getOrderId().trim(), dto.getShipperType(), dto.getShipperId().trim())
+                    .orElse(null);
         }
 
         if (shipment == null) {
@@ -289,8 +312,32 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         if (shipment.getStatus() == null) {
             shipment.setStatus(ShipmentStatus.EN_PREPARATION);
         }
+        if (shipment.getShipperType() == null) {
+            shipment.setShipperType(ShipmentShipperType.LID);
+        }
+        if (isBlank(shipment.getShipperId())) {
+            shipment.setShipperId("LID");
+        }
 
         return shipment;
+    }
+
+    private ShipmentStatus resolveExistingShipmentStatus(BackOfficeShipmentDto dto) {
+        if (dto == null) {
+            return null;
+        }
+        if (dto.getId() != null) {
+            return shipmentRepository.findById(dto.getId())
+                    .map(Shipment::getStatus)
+                    .orElse(null);
+        }
+        if (!isBlank(dto.getOrderId()) && dto.getShipperType() != null && !isBlank(dto.getShipperId())) {
+            return shipmentRepository
+                    .findByOrderIdAndShipperTypeAndShipperId(dto.getOrderId().trim(), dto.getShipperType(), dto.getShipperId().trim())
+                    .map(Shipment::getStatus)
+                    .orElse(null);
+        }
+        return null;
     }
 
     private void validateOrderId(String orderId) {
@@ -334,7 +381,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             return byHandoffCode;
         }
 
-        Optional<Shipment> byOrder = shipmentRepository.findByOrderId(token);
+        Optional<Shipment> byOrder = firstShipmentByOrderId(token);
         if (byOrder.isPresent()) {
             return byOrder;
         }
@@ -377,7 +424,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         if (value == null) {
             return Optional.empty();
         }
-        Optional<Shipment> direct = shipmentRepository.findByOrderId(value);
+        Optional<Shipment> direct = firstShipmentByOrderId(value);
         if (direct.isPresent()) {
             return direct;
         }
@@ -385,7 +432,12 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         if (digits.isEmpty()) {
             return Optional.empty();
         }
-        return shipmentRepository.findByOrderId(digits);
+        return firstShipmentByOrderId(digits);
+    }
+
+    private Optional<Shipment> firstShipmentByOrderId(String orderId) {
+        List<Shipment> shipments = shipmentRepository.findAllByOrderId(orderId);
+        return shipments.isEmpty() ? Optional.empty() : Optional.of(shipments.get(0));
     }
 
     private Optional<Shipment> findShipmentByIdToken(String value) {
@@ -432,7 +484,10 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         return true;
     }
 
-    private void ensureOrderIsReadyForTransit(Optional<Order> linkedOrder) {
+    private void ensureShipmentIsReadyForTransit(Shipment shipment, Optional<Order> linkedOrder) {
+        if (shipment != null && shipment.getStatus() == ShipmentStatus.EN_PREPARATION) {
+            return;
+        }
         if (linkedOrder == null || linkedOrder.isEmpty()) {
             return;
         }
@@ -489,21 +544,6 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         return normalized.matches("[A-Z0-9]{5}") ? normalized : null;
     }
 
-    private void applyDeliveryLifecycle(Shipment shipment, ShipmentStatus status) {
-        shipment.setStatus(status);
-        if (status == ShipmentStatus.LIVREE) {
-            if (shipment.getDeliveredAt() == null) {
-                shipment.setDeliveredAt(LocalDateTime.now());
-            }
-            shipment.setCustomerFacingComment(null);
-            return;
-        }
-        if (status == ShipmentStatus.EN_COURS || status == ShipmentStatus.EN_PREPARATION) {
-            shipment.setCustomerFacingComment(null);
-        }
-        shipment.setDeliveredAt(null);
-    }
-
     private BackOfficeShipmentDetailDto toDetail(Shipment shipment) {
         return toDetail(shipment, findLinkedOrder(shipment).orElse(null));
     }
@@ -514,6 +554,9 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
                 .id(shipment.getId())
                 .trackingId(shipment.getTrackingId())
                 .orderId(shipment.getOrderId())
+                .shipperType(shipment.getShipperType())
+                .shipperId(shipment.getShipperId())
+                .shipperLabel(resolveShipperLabel(shipment))
                 .handoffCode(shipment.getHandoffCode())
                 .carrier(shipment.getCarrier())
                 .status(shipment.getStatus())
@@ -528,7 +571,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
                 .customerAddress(resolveCustomerAddress(order))
                 .customerLatitude(resolveCustomerLatitude(order))
                 .customerLongitude(resolveCustomerLongitude(order))
-                .items(resolveItems(order))
+                .items(resolveItems(order, shipment))
                 .courierReference(shipment.getCourierReference())
                 .courierName(shipment.getCourierName())
                 .courierPhone(shipment.getCourierPhone())
@@ -543,6 +586,9 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         return BackOfficeShipmentDto.builder()
                 .id(shipment.getId())
                 .orderId(shipment.getOrderId())
+                .shipperType(shipment.getShipperType())
+                .shipperId(shipment.getShipperId())
+                .shipperLabel(resolveShipperLabel(shipment))
                 .handoffCode(shipment.getHandoffCode())
                 .carrier(shipment.getCarrier())
                 .trackingId(shipment.getTrackingId())
@@ -677,7 +723,7 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         return resolveOrderByReference(orderReference);
     }
 
-    private List<BackOfficeShipmentItemDto> resolveItems(Order order) {
+    private List<BackOfficeShipmentItemDto> resolveItems(Order order, Shipment shipment) {
         if (order == null || order.getArticles() == null) {
             return List.of();
         }
@@ -685,6 +731,9 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         List<BackOfficeShipmentItemDto> items = new ArrayList<>();
         for (OrderArticle articleLine : order.getArticles()) {
             if (articleLine == null || articleLine.getArticle() == null) {
+                continue;
+            }
+            if (!belongsToShipment(articleLine, shipment)) {
                 continue;
             }
             int quantity = articleLine.getQuantity() == null ? 0 : articleLine.getQuantity();
@@ -698,6 +747,27 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
                     .build());
         }
         return items;
+    }
+
+    private boolean belongsToShipment(OrderArticle articleLine, Shipment shipment) {
+        if (shipment == null || shipment.getShipperType() == null) {
+            return true;
+        }
+        String partnerId = trimToNull(articleLine == null || articleLine.getArticle() == null
+                ? null
+                : articleLine.getArticle().getReferencePartner());
+        if (shipment.getShipperType() == ShipmentShipperType.LID) {
+            return partnerId == null;
+        }
+        return Objects.equals(partnerId, trimToNull(shipment.getShipperId()));
+    }
+
+    private String resolveShipperLabel(Shipment shipment) {
+        if (shipment == null || shipment.getShipperType() == null || shipment.getShipperType() == ShipmentShipperType.LID) {
+            return "LID";
+        }
+        String shipperId = trimToNull(shipment.getShipperId());
+        return shipperId == null ? "Partenaire" : "Partenaire " + shipperId;
     }
 
     private String resolveCustomerName(Order order) {
@@ -791,33 +861,39 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         if (order == null) {
             return;
         }
-        updateOrderTracking(order, shipment);
-        updateOrderStatus(order, shipment, forceCommentRefresh);
+        List<Shipment> orderShipments = shipmentRepository.findAllByOrderId(resolveOrderNumber(order));
+        if (orderShipments.isEmpty() && shipment != null) {
+            orderShipments = List.of(shipment);
+        }
+        updateOrderTracking(order, shipment, orderShipments);
+        updateOrderStatus(order, shipment, orderShipments, forceCommentRefresh);
         orderRepository.save(order);
         publishPartnerOrderChanged(order.getId());
     }
 
-    private void updateOrderTracking(Order order, Shipment shipment) {
+    private void updateOrderTracking(Order order, Shipment shipment, List<Shipment> orderShipments) {
         String trackingId = trimToNull(shipment.getTrackingId());
         if (trackingId != null) {
             order.setTrackingNumber(trackingId);
         }
 
-        if (shipment.getStatus() == ShipmentStatus.LIVREE) {
-            order.setDeliveryDate(shipment.getDeliveredAt());
+        boolean allDelivered = orderShipments != null
+                && !orderShipments.isEmpty()
+                && orderShipments.stream().allMatch(s -> s.getStatus() == ShipmentStatus.LIVREE);
+        if (allDelivered) {
+            order.setDeliveryDate(orderShipments.stream()
+                    .map(Shipment::getDeliveredAt)
+                    .filter(Objects::nonNull)
+                    .max(LocalDateTime::compareTo)
+                    .orElse(shipment.getDeliveredAt()));
             return;
         }
 
         order.setDeliveryDate(null);
     }
 
-    private void updateOrderStatus(Order order, Shipment shipment, boolean forceCommentRefresh) {
-        ShipmentStatus shipmentStatus = shipment == null ? null : shipment.getStatus();
-        if (shipmentStatus == null) {
-            return;
-        }
-
-        Status targetStatus = mapShipmentStatusToOrderStatus(shipmentStatus);
+    private void updateOrderStatus(Order order, Shipment shipment, List<Shipment> orderShipments, boolean forceCommentRefresh) {
+        Status targetStatus = aggregateOrderStatus(orderShipments);
         if (targetStatus == null) {
             return;
         }
@@ -865,6 +941,25 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
         }
     }
 
+    private Status aggregateOrderStatus(List<Shipment> orderShipments) {
+        if (orderShipments == null || orderShipments.isEmpty()) {
+            return null;
+        }
+        if (orderShipments.stream().anyMatch(s -> s.getStatus() == ShipmentStatus.ECHEC)) {
+            return Status.DELIVERY_FAILED;
+        }
+        if (orderShipments.stream().allMatch(s -> s.getStatus() == ShipmentStatus.LIVREE)) {
+            return Status.DELIVERED;
+        }
+        if (orderShipments.stream().anyMatch(s -> s.getStatus() == ShipmentStatus.EN_COURS)) {
+            return Status.DELIVERY_IN_PROGRESS;
+        }
+        if (orderShipments.stream().anyMatch(s -> s.getStatus() == ShipmentStatus.EN_PREPARATION)) {
+            return Status.READY_TO_DELIVER;
+        }
+        return null;
+    }
+
     private boolean canTransitionOrderStatus(Status currentStatus, Status targetStatus) {
         if (currentStatus == null) {
             return true;
@@ -900,9 +995,16 @@ public class BackOfficeLogisticsServiceImpl implements BackOfficeLogisticsServic
             return customerComment == null ? defaultDeliveryFailureCustomerMessage() : customerComment;
         }
         if (status == Status.DELIVERY_IN_PROGRESS) {
-            return DEFAULT_DELIVERY_RETRY_CUSTOMER_MESSAGE;
+            return null;
         }
         return "Statut synchronisé depuis logistique back-office";
+    }
+
+    private String buildShipmentHistoryComment(ShipmentStatus status, Shipment shipment) {
+        if (status == ShipmentStatus.ECHEC || status == ShipmentStatus.EN_COURS) {
+            return trimToNull(shipment == null ? null : shipment.getCustomerFacingComment());
+        }
+        return "Statut livraison mis à jour";
     }
 
     private String defaultDeliveryFailureCustomerMessage() {

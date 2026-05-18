@@ -8,6 +8,7 @@ TRUNCATE TABLE marketing_campaign_delivery;
 TRUNCATE TABLE email_message_recipient;
 TRUNCATE TABLE return_request_item;
 TRUNCATE TABLE partner_settlement;
+TRUNCATE TABLE partner_payment_settings;
 TRUNCATE TABLE payment;
 TRUNCATE TABLE status_history;
 TRUNCATE TABLE order_article;
@@ -16,6 +17,7 @@ TRUNCATE TABLE article_categories;
 TRUNCATE TABLE authentication_roles;
 TRUNCATE TABLE cart_article;
 TRUNCATE TABLE cart;
+TRUNCATE TABLE shipment_status_history;
 TRUNCATE TABLE shipment;
 TRUNCATE TABLE return_request;
 TRUNCATE TABLE email_message;
@@ -95,6 +97,8 @@ ALTER TABLE status_history ALTER COLUMN id RESTART WITH 2000;
 ALTER TABLE order_article ALTER COLUMN id RESTART WITH 2000;
 ALTER TABLE payment ALTER COLUMN id RESTART WITH 2000;
 ALTER TABLE partner_settlement ALTER COLUMN id RESTART WITH 2000;
+ALTER TABLE shipment ALTER COLUMN id RESTART WITH 2000;
+ALTER TABLE shipment_status_history ALTER COLUMN id RESTART WITH 2000;
 
 -- Partner user
 INSERT INTO user_entity (
@@ -469,6 +473,83 @@ INSERT INTO order_article (
   'u-customer-c1'
 );
 
+INSERT INTO shipment (
+  id,
+  order_id,
+  shipper_type,
+  shipper_id,
+  handoff_code,
+  carrier,
+  tracking_id,
+  status,
+  eta,
+  cost,
+  delivery_code,
+  created_at,
+  updated_at,
+  created_by,
+  updated_by
+) VALUES (
+  1000,
+  'ORD-9XK3-7P2L',
+  'PARTNER',
+  'u-partner-p1',
+  'P1A2B',
+  'PARTNER',
+  'TRK-PART-U-PARTNER-P1-ORD-9XK3-7P2L',
+  'EN_PREPARATION',
+  TIMESTAMP '2026-04-20 18:00:00',
+  3250,
+  NULL,
+  TIMESTAMP '2026-04-18 10:15:00',
+  TIMESTAMP '2026-04-18 10:20:00',
+  'u-admin',
+  'u-admin'
+);
+
+INSERT INTO shipment_status_history (
+  id,
+  shipment_id,
+  status,
+  changed_at,
+  comment,
+  source,
+  actor_id,
+  actor_label,
+  created_at,
+  updated_at,
+  created_by,
+  updated_by
+) VALUES
+  (
+    1000,
+    1000,
+    'EN_PREPARATION',
+    TIMESTAMP '2026-04-18 10:15:00',
+    'Livraison en préparation',
+    'SYSTEM',
+    NULL,
+    NULL,
+    TIMESTAMP '2026-04-18 10:15:00',
+    TIMESTAMP '2026-04-18 10:15:00',
+    'u-admin',
+    'u-admin'
+  ),
+  (
+    1001,
+    1000,
+    'EN_PREPARATION',
+    TIMESTAMP '2026-04-18 10:20:00',
+    'Livraison en préparation',
+    'BACKOFFICE',
+    'u-admin',
+    'Back-office LID',
+    TIMESTAMP '2026-04-18 10:20:00',
+    TIMESTAMP '2026-04-18 10:20:00',
+    'u-admin',
+    'u-admin'
+  );
+
 INSERT INTO payment (
   id,
   order_id,
@@ -529,6 +610,8 @@ INSERT INTO partner_settlement (
   shipping_allocation,
   return_cost_allocation,
   margin_percent,
+  settlement_mode,
+  payout_withdraw_mode,
   margin_amount,
   net_amount,
   transaction_date,
@@ -554,6 +637,8 @@ INSERT INTO partner_settlement (
   3250,
   0,
   0,
+  'DEDUCT_SHIPPING_AND_RETURN_COST',
+  'orange-money-ci',
   0,
   9250,
   TIMESTAMP '2026-04-18 10:18:00',
@@ -563,6 +648,30 @@ INSERT INTO partner_settlement (
   NULL,
   TIMESTAMP '2026-04-18 10:18:00',
   'SCHEDULED',
+  TIMESTAMP '2026-04-18 10:18:00',
+  TIMESTAMP '2026-04-18 10:18:00',
+  'u-admin',
+  'u-admin'
+);
+
+INSERT INTO partner_payment_settings (
+  id,
+  partner_id,
+  settlement_mode,
+  margin_percent,
+  payout_withdraw_mode,
+  payout_enabled,
+  created_at,
+  updated_at,
+  created_by,
+  updated_by
+) VALUES (
+  1000,
+  'u-partner-p1',
+  'DEDUCT_SHIPPING_AND_RETURN_COST',
+  0,
+  'orange-money-ci',
+  TRUE,
   TIMESTAMP '2026-04-18 10:18:00',
   TIMESTAMP '2026-04-18 10:18:00',
   'u-admin',

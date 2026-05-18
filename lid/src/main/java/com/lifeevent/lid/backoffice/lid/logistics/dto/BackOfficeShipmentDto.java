@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.lid.logistics.dto;
 
 import com.lifeevent.lid.logistics.enumeration.ShipmentStatus;
+import com.lifeevent.lid.logistics.enumeration.ShipmentShipperType;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -13,6 +14,9 @@ import java.time.LocalDateTime;
 public class BackOfficeShipmentDto {
     private Long id;
     private String orderId;
+    private ShipmentShipperType shipperType;
+    private String shipperId;
+    private String shipperLabel;
     private String handoffCode;
     private String carrier;
     private String trackingId;

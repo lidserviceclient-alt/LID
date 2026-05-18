@@ -1,0 +1,37 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  # Prometheus se scrape lui-même
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ─── Tes services Spring Boot ───────────────────────────────────────────────
+  # Duplique ce bloc pour chaque microservice.
+  # Spring Boot expose /actuator/prometheus si tu as ajouté :
+  #   implementation 'io.micrometer:micrometer-registry-prometheus'
+  # et dans application.yml :
+  #   management.endpoints.web.exposure.include: prometheus,health,info,metrics
+
+  - job_name: 'lid-api'
+    metrics_path: '/lid/actuator/prometheus'
+    dns_sd_configs:
+      - names:
+          - 'lid-api'       # Docker résout ce nom → toutes les IPs des replicas
+        type: 'A'
+        port: 9000
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
+  # Exemple pour un second service :
+  # - job_name: 'account-service'
+  #   metrics_path: '/actuator/prometheus'
+  #   static_configs:
+  #     - targets: ['account-service:8081']
+  #       labels:
+  #         app: 'account-service'
+  #         env: 'local'

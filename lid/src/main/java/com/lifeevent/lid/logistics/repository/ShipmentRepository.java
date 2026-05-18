@@ -1,6 +1,7 @@
 package com.lifeevent.lid.logistics.repository;
 
 import com.lifeevent.lid.logistics.entity.Shipment;
+import com.lifeevent.lid.logistics.enumeration.ShipmentShipperType;
 import com.lifeevent.lid.logistics.enumeration.ShipmentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -56,6 +57,14 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     );
 
     Optional<Shipment> findByOrderId(String orderId);
+
+    List<Shipment> findAllByOrderId(String orderId);
+
+    Optional<Shipment> findByOrderIdAndShipperTypeAndShipperId(
+            String orderId,
+            ShipmentShipperType shipperType,
+            String shipperId
+    );
 
     Optional<Shipment> findByHandoffCodeIgnoreCase(String handoffCode);
 

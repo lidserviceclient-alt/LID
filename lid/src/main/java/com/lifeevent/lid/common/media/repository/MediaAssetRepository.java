@@ -48,6 +48,8 @@ public interface MediaAssetRepository extends JpaRepository<MediaAssetEntity, Lo
             @Param("originalFilename") String originalFilename
     );
 
+    Optional<MediaAssetEntity> findByObjectKey(String objectKey);
+
     @Modifying
     long deleteByObjectKey(String objectKey);
 }

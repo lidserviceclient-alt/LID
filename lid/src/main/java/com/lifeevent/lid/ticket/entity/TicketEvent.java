@@ -28,7 +28,13 @@ public class TicketEvent extends BaseEntity {
 
     private String location;
 
+    private Double basePrice;
+
     private Double price;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Double priceMarkupPercent = 2d;
 
     private String imageUrl;
 

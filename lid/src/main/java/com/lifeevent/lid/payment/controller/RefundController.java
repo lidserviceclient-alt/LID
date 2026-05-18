@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -29,6 +30,7 @@ public class RefundController {
      * POST /api/v1/refunds
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<RefundResponseDto> requestRefund(
             @Valid @RequestBody RefundRequestDto request) {
         log.info("Demande de remboursement pour le paiement: {}", request.getPaymentId());
@@ -41,6 +43,7 @@ public class RefundController {
      * GET /api/v1/refunds/{refundId}
      */
     @GetMapping("/{refundId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<RefundResponseDto> getRefund(
             @PathVariable Long refundId) {
         log.info("Récupération du remboursement: {}", refundId);
@@ -53,6 +56,7 @@ public class RefundController {
      * GET /api/v1/refunds/payment/{paymentId}
      */
     @GetMapping("/payment/{paymentId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<RefundResponseDto>> getRefundsByPayment(
             @PathVariable Long paymentId) {
         log.info("Récupération des remboursements pour le paiement: {}", paymentId);
@@ -65,6 +69,7 @@ public class RefundController {
      * GET /api/v1/refunds/pending
      */
     @GetMapping("/pending")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<RefundResponseDto>> getPendingRefunds() {
         log.info("Récupération des remboursements en attente");
         List<RefundResponseDto> refunds = refundService.getPendingRefunds();
@@ -76,6 +81,7 @@ public class RefundController {
      * POST /api/v1/refunds/{refundId}/process
      */
     @PostMapping("/{refundId}/process")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Void> processRefund(
             @PathVariable Long refundId) {
         log.info("Traitement du remboursement: {}", refundId);
@@ -88,6 +94,7 @@ public class RefundController {
      * DELETE /api/v1/refunds/{refundId}
      */
     @DeleteMapping("/{refundId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Void> cancelRefund(
             @PathVariable Long refundId) {
         log.info("Annulation du remboursement: {}", refundId);

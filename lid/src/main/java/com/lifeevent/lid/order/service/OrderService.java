@@ -62,4 +62,9 @@ public interface OrderService {
      * Utilisé pour les vérifications d'ownership dans @PreAuthorize
      */
     boolean isOwnedByCurrentUser(Long orderId);
+
+    /**
+     * Vérifier si la commande appartient à l'utilisateur courant par numéro de commande.
+     */
+    boolean isOwnedByCurrentUser(String orderNumber);
 }

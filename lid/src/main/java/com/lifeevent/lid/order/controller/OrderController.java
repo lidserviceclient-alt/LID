@@ -9,6 +9,7 @@ import com.lifeevent.lid.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,6 +23,7 @@ public class OrderController implements IOrderController {
     
     @Override
     @PostMapping("/checkout/cart")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<CheckoutResponseDto> checkoutCart(String customerId, CheckoutCartRequestDto request) {
         CheckoutResponseDto response = orderService.checkoutCart(customerId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -29,12 +31,14 @@ public class OrderController implements IOrderController {
 
     @Override
     @PostMapping("/checkout")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<CheckoutResponseDto> checkout(String customerId, CheckoutCartRequestDto request) {
         return checkoutCart(customerId, request);
     }
 
     @Override
     @PostMapping("/checkout/quote")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<OrderQuoteResponseDto> checkoutQuote(String customerId, CheckoutCartRequestDto request) {
         OrderQuoteResponseDto response = orderService.checkoutQuote(customerId, request);
         return ResponseEntity.ok(response);
@@ -42,6 +46,7 @@ public class OrderController implements IOrderController {
 
     @Override
     @PostMapping("/checkout/selected")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<CheckoutResponseDto> checkoutSelectedArticles(String customerId, CheckoutCartSelectedRequestDto request) {
         CheckoutResponseDto response = orderService.checkoutSelectedArticles(customerId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -49,6 +54,7 @@ public class OrderController implements IOrderController {
     
     @Override
     @GetMapping("/orders")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<OrderDetailDto>> getCustomerOrders(String customerId, int page, int size) {
         List<OrderDetailDto> orders = orderService.getOrdersByCustomer(customerId, page, size);
         return ResponseEntity.ok(orders);
@@ -56,6 +62,7 @@ public class OrderController implements IOrderController {
     
     @Override
     @GetMapping("/orders/{id}")
+    @PreAuthorize("@orderService.isOwnedByCurrentUser(#id) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<?> getOrderDetail(@PathVariable Long id) {
         return orderService.getOrderById(id)
             .map(ResponseEntity::ok)
@@ -64,6 +71,7 @@ public class OrderController implements IOrderController {
 
     @Override
     @GetMapping("/orders/by-number/{orderNumber}")
+    @PreAuthorize("@orderService.isOwnedByCurrentUser(#orderNumber) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<?> getOrderDetailByNumber(@PathVariable String orderNumber) {
         return orderService.getOrderByNumber(orderNumber)
                 .map(ResponseEntity::ok)
@@ -72,6 +80,7 @@ public class OrderController implements IOrderController {
     
     @Override
     @GetMapping("/orders/{id}/tracking")
+    @PreAuthorize("@orderService.isOwnedByCurrentUser(#id) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<?> getOrderTracking(@PathVariable Long id) {
         return orderService.getOrderById(id)
             .map(order -> ResponseEntity.ok(new Object() {

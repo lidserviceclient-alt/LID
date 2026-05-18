@@ -16,6 +16,8 @@ public interface PaymentService {
      */
     PaymentResponseDto createPayment(CreatePaymentRequestDto request);
 
+    boolean canCreatePaymentForCurrentUser(CreatePaymentRequestDto request);
+
     /**
      * Crée un paiement local immédiatement confirmé (dev/local)
      */
@@ -52,6 +54,14 @@ public interface PaymentService {
      * Annule un paiement en attente
      */
     void cancelPayment(Long paymentId);
+
+    boolean isPaymentOwnedByCurrentUser(Long paymentId);
+
+    boolean isOrderPaymentOwnedByCurrentUser(Long orderId);
+
+    boolean isOrderNumberPaymentOwnedByCurrentUser(String orderNumber);
+
+    boolean isCustomerEmailOwnedByCurrentUser(String customerEmail);
     
     /**
      * Obtient les opérateurs disponibles pour un pays

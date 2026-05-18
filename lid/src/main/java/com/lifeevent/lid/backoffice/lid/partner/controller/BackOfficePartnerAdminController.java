@@ -2,6 +2,7 @@ package com.lifeevent.lid.backoffice.lid.partner.controller;
 
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerAdminDto;
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerDecisionRequest;
+import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerPaymentSettingsDto;
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransactionScheduleRequest;
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransactionDto;
 import com.lifeevent.lid.backoffice.lid.partner.service.BackOfficePartnerAdminService;
@@ -49,6 +50,21 @@ public class BackOfficePartnerAdminController implements IBackOfficePartnerAdmin
     public ResponseEntity<BackOfficePartnerSettingsDto> rejectPartner(String partnerId, BackOfficePartnerDecisionRequest request) {
         String comment = request == null ? null : request.comment();
         return ResponseEntity.ok(backOfficePartnerAdminService.rejectPartner(partnerId, comment));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<BackOfficePartnerPaymentSettingsDto> getPartnerPaymentSettings(String partnerId) {
+        return ResponseEntity.ok(backOfficePartnerAdminService.getPartnerPaymentSettings(partnerId));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<BackOfficePartnerPaymentSettingsDto> updatePartnerPaymentSettings(
+            String partnerId,
+            BackOfficePartnerPaymentSettingsDto request
+    ) {
+        return ResponseEntity.ok(backOfficePartnerAdminService.updatePartnerPaymentSettings(partnerId, request));
     }
 
     @Override

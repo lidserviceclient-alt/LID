@@ -25,6 +25,7 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
     private final BackOfficeTicketEventMapper backOfficeTicketEventMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final TicketInventoryService ticketInventoryService;
+    private static final double DEFAULT_PRICE_MARKUP_PERCENT = 2d;
 
     @Override
     @Transactional(readOnly = true)
@@ -74,6 +75,11 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
         if (entity.getAvailable() == null) {
             entity.setAvailable(Boolean.TRUE);
         }
+        double basePrice = normalizePrice(entity.getBasePrice() != null ? entity.getBasePrice() : entity.getPrice());
+        double markupPercent = normalizeMarkupPercent(entity.getPriceMarkupPercent());
+        entity.setBasePrice(basePrice);
+        entity.setPriceMarkupPercent(markupPercent);
+        entity.setPrice(calculatePrice(basePrice, markupPercent));
         if (entity.getQuantityAvailable() == null || entity.getQuantityAvailable() < 0) {
             entity.setQuantityAvailable(0);
         }
@@ -92,6 +98,26 @@ public class BackOfficeTicketEventServiceImpl implements BackOfficeTicketEventSe
         dto.setQuantityAvailable(entity.getQuantityAvailable());
         dto.setQuantityReserved(entity.getQuantityReserved());
         dto.setSellable(ticketInventoryService.isSellable(entity));
+        dto.setBasePrice(entity.getBasePrice() == null ? entity.getPrice() : entity.getBasePrice());
+        dto.setPriceMarkupPercent(normalizeMarkupPercent(entity.getPriceMarkupPercent()));
         return dto;
+    }
+
+    private double normalizePrice(Double price) {
+        if (price == null || !Double.isFinite(price) || price < 0d) {
+            return 0d;
+        }
+        return price;
+    }
+
+    private double normalizeMarkupPercent(Double markupPercent) {
+        if (markupPercent == null || !Double.isFinite(markupPercent) || markupPercent < 0d) {
+            return DEFAULT_PRICE_MARKUP_PERCENT;
+        }
+        return markupPercent;
+    }
+
+    private double calculatePrice(double basePrice, double markupPercent) {
+        return Math.round(basePrice * (1d + markupPercent / 100d));
     }
 }

@@ -14,7 +14,9 @@ public class BackOfficeTicketEventDto {
     private String title;
     private LocalDateTime date;
     private String location;
+    private Double basePrice;
     private Double price;
+    private Double priceMarkupPercent;
     private String imageUrl;
     private String category;
     private Boolean available;

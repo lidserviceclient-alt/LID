@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -30,6 +31,7 @@ public class PaymentController {
      * POST /api/v1/payments
      */
     @PostMapping
+    @PreAuthorize("@paymentService.canCreatePaymentForCurrentUser(#request) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<PaymentResponseDto> createPayment(
             @Valid @RequestBody CreatePaymentRequestDto request) {
         log.info("Création d'un paiement pour la commande: {}", request.getOrderId());
@@ -54,6 +56,7 @@ public class PaymentController {
      * GET /api/v1/payments/{paymentId}
      */
     @GetMapping("/{paymentId}")
+    @PreAuthorize("@paymentService.isPaymentOwnedByCurrentUser(#paymentId) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<PaymentResponseDto> getPayment(
             @PathVariable Long paymentId) {
         log.info("Récupération du paiement: {}", paymentId);
@@ -66,6 +69,7 @@ public class PaymentController {
      * GET /api/v1/payments/order/{orderId}
      */
     @GetMapping("/order/{orderId}")
+    @PreAuthorize("@paymentService.isOrderPaymentOwnedByCurrentUser(#orderId) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<PaymentResponseDto>> getPaymentsByOrder(
             @PathVariable Long orderId) {
         log.info("Récupération des paiements pour la commande: {}", orderId);
@@ -74,6 +78,7 @@ public class PaymentController {
     }
 
     @GetMapping("/order-number/{orderNumber}")
+    @PreAuthorize("@paymentService.isOrderNumberPaymentOwnedByCurrentUser(#orderNumber) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<PaymentResponseDto>> getPaymentsByOrderNumber(
             @PathVariable String orderNumber) {
         log.info("Récupération des paiements pour la commande: {}", orderNumber);
@@ -86,6 +91,7 @@ public class PaymentController {
      * GET /api/v1/payments/customer/{email}
      */
     @GetMapping("/customer/{email}")
+    @PreAuthorize("@paymentService.isCustomerEmailOwnedByCurrentUser(#email) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<PaymentResponseDto>> getPaymentsByCustomer(
             @PathVariable String email) {
         log.info("Récupération des paiements pour le client: {}", email);
@@ -98,6 +104,7 @@ public class PaymentController {
      * DELETE /api/v1/payments/{paymentId}
      */
     @DeleteMapping("/{paymentId}")
+    @PreAuthorize("@paymentService.isPaymentOwnedByCurrentUser(#paymentId) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Void> cancelPayment(
             @PathVariable Long paymentId) {
         log.info("Annulation du paiement: {}", paymentId);

@@ -1,5 +1,6 @@
 package com.lifeevent.lid.payment.partner.repository;
 
+import com.lifeevent.lid.backoffice.lid.setting.entity.PartnerSettlementMode;
 import com.lifeevent.lid.payment.partner.entity.PartnerSettlement;
 import com.lifeevent.lid.payment.partner.entity.PartnerSettlementStatus;
 import org.springframework.data.domain.Page;
@@ -34,6 +35,8 @@ public interface PartnerSettlementRepository extends JpaRepository<PartnerSettle
         BigDecimal getShippingAllocation();
         BigDecimal getReturnCostAllocation();
         BigDecimal getMarginPercent();
+        PartnerSettlementMode getSettlementMode();
+        String getPayoutWithdrawMode();
         BigDecimal getMarginAmount();
         BigDecimal getNetAmount();
         LocalDateTime getTransactionDate();
@@ -78,6 +81,8 @@ public interface PartnerSettlementRepository extends JpaRepository<PartnerSettle
                s.shippingAllocation as shippingAllocation,
                s.returnCostAllocation as returnCostAllocation,
                s.marginPercent as marginPercent,
+               s.settlementMode as settlementMode,
+               s.payoutWithdrawMode as payoutWithdrawMode,
                s.marginAmount as marginAmount,
                s.netAmount as netAmount,
                s.transactionDate as transactionDate,
@@ -110,6 +115,8 @@ public interface PartnerSettlementRepository extends JpaRepository<PartnerSettle
                s.shippingAllocation as shippingAllocation,
                s.returnCostAllocation as returnCostAllocation,
                s.marginPercent as marginPercent,
+               s.settlementMode as settlementMode,
+               s.payoutWithdrawMode as payoutWithdrawMode,
                s.marginAmount as marginAmount,
                s.netAmount as netAmount,
                s.transactionDate as transactionDate,

@@ -1,6 +1,7 @@
 package com.lifeevent.lid.backoffice.lid.partner.service;
 
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerAdminDto;
+import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerPaymentSettingsDto;
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransactionDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
 import com.lifeevent.lid.common.dto.PageResponse;
@@ -18,6 +19,10 @@ public interface BackOfficePartnerAdminService {
     BackOfficePartnerSettingsDto approvePartner(String partnerId);
 
     BackOfficePartnerSettingsDto rejectPartner(String partnerId, String comment);
+
+    BackOfficePartnerPaymentSettingsDto getPartnerPaymentSettings(String partnerId);
+
+    BackOfficePartnerPaymentSettingsDto updatePartnerPaymentSettings(String partnerId, BackOfficePartnerPaymentSettingsDto request);
 
     PageResponse<BackOfficePartnerTransactionDto> getPartnerTransactions(String partnerId, LocalDate fromDate, LocalDate toDate, int page, int size);
 

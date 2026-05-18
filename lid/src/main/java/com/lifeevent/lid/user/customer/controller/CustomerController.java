@@ -24,23 +24,27 @@ public class CustomerController implements ICustomerController {
 
 
     @Override
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<CustomerDto> createCustomer(@RequestBody CustomerDto dto) {
         CustomerDto created = customerService.createCustomer(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
     
     @Override
+    @PreAuthorize("(#id == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<CustomerDto> getCustomer(@PathVariable String id) {
         Optional<CustomerDto> customer = customerService.getCustomerById(id);
         return ResponseUtils.getOrNotFound(customer, "Customer", id);
     }
     
     @Override
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<com.lifeevent.lid.common.dto.PageResponse<CustomerDto>> getAllCustomers(int page, int size) {
         return ResponseEntity.ok(com.lifeevent.lid.common.dto.PageResponse.from(customerService.getAllCustomers(PageRequest.of(page, size))));
     }
     
     @Override
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<CustomerDto> getCustomerByEmail(@PathVariable String email) {
         Optional<CustomerDto> customer = customerService.getCustomerByEmail(email);
         return ResponseUtils.getOrNotFound(customer, "Customer", "email", email);
@@ -48,6 +52,7 @@ public class CustomerController implements ICustomerController {
 
     
     @Override
+    @PreAuthorize("(#id == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<CustomerDto> updateCustomer(
             @PathVariable String id,
             @RequestBody CustomerDto dto) {
@@ -56,30 +61,32 @@ public class CustomerController implements ICustomerController {
     }
     
     @Override
+    @PreAuthorize("(#id == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Void> deleteCustomer(@PathVariable String id) {
         customerService.deleteCustomer(id);
         return ResponseEntity.noContent().build();
     }
     
     @Override
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Boolean> emailExists(@PathVariable String email) {
         return ResponseEntity.ok(customerService.emailExists(email));
     }
 
     @Override
-    @PreAuthorize("(#customerId == authentication.name) or hasRole('ADMIN')")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<CustomerAddressDto>> listAddresses(@PathVariable String customerId) {
         return ResponseEntity.ok(customerService.listAddresses(customerId));
     }
 
     @Override
-    @PreAuthorize("(#customerId == authentication.name) or hasRole('ADMIN')")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<CustomerAddressDto> createAddress(@PathVariable String customerId, @RequestBody CustomerAddressDto dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(customerService.createAddress(customerId, dto));
     }
 
     @Override
-    @PreAuthorize("(#customerId == authentication.name) or hasRole('ADMIN')")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<CustomerAddressDto> updateAddress(
             @PathVariable String customerId,
             @PathVariable String addressId,
@@ -89,13 +96,13 @@ public class CustomerController implements ICustomerController {
     }
 
     @Override
-    @PreAuthorize("(#customerId == authentication.name) or hasRole('ADMIN')")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<CustomerAddressDto> setDefaultAddress(@PathVariable String customerId, @PathVariable String addressId) {
         return ResponseEntity.ok(customerService.setDefaultAddress(customerId, addressId));
     }
 
     @Override
-    @PreAuthorize("(#customerId == authentication.name) or hasRole('ADMIN')")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Void> deleteAddress(@PathVariable String customerId, @PathVariable String addressId) {
         customerService.deleteAddress(customerId, addressId);
         return ResponseEntity.noContent().build();

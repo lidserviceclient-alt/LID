@@ -1,6 +1,7 @@
 package com.lifeevent.lid.payment.partner.entity;
 
 import com.lifeevent.lid.common.entity.BaseEntity;
+import com.lifeevent.lid.backoffice.lid.setting.entity.PartnerSettlementMode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -84,6 +85,13 @@ public class PartnerSettlement extends BaseEntity {
     @Column(name = "margin_percent", precision = 9, scale = 6, nullable = false)
     @Builder.Default
     private BigDecimal marginPercent = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "settlement_mode", length = 64)
+    private PartnerSettlementMode settlementMode;
+
+    @Column(name = "payout_withdraw_mode", length = 64)
+    private String payoutWithdrawMode;
 
     @Column(name = "margin_amount", precision = 19, scale = 2, nullable = false)
     @Builder.Default

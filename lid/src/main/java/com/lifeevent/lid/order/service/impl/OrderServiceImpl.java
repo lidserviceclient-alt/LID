@@ -35,6 +35,7 @@ import com.lifeevent.lid.order.repository.OrderArticleRepository;
 import com.lifeevent.lid.order.repository.OrderRepository;
 import com.lifeevent.lid.order.service.OrderNumberGenerator;
 import com.lifeevent.lid.order.service.OrderService;
+import com.lifeevent.lid.logistics.service.OrderShipmentPlanningService;
 import com.lifeevent.lid.payment.config.PaydunyaProperties;
 import com.lifeevent.lid.payment.dto.CreatePaymentRequestDto;
 import com.lifeevent.lid.payment.dto.PaymentItemDto;
@@ -100,6 +101,7 @@ public class OrderServiceImpl implements OrderService {
     private final PaymentService paymentService;
     private final PaydunyaProperties paydunyaProperties;
     private final ApplicationEventPublisher eventPublisher;
+    private final OrderShipmentPlanningService orderShipmentPlanningService;
 
     @Override
     public CheckoutResponseDto checkoutCart(String customerId, CheckoutCartRequestDto request) {
@@ -259,8 +261,21 @@ public class OrderServiceImpl implements OrderService {
             return false;
         }
 
-        return orderRepository.findById(orderId)
-                .map(order -> currentUserId.equals(order.getCustomer().getUserId()))
+        return orderRepository.findCustomerUserIdByOrderId(orderId)
+                .map(currentUserId::equals)
+                .orElse(false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isOwnedByCurrentUser(String orderNumber) {
+        String currentUserId = SecurityUtils.getCurrentUserId();
+        String cleaned = safeTrim(orderNumber);
+        if (currentUserId == null || cleaned.isEmpty()) {
+            return false;
+        }
+        return orderRepository.findCustomerUserIdByOrderNumber(cleaned)
+                .map(currentUserId::equals)
                 .orElse(false);
     }
 

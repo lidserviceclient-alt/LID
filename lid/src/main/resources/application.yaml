@@ -1,6 +1,6 @@
 spring:
   application:
-    name: lid
+    name: lid-api
   data:
     redis:
       repositories:
@@ -235,7 +235,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health, info, prometheus, metrics
   info:
     env:
       enabled: true
@@ -253,9 +253,11 @@ management:
     tags:
       application: ${spring.application.name}
 
+
+
 info:
   app:
-    name: "lid"
+    name: "lid-api"
     description : "LID Application"
     version : "1.0.0"
 

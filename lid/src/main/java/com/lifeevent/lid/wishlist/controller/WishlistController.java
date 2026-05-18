@@ -5,6 +5,7 @@ import com.lifeevent.lid.wishlist.service.WishlistService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,6 +19,7 @@ public class WishlistController implements IWishlistController {
     
     @Override
     @GetMapping
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<List<WishlistDto>> getWishlist(String customerId) {
         List<WishlistDto> wishlist = wishlistService.getWishlist(customerId);
         return ResponseEntity.ok(wishlist);
@@ -25,6 +27,7 @@ public class WishlistController implements IWishlistController {
     
     @Override
     @PostMapping("/{articleId:\\d+}")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<WishlistDto> addToWishlist(Long articleId, String customerId) {
         WishlistDto added = wishlistService.addToWishlist(customerId, articleId);
         return ResponseEntity.status(HttpStatus.CREATED).body(added);
@@ -32,6 +35,7 @@ public class WishlistController implements IWishlistController {
     
     @Override
     @DeleteMapping("/{articleId:\\d+}")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Void> removeFromWishlist(Long articleId, String customerId) {
         wishlistService.removeFromWishlist(customerId, articleId);
         return ResponseEntity.noContent().build();
@@ -39,6 +43,7 @@ public class WishlistController implements IWishlistController {
     
     @Override
     @GetMapping("/{articleId:\\d+}/exists")
+    @PreAuthorize("(#customerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Boolean> isInWishlist(Long articleId, String customerId) {
         boolean inWishlist = wishlistService.isInWishlist(customerId, articleId);
         return ResponseEntity.ok(inWishlist);

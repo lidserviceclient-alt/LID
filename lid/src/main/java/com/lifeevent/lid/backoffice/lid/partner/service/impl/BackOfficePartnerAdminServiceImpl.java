@@ -1,8 +1,14 @@
 package com.lifeevent.lid.backoffice.lid.partner.service.impl;
 
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerAdminDto;
+import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerPaymentSettingsDto;
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransactionDto;
+import com.lifeevent.lid.backoffice.lid.partner.entity.PartnerPaymentSettings;
+import com.lifeevent.lid.backoffice.lid.partner.repository.PartnerPaymentSettingsRepository;
 import com.lifeevent.lid.backoffice.lid.partner.service.BackOfficePartnerAdminService;
+import com.lifeevent.lid.backoffice.lid.setting.entity.BackOfficeAppConfigEntity;
+import com.lifeevent.lid.backoffice.lid.setting.entity.PartnerSettlementMode;
+import com.lifeevent.lid.backoffice.lid.setting.repository.BackOfficeAppConfigRepository;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
 import com.lifeevent.lid.backoffice.partner.mapper.BackOfficePartnerMapper;
 import com.lifeevent.lid.common.cache.CacheScopeVersionService;
@@ -35,6 +41,8 @@ public class BackOfficePartnerAdminServiceImpl implements BackOfficePartnerAdmin
     private final BackOfficePartnerMapper backOfficePartnerMapper;
     private final CacheScopeVersionService cacheScopeVersionService;
     private final PartnerSettlementService partnerSettlementService;
+    private final PartnerPaymentSettingsRepository partnerPaymentSettingsRepository;
+    private final BackOfficeAppConfigRepository appConfigRepository;
 
     @Override
     public PageResponse<BackOfficePartnerAdminDto> listPartners(int page, int size, String q, List<PartnerRegistrationStatus> statuses) {
@@ -72,6 +80,33 @@ public class BackOfficePartnerAdminServiceImpl implements BackOfficePartnerAdmin
     @Transactional
     public BackOfficePartnerSettingsDto rejectPartner(String partnerId, String comment) {
         return updateRegistrationStatus(partnerId, PartnerRegistrationStatus.REJECTED, normalizeComment(comment));
+    }
+
+    @Override
+    public BackOfficePartnerPaymentSettingsDto getPartnerPaymentSettings(String partnerId) {
+        Partner partner = requirePartner(partnerId);
+        BackOfficeAppConfigEntity config = appConfigRepository.findTopByOrderByIdAsc().orElse(null);
+        PartnerPaymentSettings settings = partnerPaymentSettingsRepository.findByPartnerId(partner.getUserId()).orElse(null);
+        return toPaymentSettingsDto(partner.getUserId(), settings, config);
+    }
+
+    @Override
+    @Transactional
+    public BackOfficePartnerPaymentSettingsDto updatePartnerPaymentSettings(
+            String partnerId,
+            BackOfficePartnerPaymentSettingsDto request
+    ) {
+        Partner partner = requirePartner(partnerId);
+        BackOfficeAppConfigEntity config = appConfigRepository.findTopByOrderByIdAsc().orElse(null);
+        PartnerPaymentSettings settings = partnerPaymentSettingsRepository.findByPartnerId(partner.getUserId())
+                .orElseGet(() -> PartnerPaymentSettings.builder().partnerId(partner.getUserId()).build());
+        settings.setSettlementMode(normalizeSettlementMode(request == null ? null : request.settlementMode(), config));
+        settings.setMarginPercent(normalizeMarginPercent(request == null ? null : request.marginPercent(), config));
+        String payoutWithdrawMode = normalizePayoutWithdrawMode(request == null ? null : request.payoutWithdrawMode());
+        settings.setPayoutWithdrawMode(payoutWithdrawMode);
+        settings.setPayoutEnabled(Boolean.TRUE.equals(request == null ? null : request.payoutEnabled()) && payoutWithdrawMode != null);
+        PartnerPaymentSettings saved = partnerPaymentSettingsRepository.save(settings);
+        return toPaymentSettingsDto(partner.getUserId(), saved, config);
     }
 
     @Override
@@ -169,6 +204,56 @@ public class BackOfficePartnerAdminServiceImpl implements BackOfficePartnerAdmin
         }
         String trimmed = comment.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private BackOfficePartnerPaymentSettingsDto toPaymentSettingsDto(
+            String partnerId,
+            PartnerPaymentSettings settings,
+            BackOfficeAppConfigEntity config
+    ) {
+        return new BackOfficePartnerPaymentSettingsDto(
+                partnerId,
+                normalizeSettlementMode(settings == null ? null : settings.getSettlementMode(), config),
+                normalizeMarginPercent(settings == null ? null : settings.getMarginPercent(), config),
+                normalizePayoutWithdrawMode(settings == null ? null : settings.getPayoutWithdrawMode(), config),
+                settings == null
+                        ? normalizePayoutWithdrawMode(config == null ? null : config.getPartnerPayoutWithdrawMode()) != null
+                        : Boolean.TRUE.equals(settings.getPayoutEnabled())
+                        && normalizePayoutWithdrawMode(settings.getPayoutWithdrawMode()) != null
+        );
+    }
+
+    private PartnerSettlementMode normalizeSettlementMode(PartnerSettlementMode raw, BackOfficeAppConfigEntity config) {
+        if (raw != null) {
+            return raw;
+        }
+        return config != null && config.getPartnerSettlementMode() != null
+                ? config.getPartnerSettlementMode()
+                : PartnerSettlementMode.DEDUCT_SHIPPING_AND_RETURN_COST;
+    }
+
+    private Double normalizeMarginPercent(Double raw, BackOfficeAppConfigEntity config) {
+        Double source = raw != null ? raw : config == null ? null : config.getPartnerMarginPercent();
+        if (source == null || !Double.isFinite(source) || source < 0d) {
+            return 0d;
+        }
+        return source;
+    }
+
+    private String normalizePayoutWithdrawMode(String raw, BackOfficeAppConfigEntity config) {
+        String normalized = normalizePayoutWithdrawMode(raw);
+        if (normalized != null) {
+            return normalized;
+        }
+        return normalizePayoutWithdrawMode(config == null ? null : config.getPartnerPayoutWithdrawMode());
+    }
+
+    private String normalizePayoutWithdrawMode(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String normalized = raw.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private int safePage(int page) {

@@ -26,7 +26,7 @@ import java.util.List;
 public interface ICustomerController {
     
     @PostMapping
-    @Operation(summary = "Créer un nouveau client", description = "Crée un nouveau profil client dans la plateforme (PUBLIC)")
+    @Operation(summary = "Créer un nouveau client", description = "Crée un nouveau profil client dans la plateforme (ADMIN only)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Client créé avec succès",
             content = @Content(schema = @Schema(implementation = CustomerDto.class))),
@@ -96,7 +96,7 @@ public interface ICustomerController {
             @Parameter(description = "ID du client", required = true) @PathVariable String id);
     
     @GetMapping("/check-email/{email}")
-    @Operation(summary = "Vérifier l'existence d'un email", description = "Vérifie si un email est déjà enregistré (PUBLIC)")
+    @Operation(summary = "Vérifier l'existence d'un email", description = "Vérifie si un email est déjà enregistré (ADMIN only)")
     @ApiResponse(responseCode = "200", description = "Résultat de la vérification")
     ResponseEntity<Boolean> emailExists(
             @Parameter(description = "Email à vérifier", required = true) @PathVariable String email);

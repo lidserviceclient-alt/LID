@@ -1,5 +1,6 @@
 package com.lifeevent.lid.backoffice.lid.partner.dto;
 
+import com.lifeevent.lid.backoffice.lid.setting.entity.PartnerSettlementMode;
 import com.lifeevent.lid.payment.partner.entity.PartnerSettlementStatus;
 
 import java.math.BigDecimal;
@@ -19,6 +20,8 @@ public record BackOfficePartnerTransactionDto(
         BigDecimal shippingAllocation,
         BigDecimal returnCostAllocation,
         BigDecimal marginPercent,
+        PartnerSettlementMode settlementMode,
+        String payoutWithdrawMode,
         BigDecimal marginAmount,
         BigDecimal netAmount,
         LocalDateTime transactionDate,

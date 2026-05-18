@@ -77,11 +77,15 @@ public class SecurityConfig {
         return http
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(HttpMethod.GET,
+                            "/actuator/health",
+                            "/actuator/health/**"
+                    ).permitAll();
+
                     auth.requestMatchers(
                             "/swagger-ui/**",
                             "/swagger-ui.html",
                             "/v3/api-docs/**",
-                            "/actuator/**",
                             "/uploads/**"
                     ).permitAll();
 
@@ -112,6 +116,8 @@ public class SecurityConfig {
                     auth.requestMatchers("/api/v1/backoffice/partners/me/**")
                             .hasAnyRole("PARTNER", "ADMIN", "SUPER_ADMIN");
                     auth.requestMatchers("/api/v1/backoffice/**")
+                            .hasAnyRole("ADMIN", "SUPER_ADMIN");
+                    auth.requestMatchers("/actuator/**")
                             .hasAnyRole("ADMIN", "SUPER_ADMIN");
 
                     auth.anyRequest().authenticated();

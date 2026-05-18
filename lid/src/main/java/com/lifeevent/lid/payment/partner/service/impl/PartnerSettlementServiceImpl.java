@@ -1,6 +1,8 @@
 package com.lifeevent.lid.payment.partner.service.impl;
 
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransactionDto;
+import com.lifeevent.lid.backoffice.lid.partner.entity.PartnerPaymentSettings;
+import com.lifeevent.lid.backoffice.lid.partner.repository.PartnerPaymentSettingsRepository;
 import com.lifeevent.lid.backoffice.lid.setting.entity.BackOfficeAppConfigEntity;
 import com.lifeevent.lid.backoffice.lid.setting.entity.PartnerSettlementMode;
 import com.lifeevent.lid.backoffice.lid.setting.repository.BackOfficeAppConfigRepository;
@@ -69,6 +71,7 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
     private final ReturnRequestRepository returnRequestRepository;
     private final PartnerRepository partnerRepository;
     private final BackOfficeAppConfigRepository appConfigRepository;
+    private final PartnerPaymentSettingsRepository partnerPaymentSettingsRepository;
     private final PaydunyaDisbursementService paydunyaDisbursementService;
 
     @Override
@@ -101,11 +104,8 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
         BigDecimal orderSubtotal = money(sumOrderSubtotal(order.getArticles()));
         BigDecimal orderAmount = money(order.getAmount());
         BigDecimal totalDiscount = orderSubtotal.add(shippingCost).subtract(orderAmount).max(ZERO);
-        BigDecimal partnerMarginPercent = percent(config == null ? null : config.getPartnerMarginPercent());
         BigDecimal returnShippingCost = money(config == null ? null : config.getReturnShippingCostAmount());
-        PartnerSettlementMode settlementMode = config == null || config.getPartnerSettlementMode() == null
-                ? DEFAULT_PARTNER_SETTLEMENT_MODE
-                : config.getPartnerSettlementMode();
+        Map<String, PartnerPaymentSettings> paymentSettingsByPartnerId = resolvePartnerPaymentSettings(partnerGrossById.keySet());
         String returnWindowUnit = normalizeWindowUnit(config == null ? null : config.getReturnWindowUnit());
         int returnWindowMax = normalizeWindowMax(config == null ? null : config.getReturnWindowMax());
         LocalDateTime transactionDate = payment.getPaymentDate() != null ? payment.getPaymentDate() : payment.getCreatedAt();
@@ -127,6 +127,11 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
 
         for (Map.Entry<String, BigDecimal> entry : partnerGrossById.entrySet()) {
             String partnerId = entry.getKey();
+            PartnerPaymentConfig paymentConfig = resolvePartnerPaymentConfig(
+                    partnerId,
+                    paymentSettingsByPartnerId.get(partnerId),
+                    config
+            );
             BigDecimal grossAmount = money(entry.getValue());
             BigDecimal discountAllocation = allocate(totalDiscount, grossAmount, orderSubtotal);
             BigDecimal discountedGross = grossAmount.subtract(discountAllocation).max(ZERO);
@@ -137,7 +142,7 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
                     : ZERO;
 
             boolean returnedPartner = returnedGross.compareTo(ZERO) > 0;
-            BigDecimal effectiveMarginPercent = returnedPartner ? ZERO : partnerMarginPercent;
+            BigDecimal effectiveMarginPercent = returnedPartner ? ZERO : paymentConfig.marginPercent();
             BigDecimal netBeforeMargin = discountedGross.subtract(shippingAllocation).max(ZERO);
             BigDecimal marginAmount = returnedPartner ? ZERO : money(netBeforeMargin.multiply(effectiveMarginPercent));
             BigDecimal netAmount = returnedPartner
@@ -168,9 +173,11 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
             settlement.setDiscountAllocation(discountAllocation);
             settlement.setShippingAllocation(shippingAllocation);
             settlement.setReturnCostAllocation(
-                    settlementMode == PartnerSettlementMode.DEDUCT_SHIPPING_AND_RETURN_COST ? returnCostAllocation : ZERO
+                    paymentConfig.settlementMode() == PartnerSettlementMode.DEDUCT_SHIPPING_AND_RETURN_COST ? returnCostAllocation : ZERO
             );
             settlement.setMarginPercent(effectiveMarginPercent);
+            settlement.setSettlementMode(paymentConfig.settlementMode());
+            settlement.setPayoutWithdrawMode(paymentConfig.payoutEnabled() ? paymentConfig.payoutWithdrawMode() : null);
             settlement.setMarginAmount(marginAmount);
             settlement.setNetAmount(netAmount);
             settlement.setTransactionDate(transactionDate != null ? transactionDate : order.getCreatedAt());
@@ -328,7 +335,6 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
         if (dueSettlements.isEmpty()) {
             return 0;
         }
-        BackOfficeAppConfigEntity config = appConfigRepository.findTopByOrderByIdAsc().orElse(null);
         int processed = 0;
         for (PartnerSettlement settlement : dueSettlements) {
             PartnerSettlementStatus normalizedStatus = normalizeStatus(settlement.getPayoutStatus());
@@ -346,7 +352,6 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
             executePartnerPayout(
                     settlement,
                     partner,
-                    config,
                     PartnerSettlementStatus.SCHEDULED_PAID,
                     PartnerSettlementStatus.SCHEDULED_FAILED,
                     "PARTNER-SCHEDULED-" + settlement.getOrderId() + "-" + settlement.getPartnerId()
@@ -355,6 +360,42 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
             processed += 1;
         }
         return processed;
+    }
+
+    private Map<String, PartnerPaymentSettings> resolvePartnerPaymentSettings(Collection<String> partnerIds) {
+        if (partnerIds == null || partnerIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, PartnerPaymentSettings> settingsByPartnerId = new HashMap<>();
+        partnerPaymentSettingsRepository.findByPartnerIdIn(partnerIds).forEach(settings -> {
+            String partnerId = trimToNull(settings == null ? null : settings.getPartnerId());
+            if (partnerId != null) {
+                settingsByPartnerId.put(partnerId, settings);
+            }
+        });
+        return settingsByPartnerId;
+    }
+
+    private PartnerPaymentConfig resolvePartnerPaymentConfig(
+            String partnerId,
+            PartnerPaymentSettings settings,
+            BackOfficeAppConfigEntity globalConfig
+    ) {
+        PartnerSettlementMode settlementMode = settings != null && settings.getSettlementMode() != null
+                ? settings.getSettlementMode()
+                : globalConfig == null || globalConfig.getPartnerSettlementMode() == null
+                        ? DEFAULT_PARTNER_SETTLEMENT_MODE
+                        : globalConfig.getPartnerSettlementMode();
+        BigDecimal marginPercent = percent(settings != null && settings.getMarginPercent() != null
+                ? settings.getMarginPercent()
+                : globalConfig == null ? null : globalConfig.getPartnerMarginPercent());
+        String payoutWithdrawMode = trimToNull(settings != null && settings.getPayoutWithdrawMode() != null
+                ? settings.getPayoutWithdrawMode()
+                : globalConfig == null ? null : globalConfig.getPartnerPayoutWithdrawMode());
+        boolean payoutEnabled = settings != null
+                ? Boolean.TRUE.equals(settings.getPayoutEnabled()) && payoutWithdrawMode != null
+                : payoutWithdrawMode != null;
+        return new PartnerPaymentConfig(partnerId, settlementMode, marginPercent, payoutWithdrawMode, payoutEnabled);
     }
 
     private Map<String, BigDecimal> aggregatePartnerGross(List<OrderArticle> lines) {
@@ -491,6 +532,8 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
                 money(view.getShippingAllocation()),
                 money(view.getReturnCostAllocation()),
                 percent(view.getMarginPercent()),
+                view.getSettlementMode(),
+                view.getPayoutWithdrawMode(),
                 money(view.getMarginAmount()),
                 money(view.getNetAmount()),
                 view.getTransactionDate(),
@@ -518,6 +561,8 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
                 money(settlement.getShippingAllocation()),
                 money(settlement.getReturnCostAllocation()),
                 percent(settlement.getMarginPercent()),
+                settlement.getSettlementMode(),
+                settlement.getPayoutWithdrawMode(),
                 money(settlement.getMarginAmount()),
                 money(settlement.getNetAmount()),
                 settlement.getTransactionDate(),
@@ -556,12 +601,10 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
         if (settlement == null || normalizedStatus == PartnerSettlementStatus.RETURN_ADJUSTED || isPaidStatus(normalizedStatus)) {
             return settlement;
         }
-        BackOfficeAppConfigEntity config = appConfigRepository.findTopByOrderByIdAsc().orElse(null);
         Partner partner = resolvePartners(List.of(settlement.getPartnerId())).get(settlement.getPartnerId());
         executePartnerPayout(
                 settlement,
                 partner,
-                config,
                 PartnerSettlementStatus.DIRECT_PAID,
                 PartnerSettlementStatus.DIRECT_FAILED,
                 "PARTNER-DIRECT-" + settlement.getOrderId() + "-" + settlement.getPartnerId()
@@ -572,7 +615,6 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
     private void executePartnerPayout(
             PartnerSettlement settlement,
             Partner partner,
-            BackOfficeAppConfigEntity config,
             PartnerSettlementStatus successStatus,
             PartnerSettlementStatus failedStatus,
             String fallbackReference
@@ -580,13 +622,13 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
         if (settlement == null) {
             return;
         }
-        if (partner == null || config==null) {
+        if (partner == null) {
             settlement.setPayoutStatus(failedStatus);
             settlement.setPaidOutAt(null);
             settlement.setPayoutReference(null);
             return;
         }
-        String withdrawMode = trimToNull(config.getPartnerPayoutWithdrawMode());
+        String withdrawMode = trimToNull(settlement.getPayoutWithdrawMode());
         if (withdrawMode == null) {
             settlement.setPayoutStatus(failedStatus);
             settlement.setPaidOutAt(null);
@@ -747,4 +789,12 @@ public class PartnerSettlementServiceImpl implements PartnerSettlementService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    private record PartnerPaymentConfig(
+            String partnerId,
+            PartnerSettlementMode settlementMode,
+            BigDecimal marginPercent,
+            String payoutWithdrawMode,
+            boolean payoutEnabled
+    ) {
+    }
 }

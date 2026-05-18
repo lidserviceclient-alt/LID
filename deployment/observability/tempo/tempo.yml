@@ -1,0 +1,42 @@
+server:
+  http_listen_port: 3100
+
+# Réception des traces (depuis Spring Boot via OTLP)
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: 0.0.0.0:4318
+
+# Stockage local (filesystem) — simple pour un usage local/dev
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/traces
+    wal:
+      path: /var/tempo/wal
+
+# Durée de rétention des traces (72h par défaut)
+compactor:
+  compaction:
+    block_retention: 72h
+
+# Permet à Grafana d'interroger Tempo
+querier:
+  frontend_worker:
+    frontend_address: localhost:9095
+
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+  storage:
+    path: /var/tempo/generator/wal
+
+# Active la génération de métriques RED depuis les traces (optionnel mais utile)
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics]

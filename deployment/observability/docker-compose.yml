@@ -1,0 +1,74 @@
+services:
+  # 📊 OBSERVABILITY: Prometheus — scrape les métriques Actuator
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: prometheus
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=web
+      - traefik.http.routers.prometheus.rule=Host(`${DOMAIN}`) && PathPrefix(`/prometheus`)
+      - traefik.http.routers.prometheus.entrypoints=websecure
+      - traefik.http.routers.prometheus.tls.certresolver=letsencrypt
+      - traefik.http.services.prometheus.loadbalancer.server.port=9090
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - observability
+      - web
+    restart: unless-stopped
+
+  # 🔍 OBSERVABILITY: Tempo — stockage des traces (OTLP)
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: tempo
+    command: -config.file /etc/tempo-config.yml
+    volumes:
+      - ./tempo/tempo.yml:/etc/tempo-config.yml
+      - tempo-data:/var/tempo
+    networks:
+      - observability
+    restart: unless-stopped
+
+  # 📈 OBSERVABILITY: Grafana — dashboards
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: grafana
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=web
+      - traefik.http.routers.grafana.rule=Host(`${DOMAIN}`) && PathPrefix(`/grafana`)
+      - traefik.http.routers.grafana.entrypoints=websecure
+      - traefik.http.routers.grafana.tls.certresolver=letsencrypt
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_PATHS_PROVISIONING=/etc/grafana
+    volumes:
+      - ./grafana:/etc/grafana
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - tempo
+    networks:
+      - observability
+      - web
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+networks:
+  observability:
+    name: observability
+    driver: bridge
+  web:
+    external: true
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  tempo-data:

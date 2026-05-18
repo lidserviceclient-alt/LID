@@ -33,6 +33,11 @@ on:
         required: false
         default: false
         type: boolean
+      observability:
+        description: "déployer avec observability"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -166,7 +171,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ env.TARGET_VPS == 'prod' && secrets.VPS_PROD_SSH_KEY || secrets.VPS_DEV_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || '22' }}
-          source: "deployment/docker-compose.yml,deployment/.env,deployment/ddl.sql,deployment/scripts/**"
+          source: "deployment/Makefile,deployment/docker-compose.yml,deployment/docker-compose.observability.yml,deployment/.env,deployment/ddl.sql,deployment/scripts/**,deployment/observability/**"
           target: "~/apps/lid"
           strip_components: 1
           overwrite: true
@@ -184,11 +189,12 @@ jobs:
             find ./scripts -type f -name "*.sh" -exec chmod +x {} +
             mkdir -p ./storage
 
+            OBSERVABILITY="${{ inputs.observability || 'false' }}"
             WIPE_VOLUMES="${{ inputs.wipe_volumes || 'false' }}"
             if [ "${WIPE_VOLUMES}" = "true" ]; then
-              docker compose down -v --remove-orphans
+              make down-volumes
             else
-              docker compose down --remove-orphans
+              make down
             fi
 
             WIPE_SHARED_STORAGE="${{ inputs.wipe_shared_storage || 'false' }}"
@@ -198,9 +204,12 @@ jobs:
 
             echo "Deploying image: ${{ steps.release.outputs.deploy_image }}"
             docker image rm "${{ steps.release.outputs.deploy_image }}" || true
-            docker compose pull lid-api
             REPLICAS="${LID_API_REPLICAS:-2}"
-            docker compose up -d --pull always --force-recreate --scale "lid-api=${REPLICAS}" lid-api
+            if [ "${OBSERVABILITY}" = "true" ]; then
+              make up-observability REPLICAS="${REPLICAS}"
+            else
+              make up REPLICAS="${REPLICAS}"
+            fi
 
             FLUSH_CACHE="${{ inputs.flush_cache || 'false' }}"
             if [ "${FLUSH_CACHE}" = "true" ]; then
@@ -219,7 +228,11 @@ jobs:
               docker inspect "${cid}" --format 'Container {{.Name}} -> image id: {{.Image}}'
             done
 
-            docker compose ps
+            if [ "${OBSERVABILITY}" = "true" ]; then
+              make ps-observability
+            else
+              make ps
+            fi
 
       - name: Cleanup workflow runs older than 1 day
         if: always()

@@ -114,6 +114,9 @@ public class MediaAssetServiceImpl implements MediaAssetService {
     @Override
     public void delete(String objectKey) {
         String normalizedKey = StoragePathUtils.normalizeObjectKey(objectKey);
+        MediaAssetEntity entity = mediaAssetRepository.findByObjectKey(normalizedKey)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Media introuvable"));
+        assertCanDelete(entity);
         fileStorageService.delete(normalizedKey);
         mediaAssetRepository.deleteByObjectKey(normalizedKey);
     }
@@ -168,6 +171,20 @@ public class MediaAssetServiceImpl implements MediaAssetService {
         MediaOwnerScope scope = requestedScope == null ? MediaOwnerScope.LID : requestedScope;
         String ownerUserId = scope == MediaOwnerScope.LID ? LID_OWNER_ID : trimToNull(requestedOwnerUserId);
         return new MediaSearchFilter(scope, ownerUserId);
+    }
+
+    private void assertCanDelete(MediaAssetEntity entity) {
+        if (SecurityUtils.hasAnyRole("ADMIN", "SUPER_ADMIN")) {
+            return;
+        }
+        String currentUserId = trimToNull(SecurityUtils.getCurrentUserId());
+        if (entity.getOwnerScope() == MediaOwnerScope.PARTNER
+                && SecurityUtils.hasAnyRole("PARTNER")
+                && currentUserId != null
+                && currentUserId.equals(entity.getOwnerUserId())) {
+            return;
+        }
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Suppression du média non autorisée");
     }
 
     private void deletePreviousObjectIfReplaced(FileStorageService fileStorageService, String previousObjectKey, String nextObjectKey) {

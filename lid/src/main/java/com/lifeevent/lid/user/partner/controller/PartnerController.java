@@ -8,6 +8,7 @@ import com.lifeevent.lid.user.partner.service.PartnerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
@@ -66,12 +67,14 @@ public class PartnerController implements IPartnerController {
     }
 
     @Override
+    @PreAuthorize("(#partnerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<PartnerResponseDto> getPartner(@PathVariable String partnerId) {
         Optional<PartnerResponseDto> partner = partnerService.getPartnerById(partnerId);
         return ResponseUtils.getOrNotFound(partner, "Partner", partnerId);
     }
     
     @Override
+    @PreAuthorize("(#partnerId == authentication.name) or hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<PartnerResponseDto> updatePartner(
             @PathVariable String partnerId,
             @RequestBody PartnerResponseDto dto) {
@@ -80,6 +83,7 @@ public class PartnerController implements IPartnerController {
     }
     
     @Override
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Void> deletePartner(@PathVariable String partnerId) {
         partnerService.deletePartner(partnerId);
         return ResponseEntity.noContent().build();

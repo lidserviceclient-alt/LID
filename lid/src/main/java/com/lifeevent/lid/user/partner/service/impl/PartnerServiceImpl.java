@@ -228,7 +228,9 @@ public class PartnerServiceImpl implements PartnerService {
     @Override
     public void deletePartner(String partnerId) {
         log.info("PARTNER DELETE - partnerId={}", partnerId);
-        //ensureCanManagePartner(partnerId);
+        if (!SecurityUtils.isAdmin()) {
+            throw new ResponseStatusException(FORBIDDEN);
+        }
         partnerRepository.delete(requirePartner(partnerId));
     }
 

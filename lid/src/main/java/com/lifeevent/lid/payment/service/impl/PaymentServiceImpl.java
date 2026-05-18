@@ -10,6 +10,7 @@ import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotif
 import com.lifeevent.lid.backoffice.lid.notification.enumeration.BackOfficeNotificationType;
 import com.lifeevent.lid.backoffice.lid.notification.service.BackOfficeNotificationService;
 import com.lifeevent.lid.common.exception.ResourceNotFoundException;
+import com.lifeevent.lid.common.security.SecurityUtils;
 import com.lifeevent.lid.order.dto.OrderDetailDto;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.enumeration.Status;
@@ -29,6 +30,7 @@ import com.lifeevent.lid.payment.repository.PaymentTransactionRepository;
 import com.lifeevent.lid.payment.service.PaymentService;
 import com.lifeevent.lid.payment.service.PaydunyaSecurityService;
 import com.lifeevent.lid.realtime.service.RealtimeEventPublisher;
+import com.lifeevent.lid.user.common.repository.UserEntityRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -66,6 +68,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final BackOfficeNotificationService backOfficeNotificationService;
     private final PartnerSettlementService partnerSettlementService;
     private final ObjectProvider<OrderService> orderServiceProvider;
+    private final UserEntityRepository userEntityRepository;
     
     @Override
     public PaymentResponseDto createPayment(CreatePaymentRequestDto request) {
@@ -89,6 +92,22 @@ public class PaymentServiceImpl implements PaymentService {
         PaymentResponseDto dto = paymentMapper.toDto(savedPayment);
         dto.setPaymentUrl(safeText(invoice.getInvoiceUrl(), null));
         return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean canCreatePaymentForCurrentUser(CreatePaymentRequestDto request) {
+        if (request == null) {
+            return false;
+        }
+        if (request.getOrderId() != null && isOrderPaymentOwnedByCurrentUser(request.getOrderId())) {
+            return true;
+        }
+        if (!safeText(request.getOrderNumber(), "").isBlank()
+                && isOrderNumberPaymentOwnedByCurrentUser(request.getOrderNumber())) {
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -277,6 +296,79 @@ public class PaymentServiceImpl implements PaymentService {
             "Paiement annulé par l'utilisateur", "API");
         
         log.info("Paiement annulé: {}", paymentId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isPaymentOwnedByCurrentUser(Long paymentId) {
+        if (paymentId == null) {
+            return false;
+        }
+        return paymentRepository.findById(paymentId)
+                .map(this::isPaymentOwnedByCurrentUser)
+                .orElse(false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isOrderPaymentOwnedByCurrentUser(Long orderId) {
+        String currentUserId = currentUserId();
+        if (currentUserId == null || orderId == null) {
+            return false;
+        }
+        return orderRepository.findCustomerUserIdByOrderId(orderId)
+                .map(currentUserId::equals)
+                .orElse(false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isOrderNumberPaymentOwnedByCurrentUser(String orderNumber) {
+        String currentUserId = currentUserId();
+        String cleaned = safeText(orderNumber, "");
+        if (currentUserId == null || cleaned.isBlank()) {
+            return false;
+        }
+        return orderRepository.findCustomerUserIdByOrderNumber(cleaned)
+                .map(currentUserId::equals)
+                .orElse(false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isCustomerEmailOwnedByCurrentUser(String customerEmail) {
+        String currentUserId = currentUserId();
+        String cleanedEmail = normalizeEmail(customerEmail);
+        if (currentUserId == null || cleanedEmail.isBlank()) {
+            return false;
+        }
+        return userEntityRepository.findById(currentUserId)
+                .map(user -> cleanedEmail.equals(normalizeEmail(user.getEmail())))
+                .orElse(false);
+    }
+
+    private boolean isPaymentOwnedByCurrentUser(Payment payment) {
+        if (payment == null) {
+            return false;
+        }
+        Long orderId = payment.getOrderId();
+        if (orderId != null && isOrderPaymentOwnedByCurrentUser(orderId)) {
+            return true;
+        }
+        String orderNumber = payment.getOrderNumber();
+        if (orderNumber != null && isOrderNumberPaymentOwnedByCurrentUser(orderNumber)) {
+            return true;
+        }
+        return isCustomerEmailOwnedByCurrentUser(payment.getCustomerEmail());
+    }
+
+    private String currentUserId() {
+        String userId = SecurityUtils.getCurrentUserId();
+        return userId == null || userId.isBlank() || "anonymousUser".equalsIgnoreCase(userId) ? null : userId;
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
     
     @Override

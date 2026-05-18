@@ -60,6 +60,20 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     """)
     Optional<String> findCustomerUserIdByOrderId(@Param("orderId") Long orderId);
 
+    @Query("""
+        SELECT o.customer.userId
+        FROM Order o
+        WHERE o.orderNumber = :orderNumber
+    """)
+    Optional<String> findCustomerUserIdByOrderNumber(@Param("orderNumber") String orderNumber);
+
+    @Query("""
+        SELECT o.customer.userId
+        FROM Order o
+        WHERE o.trackingNumber = :trackingNumber
+    """)
+    Optional<String> findCustomerUserIdByTrackingNumber(@Param("trackingNumber") String trackingNumber);
+
     Optional<Order> findByOrderNumber(String orderNumber);
 
     boolean existsByOrderNumber(String orderNumber);

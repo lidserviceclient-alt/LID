@@ -2,6 +2,7 @@ package com.lifeevent.lid.backoffice.lid.partner.controller;
 
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerAdminDto;
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerDecisionRequest;
+import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerPaymentSettingsDto;
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransactionScheduleRequest;
 import com.lifeevent.lid.backoffice.lid.partner.dto.BackOfficePartnerTransactionDto;
 import com.lifeevent.lid.backoffice.partner.dto.BackOfficePartnerSettingsDto;
@@ -34,6 +35,15 @@ public interface IBackOfficePartnerAdminController {
     ResponseEntity<BackOfficePartnerSettingsDto> rejectPartner(
             @PathVariable String partnerId,
             @RequestBody(required = false) BackOfficePartnerDecisionRequest request
+    );
+
+    @GetMapping("/{partnerId}/payment-settings")
+    ResponseEntity<BackOfficePartnerPaymentSettingsDto> getPartnerPaymentSettings(@PathVariable String partnerId);
+
+    @PutMapping("/{partnerId}/payment-settings")
+    ResponseEntity<BackOfficePartnerPaymentSettingsDto> updatePartnerPaymentSettings(
+            @PathVariable String partnerId,
+            @RequestBody BackOfficePartnerPaymentSettingsDto request
     );
 
     @GetMapping("/{partnerId}/transactions")

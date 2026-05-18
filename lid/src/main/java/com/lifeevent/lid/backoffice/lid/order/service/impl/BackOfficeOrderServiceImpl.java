@@ -13,9 +13,12 @@ import com.lifeevent.lid.discount.entity.Discount;
 import com.lifeevent.lid.discount.enumeration.DiscountType;
 import com.lifeevent.lid.discount.repository.DiscountRepository;
 import com.lifeevent.lid.logistics.entity.Shipment;
+import com.lifeevent.lid.logistics.enumeration.ShipmentHistorySource;
 import com.lifeevent.lid.logistics.enumeration.ShipmentStatus;
 import com.lifeevent.lid.logistics.repository.ShipmentRepository;
 import com.lifeevent.lid.logistics.service.ShipmentHandoffCodeGenerator;
+import com.lifeevent.lid.logistics.service.OrderShipmentPlanningService;
+import com.lifeevent.lid.logistics.service.ShipmentStatusTransitionService;
 import com.lifeevent.lid.order.entity.Order;
 import com.lifeevent.lid.order.entity.OrderArticle;
 import com.lifeevent.lid.order.entity.StatusHistory;
@@ -60,6 +63,8 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
     private final BackOfficeShippingMethodRepository shippingMethodRepository;
     private final OrderNumberGenerator orderNumberGenerator;
     private final ShipmentHandoffCodeGenerator handoffCodeGenerator;
+    private final OrderShipmentPlanningService orderShipmentPlanningService;
+    private final ShipmentStatusTransitionService shipmentStatusTransitionService;
     private final ApplicationEventPublisher eventPublisher;
     private final RealtimeEventPublisher realtimeEventPublisher;
 
@@ -224,28 +229,54 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
             return;
         }
 
-        String orderReference = resolveOrderNumber(order);
-        Shipment shipment = findOrCreateShipment(orderReference);
-
         switch (status) {
-            case EXPEDIEE -> applyExpedieeShipmentState(shipment, order);
-            case LIVREE -> applyLivreeShipmentState(shipment);
-            case ANNULEE -> applyAnnuleeShipmentState(shipment);
+            case EXPEDIEE -> {
+                List<Shipment> shipments = orderShipmentPlanningService.prepareShipments(order, false);
+                for (Shipment shipment : shipments) {
+                    ShipmentStatus targetStatus = resolveExpedieeShipmentStatus(shipment);
+                    applyExpedieeShipmentState(shipment, order);
+                    ensureHandoffCode(shipment);
+                    Shipment saved = shipmentStatusTransitionService.transition(
+                            shipment,
+                            targetStatus,
+                            "Livraison préparée depuis le statut commande",
+                            ShipmentHistorySource.BACKOFFICE
+                    );
+                    publishShipmentRealtime(saved, "order_status_sync");
+                }
+            }
+            case LIVREE -> {
+                List<Shipment> shipments = orderShipmentPlanningService.planShipments(order);
+                for (Shipment shipment : shipments) {
+                    applyLivreeShipmentState(shipment);
+                    ensureHandoffCode(shipment);
+                    Shipment saved = shipmentStatusTransitionService.transition(
+                            shipment,
+                            ShipmentStatus.LIVREE,
+                            "Livraison marquée livrée depuis le statut commande",
+                            ShipmentHistorySource.BACKOFFICE
+                    );
+                    publishShipmentRealtime(saved, "order_status_sync");
+                }
+            }
+            case ANNULEE -> {
+                List<Shipment> shipments = orderShipmentPlanningService.planShipments(order);
+                for (Shipment shipment : shipments) {
+                    applyAnnuleeShipmentState(shipment);
+                    ensureHandoffCode(shipment);
+                    Shipment saved = shipmentStatusTransitionService.transition(
+                            shipment,
+                            ShipmentStatus.ECHEC,
+                            "Livraison annulée depuis le statut commande",
+                            ShipmentHistorySource.BACKOFFICE
+                    );
+                    publishShipmentRealtime(saved, "order_status_sync");
+                }
+            }
             default -> {
                 // No shipment side effect for CREEE/PAYEE/REMBOURSEE.
             }
         }
-
-        if (shipment.getStatus() != null) {
-            ensureHandoffCode(shipment);
-            Shipment saved = shipmentRepository.save(shipment);
-            publishShipmentRealtime(saved, "order_status_sync");
-        }
-    }
-
-    private Shipment findOrCreateShipment(String orderId) {
-        return shipmentRepository.findByOrderId(orderId)
-                .orElseGet(() -> Shipment.builder().orderId(orderId).build());
     }
 
     private void ensureHandoffCode(Shipment shipment) {
@@ -256,10 +287,6 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
 
     private void applyExpedieeShipmentState(Shipment shipment, Order order) {
         String orderId = resolveOrderNumber(order);
-        // Keep default handoff step for delivery app: "A recuperer" first.
-        if (shipment.getStatus() == null || shipment.getStatus() == ShipmentStatus.ECHEC) {
-            shipment.setStatus(ShipmentStatus.EN_PREPARATION);
-        }
         if (isBlank(shipment.getTrackingId())) {
             shipment.setTrackingId("TRK-" + orderId);
         }
@@ -270,15 +297,20 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
         shipment.setDeliveredAt(null);
     }
 
+    private ShipmentStatus resolveExpedieeShipmentStatus(Shipment shipment) {
+        if (shipment == null || shipment.getStatus() == null || shipment.getStatus() == ShipmentStatus.ECHEC) {
+            return ShipmentStatus.EN_PREPARATION;
+        }
+        return shipment.getStatus();
+    }
+
     private void applyLivreeShipmentState(Shipment shipment) {
-        shipment.setStatus(ShipmentStatus.LIVREE);
         if (shipment.getDeliveredAt() == null) {
             shipment.setDeliveredAt(LocalDateTime.now());
         }
     }
 
     private void applyAnnuleeShipmentState(Shipment shipment) {
-        shipment.setStatus(ShipmentStatus.ECHEC);
         shipment.setDeliveredAt(null);
     }
 
@@ -402,6 +434,8 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
         }
 
         int itemsCount = itemsByOrderId.getOrDefault(order.getId(), 0);
+        List<Shipment> shipments = shipmentRepository.findAllByOrderId(resolveOrderNumber(order));
+        Shipment firstShipment = shipments.isEmpty() ? null : shipments.get(0);
 
         return BackOfficeOrderSummaryDto.builder()
                 .id(order.getId())
@@ -410,8 +444,33 @@ public class BackOfficeOrderServiceImpl implements BackOfficeOrderService {
                 .items(itemsCount)
                 .total(order.getAmount())
                 .status(mapToBackOfficeStatus(order.getCurrentStatus()))
+                .shipmentStatus(aggregateShipmentStatus(shipments))
+                .courierReference(firstShipment == null ? null : firstShipment.getCourierReference())
+                .courierName(firstShipment == null ? null : firstShipment.getCourierName())
+                .courierPhone(firstShipment == null ? null : firstShipment.getCourierPhone())
+                .courierUser(firstShipment == null ? null : firstShipment.getCourierUser())
+                .courierScannedAt(firstShipment == null ? null : firstShipment.getScannedAt())
                 .dateCreation(order.getCreatedAt())
                 .build();
+    }
+
+    private ShipmentStatus aggregateShipmentStatus(List<Shipment> shipments) {
+        if (shipments == null || shipments.isEmpty()) {
+            return null;
+        }
+        if (shipments.stream().anyMatch(s -> s.getStatus() == ShipmentStatus.ECHEC)) {
+            return ShipmentStatus.ECHEC;
+        }
+        if (shipments.stream().allMatch(s -> s.getStatus() == ShipmentStatus.LIVREE)) {
+            return ShipmentStatus.LIVREE;
+        }
+        if (shipments.stream().anyMatch(s -> s.getStatus() == ShipmentStatus.EN_COURS)) {
+            return ShipmentStatus.EN_COURS;
+        }
+        if (shipments.stream().anyMatch(s -> s.getStatus() == ShipmentStatus.EN_PREPARATION)) {
+            return ShipmentStatus.EN_PREPARATION;
+        }
+        return null;
     }
 
     private Optional<Order> resolveOrder(String reference) {
