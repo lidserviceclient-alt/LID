@@ -2500,60 +2500,17 @@ export default function Settings() {
               />
             </div>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">Mode de remboursement client</div>
-              <Select
-                value={shopForm.customerRefundMode}
-                onChange={(e) => setShopForm((s) => ({ ...s, customerRefundMode: e.target.value }))}
-                options={[
-                  { value: "FULL_WITH_SHIPPING", label: "Remboursement total (commande + livraison)" },
-                  { value: "ORDER_ONLY", label: "Remboursement de la commande uniquement" }
-                ]}
-                disabled={shopLoading || shopSaving}
-              />
-            </div>
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">Mode de règlement partenaire</div>
-              <Select
-                value={shopForm.partnerSettlementMode}
-                onChange={(e) => setShopForm((s) => ({ ...s, partnerSettlementMode: e.target.value }))}
-                options={[
-                  { value: "DEDUCT_SHIPPING_AND_RETURN_COST", label: "Partenaire : commande - livraison - coût retour" }
-                ]}
-                disabled={shopLoading || shopSaving}
-              />
-            </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">Marge partenaire (%)</div>
-              <Input
-                placeholder="Pourcentage"
-                type="number"
-                min="0"
-                step="0.01"
-                value={shopForm.partnerMarginPercent}
-                onChange={(e) => setShopForm((s) => ({ ...s, partnerMarginPercent: e.target.value }))}
-                disabled={shopLoading || shopSaving}
-              />
-            </div>
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">Mode de reversement partenaire</div>
-              <Select
-                value={shopForm.partnerPayoutWithdrawMode}
-                onChange={(e) => setShopForm((s) => ({ ...s, partnerPayoutWithdrawMode: e.target.value }))}
-                options={[
-                  { value: "", label: "Reversement partenaire désactivé" },
-                  { value: "orange-money-ci", label: "Orange Money Côte d'Ivoire" },
-                  { value: "mtn-ci", label: "MTN Côte d'Ivoire" },
-                  { value: "wave-ci", label: "Wave Côte d'Ivoire" },
-                  { value: "orange-money-senegal", label: "Orange Money Sénégal" },
-                  { value: "wave-senegal", label: "Wave Sénégal" }
-                ]}
-                disabled={shopLoading || shopSaving}
-              />
-            </div>
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground">Mode de remboursement client</div>
+            <Select
+              value={shopForm.customerRefundMode}
+              onChange={(e) => setShopForm((s) => ({ ...s, customerRefundMode: e.target.value }))}
+              options={[
+                { value: "FULL_WITH_SHIPPING", label: "Remboursement total (commande + livraison)" },
+                { value: "ORDER_ONLY", label: "Remboursement de la commande uniquement" }
+              ]}
+              disabled={shopLoading || shopSaving}
+            />
           </div>
           <div className="space-y-1">
             <div className="text-xs font-medium text-muted-foreground">Texte affiché au client</div>

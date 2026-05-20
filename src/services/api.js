@@ -705,6 +705,12 @@ export const backofficeApi = {
     return request(`/api/v1/backoffice/partners?${params.toString()}`);
   },
   partner: (id) => request(`/api/v1/backoffice/partners/${encodeURIComponent(id)}`),
+  partnerPaymentSettings: (id) => request(`/api/v1/backoffice/partners/${encodeURIComponent(id)}/payment-settings`),
+  updatePartnerPaymentSettings: (id, payload) =>
+    request(`/api/v1/backoffice/partners/${encodeURIComponent(id)}/payment-settings`, {
+      method: "PUT",
+      body: JSON.stringify(payload || {})
+    }),
   approvePartner: (id) =>
     request(`/api/v1/backoffice/partners/${encodeURIComponent(id)}/approve`, {
       method: "POST"
