@@ -525,11 +525,11 @@ export default function Orders() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-8 px-2 text-xs rounded-none"
+                        className="h-8 min-w-[150px] px-3 text-xs rounded-none"
                         onClick={() => changeOrderStatus(order.orderNumber || order.id, "EXPEDIEE")}
                         disabled={order.rawStatus === "EXPEDIEE" || order.rawStatus === "LIVREE"}
                       >
-                        Expédier
+                        Envoyer pour livraison
                       </Button>
                       <Button
                         size="sm"
@@ -875,7 +875,7 @@ export default function Orders() {
                 </div>
               </div>
               <div className="p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
-                La commande est créée avec statut “Nouvelle”. Les livraisons deviennent automatiques quand tu cliques “Expédier” / “Livrer”.
+                La commande est créée avec statut “Nouvelle”. Les livraisons sont créées quand tu cliques “Envoyer pour livraison”.
               </div>
             </Card>
           </div>

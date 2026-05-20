@@ -28,6 +28,16 @@ const formatCurrency = (value) => {
   return `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(num))} FCFA`;
 };
 
+const DEFAULT_TICKET_MARKUP_PERCENT = 2;
+
+const calculateTicketPrice = (basePrice, markupPercent) => {
+  const base = Number(basePrice);
+  if (!Number.isFinite(base)) return null;
+  const markup = Number(markupPercent);
+  const safeMarkup = Number.isFinite(markup) && markup >= 0 ? markup : DEFAULT_TICKET_MARKUP_PERCENT;
+  return Math.round(Math.max(0, base) * (1 + safeMarkup / 100));
+};
+
 const toDateTimeLocalValue = (value) => {
   const s = `${value || ""}`.trim();
   if (!s) return "";
@@ -70,6 +80,7 @@ export default function TicketEvents() {
     date: "",
     location: "",
     price: "",
+    priceMarkupPercent: `${DEFAULT_TICKET_MARKUP_PERCENT}`,
     quantityAvailable: "0",
     imageUrl: "",
     category: "",
@@ -114,6 +125,7 @@ export default function TicketEvents() {
       date: "",
       location: "",
       price: "",
+      priceMarkupPercent: `${DEFAULT_TICKET_MARKUP_PERCENT}`,
       quantityAvailable: "0",
       imageUrl: "",
       category: "",
@@ -130,7 +142,8 @@ export default function TicketEvents() {
       title: row?.title || "",
       date: row?.date || "",
       location: row?.location || "",
-      price: row?.price === null || row?.price === undefined ? "" : `${row.price}`,
+      price: row?.basePrice === null || row?.basePrice === undefined ? (row?.price === null || row?.price === undefined ? "" : `${row.price}`) : `${row.basePrice}`,
+      priceMarkupPercent: row?.priceMarkupPercent === null || row?.priceMarkupPercent === undefined ? `${DEFAULT_TICKET_MARKUP_PERCENT}` : `${row.priceMarkupPercent}`,
       quantityAvailable: row?.quantityAvailable === null || row?.quantityAvailable === undefined ? "0" : `${row.quantityAvailable}`,
       imageUrl: row?.imageUrl || "",
       category: row?.category || "",
@@ -156,6 +169,11 @@ export default function TicketEvents() {
       setFormError("Prix invalide.");
       return;
     }
+    const priceMarkupPercent = form.priceMarkupPercent === "" ? DEFAULT_TICKET_MARKUP_PERCENT : Number(form.priceMarkupPercent);
+    if (!Number.isFinite(priceMarkupPercent) || priceMarkupPercent < 0) {
+      setFormError("Pourcentage invalide.");
+      return;
+    }
     const quantityAvailable = Number(form.quantityAvailable);
     if (!Number.isFinite(quantityAvailable) || quantityAvailable < 0 || !Number.isInteger(quantityAvailable)) {
       setFormError("Stock initial invalide.");
@@ -165,7 +183,9 @@ export default function TicketEvents() {
       title,
       date: normalizeDateTime(form.date),
       location: form.location.trim(),
-      price,
+      basePrice: price,
+      price: calculateTicketPrice(price, priceMarkupPercent),
+      priceMarkupPercent,
       imageUrl: form.imageUrl.trim(),
       category: form.category.trim(),
       available: Boolean(form.available),
@@ -417,8 +437,13 @@ export default function TicketEvents() {
             <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
           </div>
           <div className="space-y-2">
-            <Label>Prix</Label>
-            <Input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+            <Label>Prix de base</Label>
+            <Input type="number" min="0" step="1" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Pourcentage ajouté</Label>
+            <Input type="number" min="0" step="0.01" value={form.priceMarkupPercent} onChange={(e) => setForm({ ...form, priceMarkupPercent: e.target.value })} />
+            <p className="text-xs text-muted-foreground">Prix final : {formatCurrency(calculateTicketPrice(form.price, form.priceMarkupPercent))}</p>
           </div>
           <div className="space-y-2">
             <Label>Stock initial</Label>

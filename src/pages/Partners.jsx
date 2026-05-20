@@ -22,6 +22,19 @@ const STATUS_OPTIONS = [
   { value: "STEP_4_PENDING", label: "Étape 4" }
 ];
 
+const PARTNER_SETTLEMENT_OPTIONS = [
+  { value: "DEDUCT_SHIPPING_AND_RETURN_COST", label: "Commande - livraison - coût retour" }
+];
+
+const PARTNER_PAYOUT_WITHDRAW_OPTIONS = [
+  { value: "", label: "Reversement désactivé" },
+  { value: "orange-money-ci", label: "Orange Money Côte d'Ivoire" },
+  { value: "mtn-ci", label: "MTN Côte d'Ivoire" },
+  { value: "wave-ci", label: "Wave Côte d'Ivoire" },
+  { value: "orange-money-senegal", label: "Orange Money Sénégal" },
+  { value: "wave-senegal", label: "Wave Sénégal" }
+];
+
 const formatDate = (value) => {
   if (!value) return "-";
   const dt = new Date(value);
@@ -35,12 +48,21 @@ const formatMoney = (value) => {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XOF", maximumFractionDigits: 0 }).format(amount);
 };
 
-const computePartnerPayoutAmount = (orderAmount, shippingAllocation) => {
-  const grossOrder = Number(orderAmount);
-  const shipping = Number(shippingAllocation);
-  if (!Number.isFinite(grossOrder)) return null;
-  if (!Number.isFinite(shipping)) return grossOrder;
-  return Math.max(0, grossOrder - shipping);
+const computePartnerPayoutAmount = (row) => {
+  const netAmount = Number(row?.netAmount);
+  if (Number.isFinite(netAmount)) return netAmount;
+  const grossAmount = Number(row?.grossAmount);
+  const shipping = Number(row?.shippingAllocation);
+  const returnCost = Number(row?.returnCostAllocation);
+  const margin = Number(row?.marginAmount);
+  if (!Number.isFinite(grossAmount)) return null;
+  return Math.max(
+    0,
+    grossAmount
+      - (Number.isFinite(shipping) ? shipping : 0)
+      - (Number.isFinite(returnCost) ? returnCost : 0)
+      - (Number.isFinite(margin) ? margin : 0)
+  );
 };
 
 const csvValue = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
@@ -130,6 +152,17 @@ export default function Partners() {
   const [paymentModalTransaction, setPaymentModalTransaction] = useState(null);
   const [paymentModalScheduledAt, setPaymentModalScheduledAt] = useState("");
   const [paymentActionLoading, setPaymentActionLoading] = useState(false);
+  const [paymentSettings, setPaymentSettings] = useState(null);
+  const [paymentSettingsForm, setPaymentSettingsForm] = useState({
+    settlementMode: "DEDUCT_SHIPPING_AND_RETURN_COST",
+    marginPercent: "0",
+    payoutWithdrawMode: "",
+    payoutEnabled: false
+  });
+  const [paymentSettingsLoading, setPaymentSettingsLoading] = useState(false);
+  const [paymentSettingsSaving, setPaymentSettingsSaving] = useState(false);
+  const [paymentSettingsError, setPaymentSettingsError] = useState("");
+  const [paymentSettingsSuccess, setPaymentSettingsSuccess] = useState("");
   const [decisionLoading, setDecisionLoading] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
@@ -183,6 +216,32 @@ export default function Partners() {
     }
   };
 
+  const applyPaymentSettings = (settings) => {
+    setPaymentSettings(settings || null);
+    setPaymentSettingsForm({
+      settlementMode: settings?.settlementMode || "DEDUCT_SHIPPING_AND_RETURN_COST",
+      marginPercent: Number.isFinite(Number(settings?.marginPercent)) ? String(settings.marginPercent) : "0",
+      payoutWithdrawMode: settings?.payoutWithdrawMode || "",
+      payoutEnabled: Boolean(settings?.payoutEnabled)
+    });
+  };
+
+  const loadPaymentSettings = async (id) => {
+    if (!id) return;
+    setPaymentSettingsLoading(true);
+    setPaymentSettingsError("");
+    setPaymentSettingsSuccess("");
+    try {
+      const res = await backofficeApi.partnerPaymentSettings(id);
+      applyPaymentSettings(res);
+    } catch (err) {
+      setPaymentSettingsError(err?.message || "Impossible de charger les paramètres de paiement partenaire.");
+      applyPaymentSettings(null);
+    } finally {
+      setPaymentSettingsLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadPartners(0).catch(() => {});
   }, [size, status]);
@@ -205,7 +264,7 @@ export default function Partners() {
         formatMoney(row.shippingAllocation),
         formatMoney(row.returnCostAllocation),
         formatMoney(row.marginAmount),
-        formatMoney(computePartnerPayoutAmount(row.orderAmount, row.shippingAllocation)),
+        formatMoney(computePartnerPayoutAmount(row)),
         payoutUi(row.payoutStatus).label
       ])
     ];
@@ -235,7 +294,37 @@ export default function Partners() {
     setTransactionData(null);
     setTransactionError("");
     setTransactionPage(0);
-    await loadTransactions(partnerId, 0, transactionFilters);
+    await Promise.all([
+      loadPaymentSettings(partnerId),
+      loadTransactions(partnerId, 0, transactionFilters)
+    ]);
+  };
+
+  const savePaymentSettings = async () => {
+    if (!paymentPartnerId || paymentSettingsSaving) return;
+    setPaymentSettingsSaving(true);
+    setPaymentSettingsError("");
+    setPaymentSettingsSuccess("");
+    try {
+      const marginPercent = Number(`${paymentSettingsForm.marginPercent || ""}`.trim().replace(",", "."));
+      if (!Number.isFinite(marginPercent) || marginPercent < 0) {
+        throw new Error("Marge partenaire invalide.");
+      }
+      const payload = {
+        settlementMode: paymentSettingsForm.settlementMode || "DEDUCT_SHIPPING_AND_RETURN_COST",
+        marginPercent,
+        payoutWithdrawMode: paymentSettingsForm.payoutWithdrawMode || null,
+        payoutEnabled: Boolean(paymentSettingsForm.payoutEnabled)
+      };
+      const res = await backofficeApi.updatePartnerPaymentSettings(paymentPartnerId, payload);
+      applyPaymentSettings(res);
+      setPaymentSettingsSuccess("Paramètres de paiement sauvegardés.");
+      await loadTransactions(paymentPartnerId, transactionPage, transactionFilters);
+    } catch (err) {
+      setPaymentSettingsError(err?.message || "Impossible de sauvegarder les paramètres de paiement partenaire.");
+    } finally {
+      setPaymentSettingsSaving(false);
+    }
   };
 
   const openPaymentModal = (row) => {
@@ -509,28 +598,99 @@ export default function Partners() {
         />
 
         {selectedPartnerSummary ? (
-          <div className="grid gap-3 md:grid-cols-4">
-            <div className="rounded-lg border border-border bg-muted/20 p-3">
-              <div className="text-xs text-muted-foreground">Partenaire</div>
-              <div className="font-semibold text-foreground">
-                {`${selectedPartnerSummary.firstName || ""} ${selectedPartnerSummary.lastName || ""}`.trim() || "-"}
+          <>
+            <div className="grid gap-3 md:grid-cols-4">
+              <div className="rounded-lg border border-border bg-muted/20 p-3">
+                <div className="text-xs text-muted-foreground">Partenaire</div>
+                <div className="font-semibold text-foreground">
+                  {`${selectedPartnerSummary.firstName || ""} ${selectedPartnerSummary.lastName || ""}`.trim() || "-"}
+                </div>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/20 p-3">
+                <div className="text-xs text-muted-foreground">Boutique</div>
+                <div className="font-semibold text-foreground">{selectedPartnerSummary.shopName || "-"}</div>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/20 p-3">
+                <div className="text-xs text-muted-foreground">Email</div>
+                <div className="font-semibold text-foreground">{selectedPartnerSummary.email || "-"}</div>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/20 p-3">
+                <div className="text-xs text-muted-foreground">Statut</div>
+                <div className="mt-1">
+                  <Badge {...statusUi(selectedPartnerSummary.registrationStatus)} />
+                </div>
               </div>
             </div>
-            <div className="rounded-lg border border-border bg-muted/20 p-3">
-              <div className="text-xs text-muted-foreground">Boutique</div>
-              <div className="font-semibold text-foreground">{selectedPartnerSummary.shopName || "-"}</div>
-            </div>
-            <div className="rounded-lg border border-border bg-muted/20 p-3">
-              <div className="text-xs text-muted-foreground">Email</div>
-              <div className="font-semibold text-foreground">{selectedPartnerSummary.email || "-"}</div>
-            </div>
-            <div className="rounded-lg border border-border bg-muted/20 p-3">
-              <div className="text-xs text-muted-foreground">Statut</div>
-              <div className="mt-1">
-                <Badge {...statusUi(selectedPartnerSummary.registrationStatus)} />
+
+            <div className="rounded-xl border border-border bg-muted/10 p-4">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-foreground">Paramètres de paiement partenaire</div>
+                  <p className="text-xs text-muted-foreground">
+                    Ces règles s’appliquent aux prochaines lignes de paiement générées pour ce partenaire.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={savePaymentSettings}
+                  disabled={paymentSettingsLoading || paymentSettingsSaving}
+                >
+                  {paymentSettingsSaving ? "Sauvegarde..." : "Sauvegarder"}
+                </Button>
               </div>
+              {paymentSettingsError ? <div className="mb-3 text-sm text-destructive">{paymentSettingsError}</div> : null}
+              {paymentSettingsSuccess ? <div className="mb-3 text-sm text-emerald-700">{paymentSettingsSuccess}</div> : null}
+              <div className="grid gap-3 md:grid-cols-4">
+                <div className="space-y-1">
+                  <Label>Règlement partenaire</Label>
+                  <Select
+                    value={paymentSettingsForm.settlementMode}
+                    onChange={(e) => setPaymentSettingsForm((s) => ({ ...s, settlementMode: e.target.value }))}
+                    options={PARTNER_SETTLEMENT_OPTIONS}
+                    disabled={paymentSettingsLoading || paymentSettingsSaving}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Marge partenaire (%)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={paymentSettingsForm.marginPercent}
+                    onChange={(e) => setPaymentSettingsForm((s) => ({ ...s, marginPercent: e.target.value }))}
+                    disabled={paymentSettingsLoading || paymentSettingsSaving}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Reversement</Label>
+                  <Select
+                    value={paymentSettingsForm.payoutWithdrawMode}
+                    onChange={(e) => setPaymentSettingsForm((s) => ({ ...s, payoutWithdrawMode: e.target.value }))}
+                    options={PARTNER_PAYOUT_WITHDRAW_OPTIONS}
+                    disabled={paymentSettingsLoading || paymentSettingsSaving}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Statut paiement</Label>
+                  <Select
+                    value={paymentSettingsForm.payoutEnabled ? "true" : "false"}
+                    onChange={(e) => setPaymentSettingsForm((s) => ({ ...s, payoutEnabled: e.target.value === "true" }))}
+                    options={[
+                      { value: "true", label: "Paiement activé" },
+                      { value: "false", label: "Paiement désactivé" }
+                    ]}
+                    disabled={paymentSettingsLoading || paymentSettingsSaving}
+                  />
+                </div>
+              </div>
+              {paymentSettings ? (
+                <div className="mt-3 text-xs text-muted-foreground">
+                  Configuration active pour {paymentSettings.partnerId || paymentPartnerId}.
+                </div>
+              ) : null}
             </div>
-          </div>
+          </>
         ) : null}
 
         {transactionError ? <div className="text-sm text-destructive">{transactionError}</div> : null}
@@ -594,7 +754,7 @@ export default function Partners() {
             ) : (
               transactionRows.map((row) => {
                 const payout = payoutUi(row.payoutStatus);
-                const payoutAmount = computePartnerPayoutAmount(row.orderAmount, row.shippingAllocation);
+                const payoutAmount = computePartnerPayoutAmount(row);
                 return (
                 <TRow key={`ledger-${row.id}`}>
                   <TCell>{row.orderNumber || (row.orderId ? `ORD-${row.orderId}` : "-")}</TCell>
@@ -719,7 +879,7 @@ export default function Partners() {
               <div className="rounded-xl border border-border bg-muted/20 p-3">
                 <div className="text-xs text-muted-foreground">À verser</div>
                 <div className="font-semibold text-foreground">
-                  {formatMoney(computePartnerPayoutAmount(paymentModalTransaction.orderAmount, paymentModalTransaction.shippingAllocation))}
+                  {formatMoney(computePartnerPayoutAmount(paymentModalTransaction))}
                 </div>
               </div>
               <div className="rounded-xl border border-border bg-muted/20 p-3">

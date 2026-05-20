@@ -238,6 +238,7 @@ export default function Logistics() {
       handoffCode: s.handoffCode || "",
       trackingId: s.trackingId || "-",
       orderId: s.orderId || "-",
+      shipper: s.shipperLabel || (s.shipperType === "PARTNER" ? `Partenaire ${s.shipperId || ""}`.trim() : "LID"),
       customerName: s.customerName || "-",
       customerAddress: s.customerAddress || "-",
       carrier: s.carrier || "-",
@@ -247,7 +248,7 @@ export default function Logistics() {
       customerFacingComment: s.customerFacingComment || "",
       eta: formatEta(s.eta),
       cost: formatMoney(s.cost),
-      qr: s?.handoffCode && s.status !== "LIVREE" ? s.handoffCode : null
+      qr: s.status !== "LIVREE" ? (s?.handoffCode || (s?.id ? `SHIP:${s.id}` : null)) : null
     }));
   }, [shipmentsPage]);
 
@@ -528,9 +529,10 @@ export default function Logistics() {
         <Table>
           <THead>
             <TRow>
-              <TCell>Tracking ID</TCell>
-              <TCell>Commande</TCell>
-              <TCell>Client</TCell>
+	              <TCell>Tracking ID</TCell>
+	              <TCell>Commande</TCell>
+	              <TCell>Expéditeur</TCell>
+	              <TCell>Client</TCell>
               <TCell>Adresse livraison</TCell>
               <TCell>Transporteur</TCell>
               <TCell>Statut</TCell>
@@ -543,12 +545,14 @@ export default function Logistics() {
             {loading ? (
               <TRow>
                 <TCell className="text-muted-foreground text-sm">Chargement…</TCell>
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
+	                <TCell />
+	                <TCell />
+	                <TCell />
+	                <TCell />
+	                <TCell />
+	                <TCell />
+	                <TCell />
+	                <TCell />
                 <TCell />
                 <TCell />
               </TRow>
@@ -567,9 +571,10 @@ export default function Logistics() {
             ) : (
               rows.map((item) => (
                 <TRow key={item.id}>
-                  <TCell className="font-mono text-xs font-semibold">{item.trackingId}</TCell>
-                  <TCell className="font-semibold text-foreground">{item.orderId}</TCell>
-                  <TCell>{item.customerName}</TCell>
+	                  <TCell className="font-mono text-xs font-semibold">{item.trackingId}</TCell>
+	                  <TCell className="font-semibold text-foreground">{item.orderId}</TCell>
+	                  <TCell>{item.shipper}</TCell>
+	                  <TCell>{item.customerName}</TCell>
                   <TCell className="max-w-[320px] whitespace-normal break-words">{item.customerAddress}</TCell>
                   <TCell>{item.carrier}</TCell>
                   <TCell>
@@ -654,9 +659,10 @@ export default function Logistics() {
         <Table>
           <THead>
             <TRow>
-              <TCell>Tracking ID</TCell>
-              <TCell>Commande</TCell>
-              <TCell>Transporteur</TCell>
+	              <TCell>Tracking ID</TCell>
+	              <TCell>Commande</TCell>
+	              <TCell>Expéditeur</TCell>
+	              <TCell>Transporteur</TCell>
               <TCell>ETA</TCell>
               <TCell>Coût</TCell>
             </TRow>
@@ -665,17 +671,19 @@ export default function Logistics() {
             {deliveredLoading ? (
               <TRow>
                 <TCell className="text-muted-foreground text-sm">Chargement…</TCell>
-                <TCell />
-                <TCell />
-                <TCell />
+	                <TCell />
+	                <TCell />
+	                <TCell />
+	                <TCell />
                 <TCell />
               </TRow>
             ) : deliveredError ? (
               <TRow>
                 <TCell className="text-red-600 text-sm">{deliveredError}</TCell>
-                <TCell />
-                <TCell />
-                <TCell />
+	                <TCell />
+	                <TCell />
+	                <TCell />
+	                <TCell />
                 <TCell />
               </TRow>
             ) : delivered.length === 0 ? (
@@ -689,9 +697,10 @@ export default function Logistics() {
             ) : (
               delivered.map((s) => (
                 <TRow key={s.id}>
-                  <TCell className="font-mono text-xs font-semibold">{s.trackingId || "-"}</TCell>
-                  <TCell className="font-semibold text-foreground">{s.orderId || "-"}</TCell>
-                  <TCell>{s.carrier || "-"}</TCell>
+	                  <TCell className="font-mono text-xs font-semibold">{s.trackingId || "-"}</TCell>
+	                  <TCell className="font-semibold text-foreground">{s.orderId || "-"}</TCell>
+	                  <TCell>{s.shipperLabel || (s.shipperType === "PARTNER" ? `Partenaire ${s.shipperId || ""}`.trim() : "LID")}</TCell>
+	                  <TCell>{s.carrier || "-"}</TCell>
                   <TCell>{formatEta(s.eta)}</TCell>
                   <TCell>{formatMoney(s.cost)}</TCell>
                 </TRow>
