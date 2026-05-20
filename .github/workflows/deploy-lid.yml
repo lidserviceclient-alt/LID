@@ -191,10 +191,17 @@ jobs:
 
             OBSERVABILITY="${{ inputs.observability || 'false' }}"
             WIPE_VOLUMES="${{ inputs.wipe_volumes || 'false' }}"
-            if [ "${WIPE_VOLUMES}" = "true" ]; then
-              make down-volumes
+            if [ "${OBSERVABILITY}" = "true" ]; then
+              if [ "${WIPE_VOLUMES}" = "true" ]; then
+                ./scripts/deployment/compose-control.sh down-volumes
+              else
+                ./scripts/deployment/compose-control.sh down
+              fi
             else
-              make down
+              ./scripts/deployment/compose-control.sh down-observability
+              if [ "${WIPE_VOLUMES}" = "true" ]; then
+                ./scripts/deployment/compose-control.sh down-volumes
+              fi
             fi
 
             WIPE_SHARED_STORAGE="${{ inputs.wipe_shared_storage || 'false' }}"
@@ -206,9 +213,9 @@ jobs:
             docker image rm "${{ steps.release.outputs.deploy_image }}" || true
             REPLICAS="${LID_API_REPLICAS:-2}"
             if [ "${OBSERVABILITY}" = "true" ]; then
-              make up-observability REPLICAS="${REPLICAS}"
+              REPLICAS="${REPLICAS}" ./scripts/deployment/compose-control.sh up-observability
             else
-              make up REPLICAS="${REPLICAS}"
+              REPLICAS="${REPLICAS}" ./scripts/deployment/compose-control.sh up
             fi
 
             FLUSH_CACHE="${{ inputs.flush_cache || 'false' }}"
@@ -229,9 +236,9 @@ jobs:
             done
 
             if [ "${OBSERVABILITY}" = "true" ]; then
-              make ps-observability
+              ./scripts/deployment/compose-control.sh ps-observability
             else
-              make ps
+              ./scripts/deployment/compose-control.sh ps
             fi
 
       - name: Cleanup workflow runs older than 1 day
