@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import Loader from '@/components/Loader';
 import { getCachedUserProfile, getCurrentUserPayload, isAuthenticated, refreshSession } from '@/services/authService';
+import { useAuthPayload } from '@/hooks/useAuthPayload';
 
 /**
  * Composant de protection de route.
@@ -26,10 +27,11 @@ const ProtectedRoute = ({
   unverifiedPartnerRedirectTo = '/seller-join'
 }) => {
   const location = useLocation();
+  const tokenPayload = useAuthPayload();
   const authQuery = useQuery({
-    queryKey: ['protected-route-auth', (requiredRoles || []).join(','), requireVerifiedPartner],
+    queryKey: ['protected-route-auth', tokenPayload?.sub || null, tokenPayload?.exp || null, (requiredRoles || []).join(','), requireVerifiedPartner],
     queryFn: async () => {
-      const allowed = isAuthenticated() ? true : await refreshSession();
+      const allowed = tokenPayload?.sub && isAuthenticated() ? true : await refreshSession();
       if (!allowed) {
         return {
           allowed: false,

@@ -1,15 +1,23 @@
 const ACCESS_TOKEN_KEY = 'lid_access_token';
+export const AUTH_TOKEN_CHANGED_EVENT = 'lid:auth-token-changed';
 
 export const getAccessToken = () => localStorage.getItem(ACCESS_TOKEN_KEY);
+
+const notifyAccessTokenChanged = (token) => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(AUTH_TOKEN_CHANGED_EVENT, { detail: { token: token || null } }));
+};
 
 export const setAccessToken = (token) => {
   if (token) {
     localStorage.setItem(ACCESS_TOKEN_KEY, token);
+    notifyAccessTokenChanged(token);
   }
 };
 
 export const clearAccessToken = () => {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
+  notifyAccessTokenChanged(null);
 };
 
 const decodeBase64Url = (value) => {

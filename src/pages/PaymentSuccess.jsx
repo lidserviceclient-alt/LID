@@ -107,17 +107,17 @@ export default function PaymentSuccess() {
       const token = (params.get('token') || params.get('invoice_token') || params.get('invoiceToken') || '').trim();
       if (typeof window !== 'undefined' && token) {
         const consumedKey = `lid_payment_checkout_consumed_${token}`;
-        const alreadyConsumed = window.sessionStorage.getItem(consumedKey) === '1';
+        const alreadyConsumed = window.localStorage.getItem(consumedKey) === '1';
         if (!alreadyConsumed) {
           const checkoutItemsKey = `lid_payment_checkout_items_${token}`;
-          const rawItems = window.sessionStorage.getItem(checkoutItemsKey);
+          const rawItems = window.localStorage.getItem(checkoutItemsKey);
           if (rawItems) {
             try {
               const parsedItems = JSON.parse(rawItems);
               consumePurchasedItemsRef.current(parsedItems);
             } finally {
-              window.sessionStorage.setItem(consumedKey, '1');
-              window.sessionStorage.removeItem(checkoutItemsKey);
+              window.localStorage.setItem(consumedKey, '1');
+              window.localStorage.removeItem(checkoutItemsKey);
             }
           }
         }

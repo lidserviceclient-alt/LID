@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getCurrentUserPayload } from "@/services/authService";
+import { AUTH_TOKEN_CHANGED_EVENT } from "@/services/auth";
 import { clearCustomerCart, getCustomerCart, syncCustomerCart } from "@/services/cartService";
 import { CUSTOMER_SESSION_CLEARED_EVENT } from "@/services/sessionCleanup";
 
@@ -152,7 +153,7 @@ const mergeItems = (baseItems, incomingItems) => {
     if (!existing) {
       merged.set(key, item);
     } else {
-      merged.set(key, { ...existing, quantity: existing.quantity + item.quantity });
+      merged.set(key, { ...existing, ...item, quantity: Math.max(existing.quantity, item.quantity) });
     }
   }
   return Array.from(merged.values());
@@ -206,9 +207,11 @@ export function CartProvider({ children }) {
       refreshCustomerId();
     };
     const onFocus = () => refreshCustomerId();
+    window.addEventListener(AUTH_TOKEN_CHANGED_EVENT, refreshCustomerId);
     window.addEventListener("storage", onStorage);
     window.addEventListener("focus", onFocus);
     return () => {
+      window.removeEventListener(AUTH_TOKEN_CHANGED_EVENT, refreshCustomerId);
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("focus", onFocus);
     };
