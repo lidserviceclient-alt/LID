@@ -147,6 +147,11 @@ jobs:
           ensure_env_var "LOCAL_STORAGE_BASE_PATH" "/opt/lid/storage"
           ensure_env_var "LOCAL_STORAGE_PUBLIC_BASE_URL" "/api/v1/cdn"
           ensure_env_var "LOCAL_STORAGE_CDN_BASE_URL" ""
+          ensure_env_var "GRAFANA_PATH_PREFIX" "/grafana"
+          ensure_env_var "GRAFANA_AUTH_ANONYMOUS_ENABLED" "true"
+          ensure_env_var "GRAFANA_AUTH_ANONYMOUS_ORG_ROLE" "Admin"
+          ensure_env_var "GRAFANA_SERVE_FROM_SUB_PATH" "true"
+          ensure_env_var "PROMETHEUS_PATH_PREFIX" "/prometheus"
           echo "LID_API_IMAGE=${{ steps.release.outputs.deploy_image }}" >> deployment/.env
           echo "Configured deployment image: ${{ steps.release.outputs.deploy_image }}"
           echo "Configured deployment domain: ${DOMAIN}"

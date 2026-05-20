@@ -3,11 +3,12 @@ set -eu
 
 REPLICAS="${REPLICAS:-2}"
 COMPOSE="${COMPOSE:-docker compose}"
+ENV_FILE="${ENV_FILE:-.env}"
 
 compose() {
   # COMPOSE intentionally supports values like "docker compose".
   # shellcheck disable=SC2086
-  $COMPOSE "$@"
+  $COMPOSE --env-file "${ENV_FILE}" "$@"
 }
 
 app_compose() {
@@ -20,6 +21,15 @@ app_observability_compose() {
 
 observability_compose() {
   compose -f observability/docker-compose.yml "$@"
+}
+
+require_env_value() {
+  key="$1"
+  value="$(grep -E "^${key}=" "${ENV_FILE}" 2>/dev/null | tail -n 1 | cut -d '=' -f 2- || true)"
+  if [ -z "${value}" ]; then
+    echo "Missing ${key} in ${ENV_FILE}" >&2
+    exit 1
+  fi
 }
 
 usage() {
@@ -51,10 +61,12 @@ case "${1:-}" in
     app_observability_compose pull lid-api
     ;;
   up)
+    require_env_value DOMAIN
     app_compose pull lid-api
     app_compose up -d --pull always --force-recreate --scale "lid-api=${REPLICAS}" lid-api
     ;;
   up-observability)
+    require_env_value DOMAIN
     observability_compose up -d --pull always
     app_observability_compose up -d --pull always --force-recreate --scale "lid-api=${REPLICAS}" lid-api
     ;;
