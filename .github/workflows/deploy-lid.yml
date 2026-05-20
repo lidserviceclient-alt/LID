@@ -144,6 +144,7 @@ jobs:
             echo "Missing DOMAIN in LID_BUSINESS_ENV_FILE_${TARGET_VPS^^}"
             exit 1
           fi
+          ensure_env_var "COMPOSE_PROJECT_NAME" "lid"
           ensure_env_var "LOCAL_STORAGE_BASE_PATH" "/opt/lid/storage"
           ensure_env_var "LOCAL_STORAGE_PUBLIC_BASE_URL" "/api/v1/cdn"
           ensure_env_var "LOCAL_STORAGE_CDN_BASE_URL" ""

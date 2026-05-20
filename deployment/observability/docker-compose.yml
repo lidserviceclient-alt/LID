@@ -3,12 +3,21 @@ services:
   prometheus:
     image: prom/prometheus:v3.1.0
     container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+      - --web.external-url=https://${DOMAIN}${PROMETHEUS_PATH_PREFIX:-/prometheus}
+      - --web.route-prefix=/
     labels:
       - traefik.enable=true
       - traefik.docker.network=web
       - traefik.http.routers.prometheus.rule=Host(`${DOMAIN}`) && PathPrefix(`${PROMETHEUS_PATH_PREFIX:-/prometheus}`)
       - traefik.http.routers.prometheus.entrypoints=websecure
       - traefik.http.routers.prometheus.tls.certresolver=letsencrypt
+      - traefik.http.routers.prometheus.middlewares=prometheus-stripprefix
+      - traefik.http.middlewares.prometheus-stripprefix.stripprefix.prefixes=${PROMETHEUS_PATH_PREFIX:-/prometheus}
       - traefik.http.services.prometheus.loadbalancer.server.port=9090
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml

@@ -302,11 +302,9 @@ services:
       SERVER_FORWARD_HEADERS_STRATEGY: framework
 
     networks:
-      lid:
-      observability:
-        aliases:
-          - lid-api
-      web:
+      - lid
+      - observability
+      - web
 
     labels:
       - traefik.enable=true
