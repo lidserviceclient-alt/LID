@@ -15,11 +15,11 @@ import MobileMenu from '../MobileMenu.jsx';
 import Offer from '../offer.jsx';
 import { useCart } from '@/features/cart/CartContext.jsx';
 import NavMobile from '../NavMobile.jsx'
-import { getCurrentUserPayload } from '@/services/authService.js';
 import { useAppConfig } from '@/features/appConfig/useAppConfig.js'
 import { useFlashSaleProduct } from '@/features/flashSale/useFlashSaleProduct.js'
 import { useLatestCatalogProducts } from '@/features/catalog/useLatestCatalogProducts.js'
 import { useCustomerSession } from '@/features/customerSession/CustomerSessionContext.jsx';
+import { useAuthPayload } from '@/hooks/useAuthPayload.js';
 
 const DEFAULT_AVATAR = 'https://www.transparentpng.com/download/user/gray-user-profile-icon-png-fP8Q1P.png';
 
@@ -51,7 +51,7 @@ export default function Header() {
   const { data: latestProducts } = useLatestCatalogProducts(30)
   const hasFlashSale = Boolean(flashSaleProduct)
   const location = useLocation();
-  const tokenPayload = useMemo(() => getCurrentUserPayload(), []);
+  const tokenPayload = useAuthPayload();
   const customerSession = useCustomerSession();
   const userProfile = customerSession?.customer || null;
 

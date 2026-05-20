@@ -9,6 +9,7 @@ import { checkout } from '@/services/orderService.js';
 import { getCustomerAddresses, getMyCustomerCheckoutCollection } from '@/services/customerService.js';
 import { resolveBackendAssetUrl } from '@/services/categoryService';
 import { useAppConfig } from '@/features/appConfig/useAppConfig';
+import { useCart } from '@/features/cart/CartContext';
 import InternationalPhoneField from '@/components/InternationalPhoneField';
 import { isValidInternationalPhone, isValidMobileMoneyPhone } from '@/utils/phone';
 
@@ -248,6 +249,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [mobilePhoneTouched, setMobilePhoneTouched] = useState(false);
   const { data: appConfig } = useAppConfig();
+  const { clearCart } = useCart();
   const supportPhone = `${appConfig?.contactPhone || ''}`.trim();
   const vatRate = normalizeVatRate(appConfig?.vatPercent);
  
@@ -283,7 +285,9 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
       itemType,
       articleId: Number.isFinite(articleId) && articleId > 0 ? Math.trunc(articleId) : undefined,
       referenceProduitPartenaire: referenceProduitPartenaire || undefined,
-      quantity: quantityValue
+      quantity: quantityValue,
+      color: item?.color || null,
+      size: item?.size || null
     };
   };
 
@@ -468,6 +472,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     setStep(3);
     setLoadingStep(1);
     try {
+      const checkoutItems = (isCartCheckout ? cartItems.map((i) => toCheckoutItem(i, i?.quantity)) : [toCheckoutItem({ ...product, quantity: normalizedQuantity }, normalizedQuantity)]).filter(Boolean);
       const res = await checkout(payload.sub, {
         amount: finalTotal,
         currency: 'XOF',
@@ -479,11 +484,16 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
         shippingMethodCode,
         shippingMethodLabel,
         shippingCost: normalizedShippingCost,
-        items: (isCartCheckout ? cartItems.map((i) => toCheckoutItem(i, i?.quantity)) : [toCheckoutItem({ ...product, quantity: normalizedQuantity }, normalizedQuantity)]).filter(Boolean),
+        items: checkoutItems,
         paymentProvider: import.meta.env.VITE_PAYMENT_PROVIDER || 'PAYDUNYA'
       });
       if (res?.orderNumber) {
         setOrderNumber(res.orderNumber);
+      }
+      if (isCartCheckout && res?.invoiceToken && typeof window !== 'undefined') {
+        window.localStorage.setItem(`lid_payment_checkout_items_${res.invoiceToken}`, JSON.stringify(checkoutItems));
+        window.localStorage.removeItem('cart');
+        clearCart();
       }
       setLoadingStep(3);
       if (res?.paymentUrl) window.location.href = res.paymentUrl;
