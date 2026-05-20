@@ -188,6 +188,7 @@ jobs:
             cd ~/apps/lid
             find ./scripts -type f -name "*.sh" -exec chmod +x {} +
             mkdir -p ./storage
+            mkdir -p ./observability/grafana/dashboard-definitions
 
             OBSERVABILITY="${{ inputs.observability || 'false' }}"
             WIPE_VOLUMES="${{ inputs.wipe_volumes || 'false' }}"
