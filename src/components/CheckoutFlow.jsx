@@ -232,7 +232,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     address: '',
     city: '',
     zip: '',
-    paymentMethod: 'card', // 'card' | 'mobile'
+    paymentMethod: 'card', // 'card' | 'mobile' | 'wave'
     cardNumber: '',
     cardExpiry: '',
     cardCvc: '',
@@ -427,10 +427,10 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
 
   const setPaymentMethod = (method) => {
     setFormData((prev) => {
-      if (method === 'mobile') {
+      if (method === 'mobile' || method === 'wave') {
         return {
           ...prev,
-          paymentMethod: 'mobile',
+          paymentMethod: method,
           mobilePhone: prev.phone || prev.mobilePhone
         };
       }
@@ -455,13 +455,13 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     e.preventDefault();
     const payload = getCurrentUserPayload();
     if (!payload?.sub) return toast.error("Veuillez vous connecter");
-    const checkoutPhone = formData.paymentMethod === 'mobile' ? formData.mobilePhone : formData.phone;
-    if (formData.paymentMethod === 'mobile') {
+    const checkoutPhone = formData.paymentMethod !== 'card' ? formData.mobilePhone : formData.phone;
+    if (formData.paymentMethod !== 'card') {
       setMobilePhoneTouched(true);
     } else {
       setPhoneTouched(true);
     }
-    const paymentPhoneIsValid = formData.paymentMethod === 'mobile'
+    const paymentPhoneIsValid = formData.paymentMethod !== 'card'
       ? isValidMobileMoneyPhone(checkoutPhone)
       : isValidInternationalPhone(checkoutPhone);
     if (!paymentPhoneIsValid) {
@@ -485,7 +485,8 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
         shippingMethodLabel,
         shippingCost: normalizedShippingCost,
         items: checkoutItems,
-        paymentProvider: import.meta.env.VITE_PAYMENT_PROVIDER || 'PAYDUNYA'
+        paymentProvider: import.meta.env.VITE_PAYMENT_PROVIDER || 'PAYDUNYA',
+        paymentOperator: formData.paymentMethod === 'wave' ? 'WAVE_CI' : formData.paymentMethod === 'mobile' ? 'MOBILE_MONEY_CI' : 'CARD_CI'
       });
       if (res?.orderNumber) {
         setOrderNumber(res.orderNumber);
@@ -731,10 +732,11 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                     <motion.form key="s2" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} onSubmit={handlePayment} className="space-y-6 max-w-lg">
 
                       {/* Onglets */}
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         {[
                           { key: 'card', icon: CreditCard, label: 'Carte bancaire' },
                           { key: 'mobile', icon: Smartphone, label: 'Mobile Money' },
+                          { key: 'wave', icon: Smartphone, label: 'Wave' },
                         ].map(({ key, icon: Icon, label }) => (
                           <button key={key} type="button" onClick={() => setPaymentMethod(key)}
                             className={cn("flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 font-semibold text-sm transition-all",
@@ -773,23 +775,23 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                         <div className="space-y-5">
                           <div className="rounded-2xl border-2 border-dashed border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-900/10 p-8 text-center space-y-3">
                             <Smartphone className="mx-auto text-orange-500" size={40} />
-                            <p className="font-semibold text-sm text-neutral-700 dark:text-neutral-300">Orange Money · Wave · MTN</p>
+                            <p className="font-semibold text-sm text-neutral-700 dark:text-neutral-300">{formData.paymentMethod === 'wave' ? 'Wave' : 'Orange Money · MTN · Moov'}</p>
                             <p className="text-xs text-neutral-400">Vous recevrez une demande de paiement sur votre téléphone</p>
                           </div>
                           <div>
-                            <label className={labelCls}>Numéro Mobile Money</label>
+                            <label className={labelCls}>{formData.paymentMethod === 'wave' ? 'Numéro Wave' : 'Numéro Mobile Money'}</label>
                             <InternationalPhoneField
                               value={formData.mobilePhone}
                               onChange={(value) => { setMobilePhoneTouched(true); setFormData(prev => ({ ...prev, mobilePhone: value })); }}
                               onBlur={() => setMobilePhoneTouched(true)}
                               defaultCountry="CI"
-                              placeholder="Numéro Mobile Money"
+                              placeholder={formData.paymentMethod === 'wave' ? 'Numéro Wave' : 'Numéro Mobile Money'}
                               containerClassName="items-stretch"
                               selectClassName={cn(inputCls, mobilePhoneTouched && formData.mobilePhone && !mobilePhoneIsValid ? "border-red-400" : "")}
                               inputClassName={cn(inputCls, "font-mono text-center text-base", mobilePhoneTouched && formData.mobilePhone && !mobilePhoneIsValid ? "border-red-400" : "")}
                             />
                             {mobilePhoneTouched && formData.mobilePhone && !mobilePhoneIsValid && (
-                              <p className="mt-1.5 text-xs text-red-500">Numéro Mobile Money invalide.</p>
+                              <p className="mt-1.5 text-xs text-red-500">{formData.paymentMethod === 'wave' ? 'Numéro Wave invalide.' : 'Numéro Mobile Money invalide.'}</p>
                             )}
                           </div>
                         </div>
