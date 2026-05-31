@@ -29,6 +29,6 @@ export function TRow({ children, className }) {
   );
 }
 
-export function TCell({ children, className }) {
-  return <td className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}>{children}</td>;
+export function TCell({ children, className, ...props }) {
+  return <td className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)} {...props}>{children}</td>;
 }

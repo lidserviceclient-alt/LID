@@ -23,7 +23,7 @@ const STATUS_OPTIONS = [
 ];
 
 const PARTNER_SETTLEMENT_OPTIONS = [
-  { value: "DEDUCT_SHIPPING_AND_RETURN_COST", label: "Commande - livraison - coût retour" }
+  { value: "DEDUCT_SHIPPING_AND_RETURN_COST", label: "Facturation livraison (uniquement)" }
 ];
 
 const PARTNER_PAYOUT_WITHDRAW_OPTIONS = [
