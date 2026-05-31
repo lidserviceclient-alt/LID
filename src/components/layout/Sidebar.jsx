@@ -20,7 +20,8 @@ import {
   FileText,
   Ticket,
   RotateCcw,
-  Image
+  Image,
+  Crown
 } from "lucide-react";
 import { cn } from "../../utils/cn.js";
 
@@ -60,7 +61,8 @@ const navSections = [
   {
     title: "Finance",
     items: [
-      { label: "Paiements", to: "/finance", icon: Wallet }
+      { label: "Paiements", to: "/finance", icon: Wallet },
+      { label: "Abonnements", to: "/partner-subscriptions", icon: Crown }
     ]
   },
   {

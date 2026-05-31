@@ -726,6 +726,28 @@ export const backofficeApi = {
     if (toDate) params.set("toDate", toDate);
     return request(`/api/v1/backoffice/partners/${encodeURIComponent(id)}/transactions?${params.toString()}`);
   },
+  partnerSubscriptions: (page = 0, size = 20, q = "") => {
+    const params = new URLSearchParams({ page, size });
+    if (q) params.set("q", q);
+    return request(`/api/v1/backoffice/partner-subscriptions?${params.toString()}`);
+  },
+  partnerSubscription: (partnerId, invoicePage = 0, invoiceSize = 10) => {
+    const params = new URLSearchParams({ invoicePage, invoiceSize });
+    return request(`/api/v1/backoffice/partner-subscriptions/partners/${encodeURIComponent(partnerId)}?${params.toString()}`);
+  },
+  partnerSubscriptionEvents: (partnerId, page = 0, size = 20) => {
+    const params = new URLSearchParams({ page, size });
+    return request(`/api/v1/backoffice/partner-subscriptions/partners/${encodeURIComponent(partnerId)}/events?${params.toString()}`);
+  },
+  updatePartnerSubscriptionPlan: (partnerId, payload) =>
+    request(`/api/v1/backoffice/partner-subscriptions/partners/${encodeURIComponent(partnerId)}/plan`, {
+      method: "PUT",
+      body: JSON.stringify(payload || {})
+    }),
+  markPartnerSubscriptionInvoicePaid: (invoiceId) =>
+    request(`/api/v1/backoffice/partner-subscriptions/invoices/${encodeURIComponent(invoiceId)}/mark-paid`, {
+      method: "POST"
+    }),
   payPartnerTransactionDirect: (partnerId, transactionId) =>
     request(`/api/v1/backoffice/partners/${encodeURIComponent(partnerId)}/transactions/${encodeURIComponent(transactionId)}/pay`, {
       method: "POST"
