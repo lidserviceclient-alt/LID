@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../utils/cn.js";
 
-const linkShop = "https://lid-shop.web.app/"
+const linkShop = "https://lidshopping.com/"
 
 const navSections = [
   {
@@ -119,7 +119,7 @@ export default function Sidebar({ isOpen, onClose }) {
             <span className="text-xs font-medium text-primary uppercase tracking-wider">Carte entreprise</span>
             <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
           </div>
-          <h2 className="text-sm font-semibold text-foreground">************</h2>
+          <h2 className="text-sm font-semibold text-foreground">SIRET : <span className="text-primary">************</span></h2>
           <p className="text-xs text-muted-foreground">********</p>
         </div>
       </div>
