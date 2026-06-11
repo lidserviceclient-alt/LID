@@ -23,6 +23,9 @@ function buildWsUrl(path, wsAccess) {
   const url = new URL(cleanPath, baseRoot);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   url.searchParams.set('ws-access', wsAccess);
+  // #region debug-point E:realtime-ws-url
+  typeof window !== 'undefined' && fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'staging-api-mismatch', runId: 'pre-fix', hypothesisId: 'E', location: 'src/services/realtimeService.js:26', msg: '[DEBUG] realtime websocket url built', data: { href: window.location.href, apiBase, inputPath: path || '/api/v1/realtime/ws', finalWsUrl: url.toString(), hasController: Boolean(navigator.serviceWorker?.controller) }, ts: Date.now() }) }).catch(() => {});
+  // #endregion
   return url.toString();
 }
 

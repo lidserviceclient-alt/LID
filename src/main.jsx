@@ -19,6 +19,10 @@ const queryClient = new QueryClient({
 })
 const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '/'
 
+// #region debug-point B:boot-env-and-sw
+typeof window !== 'undefined' && fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'staging-api-mismatch', runId: 'pre-fix', hypothesisId: 'B', location: 'src/main.jsx:21', msg: '[DEBUG] app boot environment', data: { href: window.location.href, host: window.location.host, mode: import.meta.env.MODE, viteApiUrl: import.meta.env.VITE_API_URL, baseUrl: import.meta.env.BASE_URL, hasController: Boolean(navigator.serviceWorker?.controller) }, ts: Date.now() }) }).catch(() => {});
+// #endregion
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <HelmetProvider>

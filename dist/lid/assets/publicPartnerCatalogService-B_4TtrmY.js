@@ -1,0 +1,1 @@
+import{c as n}from"./index-ChRfsl9j.js";async function c({page:a=0,size:t=100,q:r}={}){return(await n.get("/api/v1/catalog/partners",{params:{page:a,size:t,q:r||void 0}}))?.data}async function o(a,{page:t=0,size:r=20,sortKey:e}={}){return(await n.get(`/api/v1/catalog/partners/${a}/collection`,{params:{page:t,size:r,sortKey:e||void 0}}))?.data}export{o as g,c as l};
