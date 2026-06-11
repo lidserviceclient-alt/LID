@@ -10,7 +10,6 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const permissionsPolicyHeader = 'geolocation=(self), microphone=(), camera=(), payment=(), usb=(), accelerometer=(), magnetometer=(), gyroscope=()'
 
-// https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const base = env.VITE_BASE_URL || '/'
@@ -103,12 +102,12 @@ export default defineConfig(({ mode }) => {
         navigateFallbackDenylist: [/^\/api\//, /^\/imgs\//],
         runtimeCaching: [
           {
-            // Jamais mettre en cache les appels API → toujours depuis le réseau
+            // no cache API requests
             urlPattern: ({ url }) => url.hostname === 'api.lidshopping.com',
             handler: 'NetworkOnly',
           },
           {
-            // Images locales → cache 30 jours, max 60 images
+            // Images locales, cache 30 jours, max 60 images
             urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/i,
             handler: 'CacheFirst',
             options: {

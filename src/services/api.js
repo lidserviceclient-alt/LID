@@ -1,8 +1,14 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 import { clearAccessToken, getAccessToken, isTokenExpired, setAccessToken } from './auth';
 import { clearCustomerSessionCache } from './sessionCleanup';
 
-const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'https://api.lidshopping.com/lid';
+const resolvedBaseUrl = import.meta.env.VITE_API_URL;
+
+if (!resolvedBaseUrl) {
+  throw new Error('VITE_API_URL is not set');
+  }   
+
+
 const isDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true';
 
 if (isDebug) {
