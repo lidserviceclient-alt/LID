@@ -1,8 +1,9 @@
 ﻿import axios from 'axios';
 import { clearAccessToken, getAccessToken, isTokenExpired, setAccessToken } from './auth';
 import { clearCustomerSessionCache } from './sessionCleanup';
+import { getApiBaseUrl } from '../config/apiConfig';
 
-const resolvedBaseUrl = import.meta.env.VITE_API_URL;
+const resolvedBaseUrl = getApiBaseUrl();
 
 if (!resolvedBaseUrl) {
   throw new Error('VITE_API_URL is not set');
@@ -17,7 +18,7 @@ if (isDebug) {
 
 // Create an Axios instance with default configuration
 const api = axios.create({
-  baseURL: resolvedBaseUrl, // Fallback to localhost if env var is missing
+  baseURL: resolvedBaseUrl, 
   headers: {
     'Content-Type': 'application/json; charset=utf-8',
   },
