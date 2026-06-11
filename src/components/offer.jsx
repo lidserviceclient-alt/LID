@@ -101,6 +101,11 @@ export default function Offer({ className, onClose, enableMotion = true }) {
                 <img
                   src={offerImageSrc}
                   alt={offerProduct?.name || "Produit"}
+                  width="400"
+                  height="500"
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
                     e.currentTarget.src = "/imgs/logo.png";
@@ -324,6 +329,11 @@ function TiltCard({ isFlipped, onClose, product, imageSrc, price }) {
                 <img
                     src={imageSrc}
                     alt={product?.name || "Produit"}
+                    width="400"
+                    height="500"
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
                       e.currentTarget.src = "/imgs/logo.png";
@@ -342,7 +352,7 @@ function TiltCard({ isFlipped, onClose, product, imageSrc, price }) {
                 animate={{ opacity: isFlipped ? 0 : 1 }}
                 transition={{ duration: 0.15, delay: 0.2 }}
             >
-                <div className="bg-white/10 backdrop-blur-md p-2 md:p-3 rounded-2xl border border-white/20 shadow-xl">
+                <div className="bg-black/50 backdrop-blur-md p-2 md:p-3 rounded-2xl border border-white/20 shadow-xl">
                     <h3 className="text-lg md:text-2xl font-bold text-white">
                       {price && Number(price) > 0 ? `${Number(price).toLocaleString()} FCFA` : "—"}
                     </h3>

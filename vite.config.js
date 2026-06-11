@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const permissionsPolicyHeader = 'geolocation=(self), microphone=(), camera=(), payment=(), usb=(), accelerometer=(), magnetometer=(), gyroscope=()'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -26,14 +27,14 @@ export default defineConfig(({ mode }) => {
     port: 5173,
     strictPort: true,
     cors: true,
-    allowedHosts: ['olive-cycles-vanish.loca.lt', 'localhost', '127.0.0.1', 'jean-emmanuel-diap.com'],
+    allowedHosts: ['olive-cycles-vanish.loca.lt', 'localhost', '127.0.0.1', 'api.lidshopping.com'],
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
       'Cross-Origin-Embedder-Policy': 'unsafe-none',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'X-Frame-Options': 'DENY',
-      'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), payment=(), usb=(), accelerometer=(), magnetometer=(), gyroscope=()',
+      'Permissions-Policy': permissionsPolicyHeader,
       'Cross-Origin-Resource-Policy': 'same-site'
     },
   },
@@ -44,13 +45,13 @@ export default defineConfig(({ mode }) => {
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       'X-Frame-Options': 'DENY',
-      'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), payment=(), usb=(), accelerometer=(), magnetometer=(), gyroscope=()',
+      'Permissions-Policy': permissionsPolicyHeader,
       'Cross-Origin-Resource-Policy': 'same-site'
     },
   },
   build: {
     outDir: 'dist/lid',
-    target: 'esnext',
+    target: 'es2020',
     minify: 'esbuild',
     cssMinify: true,
     sourcemap: false,
@@ -94,6 +95,29 @@ export default defineConfig(({ mode }) => {
       registerType: 'autoUpdate',
       injectRegister: 'script-defer',
       includeAssets: ['favicon-48x48.png', 'favicon-192x192.png', 'favicon-512x512.png', 'imgs/logo.png'],
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api\//, /^\/imgs\//],
+        runtimeCaching: [
+          {
+            // Jamais mettre en cache les appels API → toujours depuis le réseau
+            urlPattern: ({ url }) => url.hostname === 'api.lidshopping.com',
+            handler: 'NetworkOnly',
+          },
+          {
+            // Images locales → cache 30 jours, max 60 images
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'lid-images-v1',
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+        ],
+      },
       manifest: {
         name: 'Lid - E-commerce',
         short_name: 'Lid',

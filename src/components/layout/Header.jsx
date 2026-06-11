@@ -15,11 +15,11 @@ import MobileMenu from '../MobileMenu.jsx';
 import Offer from '../offer.jsx';
 import { useCart } from '@/features/cart/CartContext.jsx';
 import NavMobile from '../NavMobile.jsx'
-import { getCurrentUserPayload } from '@/services/authService.js';
 import { useAppConfig } from '@/features/appConfig/useAppConfig.js'
 import { useFlashSaleProduct } from '@/features/flashSale/useFlashSaleProduct.js'
 import { useLatestCatalogProducts } from '@/features/catalog/useLatestCatalogProducts.js'
 import { useCustomerSession } from '@/features/customerSession/CustomerSessionContext.jsx';
+import { useAuthPayload } from '@/hooks/useAuthPayload.js';
 
 const DEFAULT_AVATAR = 'https://www.transparentpng.com/download/user/gray-user-profile-icon-png-fP8Q1P.png';
 
@@ -42,6 +42,7 @@ export default function Header() {
   const [showOffer, setShowOffer] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [notifDisplayProducts, setNotifDisplayProducts] = useState([]);
   const [notifSeenAt, setNotifSeenAt] = useState(() => {
     const raw = Number(localStorage.getItem("lid_last_seen_products") || "0");
     return Number.isFinite(raw) && raw > 0 ? raw : 0;
@@ -50,7 +51,7 @@ export default function Header() {
   const { data: latestProducts } = useLatestCatalogProducts(30)
   const hasFlashSale = Boolean(flashSaleProduct)
   const location = useLocation();
-  const tokenPayload = useMemo(() => getCurrentUserPayload(), []);
+  const tokenPayload = useAuthPayload();
   const customerSession = useCustomerSession();
   const userProfile = customerSession?.customer || null;
 
@@ -82,13 +83,23 @@ export default function Header() {
     });
     return { unreadCount: fresh.length, products: fresh.slice(0, 8) };
   }, [latestProducts, notifSeenAt]);
-  const notifProducts = notifState.products;
   const notifUnreadCount = notifState.unreadCount;
 
   const openNotifications = async () => {
     const products = Array.isArray(latestProducts) ? latestProducts : [];
-    setIsNotifOpen((v) => !v);
-    if (!isNotifOpen) {
+    if (isNotifOpen) {
+      setIsNotifOpen(false);
+      setNotifDisplayProducts([]);
+      return;
+    }
+    const lastSeen = Math.max(getLastSeenProductsTs(), notifSeenAt);
+    const fresh = products.filter((p) => {
+      const t = p?.dateCreation ? new Date(p.dateCreation).getTime() : 0;
+      return Number.isFinite(t) && t > lastSeen;
+    });
+    setNotifDisplayProducts(fresh.slice(0, 8));
+    setIsNotifOpen(true);
+    if (fresh.length > 0) {
       const lastSeen = getLastSeenProductsTs();
       const latest = getLatestProductTs(products);
       const nextSeen = Math.max(lastSeen, latest);
@@ -194,6 +205,10 @@ export default function Header() {
                                     <img
                                         src={avatarUrl}
                                         alt="Profile"
+                                        width="22"
+                                        height="22"
+                                        loading="lazy"
+                                        decoding="async"
                                         className="w-[22px] h-[22px] rounded-full object-cover"
                                         onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_AVATAR; }}
                                     />
@@ -270,10 +285,14 @@ export default function Header() {
                         <Link to={isAuthenticated ? "/profile" : "/login"} className="flex items-center gap-3 bg-white/50 dark:bg-neutral-800/50 rounded-full p-1 pr-5 border border-white/20 shadow-sm transition-transform active:scale-95">
                             <div className="w-10 h-10 rounded-full border-2 border-white dark:border-neutral-950 overflow-hidden shadow-sm flex items-center justify-center bg-neutral-100 dark:bg-neutral-800">
                                 {isAuthenticated ? (
-                                    <img 
-                                        src={avatarUrl} 
-                                        alt="Profile" 
-                                        className="w-full h-full object-cover" 
+                                    <img
+                                        src={avatarUrl}
+                                        alt="Profile"
+                                        width="40"
+                                        height="40"
+                                        loading="lazy"
+                                        decoding="async"
+                                        className="w-full h-full object-cover"
                                         onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_AVATAR; }}
                                     />
                                 ) : (
@@ -453,13 +472,13 @@ export default function Header() {
                   </button>
                 </div>
                 <div className="max-h-[60vh] overflow-auto">
-                  {notifProducts.length === 0 ? (
+                  {notifDisplayProducts.length === 0 ? (
                     <div className="px-4 py-6 text-sm text-neutral-600 dark:text-neutral-400">
                       Aucun nouveau produit.
                     </div>
                   ) : (
                     <div className="py-2">
-                      {notifProducts.map((p) => (
+                      {notifDisplayProducts.map((p) => (
                         <button
                           key={p.id}
                           onClick={() => {

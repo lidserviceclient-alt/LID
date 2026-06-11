@@ -1,3 +1,4 @@
+import PageSEO from "@/components/PageSEO";
 import {
   TrendingUp,
   ShoppingBag,
@@ -11,6 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
 import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
+import { resolveBackendAssetUrl } from '@/services/categoryService';
 
 const STATUS_LABEL = {
   PENDING: "En attente",
@@ -24,6 +26,14 @@ const STATUS_LABEL = {
 };
 
 const WEEK_DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+const FALLBACK_PRODUCT_IMAGE = "/imgs/logo.png";
+
+const resolveProductImage = (value) => {
+  const raw = `${value || ""}`.trim();
+  if (!raw) return FALLBACK_PRODUCT_IMAGE;
+  if (raw.startsWith("/imgs/")) return raw;
+  return resolveBackendAssetUrl(raw);
+};
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -79,7 +89,7 @@ export default function Dashboard() {
 
   const recentOrders = useMemo(() => {
     return orders.slice(0, 5).map((o) => ({
-      id: `#ORD-${o.id}`,
+      id: `#${o.orderNumber || `ORD-${o.id}`}`,
       customer: o.customerName || "Client",
       product: "-",
       amount: `${Number(o.amount || 0).toFixed(2)} FCFA`,
@@ -119,7 +129,7 @@ export default function Dashboard() {
         name: p.name || "Produit",
         sales: stock,
         revenue: `${(stock * price).toFixed(2)} FCFA`,
-        image: p.mainImageUrl || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=100&q=80",
+        image: resolveProductImage(p.mainImageUrl),
       };
     });
     return data.sort((a, b) => b.sales - a.sales).slice(0, 3);
@@ -138,6 +148,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 p-2 max-w-7xl mx-auto">
+      <PageSEO title="Tableau de bord" noindex />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>

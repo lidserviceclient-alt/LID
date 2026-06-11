@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -223,6 +224,7 @@ export default function Login() {
 
   return (
     <div className="relative h-screen w-screen bg-neutral-950 text-white flex lg:flex-row overflow-hidden font-sans selection:bg-purple-500/30">
+      <PageSEO title="Connexion" description="Connectez-vous à votre compte Lid." noindex />
       {/* Left Side - Hero/Branding */}
       <div className="absolute inset-0 z-0 w-full h-full lg:static lg:z-auto lg:w-1/2 lg:h-auto flex flex-col justify-center items-center lg:p-12 bg-neutral-950 lg:border-r border-neutral-800 overflow-hidden">
         {/* Background Video */}

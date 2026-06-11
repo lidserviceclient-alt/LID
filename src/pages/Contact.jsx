@@ -1,3 +1,4 @@
+import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import { Mail, Phone, MapPin, Send, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
@@ -43,7 +44,7 @@ export default function Contact() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-20 pb-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-20 pb-10 px-4 sm:px-6 lg:px-8"><PageSEO title="Contact" description="Contactez l'équipe Lid pour toute question ou assistance. Nous vous répondons rapidement." canonical="/contact" />
       {/* Header Section */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}

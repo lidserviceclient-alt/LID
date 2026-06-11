@@ -1,4 +1,14 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://lid-shop.web.app/sitemap.xml
+# Pages privées — ne pas indexer
+Disallow: /cart
+Disallow: /wishlist
+Disallow: /login
+Disallow: /register
+Disallow: /profile
+Disallow: /payment/
+Disallow: /admin
+Disallow: /backoffice
+
+Sitemap: https://lidshopping.com/sitemap.xml

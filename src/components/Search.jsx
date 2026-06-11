@@ -5,11 +5,22 @@ import { resolveBackendAssetUrl } from '@/services/categoryService';
 import { getCatalogProductsPage } from '@/services/productService';
 import { useCatalogCategories } from '@/features/catalog/useCatalogCategories';
 
+const DEFAULT_CATEGORY_OPTION = { label: 'Toutes catégories', value: '' };
+
+const sameCategoryOptions = (left, right) => {
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  if (left.length !== right.length) return false;
+  return left.every((item, index) => {
+    const other = right[index];
+    return item?.label === other?.label && item?.value === other?.value;
+  });
+};
+
 export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchValue, setSearchValue] = useState('');
-  const [categories, setCategories] = useState([{ label: 'Toutes catégories', value: '' }]);
-  const [selectedCategory, setSelectedCategory] = useState({ label: 'Toutes catégories', value: '' });
+  const [categories, setCategories] = useState([DEFAULT_CATEGORY_OPTION]);
+  const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORY_OPTION);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
@@ -21,13 +32,21 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
 
   useEffect(() => {
     const list = Array.isArray(categoriesData) ? categoriesData : [];
-    const options = [{ label: 'Toutes catégories', value: '' }].concat(
+    const options = [DEFAULT_CATEGORY_OPTION].concat(
       list
         .filter((c) => c?.estActive !== false)
         .map((c) => ({ label: c.nom, value: c.slug || c.id }))
         .filter((o) => o.value)
     );
-    setCategories(options);
+    setCategories((prev) => (sameCategoryOptions(prev, options) ? prev : options));
+    setSelectedCategory((prev) => {
+      const currentValue = `${prev?.value || ''}`.trim();
+      if (!currentValue) {
+        return DEFAULT_CATEGORY_OPTION;
+      }
+      const match = options.find((option) => option.value === currentValue);
+      return match || DEFAULT_CATEGORY_OPTION;
+    });
   }, [categoriesData]);
   
   const trendingSearches = ['iPhone 15', 'Nike Air Max', 'MacBook Pro', 'PS5'];

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PageSEO from "@/components/PageSEO";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Plus, Minus } from "lucide-react";
 import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
@@ -89,6 +90,7 @@ export default function FAQ() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-20 pb-16 px-4 sm:px-6 lg:px-8">
+      <PageSEO title="FAQ" description="Réponses à toutes vos questions sur Lid : commandes, paiements, livraisons et retours." canonical="/faq" />
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold text-neutral-900 dark:text-white mb-4">Foire Aux Questions</h1>

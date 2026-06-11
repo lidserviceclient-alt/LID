@@ -1,11 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { XCircle } from 'lucide-react';
+import PageSEO from '@/components/PageSEO';
 
 export default function PaymentCancel() {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4 py-16">
+      <PageSEO title="Paiement annulé" description="Votre paiement a été annulé." noindex />
       <div className="max-w-md w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-8 text-center">
         <XCircle className="mx-auto mb-4 text-red-600" size={48} />
         <h1 className="text-xl font-bold text-neutral-900 dark:text-white">Paiement annulé</h1>

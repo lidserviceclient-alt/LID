@@ -85,9 +85,13 @@ export default function CartDrawer() {
                     >
                       {/* Image */}
                       <div className="w-20 h-20 bg-neutral-100 dark:bg-neutral-800 rounded-xl overflow-hidden flex-shrink-0 p-2 border border-neutral-100 dark:border-neutral-700">
-                        <img 
-                          src={resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png"} 
-                          alt={item.name} 
+                        <img
+                          src={resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png"}
+                          alt={item.name}
+                          width="80"
+                          height="80"
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
                           onError={(e) => {
                             e.currentTarget.onerror = null;

@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { clearAccessToken, getAccessToken, isTokenExpired, setAccessToken } from './auth';
+import { clearCustomerSessionCache } from './sessionCleanup';
 
-const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'https://jean-emmanuel-diap.com/lid';
+const resolvedBaseUrl = import.meta.env.VITE_API_URL || 'https://api.lidshopping.com/lid';
 const isDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true';
 
 if (isDebug) {
@@ -27,19 +28,50 @@ const refreshClient = axios.create({
   timeout: 10000,
 });
 
+let refreshAccessTokenPromise = null;
+
+function isPublicRequest(url = '', method = 'get') {
+  const safeMethod = `${method || 'get'}`.toLowerCase();
+  const isReadRequest = safeMethod === 'get' || safeMethod === 'head' || safeMethod === 'options';
+  if (url.includes('/api/v1/public/orders/tracking/')) {
+    return false;
+  }
+  return url.includes('/api/v1/public/')
+    || (isReadRequest && url.includes('/api/v1/catalog/'))
+    || url.includes('/api/v1/realtime/ws-access/public');
+}
+
+async function refreshAccessToken() {
+  if (!refreshAccessTokenPromise) {
+    refreshAccessTokenPromise = refreshClient
+      .post('/api/v1/auth/refresh')
+      .then(({ data }) => {
+        const accessToken = data?.accessToken;
+        if (!accessToken) {
+          throw new Error('Refresh token response missing accessToken');
+        }
+        setAccessToken(accessToken);
+        return accessToken;
+      })
+      .finally(() => {
+        refreshAccessTokenPromise = null;
+      });
+  }
+  return refreshAccessTokenPromise;
+}
+
 // Request Interceptor
 // Useful for adding authorization tokens (JWT) to every request
 api.interceptors.request.use(
   async (config) => {
     // Retrieve the user from OIDC storage
     const storedToken = getAccessToken();
-    const accessToken = storedToken && !isTokenExpired(storedToken) ? storedToken : null;
-    const isAuthLogin = (config.url || '').includes('/api/v1/auth/login');
+    let accessToken = storedToken && !isTokenExpired(storedToken) ? storedToken : null;
+    const url = `${config.url || ''}`;
+    const isAuthLogin = url.includes('/api/v1/auth/login');
+    const isRefresh = url.includes('/api/v1/auth/refresh');
+    const isPublic = isPublicRequest(url, config.method);
     const clientId = import.meta.env.VITE_CLIENT_ID;
-
-    if (storedToken && !accessToken) {
-      clearAccessToken();
-    }
 
     const existingAuth =
       config.headers?.Authorization ||
@@ -48,10 +80,22 @@ api.interceptors.request.use(
         ? (config.headers.get('Authorization') || config.headers.get('authorization'))
         : null);
 
+    if (!isAuthLogin && !isRefresh && !isPublic && storedToken && !accessToken && !existingAuth) {
+      try {
+        accessToken = await refreshAccessToken();
+      } catch (refreshError) {
+        if (isDebug) {
+          console.info('[AUTH] proactive refresh failed:', refreshError?.message || refreshError);
+        }
+        clearCustomerSessionCache();
+        clearAccessToken();
+      }
+    }
+
     if (clientId && !config.headers?.['X-Client-ID']) {
       config.headers['X-Client-ID'] = clientId;
     }
-    if (!isAuthLogin && accessToken && !existingAuth) {
+    if (!isAuthLogin && !isPublic && accessToken && !existingAuth) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
     if (isDebug) {
@@ -79,29 +123,28 @@ api.interceptors.response.use(
 
       const originalRequest = error.config || {};
       const url = `${originalRequest.url || ''}`;
+      const skipAuthRefresh = originalRequest.skipAuthRefresh === true;
       const isAuthLogin = url.includes('/api/v1/auth/login');
       const isRefresh = url.includes('/api/v1/auth/refresh');
+      const isPublic = isPublicRequest(url, originalRequest.method);
       const isAuthEndpoint = isAuthLogin || isRefresh || url.includes('/api/v1/auth/password');
       const currentToken = getAccessToken();
       const hadAccessToken = Boolean(currentToken && !isTokenExpired(currentToken));
 
-      if (status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+      if (status === 401 && !originalRequest._retry && !isAuthEndpoint && !isPublic && !skipAuthRefresh) {
         originalRequest._retry = true;
         try {
-          const refreshResponse = await refreshClient.post('/api/v1/auth/refresh');
-          const accessToken = refreshResponse?.data?.accessToken;
-          if (accessToken) {
-            setAccessToken(accessToken);
-            originalRequest.headers = originalRequest.headers || {};
-            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-            return api(originalRequest);
-          }
+          const accessToken = await refreshAccessToken();
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          return api(originalRequest);
         } catch (refreshError) {
           if (isDebug) {
             console.info('[AUTH] refresh failed:', refreshError?.message || refreshError);
           }
         }
         if (hadAccessToken) {
+          clearCustomerSessionCache();
           clearAccessToken();
           const currentPath = window.location?.pathname || '';
           if (currentPath !== '/login') {

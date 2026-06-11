@@ -1,7 +1,8 @@
+import PageSEO from "@/components/PageSEO";
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { 
-  Store, 
-  MapPin, 
+import {
+  Store,
+  MapPin,
   Phone, 
   Mail, 
   Globe, 
@@ -11,11 +12,14 @@ import {
   Upload,
   Clock,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Crown,
+  ExternalLink
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { updateMyPartnerPreferences } from '@/services/partnerBackofficePreferencesService';
 import { getMyPartnerSettingsCollection, updateMyPartnerSettings } from '@/services/partnerBackofficeSettingsService';
+import { getMyPartnerSubscription, upgradeMyPartnerSubscription } from '@/services/partnerSubscriptionService';
 import { uploadFile } from '@/services/fileStorageService';
 import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 
@@ -23,13 +27,17 @@ export default function Settings() {
   const bootstrap = usePartnerBackofficeBootstrap();
   const [loading, setLoading] = useState(false);
   const [loadingPage, setLoadingPage] = useState(true);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subscriptionActionLoading, setSubscriptionActionLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [subscriptionMsg, setSubscriptionMsg] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const logoInputRef = useRef(null);
   const bannerInputRef = useRef(null);
   const [mainCategories, setMainCategories] = useState([]);
+  const [subscriptionCollection, setSubscriptionCollection] = useState(null);
 
   const [settings, setSettings] = useState({
     partnerId: "",
@@ -67,6 +75,17 @@ export default function Settings() {
   });
 
   const weekdays = useMemo(() => ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"], []);
+
+  const subscription = subscriptionCollection?.subscription || null;
+  const currentPlan = subscription?.planCode || subscription?.plan?.code || "STANDARD";
+  const isPremium = currentPlan === "PREMIUM" && subscription?.status === "ACTIVE";
+  const premiumPrice = subscription?.plan?.monthlyPrice ?? subscriptionCollection?.plans?.PREMIUM?.monthlyPrice;
+
+  const formatCurrency = (value, currency = "XOF") => {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return "-";
+    return `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(amount)} ${currency || "XOF"}`;
+  };
 
   const applySettingsCollection = (collection) => {
       const s = collection?.settings || {};
@@ -124,10 +143,24 @@ export default function Settings() {
     try {
       const collection = await getMyPartnerSettingsCollection();
       applySettingsCollection(collection);
+      hydrateSubscription();
     } catch (e) {
       setErrorMsg(e?.response?.data?.message || "Impossible de charger les paramètres.");
     } finally {
       setLoadingPage(false);
+    }
+  };
+
+  const hydrateSubscription = async () => {
+    setSubscriptionLoading(true);
+    setSubscriptionMsg("");
+    try {
+      const collection = await getMyPartnerSubscription();
+      setSubscriptionCollection(collection);
+    } catch (e) {
+      setSubscriptionMsg(e?.response?.data?.message || "Abonnement indisponible pour le moment.");
+    } finally {
+      setSubscriptionLoading(false);
     }
   };
 
@@ -144,11 +177,34 @@ export default function Settings() {
       applyCategoriesCollection(bootstrap.categoriesCollection, bootstrap.settingsCollection?.settings?.mainCategoryId);
       setLoadingPage(false);
       setErrorMsg("");
+      hydrateSubscription();
       return;
     }
     setLoadingPage(false);
     setErrorMsg("Impossible de charger les paramètres.");
   }, [bootstrap]);
+
+  const handleUpgradeSubscription = async () => {
+    setSubscriptionActionLoading(true);
+    setSubscriptionMsg("");
+    try {
+      const response = await upgradeMyPartnerSubscription();
+      setSubscriptionCollection((prev) => ({
+        ...(prev || {}),
+        subscription: response?.subscription || prev?.subscription,
+      }));
+      if (response?.paymentUrl) {
+        window.location.href = response.paymentUrl;
+        return;
+      }
+      await hydrateSubscription();
+      setSubscriptionMsg("Votre abonnement est déjà à jour.");
+    } catch (e) {
+      setSubscriptionMsg(e?.response?.data?.message || "Impossible d'initialiser le paiement Premium.");
+    } finally {
+      setSubscriptionActionLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -192,7 +248,16 @@ export default function Settings() {
     setErrorMsg("");
     setUploadingLogo(true);
     try {
-      const res = await uploadFile(file, { folder: "partners" });
+      let res;
+      try {
+        res = await uploadFile(file, { folder: "partners" });
+      } catch (e) {
+        const message = e?.response?.data?.message || e?.message || "";
+        if (!message.toLowerCase().includes("existe déjà") || !window.confirm(`${message}\n\nVoulez-vous écraser cette image ?`)) {
+          throw e;
+        }
+        res = await uploadFile(file, { folder: "partners", overwrite: true });
+      }
       const url = res?.url || "";
       if (url) {
         setSettings((p) => ({ ...p, logoUrl: url }));
@@ -209,7 +274,16 @@ export default function Settings() {
     setErrorMsg("");
     setUploadingBanner(true);
     try {
-      const res = await uploadFile(file, { folder: "partners" });
+      let res;
+      try {
+        res = await uploadFile(file, { folder: "partners" });
+      } catch (e) {
+        const message = e?.response?.data?.message || e?.message || "";
+        if (!message.toLowerCase().includes("existe déjà") || !window.confirm(`${message}\n\nVoulez-vous écraser cette image ?`)) {
+          throw e;
+        }
+        res = await uploadFile(file, { folder: "partners", overwrite: true });
+      }
       const url = res?.url || "";
       if (url) {
         setSettings((p) => ({ ...p, backgroundUrl: url }));
@@ -223,6 +297,7 @@ export default function Settings() {
 
   return (
     <div className="max-w-4xl mx-auto p-2 space-y-8">
+      <PageSEO title="Paramètres boutique" noindex />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Paramètres de la Boutique</h1>
@@ -247,6 +322,46 @@ export default function Settings() {
       {loadingPage ? (
         <div className="rounded-xl border border-gray-200 bg-white px-4 py-5 text-sm text-gray-500">Chargement des paramètres...</div>
       ) : null}
+
+      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 rounded-xl bg-amber-50 p-2 text-amber-600">
+              <Crown size={20} />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-bold text-gray-900">Abonnement partenaire</h2>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isPremium ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-700"}`}>
+                  {isPremium ? "Premium actif" : currentPlan}
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                {isPremium
+                  ? "Votre boutique bénéficie de l'offre Premium."
+                  : `Passez Premium pour tester le parcours PayDunya${premiumPrice ? ` (${formatCurrency(premiumPrice)}/mois)` : ""}.`}
+              </p>
+              {subscriptionMsg ? (
+                <p className="mt-2 text-sm text-amber-700">{subscriptionMsg}</p>
+              ) : null}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleUpgradeSubscription}
+            disabled={subscriptionLoading || subscriptionActionLoading || isPremium}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {subscriptionActionLoading ? (
+              <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+            ) : (
+              <ExternalLink size={16} />
+            )}
+            {isPremium ? "Premium actif" : subscriptionActionLoading ? "Préparation..." : "Passer Premium"}
+          </button>
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Branding Section */}

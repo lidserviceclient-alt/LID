@@ -1,3 +1,4 @@
+import PageSEO from "@/components/PageSEO";
 import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
 
 export default function NotFound() {
@@ -5,6 +6,7 @@ export default function NotFound() {
   const contactEmail = appConfig?.contactEmail || "voir page contact.";
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-slate-100 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900">
+      <PageSEO title="Page introuvable" noindex />
       <div className="relative overflow-hidden">
         <div className="pointer-events-none absolute -top-24 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-[#6aa200]/20 blur-3xl" />
         <div className="pointer-events-none absolute -top-10 right-6 h-56 w-56 rounded-full bg-[#FF9900]/15 blur-3xl" />

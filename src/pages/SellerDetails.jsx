@@ -1,4 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
+import PageSEO from "@/components/PageSEO";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -10,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getPublicPartnerCollection } from "@/services/publicPartnerCatalogService";
+import { resolveBackendAssetUrl } from "@/services/categoryService";
 
 // Mock events data for the seller
 const mockEvents = [
@@ -49,7 +51,7 @@ const mapCollectionProducts = (collection) => {
         title: product.name,
         date: "En Stock",
         price: `${Number(product.price || 0).toFixed(2)} FCFA`,
-        image: product.mainImageUrl || "https://images.unsplash.com/photo-1560343090-f0409e92791a?q=80&w=1000",
+        image: resolveBackendAssetUrl(product.mainImageUrl) || "https://images.unsplash.com/photo-1560343090-f0409e92791a?q=80&w=1000",
         category: product.mainCategoryName || "Produit"
     }));
 };
@@ -190,7 +192,11 @@ export default function SellerDetails() {
 
     return (
         <div className="min-h-screen bg-neutral-50 font-sans text-neutral-900 pb-20">
-            
+            <PageSEO
+              title={seller?.name}
+              description={seller?.description || (seller?.name ? `Découvrez la boutique ${seller.name} sur Lid.` : undefined)}
+              canonical={seller?.id ? `/sellers/${seller.id}` : undefined}
+            />
             {/* --- Professional Header --- */}
             <header className="relative bg-white border-b border-neutral-200">
                 {/* Cover Area */}

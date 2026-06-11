@@ -55,10 +55,11 @@ const MarqueeRow = ({ items, direction = "left", speed = 10, enableMotion = true
                 <img
                   src={src}
                   alt={product.name}
-                  width="100%"
-                  height="100%"
+                  width="350"
+                  height="437"
                   loading={i < 4 ? "eager" : "lazy"}
                   fetchPriority={i < 4 ? "high" : "auto"}
+                  decoding="async"
                   className={imgClass}
                   onError={(e) => {
                     e.currentTarget.onerror = null;
@@ -103,13 +104,14 @@ const MarqueeRow = ({ items, direction = "left", speed = 10, enableMotion = true
 
           return (
             <div key={i} className="relative group w-[280px] sm:w-[350px] aspect-[4/5] flex-shrink-0 overflow-hidden rounded-xl bg-neutral-100 shadow-sm border border-neutral-200/50">
-              <img 
-                src={src} 
-                alt={product.name} 
+              <img
+                src={src}
+                alt={product.name}
                 width="350"
                 height="437"
                 loading={i < 4 ? "eager" : "lazy"}
                 fetchPriority={i < 4 ? "high" : "auto"}
+                decoding="async"
                 className={imgClass}
                 onError={(e) => {
                   e.currentTarget.onerror = null;

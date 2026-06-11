@@ -1,3 +1,4 @@
+import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import { Truck, Zap, Globe, MapPin, Package, Clock, CheckCircle } from "lucide-react";
 import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
@@ -94,7 +95,7 @@ export default function Delivery() {
   const hubCity = appConfig?.city || "Abidjan";
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white">
+    <div className="min-h-screen pt-24 pb-12 px-4 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white"><PageSEO title="Livraison" description="Informations sur les modes et délais de livraison disponibles sur Lid en Côte d'Ivoire." canonical="/delivery" />
        <div className="max-w-5xl mx-auto space-y-16">
           
           {/* Header */}

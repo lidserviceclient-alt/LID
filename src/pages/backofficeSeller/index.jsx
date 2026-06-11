@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LayoutDashboard, Package, ShoppingBag, Settings, LogOut, Menu, X, Layers, Home } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingBag, Settings, LogOut, Menu, X, Layers, Home, Image } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -23,6 +23,7 @@ export default function SellerBackoffice() {
   const MENU_ITEMS = useMemo(() => ([
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard, path: 'dashboard' },
     { id: 'products', label: 'Produits', icon: Package, path: 'products' },
+    { id: 'media', label: 'Médias', icon: Image, path: 'media' },
     { id: 'categories', label: 'Catégories', icon: Layers, path: 'categories' },
     { id: 'orders', label: 'Commandes', icon: ShoppingBag, path: 'orders' },
     { id: 'settings', label: 'Paramètres', icon: Settings, path: 'settings' },

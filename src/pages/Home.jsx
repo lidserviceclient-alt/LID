@@ -1,5 +1,6 @@
 import { motion, MotionConfig } from "framer-motion";
 import { useMemo } from "react";
+import PageSEO from "@/components/PageSEO";
 import { Link } from "react-router-dom";
 import { ChevronRight, ShieldCheck, Zap, Truck, ArrowUpRight } from "lucide-react";
 import Hero from "../components/Hero";
@@ -218,6 +219,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950">
+      <PageSEO
+        title="Achetez et Vendez en Ligne"
+        description="Lid — la marketplace de référence en Côte d'Ivoire. Produits, billets d'événements et boutiques de vendeurs locaux."
+        canonical="/"
+      />
 
       {/* ================= MOBILE LAYOUT (md:hidden) ================= */}
       <MotionConfig reducedMotion="always">

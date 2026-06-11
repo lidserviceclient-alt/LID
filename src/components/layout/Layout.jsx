@@ -70,7 +70,7 @@ export default function Layout() {
 
     const unsubscribe = subscribeFrontendRealtime((event) => {
       const topic = `${event?.topic || ''}`.trim();
-      if (topic !== 'catalog.updated' && topic !== 'connection.ack') {
+      if (topic !== 'catalog.updated') {
         return;
       }
       const now = Date.now();
@@ -89,7 +89,7 @@ export default function Layout() {
         lastRefreshAt = Date.now();
         refreshCollection();
       }, minGapMs - elapsed);
-    }, ['catalog.updated', 'connection.ack']);
+    }, ['catalog.updated']);
     return () => {
       if (throttleTimer) {
         window.clearTimeout(throttleTimer);

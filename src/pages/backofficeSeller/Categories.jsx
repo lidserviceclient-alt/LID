@@ -1,3 +1,4 @@
+import PageSEO from "@/components/PageSEO";
 import { useEffect, useRef, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, Tag, Layers, Folder, ChevronRight, ChevronDown, Shirt, Smartphone, Home, Sparkles, Dumbbell, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,7 +34,7 @@ export default function Categories() {
   const refresh = async () => {
     setLoading(true);
     try {
-      const collection = await getMyCategoriesCollection();
+      const collection = await getMyCategoriesCollection({ force: true });
       const mains = (Array.isArray(collection?.categories) ? collection.categories : [])
         .filter((c) => !c?.parentId && !c?.parent_id)
         .map((c, idx) => ({
@@ -112,15 +113,6 @@ export default function Categories() {
     setSubCategories([]);
     setLoading(false);
   }, [bootstrap]);
-
-  useEffect(() => {
-    if (bootstrap?.routeKey !== 'categories') {
-      return;
-    }
-    refresh().catch(() => {
-      setLoading(false);
-    });
-  }, [bootstrap?.routeKey]);
 
   const toggleCategory = (id) => {
     setExpandedCategories(prev => 
@@ -251,6 +243,7 @@ export default function Categories() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      <PageSEO title="Catégories" noindex />
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { getAccessTokenPayload } from "@/services/auth";
 import { addCustomerWishlist, removeCustomerWishlist } from "@/services/customerService";
+import { CUSTOMER_SESSION_CLEARED_EVENT } from "@/services/sessionCleanup";
 import { useCustomerSession } from "@/features/customerSession/CustomerSessionContext";
 
 const WishlistContext = createContext({
@@ -70,6 +71,15 @@ export function WishlistProvider({ children }) {
   useEffect(() => {
     localStorage.setItem("wishlist", JSON.stringify(wishlistItems));
   }, [wishlistItems]);
+
+  useEffect(() => {
+    const clearWishlist = () => {
+      setHasSynced(false);
+      setWishlistItems([]);
+    };
+    window.addEventListener(CUSTOMER_SESSION_CLEARED_EVENT, clearWishlist);
+    return () => window.removeEventListener(CUSTOMER_SESSION_CLEARED_EVENT, clearWishlist);
+  }, []);
 
   useEffect(() => {
     if (hasSynced) return;
