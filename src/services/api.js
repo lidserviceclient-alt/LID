@@ -11,7 +11,7 @@ if (!resolvedBaseUrl) {
 
 // #region debug-point A:resolved-api-base
 typeof window !== 'undefined' && !window.__lidDebugApiBaseReported && (window.__lidDebugApiBaseReported = true, fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'staging-api-mismatch', runId: 'pre-fix', hypothesisId: 'A', location: 'src/services/api.js:12', msg: '[DEBUG] resolved API base at module init', data: { href: window.location.href, host: window.location.host, mode: import.meta.env.MODE, baseUrl: resolvedBaseUrl, viteApiUrl: import.meta.env.VITE_API_URL, isDev: import.meta.env.DEV, isProd: import.meta.env.PROD, hasController: Boolean(navigator.serviceWorker?.controller) }, ts: Date.now() }) }).catch(() => {}));
-// #endregion
+
 
 
 const isDebug = import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true';
