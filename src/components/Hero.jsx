@@ -207,7 +207,7 @@ export default function Hero({ enableMotion = true, products = null }) {
           >
             <div className="inline-block overflow-hidden">
               { "MARKET".split("").map((char, index) => (
-                <motion.span key={index} variants={letter} className="inline-block">
+                <motion.span key={index} variants={letter} className="text-green-500 inline-block">
                   {char}
                 </motion.span>
               ))}
