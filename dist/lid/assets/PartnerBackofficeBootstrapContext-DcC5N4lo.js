@@ -1,0 +1,1 @@
+import{j as a}from"./query-vendor-BJ9h4sCv.js";import{r as t}from"./react-vendor-BWKS-7Qi.js";const r=t.createContext(null);function c({value:o,children:e}){return a.jsx(r.Provider,{value:o,children:e})}function f(){return t.useContext(r)}export{c as P,f as u};

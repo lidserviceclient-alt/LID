@@ -5,13 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:staging": "vite --mode staging",
     "build": "vite build",
     "build:staging": "vite build --mode staging",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "preview": "vite preview",
-    "deploy": "npm run build && npx firebase deploy"
+    "preview:staging": "vite preview --mode staging",
+    "deploy": "npm run build && npx firebase deploy",
+    "deploy:staging": "npm run build:staging && npx firebase deploy"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.15",
