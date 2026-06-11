@@ -13,6 +13,8 @@ const permissionsPolicyHeader = 'geolocation=(self), microphone=(), camera=(), p
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const base = env.VITE_BASE_URL || '/'
+  const apiUrl = env.VITE_API_URL || ''
+  const apiHostname = apiUrl ? new URL(apiUrl).hostname : null
 
   return {
     base,
@@ -103,7 +105,7 @@ export default defineConfig(({ mode }) => {
         runtimeCaching: [
           {
             // no cache API requests
-            urlPattern: ({ url }) => url.hostname === 'api.lidshopping.com',
+            urlPattern: ({ url }) => Boolean(apiHostname) && url.hostname === apiHostname,
             handler: 'NetworkOnly',
           },
           {
