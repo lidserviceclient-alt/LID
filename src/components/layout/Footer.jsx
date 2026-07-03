@@ -96,7 +96,7 @@ export default function Footer() {
     legal: [
       { name: "Confidentialité", path: "/privacy" },
       { name: "CGV", path: "/terms" },
-      { name: "Mentions légales", path: "/help" },
+      { name: "CGU", path: "/cgu" },
       { name: "Cookies", path: "/privacy#cookies" },
     ],
   };

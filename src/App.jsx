@@ -41,6 +41,7 @@ const OrderTracking = lazy(() => import('./pages/OrderTracking.jsx'))
 const Returns = lazy(() => import('./pages/Returns.jsx'))
 const Delivery = lazy(() => import('./pages/Delivery.jsx'))
 const NotFound = lazy(() => import('./pages/NotFound.jsx'))
+const Cgu = lazy(() => import('./pages/Cgu.jsx'))
 const Test = lazy(() => import('./pages/Test.jsx'))
 
 
@@ -104,6 +105,7 @@ function App() {
             <Route path="help" element={<Help />} />
             <Route path="faq" element={<FAQ />} />
             <Route path="terms" element={<Terms />} />
+            <Route path="cgu" element={<Cgu />} />
             <Route path="privacy" element={<Privacy />} />
             <Route path="tracking" element={<OrderTracking />} />
             <Route path="returns" element={<Returns />} />

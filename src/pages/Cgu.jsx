@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import PageSEO from "@/components/PageSEO";
 import { motion, useReducedMotion } from "framer-motion";
 import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
-import { LEGAL_INFO, FOOTNOTES, buildArticles } from "@/assets/data/cgv.js";
+import { LEGAL_INFO, FOOTNOTES, buildArticles } from "@/assets/data/cgu.js";
 
-const FONTS_HREF ="";
+const FONTS_HREF = "";
 
 function useDocumentFonts() {
   useEffect(() => {
@@ -30,21 +30,48 @@ const FootnoteRef = ({ id }) => (
   </sup>
 );
 
+// ---------------------------------------------------------------------------
+// renderParagraph
+// Un "paragraph" peut prendre 3 formes :
+//  - une chaîne simple
+//  - un tableau de segments (string | { fn }) -> rendu inline avec appels de note
+//  - un objet { subtitle, text } -> sous-titre + texte (ex: Article 5.1 / 5.2)
+// ---------------------------------------------------------------------------
 const renderParagraph = (paragraph) => {
-  if (typeof paragraph === "string") return paragraph;
-  return paragraph.map((segment, i) =>
-    typeof segment === "string" ? (
-      <span key={i}>{segment}</span>
-    ) : (
-      <FootnoteRef key={i} id={segment.fn} />
-    )
-  );
+  if (typeof paragraph === "string") {
+    return paragraph;
+  }
+
+  if (Array.isArray(paragraph)) {
+    return paragraph.map((segment, i) =>
+      typeof segment === "string" ? (
+        <span key={i}>{segment}</span>
+      ) : (
+        <FootnoteRef key={i} id={segment.fn} />
+      )
+    );
+  }
+
+  if (paragraph && typeof paragraph === "object" && "text" in paragraph) {
+    return (
+      <>
+        {paragraph.subtitle && (
+          <strong className="mb-1 block font-semibold text-[var(--cgv-ink)]">
+            {paragraph.subtitle}
+          </strong>
+        )}
+        {renderParagraph(paragraph.text)}
+      </>
+    );
+  }
+
+  return null;
 };
 
 const Seal = () => (
- <div className="flex items-center justify-center w-[10%]">
-  <img src="/imgs/badge.png" alt="Badge" className="w-full h-full" />
- </div>
+  <div className="flex items-center justify-center w-[10%]">
+    <img src="/imgs/badge.png" alt="Badge" className="w-full h-full" />
+  </div>
 );
 
 // ---------------------------------------------------------------------------
@@ -72,7 +99,7 @@ const Article = ({ index, title, paragraphs = [], list, paragraphsAfterList = []
         {list && (
           <ul className="space-y-2.5 border-l-2 border-[var(--cgv-gold)]/30 pl-5">
             {list.map((item, i) => (
-              <li key={i}>{item}</li>
+              <li key={i}>{renderParagraph(item)}</li>
             ))}
           </ul>
         )}
@@ -91,11 +118,12 @@ export default function Terms() {
   useDocumentFonts();
   const { data: appConfig } = useAppConfig();
   const legalEmail = appConfig?.contactEmail || "";
+  const dpoEmail = appConfig?.dpoEmail || legalEmail;
   const prefersReducedMotion = useReducedMotion();
 
   const articles = useMemo(
-    () => buildArticles({ legalEmail, legal: LEGAL_INFO }),
-    [legalEmail]
+    () => buildArticles({ legalEmail, dpoEmail, legal: LEGAL_INFO }),
+    [legalEmail, dpoEmail]
   );
 
   const sectionRefs = useRef(new Map());
@@ -157,7 +185,7 @@ export default function Terms() {
               Acte contractuel LID
             </p>
             <h1 className=" text-3xl font-semibold leading-tight text-[var(--cgv-ink)] sm:text-4xl">
-              Conditions Générales de Vente
+              Conditions Générales d'Utilisation
             </h1>
             <p className="mt-3 max-w-xl text-sm text-[var(--cgv-ink)]/65">
               Applicables en République de Côte d&apos;Ivoire et, le cas échéant, dans l&apos;espace UEMOA/CEDEAO.
@@ -172,7 +200,7 @@ export default function Terms() {
         {/* Mobile ToC */}
         <details className="mb-8 rounded-2xl border border-[var(--cgv-rule)] bg-[var(--cgv-card)] p-4 lg:hidden">
           <summary className="cursor-pointer font-mono text-xs uppercase tracking-widest text-[var(--cgv-forest)]">
-            Sommaire — 17 articles
+            Sommaire — {articles.length} articles
           </summary>
           <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             {articles.map((a, i) => (
