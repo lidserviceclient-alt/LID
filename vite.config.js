@@ -103,11 +103,15 @@ export default defineConfig(({ mode }) => {
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//, /^\/imgs\//],
         runtimeCaching: [
-          {
-            // no cache API requests
-            urlPattern: ({ url }) => Boolean(apiHostname) && url.hostname === apiHostname,
-            handler: 'NetworkOnly',
-          },
+          ...(apiHostname
+            ? [
+                {
+                  // no cache API requests
+                  urlPattern: new RegExp(`^https://${apiHostname.replace(/\./g, '\\.')}/`),
+                  handler: 'NetworkOnly',
+                },
+              ]
+            : []),
           {
             // Images locales, cache 30 jours, max 60 images
             urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/i,
