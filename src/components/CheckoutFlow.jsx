@@ -67,6 +67,8 @@ const roundAmount = (value) => {
   return Math.round(num * 100) / 100;
 };
 
+const MINIMUM_ORDER_AMOUNT = 100;
+
 const CardChip = () => (
   <svg width="52" height="42" viewBox="0 0 52 42" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect width="52" height="42" rx="6" fill="url(#chipGrad)" />
@@ -468,7 +470,11 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
       toast.error("Saisis un numéro de téléphone valide pour le paiement.");
       return;
     }
-    
+    if (finalTotal < MINIMUM_ORDER_AMOUNT) {
+      toast.error(`Le montant minimum de commande est de ${MINIMUM_ORDER_AMOUNT} FCFA.`);
+      return;
+    }
+
     setStep(3);
     setLoadingStep(1);
     try {
