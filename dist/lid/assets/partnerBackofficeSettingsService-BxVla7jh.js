@@ -1,1 +1,0 @@
-import{c as a}from"./index-ChRfsl9j.js";const e="/api/v1/backoffice/partners/me/settings";async function s(){return(await a.get(`${e}/collection`))?.data}async function c(t){return(await a.put(e,t))?.data}export{s as g,c as u};
