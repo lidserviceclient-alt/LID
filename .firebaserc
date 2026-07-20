@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "lid-shop"
+  },
+  "targets": {
+    "lid-shop": {
+      "hosting": {
+        "production": [
+          "lidback"
+        ],
+        "staging": [
+          "lidback-staging"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
