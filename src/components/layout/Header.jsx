@@ -310,6 +310,14 @@ export default function Header() {
                         {/* Action Pills (Right) */}
                         <div className="flex items-center gap-2">
                             <button
+                                onClick={() => setIsMobileMenuOpen(true)}
+                                aria-label="Ouvrir le menu"
+                                className="w-11 h-11 rounded-full bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm border border-neutral-100 dark:border-neutral-700 active:scale-90 transition-all"
+                            >
+                                <MenuIcon size={20} strokeWidth={2} />
+                            </button>
+
+                            <button
                                 onClick={openNotifications}
                                 className="w-11 h-11 rounded-full bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm border border-neutral-100 dark:border-neutral-700 relative active:scale-90 transition-all"
                             >
