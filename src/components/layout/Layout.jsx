@@ -10,6 +10,7 @@ import Lenis from 'lenis'
 import { useCatalogCollection } from '@/features/catalog/useCatalogCollection'
 import { CatalogBootstrapProvider } from '@/features/catalog/CatalogBootstrapContext'
 import { subscribeFrontendRealtime } from '@/services/realtimeService'
+import MenuVariantSwitcher from '../megamenu/MenuVariantSwitcher'
 
 export default function Layout() {
   const location = useLocation();
@@ -165,6 +166,8 @@ export default function Layout() {
 
               {/* Footer global */}
               {hideFooter ? null : <Footer />}
+
+              <MenuVariantSwitcher />
             </div>
           </CatalogBootstrapProvider>
         </WishlistProvider>

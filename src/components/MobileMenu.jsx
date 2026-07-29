@@ -1,20 +1,36 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from 'react-router-dom';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, ShoppingBag, Heart, Zap, Layers } from "lucide-react";
+import { X, User, ShoppingBag, Heart, Zap } from "lucide-react";
 import { buildCategoryTree } from "@/services/categoryService";
 import { useCatalogCategories } from "@/features/catalog/useCatalogCategories";
 import { groupCategoriesByUniverse } from "@/features/catalog/categoryGroups";
+import { useMenuVariant } from "@/features/catalog/useMenuVariant";
+import ListGridMobile from "./megamenu/mobile/ListGridMobile";
+import ColumnsMobile from "./megamenu/mobile/ColumnsMobile";
+import TabsMobile from "./megamenu/mobile/TabsMobile";
+import GroupedMobile from "./megamenu/mobile/GroupedMobile";
 
-export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
-  const [expandedCategory, setExpandedCategory] = useState(null);
+const VARIANT_COMPONENTS = {
+  "list-grid": ListGridMobile,
+  "columns": ColumnsMobile,
+  "tabs": TabsMobile,
+  "grouped": GroupedMobile,
+};
+
+/**
+ * variant: "list-grid" (default) | "columns" | "tabs" | "grouped".
+ * Falls back to the live-switchable design variant (see MenuVariantSwitcher)
+ * when no explicit variant prop is passed.
+ */
+export default function MobileMenu({ isOpen, onClose, onOpenOffer, variant }) {
+  const liveVariant = useMenuVariant();
+  const activeVariant = variant || liveVariant;
+  const VariantComponent = VARIANT_COMPONENTS[activeVariant] || ListGridMobile;
+
   const { data: remoteCategories = [], isLoading: isLoadingCategories, error } = useCatalogCategories();
   const categoriesError = error?.message || "";
-
-  const toggleCategory = (id) => {
-    setExpandedCategory(expandedCategory === id ? null : id);
-  };
 
   const menuCategories = useMemo(() => {
     const tree = buildCategoryTree(remoteCategories);
@@ -35,6 +51,9 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
       return {
         id: root.id,
         slug: root.slug,
+        // Once the backend exposes a univers/group field on root categories,
+        // it flows through here and groupCategoriesByUniverse (categoryGroups.js)
+        // will prefer it automatically over the static CATEGORY_GROUPS mapping.
         univers: root.univers || root.groupe || root.group,
         label: root.nom,
         subcategories,
@@ -133,77 +152,22 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
 
             <div className="h-px bg-neutral-100 dark:bg-neutral-800 mx-6 my-2" />
 
-            {/* Categories Accordion, grouped by univers */}
+            {/* Categories, rendered by the active menu design variant */}
             <div className="p-4">
               <h3 className="px-4 text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Catégories</h3>
-              <div className="space-y-1">
-                {isLoadingCategories ? (
-                  <div className="px-4 py-2 text-sm text-neutral-500 dark:text-neutral-400">Chargement...</div>
-                ) : categoriesError ? (
-                  <div className="px-4 py-2 text-sm text-red-600">{categoriesError}</div>
-                ) : menuCategories.length === 0 ? (
-                  <div className="px-4 py-2 text-sm text-neutral-500 dark:text-neutral-400">Aucune catégorie.</div>
-                ) : groupedMenuCategories.map((group) => (
-                  <div key={group.key}>
-                    <div className="sticky top-14 z-[1] -mx-4 px-4 py-1.5 bg-neutral-50 dark:bg-neutral-900/80 backdrop-blur-sm flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
-                      <Layers size={12} className="text-[#6aa200]" />
-                      {group.label}
-                    </div>
-                    {group.categories.map((cat) => (
-                      <div key={cat.id} className="rounded-xl overflow-hidden">
-                        <button
-                          onClick={() => toggleCategory(cat.id)}
-                          className={`w-full flex items-center justify-between px-4 py-3 transition-colors ${
-                            expandedCategory === cat.id
-                              ? 'bg-[#6aa200]/10 dark:bg-[#6aa200]/20 text-[#6aa200]'
-                              : 'hover:bg-neutral-50 dark:hover:bg-neutral-900 text-neutral-700 dark:text-neutral-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="font-medium">{cat.label}</span>
-                          </div>
-                          <span className="text-neutral-400">{expandedCategory === cat.id ? "▾" : "▸"}</span>
-                        </button>
-
-                        <AnimatePresence>
-                          {expandedCategory === cat.id && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              className="bg-neutral-50 dark:bg-neutral-900/30 overflow-hidden"
-                            >
-                              <div className="px-4 py-3 space-y-4">
-                                {cat.subcategories.map((sub, idx) => (
-                                  <div key={idx}>
-                                    <h4 className="font-bold text-sm text-neutral-900 dark:text-white mb-2 flex items-center gap-2">
-                                      <span className="w-1 h-3 bg-[#6aa200] rounded-full"></span>
-                                      {sub.title}
-                                    </h4>
-                                    <ul className="pl-3 space-y-2 border-l border-neutral-200 dark:border-neutral-700 ml-0.5">
-                                      {sub.items.map((item) => (
-                                        <li key={item.slug}>
-                                          <Link
-                                            to={`/shop?category=${encodeURIComponent(item.slug)}`}
-                                            onClick={onClose}
-                                            className="block text-sm text-neutral-500 dark:text-neutral-400 hover:text-[#6aa200] pl-3 py-0.5"
-                                          >
-                                            {item.label}
-                                          </Link>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                ))}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
+              {isLoadingCategories ? (
+                <div className="px-4 py-2 text-sm text-neutral-500 dark:text-neutral-400">Chargement...</div>
+              ) : categoriesError ? (
+                <div className="px-4 py-2 text-sm text-red-600">{categoriesError}</div>
+              ) : menuCategories.length === 0 ? (
+                <div className="px-4 py-2 text-sm text-neutral-500 dark:text-neutral-400">Aucune catégorie.</div>
+              ) : (
+                <VariantComponent
+                  menuCategories={menuCategories}
+                  groupedMenuCategories={groupedMenuCategories}
+                  onClose={onClose}
+                />
+              )}
             </div>
 
             {/* Bottom Actions */}

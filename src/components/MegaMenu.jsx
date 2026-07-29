@@ -1,15 +1,33 @@
-import { useMemo, useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
-import { Layers, Tag } from "lucide-react";
 import { buildCategoryTree, resolveBackendAssetUrl } from "@/services/categoryService";
 import { useCatalogCategories } from "@/features/catalog/useCatalogCategories";
 import { groupCategoriesByUniverse } from "@/features/catalog/categoryGroups";
+import { useMenuVariant } from "@/features/catalog/useMenuVariant";
+import ListGridDesktop from "./megamenu/desktop/ListGridDesktop";
+import ColumnsDesktop from "./megamenu/desktop/ColumnsDesktop";
+import TabsDesktop from "./megamenu/desktop/TabsDesktop";
+import GroupedDesktop from "./megamenu/desktop/GroupedDesktop";
 
-export default function MegaMenu({ isOpen, onClose }) {
-  const [activeCategoryId, setActiveCategoryId] = useState(null);
+const VARIANT_COMPONENTS = {
+  "list-grid": ListGridDesktop,
+  "columns": ColumnsDesktop,
+  "tabs": TabsDesktop,
+  "grouped": GroupedDesktop,
+};
+
+/**
+ * variant: "list-grid" (default) | "columns" | "tabs" | "grouped".
+ * Falls back to the live-switchable design variant (see MenuVariantSwitcher)
+ * when no explicit variant prop is passed.
+ */
+export default function MegaMenu({ isOpen, onClose, variant }) {
+  const liveVariant = useMenuVariant();
+  const activeVariant = variant || liveVariant;
+  const VariantComponent = VARIANT_COMPONENTS[activeVariant] || ListGridDesktop;
+
   const { data: remoteCategories = [], isLoading: isLoadingCategories, error } = useCatalogCategories();
   const categoriesError = error?.message || "";
 
@@ -43,14 +61,16 @@ export default function MegaMenu({ isOpen, onClose }) {
         })
         .filter(Boolean)
         .slice(0, 6);
-      const imageUrl = resolveBackendAssetUrl(root.imageUrl);
       return {
         id: root.id,
         slug: root.slug,
+        // Once the backend exposes a univers/group field on root categories,
+        // it flows through here and groupCategoriesByUniverse (categoryGroups.js)
+        // will prefer it automatically over the static CATEGORY_GROUPS mapping.
         univers: root.univers || root.groupe || root.group,
         label: root.nom,
         subcategories,
-        imageUrl,
+        imageUrl: resolveBackendAssetUrl(root.imageUrl),
       };
     });
   }, [remoteCategories]);
@@ -59,19 +79,6 @@ export default function MegaMenu({ isOpen, onClose }) {
     () => groupCategoriesByUniverse(menuCategories),
     [menuCategories]
   );
-
-  const activeCategory = useMemo(() => {
-    const list = menuCategories;
-    if (!Array.isArray(list) || list.length === 0) return null;
-    if (!activeCategoryId) return list[0];
-    return list.find((c) => c.id === activeCategoryId) || list[0];
-  }, [menuCategories, activeCategoryId]);
-
-  const activeGroupLabel = useMemo(() => {
-    return groupedMenuCategories.find((group) =>
-      group.categories.some((c) => c.id === activeCategory?.id)
-    )?.label || "";
-  }, [groupedMenuCategories, activeCategory]);
 
   return (
     <AnimatePresence>
@@ -97,127 +104,22 @@ export default function MegaMenu({ isOpen, onClose }) {
             transition={{ type: 'tween', duration: 0.2 }}
             className="absolute left-0 top-full w-full bg-white dark:bg-neutral-900 shadow-2xl border-t border-neutral-200 dark:border-neutral-800 h-[600px] max-h-[calc(100vh-60px)]"
           >
-            <div className="max-w-[1400px] mx-auto h-full flex">
-
-              {/* Left Sidebar: Categories grouped by univers */}
-              <div className="w-[280px] flex-shrink-0 h-full border-r border-neutral-100 dark:border-neutral-800 overflow-y-auto py-4 bg-neutral-50 dark:bg-neutral-900/50">
-                {isLoadingCategories ? (
-                  <div className="px-6 py-3 text-sm text-neutral-500 dark:text-neutral-400">Chargement...</div>
-                ) : categoriesError ? (
-                  <div className="px-6 py-3 text-sm text-red-600">{categoriesError}</div>
-                ) : menuCategories.length === 0 ? (
-                  <div className="px-6 py-3 text-sm text-neutral-500 dark:text-neutral-400">
-                    Aucune catégorie.
-                  </div>
-                ) : (
-                  groupedMenuCategories.map((group) => (
-                    <div key={group.key}>
-                      <div className="px-6 pt-4 pb-1 first:pt-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
-                        <Layers size={12} className="text-[#6aa200]" />
-                        {group.label}
-                      </div>
-                      {group.categories.map((category) => (
-                        <button
-                          key={category.id}
-                          onMouseEnter={() => setActiveCategoryId(category.id)}
-                          className={`w-full text-left px-6 py-3 flex items-center justify-between group transition-all duration-200 ${
-                            activeCategory?.id === category.id
-                              ? "bg-white dark:bg-neutral-800 shadow-sm border-l-4 border-[#6aa200]"
-                              : "hover:bg-neutral-100 dark:hover:bg-neutral-800 border-l-4 border-transparent"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span
-                              className={`font-medium ${
-                                activeCategory?.id === category.id
-                                  ? "text-neutral-900 dark:text-white"
-                                  : "text-neutral-600 dark:text-neutral-400 group-hover:text-neutral-900 dark:group-hover:text-white"
-                              }`}
-                            >
-                              {category.label}
-                            </span>
-                          </div>
-                          {activeCategory?.id === category.id ? <span className="text-[#6aa200]">›</span> : null}
-                        </button>
-                      ))}
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Right Content Area */}
-              <div className="flex-1 h-full p-8 overflow-y-auto">
-                {activeCategory ? (
-                  <div className="mb-6">
-                    <p className="text-xs font-bold uppercase tracking-wider text-[#6aa200] mb-1">{activeGroupLabel}</p>
-                    <h2 className="text-2xl font-black text-neutral-900 dark:text-white">{activeCategory.label}</h2>
-                  </div>
-                ) : null}
-
-                <div className="flex gap-8">
-                  {/* Subcategories Grid */}
-                  <div className="flex-1 grid grid-cols-2 gap-8 content-start">
-                    {(activeCategory?.subcategories || []).map((sub, index) => (
-                      <motion.div
-                        key={`${activeCategory?.id || "cat"}-${index}`}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                      >
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-10 h-10 rounded-lg bg-[#6aa200]/10 flex items-center justify-center text-[#6aa200] flex-shrink-0">
-                            <Tag size={18} />
-                          </div>
-                          <h3 className="font-bold text-neutral-900 dark:text-white">{sub.title}</h3>
-                        </div>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                          {sub.items.map((item, i) => (
-                            <span key={item.slug}>
-                              <Link
-                                to={`/shop?category=${encodeURIComponent(item.slug)}`}
-                                onClick={onClose}
-                                className="hover:text-[#6aa200] dark:hover:text-[#6aa200] transition-colors"
-                              >
-                                {item.label}
-                              </Link>
-                              {i < sub.items.length - 1 ? (
-                                <span className="mx-1.5 text-neutral-300 dark:text-neutral-700">·</span>
-                              ) : null}
-                            </span>
-                          ))}
-                        </p>
-                      </motion.div>
-                    ))}
-                  </div>
-
-                  {/* Featured Image / Offer */}
-                  <div className="w-1/3">
-                    <motion.div
-                      key={activeCategory?.id || "active"}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="relative h-full rounded-2xl overflow-hidden group cursor-pointer"
-                    >
-                      {activeCategory?.imageUrl ? (
-                        <>
-                          <img
-                            src={activeCategory.imageUrl}
-                            alt={activeCategory?.label || ""}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/90 via-neutral-900/20 to-transparent flex flex-col justify-end p-6 text-white">
-                            <h3 className="text-2xl font-bold mb-2">{activeCategory?.label}</h3>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-neutral-900 to-neutral-700 flex items-end p-6 text-white">
-                          <h3 className="text-2xl font-bold">{activeCategory?.label}</h3>
-                        </div>
-                      )}
-                    </motion.div>
-                  </div>
+            <div className="max-w-[1400px] mx-auto h-full">
+              {isLoadingCategories ? (
+                <div className="px-6 py-3 text-sm text-neutral-500 dark:text-neutral-400">Chargement...</div>
+              ) : categoriesError ? (
+                <div className="px-6 py-3 text-sm text-red-600">{categoriesError}</div>
+              ) : menuCategories.length === 0 ? (
+                <div className="px-6 py-3 text-sm text-neutral-500 dark:text-neutral-400">
+                  Aucune catégorie.
                 </div>
-              </div>
+              ) : (
+                <VariantComponent
+                  menuCategories={menuCategories}
+                  groupedMenuCategories={groupedMenuCategories}
+                  onClose={onClose}
+                />
+              )}
             </div>
           </motion.div>
         </>

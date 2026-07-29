@@ -5,6 +5,13 @@ const OTHER_GROUP_LABEL = "Autres";
  * backend exposes a univers/group field on each category. Entries accept
  * either a category id or slug (case-insensitive) so the mapping survives
  * id changes across environments.
+ *
+ * How to switch to server data later: once the API returns `univers` (or
+ * `groupe`/`group`) on each root category, this whole file becomes
+ * unnecessary for new data — resolveCategoryUniverse() already reads that
+ * field first and only falls back to CATEGORY_GROUPS when it's absent. You
+ * can delete CATEGORY_GROUPS entirely once every root category has the
+ * field set server-side.
  */
 export const CATEGORY_GROUPS = {
   "Alimentation": ["ALIMENTATION"],
