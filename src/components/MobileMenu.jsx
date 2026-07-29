@@ -2,9 +2,10 @@ import { useMemo, useState } from "react";
 import { Link } from 'react-router-dom';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, ShoppingBag, Heart, Zap } from "lucide-react";
+import { X, User, ShoppingBag, Heart, Zap, Layers } from "lucide-react";
 import { buildCategoryTree } from "@/services/categoryService";
 import { useCatalogCategories } from "@/features/catalog/useCatalogCategories";
+import { groupCategoriesByUniverse } from "@/features/catalog/categoryGroups";
 
 export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
   const [expandedCategory, setExpandedCategory] = useState(null);
@@ -33,11 +34,18 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
         .slice(0, 6);
       return {
         id: root.id,
+        slug: root.slug,
+        univers: root.univers || root.groupe || root.group,
         label: root.nom,
         subcategories,
       };
     });
   }, [remoteCategories]);
+
+  const groupedMenuCategories = useMemo(
+    () => groupCategoriesByUniverse(menuCategories),
+    [menuCategories]
+  );
 
   const sidebarVariants = {
     closed: { x: '-100%', transition: { type: 'spring', stiffness: 300, damping: 30 } },
@@ -68,7 +76,7 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
             {/* Header */}
             <div className="sticky top-0 z-10 bg-white dark:bg-neutral-950 px-6 py-4 border-b border-neutral-100 dark:border-neutral-800 flex justify-between items-center">
               <h2 className="text-xl font-black tracking-tighter">MENU</h2>
-              <button 
+              <button
                 onClick={onClose}
                 className="p-2 -mr-2 text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
               >
@@ -92,7 +100,7 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
             {/* Special Offer */}
             {onOpenOffer && (
               <div className="p-4 pb-0">
-                <button 
+                <button
                   onClick={onOpenOffer}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#6aa200] via-[#8bc34a] to-[#6aa200] bg-[length:200%_auto] animate-shine text-white rounded-xl font-bold shadow-[0_4px_15px_rgba(106,162,0,0.3)] hover:shadow-[0_6px_20px_rgba(106,162,0,0.4)] transition-all transform hover:-translate-y-1"
                 >
@@ -125,7 +133,7 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
 
             <div className="h-px bg-neutral-100 dark:bg-neutral-800 mx-6 my-2" />
 
-            {/* Categories Accordion */}
+            {/* Categories Accordion, grouped by univers */}
             <div className="p-4">
               <h3 className="px-4 text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Catégories</h3>
               <div className="space-y-1">
@@ -135,56 +143,64 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
                   <div className="px-4 py-2 text-sm text-red-600">{categoriesError}</div>
                 ) : menuCategories.length === 0 ? (
                   <div className="px-4 py-2 text-sm text-neutral-500 dark:text-neutral-400">Aucune catégorie.</div>
-                ) : menuCategories.map((cat) => (
-                  <div key={cat.id} className="rounded-xl overflow-hidden">
-                    <button
-                      onClick={() => toggleCategory(cat.id)}
-                      className={`w-full flex items-center justify-between px-4 py-3 transition-colors ${
-                        expandedCategory === cat.id 
-                          ? 'bg-[#6aa200]/10 dark:bg-[#6aa200]/20 text-[#6aa200]' 
-                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-900 text-neutral-700 dark:text-neutral-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="font-medium">{cat.label}</span>
-                      </div>
-                      <span className="text-neutral-400">{expandedCategory === cat.id ? "▾" : "▸"}</span>
-                    </button>
-                    
-                    <AnimatePresence>
-                      {expandedCategory === cat.id && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="bg-neutral-50 dark:bg-neutral-900/30 overflow-hidden"
+                ) : groupedMenuCategories.map((group) => (
+                  <div key={group.key}>
+                    <div className="sticky top-14 z-[1] -mx-4 px-4 py-1.5 bg-neutral-50 dark:bg-neutral-900/80 backdrop-blur-sm flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                      <Layers size={12} className="text-[#6aa200]" />
+                      {group.label}
+                    </div>
+                    {group.categories.map((cat) => (
+                      <div key={cat.id} className="rounded-xl overflow-hidden">
+                        <button
+                          onClick={() => toggleCategory(cat.id)}
+                          className={`w-full flex items-center justify-between px-4 py-3 transition-colors ${
+                            expandedCategory === cat.id
+                              ? 'bg-[#6aa200]/10 dark:bg-[#6aa200]/20 text-[#6aa200]'
+                              : 'hover:bg-neutral-50 dark:hover:bg-neutral-900 text-neutral-700 dark:text-neutral-300'
+                          }`}
                         >
-                          <div className="px-4 py-3 space-y-4">
-                            {cat.subcategories.map((sub, idx) => (
-                              <div key={idx}>
-                                <h4 className="font-bold text-sm text-neutral-900 dark:text-white mb-2 flex items-center gap-2">
-                                  <span className="w-1 h-3 bg-[#6aa200] rounded-full"></span>
-                                  {sub.title}
-                                </h4>
-                                <ul className="pl-3 space-y-2 border-l border-neutral-200 dark:border-neutral-700 ml-0.5">
-                                  {sub.items.map((item) => (
-                                    <li key={item.slug}>
-                                      <Link 
-                                        to={`/shop?category=${encodeURIComponent(item.slug)}`}
-                                        onClick={onClose}
-                                        className="block text-sm text-neutral-500 dark:text-neutral-400 hover:text-[#6aa200] pl-3 py-0.5"
-                                      >
-                                        {item.label}
-                                      </Link>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ))}
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium">{cat.label}</span>
                           </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                          <span className="text-neutral-400">{expandedCategory === cat.id ? "▾" : "▸"}</span>
+                        </button>
+
+                        <AnimatePresence>
+                          {expandedCategory === cat.id && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="bg-neutral-50 dark:bg-neutral-900/30 overflow-hidden"
+                            >
+                              <div className="px-4 py-3 space-y-4">
+                                {cat.subcategories.map((sub, idx) => (
+                                  <div key={idx}>
+                                    <h4 className="font-bold text-sm text-neutral-900 dark:text-white mb-2 flex items-center gap-2">
+                                      <span className="w-1 h-3 bg-[#6aa200] rounded-full"></span>
+                                      {sub.title}
+                                    </h4>
+                                    <ul className="pl-3 space-y-2 border-l border-neutral-200 dark:border-neutral-700 ml-0.5">
+                                      {sub.items.map((item) => (
+                                        <li key={item.slug}>
+                                          <Link
+                                            to={`/shop?category=${encodeURIComponent(item.slug)}`}
+                                            onClick={onClose}
+                                            className="block text-sm text-neutral-500 dark:text-neutral-400 hover:text-[#6aa200] pl-3 py-0.5"
+                                          >
+                                            {item.label}
+                                          </Link>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
