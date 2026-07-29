@@ -11,7 +11,7 @@ export const CATEGORY_GROUPS = {
   "Boissons & Alcool": ["BOISSONS"],
   "Tech & Mobile": ["TECHNOLOGIE"],
   "Mode & Accessoires": ["VETEMENT"],
-  "Maison": [],
+  "Maison": ["MAISON"],
 };
 
 function matchesGroupEntry(category, entry) {
