@@ -139,7 +139,7 @@ export default function DeliveriesPage() {
     try {
       const detail = await scanShipment(qr)
       if (detail?.id) {
-        localStorage.setItem('lid_last_scanned_shipment', JSON.stringify(detail))
+        sessionStorage.setItem('lid_last_scanned_shipment', JSON.stringify(detail))
         prime(detail)
         setScanOpen(false)
         setManualQr('')

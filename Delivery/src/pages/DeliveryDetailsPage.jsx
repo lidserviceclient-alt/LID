@@ -82,7 +82,7 @@ export default function DeliveryDetailsPage() {
       return
     }
     try {
-      const lastScanned = localStorage.getItem('lid_last_scanned_shipment')
+      const lastScanned = sessionStorage.getItem('lid_last_scanned_shipment')
       const scannedObj = lastScanned ? JSON.parse(lastScanned) : null
       if (scannedObj?.id === id) {
         setIsLocked(false)
@@ -105,7 +105,7 @@ export default function DeliveryDetailsPage() {
       if (!scannedDetail?.id) {
         throw new Error('Expédition introuvable.')
       }
-      localStorage.setItem('lid_last_scanned_shipment', JSON.stringify(scannedDetail))
+      sessionStorage.setItem('lid_last_scanned_shipment', JSON.stringify(scannedDetail))
       setManualQr('')
       if (`${scannedDetail.id}` !== id) {
         navigate(`/deliveries/${encodeURIComponent(scannedDetail.id)}`, { replace: true })

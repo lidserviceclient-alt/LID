@@ -1,26 +1,31 @@
 import { apiRequest } from './http'
 
-const TOKEN_KEY = 'lid_delivery_access_token'
+// Le jeton d'acces ne vit qu'en memoire (une XSS ne peut plus le lire) ; la session est restauree par
+// /auth/refresh grace au cookie HttpOnly (voir RequireAuth).
+const LEGACY_TOKEN_KEY = 'lid_delivery_access_token'
+let accessTokenInMemory = null
 let refreshPromise = null;
 
+try { localStorage.removeItem(LEGACY_TOKEN_KEY) } catch { /* sans incidence */ }
+
 export function getAccessToken() {
-  try {
-    return localStorage.getItem(TOKEN_KEY)
-  } catch {
-    return null
-  }
+  return accessTokenInMemory
 }
 
 export function setAccessToken(token) {
-  try {
-    if (!token) {
-      localStorage.removeItem(TOKEN_KEY)
-      return
-    }
-    localStorage.setItem(TOKEN_KEY, token)
-  } catch {
-    // ignore
+  accessTokenInMemory = token || null
+  if (!token) {
+    // Donnees client gardees le temps d'une mission : jamais au-dela de la session
+    try { sessionStorage.removeItem('lid_last_scanned_shipment') } catch { /* sans incidence */ }
   }
+}
+
+// Le refresh token est a usage unique : un seul rafraichissement a la fois entre les onglets
+function runExclusiveRefresh(task) {
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    return navigator.locks.request('lid-delivery-auth-refresh', task)
+  }
+  return task()
 }
 
 export function clearAccessToken() {
@@ -69,7 +74,7 @@ export async function refreshSession() {
   if (refreshPromise) {
     return refreshPromise
   }
-  refreshPromise = apiRequest('/api/v1/auth/refresh', { method: 'POST' })
+  refreshPromise = runExclusiveRefresh(() => apiRequest('/api/v1/auth/refresh', { method: 'POST' }))
     .then((data) => {
       const token = data?.accessToken
       if (!token) {
