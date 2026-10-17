@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, CreditCard, Smartphone, User, MapPin, Phone, Mail, ArrowRight, ShieldCheck, Lock, ChevronLeft, Loader2, LocateFixed } from 'lucide-react';
@@ -12,30 +12,6 @@ import { useAppConfig } from '@/features/appConfig/useAppConfig';
 import { useCart } from '@/features/cart/CartContext';
 import InternationalPhoneField from '@/components/InternationalPhoneField';
 import { isValidInternationalPhone, isValidMobileMoneyPhone } from '@/utils/phone';
-
-const formatCardNumber = (value) => {
-  const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-  const matches = v.match(/\d{4,16}/g);
-  const match = (matches && matches[0]) || '';
-  const parts = [];
-  for (let i = 0, len = match.length; i < len; i += 4) {
-    parts.push(match.substring(i, i + 4));
-  }
-  if (parts.length) {
-    return parts.join(' ');
-  } else {
-    return value;
-  }
-};
-
-const formatExpires = (value) => {
-  return value
-    .replace(/[^0-9]/g, '')
-    .replace(/^([2-9])$/g, '0$1')
-    .replace(/^(1{1})([3-9]{1})$/g, '0$1/$2')
-    .replace(/^0{1,}/g, '0')
-    .replace(/^([0-1]{1}[0-9]{1})([0-9]{1,2}).*/g, '$1/$2');
-};
 
 const formatMoney = (value) => {
   const num = Number(value);
@@ -67,159 +43,8 @@ const roundAmount = (value) => {
   return Math.round(num * 100) / 100;
 };
 
+// Montant minimum accepte par l'API (verification cote client avant le paiement)
 const MINIMUM_ORDER_AMOUNT = 100;
-
-const CardChip = () => (
-  <svg width="52" height="42" viewBox="0 0 52 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="52" height="42" rx="6" fill="url(#chipGrad)" />
-    <rect x="1" y="1" width="50" height="40" rx="5" stroke="rgba(255,220,80,0.3)" strokeWidth="0.5" />
-    <line x1="0" y1="14" x2="52" y2="14" stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
-    <line x1="0" y1="28" x2="52" y2="28" stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
-    <line x1="17" y1="0" x2="17" y2="42" stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
-    <line x1="35" y1="0" x2="35" y2="42" stroke="rgba(0,0,0,0.35)" strokeWidth="1" />
-    <rect x="17" y="14" width="18" height="14" fill="rgba(0,0,0,0.18)" stroke="rgba(255,200,50,0.2)" strokeWidth="0.5" />
-    <defs>
-      <linearGradient id="chipGrad" x1="0" y1="0" x2="52" y2="42" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stopColor="#d4a843" />
-        <stop offset="30%" stopColor="#f5d060" />
-        <stop offset="60%" stopColor="#b07828" />
-        <stop offset="100%" stopColor="#e8c048" />
-      </linearGradient>
-    </defs>
-  </svg>
-);
-
-const NfcIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M5 13 Q5 5 13 5" stroke="rgba(255,255,255,0.4)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
-    <path d="M8.5 13 Q8.5 8.5 13 8.5" stroke="rgba(255,255,255,0.55)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
-    <path d="M12 13 Q12 11.5 13 11.5" stroke="rgba(255,255,255,0.75)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
-    <circle cx="13" cy="13" r="2" fill="rgba(255,255,255,0.85)" />
-  </svg>
-);
-
-const MastercardLogo = () => (
-  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-    <div style={{ display: 'flex', alignItems: 'center' }}>
-      <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(218,35,35,0.92)', marginRight: -13, zIndex: 1, boxShadow: '0 2px 10px rgba(0,0,0,0.5)' }} />
-      <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(232,155,22,0.92)', boxShadow: '0 2px 10px rgba(0,0,0,0.5)' }} />
-    </div>
-    <span style={{ fontFamily: 'Arial, sans-serif', fontSize: 10, fontWeight: 'bold', color: '#fff', letterSpacing: '0.04em', textShadow: '0 1px 5px rgba(0,0,0,0.9)' }}>MasterCard</span>
-  </div>
-);
-
-const SpiralBg = () => (
-  <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 500 315" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="sg" cx="68%" cy="43%" r="58%">
-        <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.75" />
-        <stop offset="55%" stopColor="#38bdf8" stopOpacity="0.18" />
-        <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
-      </radialGradient>
-      <radialGradient id="blob" cx="68%" cy="43%" r="42%">
-        <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.1" />
-        <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
-      </radialGradient>
-      <pattern id="dots" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
-        <circle cx="2" cy="2" r="0.9" fill="#7dd3fc" opacity="0.18" />
-      </pattern>
-    </defs>
-    <rect width="500" height="315" fill="url(#dots)" />
-    <ellipse cx="355" cy="145" rx="190" ry="140" fill="url(#blob)" />
-    {[
-      [36, 21, 0], [60, 35, 9], [84, 51, 17], [110, 66, 24], [138, 84, 30],
-      [168, 104, 34], [199, 125, 37], [232, 148, 39], [267, 172, 41], [304, 198, 42],
-    ].map(([rx, ry, rot], i) => (
-      <ellipse key={i} cx="355" cy="145" rx={rx} ry={ry} fill="none" stroke="url(#sg)" strokeWidth="1" opacity={0.95 - i * 0.09} transform={`rotate(${rot} 355 145)`} />
-    ))}
-  </svg>
-);
-
-function CardPreview({ number, name, expiry, cvc, focus, supportPhone }) {
-  const [flipped, setFlipped] = useState(false);
-  const cardNumberRaw = `${number || ''}`.replace(/\D/g, '');
-  const displayNumber = cardNumberRaw ? formatCardNumber(cardNumberRaw) : '5213 2821 1583 5635';
-  const displayExpiry = formatExpiryLong(expiry);
-  const displayName = `${name || ''}`.trim().toUpperCase() || 'NOM DU TITULAIRE';
-  const displayCvc = `${cvc || ''}`.replace(/\D/g, '').padEnd(3, '•').slice(0, 3);
-  const phone = `${supportPhone || ''}`.trim() || '+33 1 70 36 38 00';
-  const effectiveFlipped = flipped || focus === 'cvc';
-
-  return (
-    <div className="w-full max-w-[420px] mx-auto select-none">
-      <div style={{ perspective: 1400, cursor: 'pointer' }} onClick={() => setFlipped((f) => !f)}>
-        <div
-          style={{
-            width: '100%',
-            aspectRatio: '500 / 315',
-            position: 'relative',
-            transformStyle: 'preserve-3d',
-            transition: 'transform 0.75s cubic-bezier(0.4,0.2,0.2,1)',
-            transform: effectiveFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backfaceVisibility: 'hidden',
-              WebkitBackfaceVisibility: 'hidden',
-              borderRadius: 20,
-              overflow: 'hidden',
-              background: 'linear-gradient(148deg,#202020 0%,#2e2e2e 45%,#131313 100%)',
-            }}
-          >
-            <SpiralBg />
-            <div style={{ position: 'absolute', top: 30, left: 30, right: 30, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <CardChip />
-              <NfcIcon />
-            </div>
-            <div style={{ position: 'absolute', top: '50%', left: 30, transform: 'translateY(-50%)', color: '#fff', fontSize: 22, fontWeight: 700, fontFamily: "'Courier New',monospace", textShadow: '0 2px 12px rgba(0,0,0,0.7)' }}>
-              {displayNumber.replace(/ /g, '\u00A0\u00A0')}
-            </div>
-            <div style={{ position: 'absolute', bottom: 26, left: 30, right: 30, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-              <div className="space-y-1">
-                <div style={{ color: '#666', fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Valid THRU</div>
-                <div style={{ color: '#e0e0e0', fontSize: 15, fontWeight: 700, fontFamily: "'Courier New',monospace" }}>{displayExpiry}</div>
-                <div style={{ color: '#f0f0f0', fontSize: 14, fontWeight: 700, textTransform: 'uppercase', fontFamily: "'Courier New',monospace" }}>{displayName}</div>
-              </div>
-              <MastercardLogo />
-            </div>
-          </div>
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backfaceVisibility: 'hidden',
-              WebkitBackfaceVisibility: 'hidden',
-              borderRadius: 20,
-              overflow: 'hidden',
-              transform: 'rotateY(180deg)',
-              background: 'linear-gradient(148deg,#1b1b1b 0%,#262626 55%,#0f0f0f 100%)',
-            }}
-          >
-            <div style={{ position: 'absolute', top: 46, left: 0, right: 0, height: 52, background: 'linear-gradient(180deg,#111 0%,#000 50%,#111 100%)' }} />
-            <div style={{ position: 'absolute', top: 120, left: 30, right: 30, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ flex: 1, height: 46, borderRadius: 4, background: 'repeating-linear-gradient(90deg,#f5f0e8 0px,#f5f0e8 8px,#e2d9cb 8px,#e2d9cb 16px)', display: 'flex', alignItems: 'center', paddingLeft: 14 }}>
-                <span style={{ fontFamily: 'cursive', fontSize: 17, color: '#444', opacity: 0.55 }}>{displayName}</span>
-              </div>
-              <div style={{ width: 60, height: 46, borderRadius: 4, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontFamily: "'Courier New',monospace", fontSize: 17, fontWeight: 700, color: '#111' }}>{displayCvc}</span>
-              </div>
-            </div>
-            <div style={{ position: 'absolute', bottom: 26, left: 30, right: 30, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-              <div>
-                <div style={{ color: '#444', fontSize: 9, textTransform: 'uppercase' }}>Service Client 24h/24</div>
-                <div style={{ color: '#666', fontSize: 13, fontFamily: "'Courier New',monospace" }}>{phone}</div>
-              </div>
-              <MastercardLogo />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, selectedSize, quantity, cartItems, onSuccess, shippingCost = 0, discountAmount = 0, loyaltyDiscountAmount = 0, loyaltyTier = "", promoCode = "", shippingMethodCode = "STANDARD", shippingMethodLabel = "Standard" }) {
   const [step, setStep] = useState(1); // 1: Info, 2: Payment, 3: Processing, 4: Success
@@ -234,15 +59,12 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     address: '',
     city: '',
     zip: '',
-    paymentMethod: 'card', // 'card' | 'mobile' | 'wave'
-    cardNumber: '',
-    cardExpiry: '',
-    cardCvc: '',
-    cardName: '',
+    paymentMethod: 'card', // 'card' (page securisee du prestataire) | 'mobile' | 'wave'
     mobilePhone: ''
   });
 
-  const [cardFocus, setCardFocus] = useState('');
+  // Une cle par tentative : un rejeu (double clic, timeout) ne cree jamais une seconde commande
+  const idempotencyKeyRef = useRef(null);
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [loadingAddresses, setLoadingAddresses] = useState(false);
@@ -252,7 +74,6 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
   const [mobilePhoneTouched, setMobilePhoneTouched] = useState(false);
   const { data: appConfig } = useAppConfig();
   const { clearCart } = useCart();
-  const supportPhone = `${appConfig?.contactPhone || ''}`.trim();
   const vatRate = normalizeVatRate(appConfig?.vatPercent);
  
   const isCartCheckout = cartItems && cartItems.length > 0;
@@ -414,11 +235,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    let v = value;
-    if (name === 'cardNumber') v = formatCardNumber(value);
-    if (name === 'cardExpiry') v = formatExpires(value);
-    if (name === 'cardCvc') v = value.replace(/\D/g, '').slice(0, 3);
-    setFormData(prev => ({ ...prev, [name]: v }));
+    setFormData(prev => ({ ...prev, [name]: value }));
     if (name === 'address' || name === 'city' || name === 'zip') {
       setShippingCoordinates(null);
     }
@@ -486,8 +303,10 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     setLoadingStep(1);
     try {
       const checkoutItems = (isCartCheckout ? cartItems.map((i) => toCheckoutItem(i, i?.quantity)) : [toCheckoutItem({ ...product, quantity: normalizedQuantity }, normalizedQuantity)]).filter(Boolean);
+      if (!idempotencyKeyRef.current) {
+        idempotencyKeyRef.current = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      }
       const res = await checkout(payload.sub, {
-        amount: finalTotal,
         currency: 'XOF',
         email: formData.email,
         phone: checkoutPhone,
@@ -496,11 +315,21 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
         shippingLongitude: shippingCoordinates?.longitude ?? null,
         shippingMethodCode,
         shippingMethodLabel,
-        shippingCost: normalizedShippingCost,
+        promoCode: `${promoCode || ''}`.trim() || undefined,
         items: checkoutItems,
-        paymentProvider: import.meta.env.VITE_PAYMENT_PROVIDER || 'PAYDUNYA',
         paymentOperator: formData.paymentMethod === 'wave' ? 'WAVE_CI' : formData.paymentMethod === 'mobile' ? 'MOBILE_MONEY_CI' : 'CARD_CI'
-      });
+      }, idempotencyKeyRef.current);
+      idempotencyKeyRef.current = null;
+      if (res?.paymentUrl && typeof window !== 'undefined') {
+        // Permet de reprendre le paiement depuis la page d'annulation (la commande attend 30 min)
+        try {
+          window.localStorage.setItem('lid_pending_payment', JSON.stringify({
+            paymentUrl: res.paymentUrl,
+            orderNumber: res.orderNumber || '',
+            createdAt: Date.now()
+          }));
+        } catch { /* stockage indisponible : sans incidence */ }
+      }
       if (res?.orderNumber) {
         setOrderNumber(res.orderNumber);
       }
@@ -519,7 +348,12 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
       }
     } catch (err) {
       setStep(2);
-      toast.error(err?.message || "Erreur de paiement");
+      // Refus definitif du serveur : la prochaine tentative est une nouvelle commande. Timeout/reseau : meme cle.
+      const status = err?.response?.status;
+      if (status && status >= 400 && status < 500 && status !== 409) {
+        idempotencyKeyRef.current = null;
+      }
+      toast.error(err?.response?.data?.errorMessage || err?.response?.data?.message || err?.message || "Erreur de paiement");
     }
   };
 
@@ -763,26 +597,10 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                       </div>
 
                       {formData.paymentMethod === 'card' ? (
-                        <div className="space-y-5">
-                          <CardPreview number={formData.cardNumber} name={formData.cardName} expiry={formData.cardExpiry} cvc={formData.cardCvc} focus={cardFocus} supportPhone={supportPhone} />
-                          <div>
-                            <label className={labelCls}>Nom du titulaire</label>
-                            <input required name="cardName" value={formData.cardName} onChange={handleInputChange} placeholder="PRÉNOM NOM" className={cn(inputCls, "uppercase")} />
-                          </div>
-                          <div>
-                            <label className={labelCls}>Numéro de carte</label>
-                            <input required name="cardNumber" value={formData.cardNumber} onChange={handleInputChange} placeholder="0000 0000 0000 0000" className={cn(inputCls, "font-mono tracking-widest")} />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className={labelCls}>Expiration</label>
-                              <input required name="cardExpiry" value={formData.cardExpiry} onChange={handleInputChange} placeholder="MM/AA" className={cn(inputCls, "font-mono")} />
-                            </div>
-                            <div>
-                              <label className={labelCls}>CVC</label>
-                              <input required name="cardCvc" value={formData.cardCvc} onChange={handleInputChange} onFocus={() => setCardFocus('cvc')} onBlur={() => setCardFocus('')} placeholder="•••" className={cn(inputCls, "font-mono")} />
-                            </div>
-                          </div>
+                        <div className="rounded-2xl border-2 border-dashed border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-900/10 p-8 text-center space-y-3">
+                          <CreditCard className="mx-auto text-orange-500" size={40} />
+                          <p className="font-semibold text-sm text-neutral-700 dark:text-neutral-300">Paiement sécurisé par carte bancaire</p>
+                          <p className="text-xs text-neutral-400">Vous serez redirigé vers la page sécurisée de notre prestataire de paiement pour saisir votre carte. Aucune donnée bancaire n'est saisie ni conservée ici.</p>
                         </div>
                       ) : (
                         <div className="space-y-5">

@@ -43,8 +43,11 @@ export default function PaymentSuccess() {
     if (cachedRaw) {
       try {
         const cachedData = JSON.parse(cachedRaw);
-        applyPaymentState(cachedData);
-        return;
+        if (`${cachedData?.status || ''}`.toUpperCase() === 'COMPLETED') {
+          applyPaymentState(cachedData);
+          return;
+        }
+        window.sessionStorage.removeItem(cacheKey);
       } catch {
         if (typeof window !== 'undefined') {
           window.sessionStorage.removeItem(cacheKey);
@@ -56,7 +59,9 @@ export default function PaymentSuccess() {
     getOrCreateVerifyPromise(token)
       .then((data) => {
         if (!mounted) return;
-        if (typeof window !== 'undefined') {
+        // On ne met en cache que le succes : un PENDING doit pouvoir evoluer
+        // (notification WebSocket ou nouvelle verification apres rafraichissement).
+        if (typeof window !== 'undefined' && `${data?.status || ''}`.toUpperCase() === 'COMPLETED') {
           window.sessionStorage.setItem(cacheKey, JSON.stringify(data));
         }
         applyPaymentState(data);
@@ -122,19 +127,13 @@ export default function PaymentSuccess() {
           }
         }
       }
-      if (data?.postPaymentSyncOk === false) {
-        const extra = data?.coreOrderId ? ` (commande: ${data.coreOrderId})` : '';
-        const err = data?.postPaymentSyncError ? `: ${data.postPaymentSyncError}` : '';
-        setState({ loading: false, ok: true, message: `Paiement confirmé, mais le traitement interne a échoué${extra}${err}` });
-        return;
-      }
-
+      try { window.localStorage.removeItem('lid_pending_payment'); } catch { /* sans incidence */ }
       setState({ loading: false, ok: true, message: 'Paiement confirmé. Merci !' });
       setTimeout(() => navigate('/profile?tab=orders', { replace: true }), 800);
       return;
     }
     if (status === 'PENDING') {
-      setState({ loading: false, ok: false, message: 'Paiement en attente. Vous pouvez réessayer dans quelques secondes.' });
+      setState({ loading: false, ok: false, message: 'Paiement en attente de confirmation. Cette page se mettra à jour automatiquement dès que votre paiement sera confirmé.' });
       return;
     }
     setState({ loading: false, ok: false, message: 'Paiement non confirmé.' });
