@@ -40,6 +40,15 @@ const mapStatusLabel = (status) => {
   }
 };
 
+const REFUND_LABELS = {
+  NOT_REQUESTED: "Aucun remboursement",
+  PENDING: "En attente",
+  PROCESSING: "En cours",
+  COMPLETED: "Terminé",
+  FAILED: "Échec",
+  MANUAL_REVIEW: "À traiter manuellement"
+};
+
 const formatDate = (value) => {
   if (!value) return "-";
   const date = new Date(value);
@@ -62,6 +71,8 @@ export default function Returns() {
   const [detailError, setDetailError] = useState("");
   const [statusUpdate, setStatusUpdate] = useState("");
   const [statusSaving, setStatusSaving] = useState(false);
+  const [refundReference, setRefundReference] = useState("");
+  const [refundSaving, setRefundSaving] = useState(false);
   const returnsEntry = useReturnsResolver(page, size, status, q.trim());
 
   useEffect(() => {
@@ -119,6 +130,23 @@ export default function Returns() {
       setDetailError(err?.message || "Impossible de charger le retour.");
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const submitManualRefund = async () => {
+    const reference = refundReference.trim();
+    if (!detail?.id || reference.length < 3) return;
+    setRefundSaving(true);
+    setDetailError("");
+    try {
+      const updated = await backofficeApi.completeReturnRefund(detail.id, reference);
+      setDetail(updated);
+      setRefundReference("");
+      await refreshList(page, status, q.trim());
+    } catch (err) {
+      setDetailError(err?.message || "Impossible de finaliser le remboursement.");
+    } finally {
+      setRefundSaving(false);
     }
   };
 
@@ -334,7 +362,30 @@ export default function Returns() {
                 <div className="text-xs text-muted-foreground">Statut</div>
                 <Badge label={mapStatusLabel(detail.status)} />
               </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Remboursement</div>
+                <div className="font-semibold">
+                  {detail.refundAmount != null ? `${detail.refundAmount} FCFA · ` : ""}
+                  {REFUND_LABELS[detail.refundStatus] || detail.refundStatus || "-"}
+                </div>
+                {detail.refundReference ? (
+                  <div className="text-xs text-muted-foreground">Réf. {detail.refundReference}</div>
+                ) : null}
+              </div>
             </div>
+
+            {detail.refundStatus === "MANUAL_REVIEW" ? (
+              <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+                <div className="font-semibold text-amber-900">Ce remboursement ne peut pas être automatisé (carte ou résultat incertain).</div>
+                <p className="text-xs text-amber-800">Effectuez le remboursement hors plateforme, puis saisissez sa référence : le retour, la commande et le reversement du partenaire sont alors mis à jour.</p>
+                <div className="flex flex-col gap-2 md:flex-row">
+                  <Input value={refundReference} onChange={(e) => setRefundReference(e.target.value)} placeholder="Référence du virement / de l'opération" className="flex-1" />
+                  <Button onClick={submitManualRefund} disabled={refundSaving || refundReference.trim().length < 3}>
+                    {refundSaving ? "..." : "Marquer comme remboursé"}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
 
             {detail.details ? (
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">

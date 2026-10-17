@@ -326,6 +326,48 @@ export default function Logistics() {
     }
   }
 
+  async function runShipmentAdminAction(action, fallbackMessage) {
+    if (!actionShipment?.id) return;
+    setActionSaving(true);
+    setActionError("");
+    try {
+      await action();
+      await refreshCollection(page, size, status, carrier, q);
+      closeActionModal();
+    } catch (err) {
+      setActionError(err?.message || fallbackMessage);
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
+  function unlockCode() {
+    return runShipmentAdminAction(
+      () => backofficeApi.unlockShipmentCode(actionShipment.id),
+      "Impossible de débloquer le code."
+    );
+  }
+
+  function assignCourier() {
+    const courierUser = window.prompt("Email du compte livreur à qui affecter ce colis :");
+    if (!courierUser || !courierUser.trim()) return;
+    return runShipmentAdminAction(
+      () => backofficeApi.assignShipmentCourier(actionShipment.id, { courierUser: courierUser.trim() }),
+      "Impossible d'affecter ce livreur."
+    );
+  }
+
+  function returnToDepot() {
+    const reason = window.prompt(
+      "Retour au dépôt : la commande sera annulée et remboursée.\nMotif (obligatoire, conservé dans l'historique) :"
+    );
+    if (!reason || !reason.trim()) return;
+    return runShipmentAdminAction(
+      () => backofficeApi.returnShipmentToDepot(actionShipment.id, reason.trim()),
+      "Impossible de renvoyer ce colis au dépôt."
+    );
+  }
+
   async function retryDelivery() {
     if (!actionShipment?.id) return;
     setActionSaving(true);
@@ -761,6 +803,15 @@ export default function Logistics() {
           <>
             <Button variant="outline" onClick={closeActionModal} disabled={actionSaving}>
               Fermer
+            </Button>
+            <Button variant="outline" onClick={unlockCode} disabled={actionSaving}>
+              Débloquer le code
+            </Button>
+            <Button variant="outline" onClick={assignCourier} disabled={actionSaving}>
+              Affecter un livreur
+            </Button>
+            <Button variant="outline" onClick={returnToDepot} disabled={actionSaving}>
+              Retour dépôt
             </Button>
             <Button variant="outline" onClick={saveFailureMessage} disabled={actionSaving}>
               {actionSaving ? "Sauvegarde..." : "Mettre à jour le message client"}

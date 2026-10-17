@@ -109,8 +109,10 @@ const payoutUi = (status) => {
   if (normalized === "CANCELLED_MANUAL" || normalized === "FAILED_MANUAL") {
     return { label: "Annulation manuelle", variant: "outline" };
   }
-  if (normalized === "PENDING_WINDOW") return { label: "Fenêtre d'attente", variant: "neutral" };
-  if (normalized === "RETURN_ADJUSTED") return { label: "Ajusté après retour", variant: "outline" };
+  if (normalized === "AWAITING_DELIVERY") return { label: "En attente de livraison", variant: "neutral" };
+  if (normalized === "CANCELLED_ORDER") return { label: "Commande annulée", variant: "outline" };
+  if (normalized === "PENDING_WINDOW") return { label: "Fenêtre de retour en cours", variant: "neutral" };
+  if (normalized === "RETURN_ADJUSTED") return { label: "Retour en cours — bloqué", variant: "outline" };
   return { label: normalized || "-", variant: "outline" };
 };
 
@@ -818,7 +820,7 @@ export default function Partners() {
             <div className="flex flex-wrap items-center gap-2">
               {(() => {
                 const currentStatus = `${paymentModalTransaction?.payoutStatus || ""}`.trim().toUpperCase();
-                const isAlreadyClosed = ["DIRECT_PAID", "SCHEDULED_PAID", "PAID_MANUAL", "RETURN_ADJUSTED", "PAID_AUTOMATIC"].includes(currentStatus);
+                const isAlreadyClosed = ["DIRECT_PAID", "SCHEDULED_PAID", "PAID_MANUAL", "RETURN_ADJUSTED", "PAID_AUTOMATIC", "AWAITING_DELIVERY", "CANCELLED_ORDER"].includes(currentStatus);
                 const isAlreadyCancelled = ["CANCELLED_MANUAL", "FAILED_MANUAL"].includes(currentStatus);
                 return (
                   <>

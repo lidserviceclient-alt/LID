@@ -44,6 +44,19 @@ const mapStatus = (status) => {
   }
 };
 
+// Statut reel de la commande (9 valeurs) : le libelle reduit ci-dessus perd de l'information
+const REAL_STATUS_LABELS = {
+  PENDING: "En attente de paiement",
+  PAID: "Payée",
+  PROCESSING: "En préparation",
+  READY_TO_DELIVER: "Prête à livrer",
+  DELIVERY_IN_PROGRESS: "En cours de livraison",
+  DELIVERY_FAILED: "Livraison échouée",
+  DELIVERED: "Livrée",
+  CANCELED: "Annulée",
+  REFUNDED: "Remboursée"
+};
+
 const mapShipmentStatus = (status) => {
   if (!status) return "-";
   switch (status) {
@@ -144,7 +157,7 @@ export default function Orders() {
       items: order.items,
       channel: "Backoffice",
       total: formatCurrency(order.total),
-      status: mapStatus(order.status),
+      status: REAL_STATUS_LABELS[order.currentStatus] || mapStatus(order.status),
       rawStatus: order.status,
       shipmentStatus: mapShipmentStatus(order.shipmentStatus),
       courierReference: order.courierReference || "-",
@@ -361,7 +374,15 @@ export default function Orders() {
   async function changeOrderStatus(orderId, nextStatus) {
     if (!orderId || !nextStatus) return;
     try {
-      await backofficeApi.updateOrderStatus(orderId, nextStatus);
+      try {
+        await backofficeApi.updateOrderStatus(orderId, nextStatus);
+      } catch (err) {
+        // Hors parcours normal : l'administrateur peut forcer, avec un motif qui sera trace
+        if (!`${err?.message || ""}`.includes("forçage possible")) throw err;
+        const reason = window.prompt(`${err.message}\n\nMotif du forçage (obligatoire, conservé dans l'historique) :`);
+        if (!reason || !reason.trim()) throw err;
+        await backofficeApi.updateOrderStatus(orderId, nextStatus, { force: true, comment: reason.trim() });
+      }
       const status = statusMapping[activeStatus] || "";
       const data = await backofficeApi.orders(page, size, status, q.trim());
       setOrdersPage(data);

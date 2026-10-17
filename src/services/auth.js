@@ -1,4 +1,63 @@
-export const AUTH_TOKEN_KEY = "lid-backoffice-access-token";
+// Le jeton d'acces ne vit qu'en memoire (une XSS ne peut plus le lire) ; la session est restauree au demarrage
+// par /auth/refresh grace au cookie HttpOnly. Seul un indicateur non secret est conserve.
+export const AUTH_TOKEN_KEY = "lid-backoffice-access-token"; // ancienne cle : purgee au chargement
+export const SESSION_HINT_KEY = "lid-backoffice-session";
+
+let accessTokenInMemory = "";
+
+try { localStorage.removeItem(AUTH_TOKEN_KEY); } catch { /* sans incidence */ }
+
+function writeSessionHint(active) {
+  try {
+    if (active) localStorage.setItem(SESSION_HINT_KEY, "1");
+    else localStorage.removeItem(SESSION_HINT_KEY);
+  } catch {
+    // stockage indisponible : la session reste valable pour cet onglet
+  }
+}
+
+export function hasSessionHint() {
+  try {
+    return localStorage.getItem(SESSION_HINT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Un seul rafraichissement a la fois entre les onglets : le refresh token est a usage unique. */
+export function runExclusiveRefresh(task) {
+  if (typeof navigator !== "undefined" && navigator.locks?.request) {
+    return navigator.locks.request("lid-backoffice-auth-refresh", task);
+  }
+  return task();
+}
+
+export async function bootstrapSession() {
+  if (accessTokenInMemory || !hasSessionHint()) return;
+  const baseUrl = import.meta.env.VITE_BACKOFFICE_API_URL || "http://localhost:9000";
+  try {
+    const data = await runExclusiveRefresh(async () => {
+      const res = await fetch(`${baseUrl}/api/v1/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include"
+      });
+      if (!res.ok) {
+        const error = new Error(`Refresh failed: ${res.status}`);
+        error.status = res.status;
+        throw error;
+      }
+      return res.json().catch(() => null);
+    });
+    if (data?.accessToken) {
+      setAccessToken(data.accessToken);
+    }
+  } catch (error) {
+    if (error?.status === 401 || error?.status === 403) {
+      clearAccessToken();
+    }
+  }
+}
 
 function base64UrlDecodeToString(input) {
   const base64 = `${input}`.replace(/-/g, "+").replace(/_/g, "/");
@@ -36,7 +95,7 @@ export function decodeJwtPayload(token) {
 }
 
 export function getAccessToken() {
-  return localStorage.getItem(AUTH_TOKEN_KEY) || "";
+  return accessTokenInMemory;
 }
 
 export function isTokenExpired(token, skewSeconds = 30) {
@@ -58,11 +117,13 @@ export function isAuthenticated() {
 
 export function setAccessToken(token) {
   if (!token) return;
-  localStorage.setItem(AUTH_TOKEN_KEY, token);
+  accessTokenInMemory = token;
+  writeSessionHint(true);
 }
 
 export function clearAccessToken() {
-  localStorage.removeItem(AUTH_TOKEN_KEY);
+  accessTokenInMemory = "";
+  writeSessionHint(false);
 }
 
 export function getAuthenticatedUser() {

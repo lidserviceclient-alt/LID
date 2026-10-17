@@ -581,10 +581,28 @@ export const backofficeApi = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
-  updateOrderStatus: (id, status) =>
+  // `force` + `comment` : transition hors parcours normal, tracee avec son motif
+  updateOrderStatus: (id, status, { force = false, comment = "" } = {}) =>
     request(`/api/v1/backoffice/orders/${encodeURIComponent(id)}/status`, {
       method: "PUT",
-      body: JSON.stringify({ status })
+      body: JSON.stringify(force ? { status, force: "true", comment } : { status })
+    }),
+  unlockShipmentCode: (id) =>
+    request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/unlock-code`, { method: "POST" }),
+  assignShipmentCourier: (id, { courierUser, courierName, courierPhone }) =>
+    request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/courier`, {
+      method: "PUT",
+      body: JSON.stringify({ courierUser, courierName, courierPhone })
+    }),
+  returnShipmentToDepot: (id, reason) =>
+    request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/return-to-depot`, {
+      method: "POST",
+      body: JSON.stringify({ reason })
+    }),
+  completeReturnRefund: (id, reference) =>
+    request(`/api/v1/backoffice/returns/${encodeURIComponent(id)}/refund/complete`, {
+      method: "POST",
+      body: JSON.stringify({ reference })
     }),
   orderQuote: (payload) =>
     request("/api/v1/backoffice/orders/quote", {
