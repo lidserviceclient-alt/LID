@@ -874,6 +874,21 @@ export default function Partners() {
                   <Badge {...payoutUi(paymentModalTransaction.payoutStatus)} />
                 </div>
               </div>
+              {Number(paymentModalTransaction.deductedAdjustmentAmount) > 0 ? (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 md:col-span-2">
+                  <div className="text-xs text-amber-800">Dette déduite (retours après un versement précédent)</div>
+                  <div className="font-semibold text-amber-900">
+                    {formatMoney(paymentModalTransaction.deductedAdjustmentAmount)} · versé :{" "}
+                    {formatMoney(paymentModalTransaction.paidNetAmount)}
+                  </div>
+                </div>
+              ) : null}
+              {paymentModalTransaction.payoutError ? (
+                <div className="rounded-xl border border-red-300 bg-red-50 p-3 md:col-span-2">
+                  <div className="text-xs text-red-800">Dernier échec du versement</div>
+                  <div className="font-semibold text-red-900">{paymentModalTransaction.payoutError}</div>
+                </div>
+              ) : null}
               <div className="rounded-xl border border-border bg-muted/20 p-3">
                 <div className="text-xs text-muted-foreground">Montant commande</div>
                 <div className="font-semibold text-foreground">{formatMoney(paymentModalTransaction.orderAmount)}</div>

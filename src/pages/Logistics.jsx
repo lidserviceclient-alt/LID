@@ -823,6 +823,17 @@ export default function Logistics() {
         }
       >
         <div className="space-y-4">
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full border border-border bg-muted/30 px-3 py-1">
+              Échecs de livraison : {actionShipment?.failedAttempts ?? 0}
+            </span>
+            {actionShipment?.codeLocked ? (
+              <span className="rounded-full border border-red-300 bg-red-50 px-3 py-1 text-red-700">
+                Code client verrouillé (trop d'essais)
+              </span>
+            ) : null}
+          </div>
+
           <div className="rounded-lg border border-border bg-muted/20 p-4">
             <p className="text-sm font-semibold">Motif transmis par le livreur</p>
             <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
