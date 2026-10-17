@@ -1,7 +1,41 @@
-const ACCESS_TOKEN_KEY = 'lid_access_token';
+// Le jeton d'acces ne vit qu'en memoire : une faille XSS ne peut plus le lire dans le stockage du navigateur.
+// Au chargement, la session est restauree par /auth/refresh (cookie HttpOnly). Seul un indicateur non secret
+// (session ouverte oui/non) est conserve pour savoir s'il faut tenter cette restauration.
+const LEGACY_ACCESS_TOKEN_KEY = 'lid_access_token';
+export const SESSION_HINT_KEY = 'lid_session';
 export const AUTH_TOKEN_CHANGED_EVENT = 'lid:auth-token-changed';
 
-export const getAccessToken = () => localStorage.getItem(ACCESS_TOKEN_KEY);
+let accessTokenInMemory = null;
+
+const writeSessionHint = (active) => {
+  try {
+    if (active) localStorage.setItem(SESSION_HINT_KEY, '1');
+    else localStorage.removeItem(SESSION_HINT_KEY);
+  } catch {
+    // stockage indisponible : la session reste valable pour cet onglet
+  }
+};
+
+// Nettoyage des anciens jetons laisses dans le stockage par les versions precedentes
+try { localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY); } catch { /* sans incidence */ }
+
+export const hasSessionHint = () => {
+  try {
+    return localStorage.getItem(SESSION_HINT_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
+export const getAccessToken = () => accessTokenInMemory;
+
+/** Un seul rafraichissement a la fois entre les onglets : le refresh token est a usage unique (rotation). */
+export const runExclusiveRefresh = (task) => {
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    return navigator.locks.request('lid-auth-refresh', task);
+  }
+  return task();
+};
 
 const notifyAccessTokenChanged = (token) => {
   if (typeof window === 'undefined') return;
@@ -10,13 +44,15 @@ const notifyAccessTokenChanged = (token) => {
 
 export const setAccessToken = (token) => {
   if (token) {
-    localStorage.setItem(ACCESS_TOKEN_KEY, token);
+    accessTokenInMemory = token;
+    writeSessionHint(true);
     notifyAccessTokenChanged(token);
   }
 };
 
 export const clearAccessToken = () => {
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  accessTokenInMemory = null;
+  writeSessionHint(false);
   notifyAccessTokenChanged(null);
 };
 

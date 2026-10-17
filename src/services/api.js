@@ -1,5 +1,5 @@
-﻿import axios from 'axios';
-import { clearAccessToken, getAccessToken, isTokenExpired, setAccessToken } from './auth';
+import axios from 'axios';
+import { clearAccessToken, getAccessToken, hasSessionHint, isTokenExpired, runExclusiveRefresh, setAccessToken } from './auth';
 import { clearCustomerSessionCache } from './sessionCleanup';
 import { getApiBaseUrl } from '../config/apiConfig';
 
@@ -108,8 +108,7 @@ function getExistingAuthHeader(headers) {
  */
 async function refreshAccessToken() {
   if (!refreshAccessTokenPromise) {
-    refreshAccessTokenPromise = refreshClient
-      .post('/api/v1/auth/refresh')
+    refreshAccessTokenPromise = runExclusiveRefresh(() => refreshClient.post('/api/v1/auth/refresh'))
       .then(({ data }) => {
         const accessToken = data?.accessToken;
         if (typeof accessToken !== 'string' || !accessToken) {
@@ -123,6 +122,21 @@ async function refreshAccessToken() {
       });
   }
   return refreshAccessTokenPromise;
+}
+
+/** Restaure la session au demarrage a partir du cookie de rafraichissement (le jeton n'est plus stocke). */
+export async function bootstrapSession() {
+  if (getAccessToken() || !hasSessionHint()) {
+    return;
+  }
+  try {
+    await refreshAccessToken();
+  } catch (error) {
+    // Cookie expire ou revoque : le visiteur est simplement deconnecte
+    if (error?.response?.status === 401 || error?.response?.status === 403) {
+      clearAccessToken();
+    }
+  }
 }
 
 /**

@@ -203,7 +203,7 @@ export function CartProvider({ children }) {
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     const onStorage = (event) => {
-      if (event?.key && event.key !== "lid_access_token") return;
+      if (event?.key && event.key !== "lid_session") return;
       refreshCustomerId();
     };
     const onFocus = () => refreshCustomerId();
