@@ -25,7 +25,7 @@ export default function PaymentSuccess() {
   const navigate = useNavigate();
   const { consumePurchasedItems } = useCart();
   const consumePurchasedItemsRef = useRef(consumePurchasedItems);
-  const [state, setState] = useState({ loading: true, ok: false, message: '' });
+  const [state, setState] = useState({ loading: true, ok: false, pending: false, message: '' });
 
   useEffect(() => {
     consumePurchasedItemsRef.current = consumePurchasedItems;
@@ -82,6 +82,36 @@ export default function PaymentSuccess() {
     };
   }, [params, navigate]);
 
+  // Tant que le paiement est en attente, on redemande l'etat toutes les 5 s (5 min maximum) : couvre une notification
+  // perdue ou retardee. Le WebSocket reste le chemin rapide.
+  useEffect(() => {
+    if (!state.pending) return () => {};
+    const token = (params.get('token') || params.get('invoice_token') || params.get('invoiceToken') || '').trim();
+    if (!token) return () => {};
+    let attempts = 0;
+    const timer = window.setInterval(async () => {
+      attempts += 1;
+      if (attempts > 60) {
+        window.clearInterval(timer);
+        setState((prev) => (prev.pending
+          ? { ...prev, message: 'La confirmation prend plus de temps que prévu. Si vous avez payé, votre commande apparaîtra dans « Mes commandes » dès réception de la confirmation.' }
+          : prev));
+        return;
+      }
+      try {
+        const data = await verifyPayment(token);
+        if (`${data?.status || ''}`.toUpperCase() !== 'PENDING') {
+          window.clearInterval(timer);
+          applyPaymentState(data);
+        }
+      } catch {
+        // reseau instable : on reessaie au prochain tour
+      }
+    }, 5000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.pending, params]);
+
   useEffect(() => {
     const token = (params.get('token') || params.get('invoice_token') || params.get('invoiceToken') || '').trim();
     if (!token) {
@@ -133,10 +163,11 @@ export default function PaymentSuccess() {
       return;
     }
     if (status === 'PENDING') {
-      setState({ loading: false, ok: false, message: 'Paiement en attente de confirmation. Cette page se mettra à jour automatiquement dès que votre paiement sera confirmé.' });
+      // Pas un echec : le prestataire n'a pas encore notifie. La page se met a jour toute seule (WebSocket + relances).
+      setState({ loading: false, ok: false, pending: true, message: 'Nous attendons la confirmation de votre paiement. Cette page se met à jour automatiquement, vous n’avez rien à faire.' });
       return;
     }
-    setState({ loading: false, ok: false, message: 'Paiement non confirmé.' });
+    setState({ loading: false, ok: false, pending: false, message: 'Paiement non confirmé.' });
   }
 
   return (
@@ -148,6 +179,18 @@ export default function PaymentSuccess() {
             <Loader2 className="mx-auto mb-4 animate-spin text-orange-600" size={44} />
             <h1 className="text-xl font-bold text-neutral-900 dark:text-white">Vérification du paiement…</h1>
             <p className="text-sm text-neutral-500 mt-2">Veuillez patienter.</p>
+          </>
+        ) : state.pending ? (
+          <>
+            <Loader2 className="mx-auto mb-4 animate-spin text-orange-600" size={44} />
+            <h1 className="text-xl font-bold text-neutral-900 dark:text-white">Confirmation en cours</h1>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-2">{state.message}</p>
+            <button
+              onClick={() => navigate('/profile?tab=orders')}
+              className="mt-6 w-full py-3 rounded-xl border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white font-bold hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+            >
+              Voir mes commandes
+            </button>
           </>
         ) : state.ok ? (
           <>
