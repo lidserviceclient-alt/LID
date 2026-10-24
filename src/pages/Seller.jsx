@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { jsPDF } from "jspdf";
 import { isAuthenticated, getCurrentUserPayload, logout, getUserProfile, refreshSession } from "@/services/authService";
 import { upgradeToPartner, registerPartnerStep1, registerPartnerStep2, registerPartnerStep3 } from "@/services/partnerService";
 
@@ -221,25 +222,75 @@ function FileUploadZone({ label, accept, onChange, value }) {
   );
 }
 
+// Contenu fictif pour démonstration — à remplacer par le vrai contrat de partenariat.
+const CONTRACT_VERSION = "Contrat Partenaire Vendeur v1.0";
+const CONTRACT_SECTIONS = [
+  { title: "1. Objet du contrat", body: "Le présent contrat a pour objet de définir les conditions dans lesquelles le Vendeur propose ses produits sur la plateforme Life Distribution (LID)." },
+  { title: "2. Obligations du Vendeur", body: "Le Vendeur s'engage à proposer des produits conformes, à respecter les délais de livraison indiqués et à fournir un service client de qualité. Toute contrefaçon est strictement interdite." },
+  { title: "3. Commission et Paiement", body: "LID prélève une commission de 10% sur chaque vente réalisée. Les paiements sont effectués hebdomadairement sur le compte bancaire fourni par le Vendeur." },
+  { title: "4. Résiliation", body: "Chaque partie peut résilier le contrat avec un préavis de 30 jours. En cas de manquement grave, LID se réserve le droit de suspendre le compte immédiatement." },
+  { title: "5. Confidentialité", body: "Les parties s'engagent à garder confidentielles toutes les informations commerciales échangées." },
+];
+
+function downloadContractPdf() {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const marginX = 48;
+  const maxWidth = 595 - marginX * 2;
+  let y = 64;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.text("CONDITIONS GÉNÉRALES DE PARTENARIAT - LID", marginX, y);
+  y += 20;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(120);
+  doc.text(CONTRACT_VERSION, marginX, y);
+  doc.setTextColor(20);
+  y += 28;
+
+  for (const section of CONTRACT_SECTIONS) {
+    if (y > 760) {
+      doc.addPage();
+      y = 64;
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text(section.title, marginX, y);
+    y += 16;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const lines = doc.splitTextToSize(section.body, maxWidth);
+    doc.text(lines, marginX, y);
+    y += lines.length * 14 + 14;
+  }
+
+  doc.save("contrat-partenaire-lid.pdf");
+}
+
 function PDFContractViewer({ onAccept, accepted }) {
   return (
     <div className="bg-neutral-50 rounded-2xl border border-neutral-200 overflow-hidden">
       <div className="bg-white border-b border-neutral-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2 text-neutral-700 font-bold text-sm">
           <FileText size={16} className="text-[#6aa200]" />
-          Contrat Partenaire Vendeur v1.0
+          {CONTRACT_VERSION}
         </div>
-        <a href="#" className="text-xs font-bold text-[#6aa200] hover:underline">Télécharger PDF</a>
+        <button
+          type="button"
+          onClick={downloadContractPdf}
+          className="text-xs font-bold text-[#6aa200] hover:underline"
+        >
+          Télécharger PDF
+        </button>
       </div>
-      
-      {/* Mock PDF Content */}
+
+      {/* Contenu fictif pour démonstration — à remplacer par le vrai contrat de partenariat */}
       <div className="h-64 overflow-y-auto p-6 text-xs text-neutral-600 space-y-4 leading-relaxed font-serif bg-white">
         <p className="font-bold text-neutral-900 text-sm">CONDITIONS GÉNÉRALES DE PARTENARIAT - LID</p>
-        <p><strong>1. Objet du contrat :</strong> Le présent contrat a pour objet de définir les conditions dans lesquelles le Vendeur propose ses produits sur la plateforme Life Distribution (LID).</p>
-        <p><strong>2. Obligations du Vendeur :</strong> Le Vendeur s'engage à proposer des produits conformes, à respecter les délais de livraison indiqués et à fournir un service client de qualité. Toute contrefaçon est strictement interdite.</p>
-        <p><strong>3. Commission et Paiement :</strong> LID prélève une commission de 10% sur chaque vente réalisée. Les paiements sont effectués hebdomadairement sur le compte bancaire fourni par le Vendeur.</p>
-        <p><strong>4. Résiliation :</strong> Chaque partie peut résilier le contrat avec un préavis de 30 jours. En cas de manquement grave, LID se réserve le droit de suspendre le compte immédiatement.</p>
-        <p><strong>5. Confidentialité :</strong> Les parties s'engagent à garder confidentielles toutes les informations commerciales échangées.</p>
+        {CONTRACT_SECTIONS.map((section) => (
+          <p key={section.title}><strong>{section.title} :</strong> {section.body}</p>
+        ))}
         <p className="italic text-neutral-400">... (Suite du contrat fictif pour démonstration) ...</p>
         <div className="h-20" /> {/* Spacer for scroll feel */}
       </div>

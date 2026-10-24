@@ -1,0 +1,118 @@
+{
+  "variant": "flash",
+  "id": "robot-aspirateur-x9",
+  "brand": "JoyClean",
+  "brandShopLink": "/pdp-showcase",
+  "breadcrumb": ["Accueil", "Électroménager", "Appareils de nettoyage", "Aspirateurs robots"],
+  "promoTag": "Accès anticipé Black Friday",
+  "name": "Robot aspirateur laveur X9 Ultra, navigation LiDAR, aspiration 16 600 Pa, vidange automatique",
+  "isBestSeller": true,
+  "bestSellerRank": 3,
+  "bestSellerCategoryLink": "Aspirateurs robots",
+  "rating": 4.1,
+  "reviewCount": 11,
+  "soldCount": "200+",
+  "images": [
+    { "type": "video", "src": "https://images.unsplash.com/photo-1558317374-067fb5f30001?q=80&w=1200&auto=format&fit=crop", "duration": "0:56" },
+    "https://images.unsplash.com/photo-1558317374-067fb5f30001?q=80&w=1200&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1603791440384-56cd371ee9a7?q=80&w=1200&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1600166898405-da9535204843?q=80&w=1200&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1583947215259-38e31be8751f?q=80&w=1200&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?q=80&w=1200&auto=format&fit=crop"
+  ],
+  "recyclingBadge": "Service de recyclage gratuit",
+  "pricing": {
+    "price": 299.0,
+    "originalPrice": 1499.0,
+    "discountPercent": 80,
+    "monthlyPayment": 28,
+    "installments": 3,
+    "financingProvider": "Klarna"
+  },
+  "coupon": { "amount": 5, "threshold": 10 },
+  "loyalty": {
+    "programName": "JoyPlus",
+    "pitch": "Bénéficiez de la livraison gratuite et de jusqu'à 85 points avec JoyPlus ;",
+    "ctaLabel": "Démarrez votre essai gratuit.",
+    "pointsSavings": 1.2,
+    "pointsCtaLabel": "Accédez à vos points"
+  },
+  "delivery": {
+    "city": "CHAMPIGNY-SUR-MARNE",
+    "zip": "94500",
+    "single": { "label": "Livraison", "etaLabel": "Livraison dès demain", "cutoff": "Commandez avant 21:00", "freePrice": 0, "originalPrice": 3.99 }
+  },
+  "reassurance": [
+    { "id": "returns", "title": "Retours gratuits sous 30 jours", "body": "Chez JoyClean, nous voulons que vous aimiez vos achats autant que nous. Si ce n'est pas le cas, renvoyez votre article non utilisé sous 30 jours pour un remboursement complet." },
+    { "id": "support", "title": "Assistance clientèle 24h/24 et 7j/7", "body": "Notre équipe support est disponible par chat et téléphone à tout moment pour répondre à vos questions avant et après achat." },
+    { "id": "warranty", "title": "Garantie du fabricant 2 ans", "body": "Ce produit est couvert par une garantie fabricant de 2 ans contre les défauts matériels et de fabrication." }
+  ],
+  "services": [
+    { "id": "install", "label": "Service d'installation pour robot aspirateur", "price": 39.0 },
+    { "id": "recycle", "label": "Service de recyclage", "price": 0.01, "displayAsFree": true }
+  ],
+  "protection": {
+    "title": "JoyCare",
+    "pitch": "Protégez vos achats avec JoyCare",
+    "options": [
+      { "id": "protect-3y", "label": "3 ans Dommage accidentel et Extension de garantie", "price": 7.68 },
+      { "id": "protect-2y", "label": "2 ans Dommage accidentel", "price": 6.05 }
+    ]
+  },
+  "specs": [
+    { "label": "Puissance d'aspiration", "value": "16 600 Pa" },
+    { "label": "Navigation", "value": "LiDAR + cartographie 3D" },
+    { "label": "Autonomie", "value": "250 min" },
+    { "label": "Capacité réservoir poussière", "value": "4 L (station de vidange)" },
+    { "label": "Capacité réservoir eau", "value": "0.3 L" },
+    { "label": "Niveau sonore", "value": "62 dB" },
+    { "label": "Franchissement d'obstacles", "value": "2 cm" },
+    { "label": "Connectivité", "value": "Wi-Fi, appli, assistants vocaux" },
+    { "label": "Poids", "value": "3.8 kg" },
+    { "label": "Dimensions", "value": "35 x 35 x 9.7 cm" },
+    { "label": "Contenu du coffret", "value": "Robot, station, 2 serpillères, notice" },
+    { "label": "Garantie", "value": "2 ans constructeur" }
+  ],
+  "descriptionBlocks": [
+    { "stat": "16 600 Pa", "title": "Une aspiration qui ne laisse rien passer", "subtitle": "Saleté incrustée, poils d'animaux, miettes : aspirés en un seul passage." },
+    { "title": "VS la génération précédente", "subtitle": "2x plus silencieux, 40 % d'autonomie en plus, vidange 100 % automatique." },
+    { "title": "Pensé pour durer", "subtitle": "Matériaux premium, batterie longue durée et garantie constructeur 2 ans." }
+  ],
+  "ugcVideos": [
+    { "id": 1, "duration": "0:10" },
+    { "id": 2, "duration": "0:14" },
+    { "id": 3, "duration": "0:22" },
+    { "id": 4, "duration": "0:09" }
+  ],
+  "reviewHistogram": [
+    { "star": 5, "count": 6 },
+    { "star": 4, "count": 2 },
+    { "star": 3, "count": 1 },
+    { "star": 2, "count": 1 },
+    { "star": 1, "count": 1 }
+  ],
+  "reviews": [
+    { "id": "r1", "author": "Camille D.", "tag": "Tous les marchés", "date": "2026-10-18", "rating": 5, "verified": true, "content": "Impeccable, la station de vidange change la vie. Je ne passe plus l'aspirateur manuellement." },
+    { "id": "r2", "author": "Mehdi A.", "tag": "Tous les marchés", "date": "2026-09-30", "rating": 4, "verified": true, "content": "Très bon rapport qualité prix pendant la vente flash. Un peu bruyant en mode max." },
+    { "id": "r3", "author": "Sophie L.", "tag": "Tous les marchés", "date": "2026-09-12", "rating": 5, "verified": true, "content": "Cartographie précise, évite bien les câbles au sol. Appli simple à utiliser." }
+  ],
+  "qna": [
+    { "id": "q1", "question": "Est-il compatible avec les tapis épais ?", "answer": "Oui, il détecte automatiquement les tapis et augmente la puissance d'aspiration.", "date": "2026-08-02", "answersCount": 2 },
+    { "id": "q2", "question": "La station de vidange est-elle bruyante ?", "answer": "Le cycle de vidange dure environ 10 secondes, un peu sonore mais bref.", "date": "2026-07-20", "answersCount": 1 }
+  ],
+  "storeItems": [
+    { "id": "sv-1", "name": "Aspirateur balai sans fil JoyClean S7", "brand": "JoyClean", "image": "https://images.unsplash.com/photo-1558317374-067fb5f30001?q=80&w=600&auto=format&fit=crop", "price": 149.0, "originalPrice": 199.0, "discountPercent": 25 },
+    { "id": "sv-2", "name": "Robot laveur de vitres JoyClean W3", "brand": "JoyClean", "image": "https://images.unsplash.com/photo-1603791440384-56cd371ee9a7?q=80&w=600&auto=format&fit=crop", "price": 89.0, "originalPrice": null, "discountPercent": 0 },
+    { "id": "sv-3", "name": "Purificateur d'air JoyClean Pure 2", "brand": "JoyClean", "image": "https://images.unsplash.com/photo-1600166898405-da9535204843?q=80&w=600&auto=format&fit=crop", "price": 179.0, "originalPrice": 219.0, "discountPercent": 18 },
+    { "id": "sv-4", "name": "Station de recharge rapide JoyClean", "brand": "JoyClean", "image": "https://images.unsplash.com/photo-1583947215259-38e31be8751f?q=80&w=600&auto=format&fit=crop", "price": 59.0, "originalPrice": null, "discountPercent": 0 },
+    { "id": "sv-5", "name": "Serpillères microfibre x4 JoyClean", "brand": "JoyClean", "image": "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?q=80&w=600&auto=format&fit=crop", "price": 19.0, "originalPrice": 24.0, "discountPercent": 20 },
+    { "id": "sv-6", "name": "Humidificateur connecté JoyClean H1", "brand": "JoyClean", "image": "https://images.unsplash.com/photo-1600166898405-da9535204843?q=80&w=600&auto=format&fit=crop", "price": 69.0, "originalPrice": null, "discountPercent": 0 }
+  ],
+  "recommended": [
+    { "id": "rc-1", "name": "Aspirateur robot laveur compact A6", "brand": "NeatBot", "image": "https://images.unsplash.com/photo-1603791440384-56cd371ee9a7?q=80&w=600&auto=format&fit=crop", "rating": 4.8, "soldCount": "11k+", "price": 199.0, "originalPrice": 219.99, "discountPercent": 9, "deliveryLabel": "Livraison d'ici aujourd'hui", "badge": "Meilleures ventes", "recyclingFree": true },
+    { "id": "rc-2", "name": "Balai vapeur multifonction", "brand": "CleanPro", "image": "https://images.unsplash.com/photo-1558317374-067fb5f30001?q=80&w=600&auto=format&fit=crop", "rating": 4.5, "soldCount": "3k+", "price": 59.19, "originalPrice": 74.99, "discountPercent": 6, "promoPrice": 59.19, "deliveryLabel": "Livraison d'ici demain", "badge": "Nouveau" },
+    { "id": "rc-3", "name": "Filtre HEPA compatible toutes marques", "brand": "FiltraPlus", "image": "https://images.unsplash.com/photo-1600166898405-da9535204843?q=80&w=600&auto=format&fit=crop", "rating": 4.6, "soldCount": "6k+", "price": 14.5, "originalPrice": null, "discountPercent": 0, "deliveryLabel": "Livraison d'ici aujourd'hui" },
+    { "id": "rc-4", "name": "Nettoyeur vapeur portatif", "brand": "CleanPro", "image": "https://images.unsplash.com/photo-1583947215259-38e31be8751f?q=80&w=600&auto=format&fit=crop", "rating": 4.3, "soldCount": "900+", "price": 39.0, "originalPrice": 49.0, "discountPercent": 20, "badge": "Outlet", "deliveryLabel": "Livraison d'ici demain" },
+    { "id": "rc-5", "name": "Désinfecteur UV portable", "brand": "PureTech", "image": "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?q=80&w=600&auto=format&fit=crop", "rating": 4.1, "soldCount": "1k+", "price": 24.99, "originalPrice": null, "discountPercent": 0, "deliveryLabel": "Livraison d'ici aujourd'hui" }
+  ]
+}

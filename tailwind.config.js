@@ -7,7 +7,24 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        barlow: ['Barlow', 'system-ui', 'sans-serif'],
+      },
       colors: {
+        pdp: {
+          red: '#E1251B',
+          ink: '#1A1A1A',
+          black: '#000000',
+          'gray-700': '#505259',
+          'gray-500': '#888B94',
+          surface: '#F5F6FA',
+          'surface-2': '#F5F7FA',
+          line: '#E0E1E5',
+          'line-2': '#E5E7EB',
+          green: '#008011',
+          orange: '#D4801F',
+          violet: '#6D28D9',
+        },
         orange: {
           50: '#f5fce8',
           100: '#e9f8cf',

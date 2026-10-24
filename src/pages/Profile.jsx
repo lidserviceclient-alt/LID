@@ -82,6 +82,7 @@ const SidebarItem = ({ icon: Icon, label, active, onClick, danger }) => (
 );
 
 const OrderCard = ({ order, email, onPrint }) => {
+  const navigate = useNavigate();
   const getStatusColor = (status) => {
     switch(status) {
       case 'delivered': return 'bg-green-100 text-green-700 border-green-200';
@@ -115,7 +116,18 @@ const OrderCard = ({ order, email, onPrint }) => {
     : "/returns";
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-neutral-100 bg-white hover:border-[#6aa200]/30 hover:shadow-md transition-all duration-300 gap-4">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate(trackingHref)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          navigate(trackingHref);
+        }
+      }}
+      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-neutral-100 bg-white hover:border-[#6aa200]/30 hover:shadow-md transition-all duration-300 gap-4 cursor-pointer"
+    >
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-500">
           <Package size={20} />
@@ -132,13 +144,14 @@ const OrderCard = ({ order, email, onPrint }) => {
         </span>
         <Link
           to={returnsHref}
+          onClick={(e) => e.stopPropagation()}
           className="text-xs font-semibold text-neutral-500 hover:text-[#6aa200] transition-colors"
         >
           Retour
         </Link>
-        <Link to={trackingHref} className="p-2 hover:bg-neutral-100 rounded-full text-neutral-400 hover:text-[#6aa200] transition-colors">
+        <span className="p-2 rounded-full text-neutral-400">
           <ChevronRight size={18} />
-        </Link>
+        </span>
       </div>
     </div>
   );

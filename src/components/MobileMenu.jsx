@@ -3,13 +3,18 @@ import { Link } from 'react-router-dom';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, ShoppingBag, Heart, Zap } from "lucide-react";
-import { buildCategoryTree, getCatalogCategories } from "@/services/categoryService";
+import { buildCategoryTree, getCatalogCategories, resolveBackendAssetUrl } from "@/services/categoryService";
+import { getCatalogProductsPage } from "@/services/productService";
+import { UNIVERS_MAPPING, getUniversLabel } from "@/config/universMapping";
+
+const FALLBACK_PRODUCT_IMAGE = "/imgs/logo.png";
 
 export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
   const [expandedCategory, setExpandedCategory] = useState(null);
   const [remoteCategories, setRemoteCategories] = useState([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [categoriesError, setCategoriesError] = useState("");
+  const [categoryProductData, setCategoryProductData] = useState({});
 
   const toggleCategory = (id) => {
     setExpandedCategory(expandedCategory === id ? null : id);
@@ -47,7 +52,8 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
           const items = (child.children || [])
             .map((g) => ({
               label: g?.nom,
-              slug: g?.slug || g?.id || ""
+              slug: g?.slug || g?.id || "",
+              count: Number.isFinite(Number(g?.count)) ? Number(g.count) : null
             }))
             .filter((g) => g.label && g.slug);
           if (items.length === 0) return null;
@@ -58,10 +64,52 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
       return {
         id: root.id,
         label: root.nom,
+        slug: root.slug || "",
+        universLabel: getUniversLabel(root),
         subcategories,
       };
     });
   }, [remoteCategories]);
+
+  // Regroupement par univers, même logique/config que le mega-menu desktop.
+  const groupedCategories = useMemo(() => {
+    const byLabel = new Map();
+    for (const category of menuCategories) {
+      const key = category.universLabel || "Autres";
+      if (!byLabel.has(key)) byLabel.set(key, []);
+      byLabel.get(key).push(category);
+    }
+    const mappedOrder = Object.keys(UNIVERS_MAPPING).filter((label) => byLabel.has(label));
+    const extraOrder = [...byLabel.keys()].filter((label) => !mappedOrder.includes(label) && label !== "Autres");
+    const orderedLabels = [...mappedOrder, ...extraOrder, ...(byLabel.has("Autres") ? ["Autres"] : [])];
+    return orderedLabels.map((label) => ({ label, categories: byLabel.get(label) }));
+  }, [menuCategories]);
+
+  const expandedCategoryData = useMemo(
+    () => menuCategories.find((c) => c.id === expandedCategory) || null,
+    [menuCategories, expandedCategory]
+  );
+  const expandedHasSubcategories = (expandedCategoryData?.subcategories?.length || 0) > 0;
+
+  // Fallback "produits phares" : chargé uniquement quand une catégorie sans sous-catégorie est ouverte.
+  useEffect(() => {
+    const slug = expandedCategoryData?.slug;
+    if (expandedHasSubcategories || !slug || categoryProductData[slug]) return;
+    let cancelled = false;
+    getCatalogProductsPage(0, 6, { category: slug })
+      .then((data) => {
+        if (cancelled) return;
+        const items = Array.isArray(data?.content) ? data.content : [];
+        setCategoryProductData((prev) => ({ ...prev, [slug]: items }));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCategoryProductData((prev) => ({ ...prev, [slug]: [] }));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [expandedCategoryData, expandedHasSubcategories, categoryProductData]);
 
   const sidebarVariants = {
     closed: { x: '-100%', transition: { type: 'spring', stiffness: 300, damping: 30 } },
@@ -83,6 +131,7 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
 
           {/* Sidebar */}
           <motion.div
+            data-lenis-prevent
             initial="closed"
             animate="open"
             exit="closed"
@@ -149,76 +198,137 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer }) {
 
             <div className="h-px bg-neutral-100 dark:bg-neutral-800 mx-6 my-2" />
 
-            {/* Categories Accordion */}
-            <div className="p-4">
-              <h3 className="px-4 text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">Catégories</h3>
-              <div className="space-y-1">
-                {isLoadingCategories ? (
-                  <div className="px-4 py-2 text-sm text-neutral-500 dark:text-neutral-400">Chargement...</div>
-                ) : categoriesError ? (
-                  <div className="px-4 py-2 text-sm text-red-600">{categoriesError}</div>
-                ) : menuCategories.length === 0 ? (
-                  <div className="px-4 py-2 text-sm text-neutral-500 dark:text-neutral-400">Aucune catégorie.</div>
-                ) : menuCategories.map((cat) => (
-                  <div key={cat.id} className="rounded-xl overflow-hidden">
-                    <button
-                      onClick={() => toggleCategory(cat.id)}
-                      className={`w-full flex items-center justify-between px-4 py-3 transition-colors ${
-                        expandedCategory === cat.id 
-                          ? 'bg-[#6aa200]/10 dark:bg-[#6aa200]/20 text-[#6aa200]' 
-                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-900 text-neutral-700 dark:text-neutral-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="font-medium">{cat.label}</span>
-                      </div>
-                      <span className="text-neutral-400">{expandedCategory === cat.id ? "▾" : "▸"}</span>
-                    </button>
-                    
-                    <AnimatePresence>
-                      {expandedCategory === cat.id && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="bg-neutral-50 dark:bg-neutral-900/30 overflow-hidden"
+            {/* Categories Accordion, groupées par univers */}
+            <div className="p-4 space-y-4">
+              {isLoadingCategories ? (
+                <div className="px-4 py-2 text-sm text-neutral-500 dark:text-neutral-400">Chargement...</div>
+              ) : categoriesError ? (
+                <div className="px-4 py-2 text-sm text-red-600">{categoriesError}</div>
+              ) : groupedCategories.length === 0 ? (
+                <div className="px-4 py-2 text-sm text-neutral-500 dark:text-neutral-400">Aucune catégorie.</div>
+              ) : groupedCategories.map((group) => (
+                <div key={group.label}>
+                  <h3 className="px-4 text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">{group.label}</h3>
+                  <div className="space-y-1">
+                    {group.categories.map((cat) => (
+                      <div key={cat.id} className="rounded-xl overflow-hidden">
+                        <button
+                          onClick={() => toggleCategory(cat.id)}
+                          className={`w-full flex items-center justify-between px-4 py-3 transition-colors duration-200 ${
+                            expandedCategory === cat.id
+                              ? 'bg-[#6aa200]/10 dark:bg-[#6aa200]/20 text-[#6aa200]'
+                              : 'hover:bg-neutral-50 dark:hover:bg-neutral-900 text-neutral-700 dark:text-neutral-300'
+                          }`}
                         >
-                          <div className="px-4 py-3 space-y-4">
-                            {cat.subcategories.map((sub, idx) => (
-                              <div key={idx}>
-                                <h4 className="font-bold text-sm text-neutral-900 dark:text-white mb-2 flex items-center gap-2">
-                                  <span className="w-1 h-3 bg-[#6aa200] rounded-full"></span>
-                                  {sub.title}
-                                </h4>
-                                <ul className="pl-3 space-y-2 border-l border-neutral-200 dark:border-neutral-700 ml-0.5">
-                                  {sub.items.map((item) => (
-                                    <li key={item.slug}>
-                                      <Link 
-                                        to={`/shop?category=${encodeURIComponent(item.slug)}`}
-                                        onClick={onClose}
-                                        className="block text-sm text-neutral-500 dark:text-neutral-400 hover:text-[#6aa200] pl-3 py-0.5"
-                                      >
-                                        {item.label}
-                                      </Link>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ))}
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium">{cat.label}</span>
                           </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                          <motion.span
+                            animate={{ rotate: expandedCategory === cat.id ? 90 : 0 }}
+                            transition={{ duration: 0.2, ease: "easeOut" }}
+                            className="text-neutral-400 inline-block"
+                          >
+                            ▸
+                          </motion.span>
+                        </button>
+
+                        <AnimatePresence initial={false}>
+                          {expandedCategory === cat.id && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+                              className="bg-neutral-50 dark:bg-neutral-900/30 overflow-hidden"
+                            >
+                              {cat.subcategories.length > 0 ? (
+                                <div className="px-4 py-3 space-y-4">
+                                  {cat.subcategories.map((sub, idx) => (
+                                    <motion.div
+                                      key={idx}
+                                      initial={{ opacity: 0, y: -4 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      transition={{ delay: idx * 0.04, duration: 0.2 }}
+                                    >
+                                      <h4 className="font-bold text-sm text-neutral-900 dark:text-white mb-2 flex items-center gap-2">
+                                        <span className="w-1 h-3 bg-[#6aa200] rounded-full"></span>
+                                        {sub.title}
+                                      </h4>
+                                      <ul className="pl-3 space-y-2 border-l border-neutral-200 dark:border-neutral-700 ml-0.5">
+                                        {sub.items.map((item) => (
+                                          <li key={item.slug} className="flex items-center justify-between gap-2 pr-3">
+                                            <Link
+                                              to={`/shop?category=${encodeURIComponent(item.slug)}`}
+                                              onClick={onClose}
+                                              className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:text-[#6aa200] pl-3 py-0.5"
+                                            >
+                                              {item.label}
+                                            </Link>
+                                            {item.count != null ? (
+                                              <span className="text-xs text-neutral-400 dark:text-neutral-500">{item.count}</span>
+                                            ) : null}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </motion.div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="px-4 py-3">
+                                  <div className="grid grid-cols-2 gap-3 mb-3">
+                                    {(categoryProductData[cat.slug] || []).slice(0, 4).map((product) => {
+                                      const productId = product?.id ?? product?.articleId ?? product?.productId;
+                                      const rawImage = product?.imageUrl || product?.image;
+                                      const imageSrc = rawImage ? resolveBackendAssetUrl(rawImage) : FALLBACK_PRODUCT_IMAGE;
+                                      const price = Number(product?.price) || 0;
+                                      return (
+                                        <Link
+                                          key={productId}
+                                          to={`/product/${productId}`}
+                                          onClick={onClose}
+                                          className="flex flex-col gap-1.5"
+                                        >
+                                          <div className="aspect-square rounded-lg overflow-hidden bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-800">
+                                            <img
+                                              src={imageSrc}
+                                              alt={product?.name || ""}
+                                              className="w-full h-full object-contain"
+                                            />
+                                          </div>
+                                          <p className="text-xs font-medium text-neutral-700 dark:text-neutral-300 line-clamp-1">
+                                            {product?.name}
+                                          </p>
+                                          <p className="text-xs font-semibold text-neutral-900 dark:text-white">
+                                            {price.toLocaleString()} FCFA
+                                          </p>
+                                        </Link>
+                                      );
+                                    })}
+                                  </div>
+                                  <Link
+                                    to={`/shop?category=${encodeURIComponent(cat.slug)}`}
+                                    onClick={onClose}
+                                    className="block text-sm font-semibold text-[#6aa200]"
+                                  >
+                                    Voir tous les produits →
+                                  </Link>
+                                </div>
+                              )}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
 
             {/* Bottom Actions */}
             <div className="p-6 border-t border-neutral-100 dark:border-neutral-800 mt-4 space-y-4 pb-24">
               <Link to="/wishlist" onClick={onClose} className="flex items-center gap-3 text-neutral-600 dark:text-neutral-400 hover:text-[#6aa200]">
                 <Heart size={20} />
-                <span>Mes souhaits</span>
+                <span>Mes favoris</span>
               </Link>
               <Link to="/orders" onClick={onClose} className="flex items-center gap-3 text-neutral-600 dark:text-neutral-400 hover:text-[#6aa200]">
                 <ShoppingBag size={20} />

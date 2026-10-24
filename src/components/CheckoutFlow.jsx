@@ -412,14 +412,15 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
         if (!active) return;
         const addresses = Array.isArray(list) ? list : [];
         setSavedAddresses(addresses);
-        const defaultAddress = addresses.find((addr) => addr?.isDefault);
+        const defaultAddress = addresses.find((addr) => addr?.isDefault ?? addr?.default)
+          || (addresses.length === 1 ? addresses[0] : null);
         if (defaultAddress) {
           setSelectedAddressId(defaultAddress.id);
           setFormData((prev) => ({
             ...prev,
-            address: defaultAddress.addressLine || '',
-            city: defaultAddress.city || '',
-            zip: defaultAddress.postalCode || '',
+            address: defaultAddress.addressLine || defaultAddress.address || prev.address,
+            city: defaultAddress.city || prev.city,
+            zip: defaultAddress.postalCode || prev.zip,
             phone: defaultAddress.phone || prev.phone
           }));
         }

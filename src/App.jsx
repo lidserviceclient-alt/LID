@@ -42,6 +42,7 @@ const Returns = lazy(() => import('./pages/Returns.jsx'))
 const Delivery = lazy(() => import('./pages/Delivery.jsx'))
 const NotFound = lazy(() => import('./pages/NotFound.jsx'))
 const Test = lazy(() => import('./pages/Test.jsx'))
+const PdpShowcase = lazy(() => import('./pages/PdpShowcase.jsx'))
 
 
 
@@ -104,6 +105,7 @@ function App() {
           </Route>
           <Route path="*" element={<NotFound />} />
           <Route path="/test" element={<Test />} />
+          <Route path="/pdp-showcase" element={<PdpShowcase />} />
         </Routes>
       </Suspense>
     </>

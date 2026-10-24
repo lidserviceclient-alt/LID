@@ -39,7 +39,7 @@ export default function Wishlist() {
           <Heart size={40} className="text-neutral-400 dark:text-neutral-500" />
         </motion.div>
         <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
-          Votre liste de souhaits est vide
+          Vos favoris sont vides
         </h2>
         <p className="text-neutral-600 dark:text-neutral-400 mb-8 max-w-md">
           Explorez notre catalogue et sauvegardez vos articles préférés pour plus tard.
@@ -60,7 +60,7 @@ export default function Wishlist() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
-            Ma Liste de Souhaits
+            Mes Favoris
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400 mt-1">
             {wishlistItems.length} article{wishlistItems.length > 1 ? 's' : ''} sauvegardé{wishlistItems.length > 1 ? 's' : ''}

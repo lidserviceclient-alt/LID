@@ -1,0 +1,120 @@
+{
+  "variant": "variants",
+  "id": "manette-dualsense-edge",
+  "brand": "PlayStation",
+  "brandShopLink": "/pdp-showcase",
+  "breadcrumb": ["Accueil", "Gaming", "Consoles & accessoires", "Manettes"],
+  "promoTag": null,
+  "name": "Manette sans fil DualSense Edge — Marvel's Wolverine, édition limitée",
+  "isBestSeller": true,
+  "bestSellerRank": 1,
+  "bestSellerCategoryLink": "Manettes",
+  "rating": 4.6,
+  "reviewCount": 212,
+  "soldCount": "3k+",
+  "images": [
+    "https://images.unsplash.com/photo-1580327344181-c1163234e5a0?q=80&w=1200&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1486572788966-cfd3df1f5b42?q=80&w=1200&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1591370874773-6702e8f12fd8?q=80&w=1200&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?q=80&w=1200&auto=format&fit=crop"
+  ],
+  "recyclingBadge": null,
+  "pricing": { "price": 84.99, "originalPrice": null, "discountPercent": 0 },
+  "coupon": null,
+  "loyalty": null,
+  "variantGroups": {
+    "series": {
+      "label": "Série",
+      "selectedLabel": "Édition limitée",
+      "options": [
+        { "id": "limited", "label": "Édition limitée", "available": true },
+        { "id": "pc", "label": "Édition PC", "available": true },
+        { "id": "edge", "label": "Edge", "available": true },
+        { "id": "hyperpop", "label": "Édition Hyperpop", "available": false },
+        { "id": "standard", "label": "Standard", "available": true }
+      ]
+    },
+    "color": {
+      "label": "Couleur",
+      "selectedLabel": "Marvel's Wolverine",
+      "options": [
+        { "id": "wolverine", "label": "Marvel's Wolverine", "image": "https://images.unsplash.com/photo-1580327344181-c1163234e5a0?q=80&w=400&auto=format&fit=crop" },
+        { "id": "midnight", "label": "Midnight Black", "image": "https://images.unsplash.com/photo-1486572788966-cfd3df1f5b42?q=80&w=400&auto=format&fit=crop" },
+        { "id": "white", "label": "White", "image": "https://images.unsplash.com/photo-1591370874773-6702e8f12fd8?q=80&w=400&auto=format&fit=crop" }
+      ]
+    }
+  },
+  "delivery": {
+    "city": "CHAMPIGNY-SUR-MARNE",
+    "zip": "94500",
+    "shipping": { "label": "Livraison", "etaLabel": "Livraison dès aujourd'hui 22:00", "cutoff": "Commandez avant 11:00", "freePrice": 0, "originalPrice": 3.99 },
+    "pickup": { "label": "Retrait", "etaLabel": "Disponible dès aujourd'hui 16:00-21:00", "freePrice": 0, "originalPrice": 3.99 }
+  },
+  "reassurance": [
+    { "id": "returns", "title": "Retours gratuits sous 30 jours", "body": "Chez PlayStation, nous voulons que vous aimiez vos achats autant que nous. Si ce n'est pas le cas, renvoyez votre article non utilisé sous 30 jours pour un remboursement complet." },
+    { "id": "support", "title": "Assistance clientèle 24h/24 et 7j/7", "body": "Notre équipe support est disponible par chat et téléphone à tout moment pour répondre à vos questions avant et après achat." },
+    { "id": "warranty", "title": "Garantie du fabricant 2 ans", "body": "Cette manette est couverte par une garantie fabricant de 2 ans qui couvre les défauts matériels." }
+  ],
+  "services": [],
+  "protection": null,
+  "tradeIn": {
+    "amount": 900.0,
+    "pitch": "Jusqu'à 900,00 € + coupon offert. Déduisez la valeur de reprise aujourd'hui avec une carte éligible.",
+    "howItWorksLabel": "Comment ça marche"
+  },
+  "specs": [
+    { "label": "Compatibilité", "value": "PS5, PC" },
+    { "label": "Connectivité", "value": "Bluetooth, USB-C filaire" },
+    { "label": "Autonomie batterie", "value": "~12h en usage standard" },
+    { "label": "Sticks interchangeables", "value": "Oui, 2 jeux fournis" },
+    { "label": "Gâchettes", "value": "Course réglable sur 3 niveaux" },
+    { "label": "Poids", "value": "325 g" },
+    { "label": "Contenu du coffret", "value": "Manette, étui, câble, sticks, embouts" },
+    { "label": "Garantie", "value": "2 ans constructeur" }
+  ],
+  "descriptionBlocks": [],
+  "descriptionHighlights": [
+    "Sticks à effet Hall interchangeables, zéro drift",
+    "Profils de configuration sauvegardés en mémoire",
+    "Design exclusif Marvel's Wolverine, série limitée",
+    "Étui de transport rigide inclus"
+  ],
+  "descriptionSpecsTable": [
+    { "spec": "Compatibilité", "detail": "PS5, PC (via câble ou adaptateur)" },
+    { "spec": "Audio", "detail": "Jack 3.5 mm, retour haptique" },
+    { "spec": "Capteurs", "detail": "Gyroscope 6 axes, module tactile" }
+  ],
+  "ugcVideos": [
+    { "id": 1, "duration": "0:12" },
+    { "id": 2, "duration": "0:18" }
+  ],
+  "reviewHistogram": [
+    { "star": 5, "count": 160 },
+    { "star": 4, "count": 38 },
+    { "star": 3, "count": 9 },
+    { "star": 2, "count": 3 },
+    { "star": 1, "count": 2 }
+  ],
+  "reviews": [
+    { "id": "r1", "author": "Yanis K.", "tag": "Tous les marchés", "date": "2026-10-05", "rating": 5, "verified": true, "content": "Finitions exceptionnelles, les sticks interchangeables sont un vrai plus pour la compétitif." },
+    { "id": "r2", "author": "Inès T.", "tag": "Tous les marchés", "date": "2026-09-22", "rating": 4, "verified": true, "content": "Très belle édition collector, un peu chère mais la qualité est au rendez-vous." }
+  ],
+  "qna": [
+    { "id": "q1", "question": "Fonctionne-t-elle sans fil sur PC ?", "answer": "Oui via l'adaptateur Bluetooth fourni avec certaines éditions, sinon en filaire USB-C.", "date": "2026-08-14", "answersCount": 3 }
+  ],
+  "storeItems": [
+    { "id": "sv-1", "name": "Manette DualSense sans fil — Midnight Black", "brand": "PlayStation", "image": "https://images.unsplash.com/photo-1486572788966-cfd3df1f5b42?q=80&w=600&auto=format&fit=crop", "price": 64.99, "originalPrice": null, "discountPercent": 0 },
+    { "id": "sv-2", "name": "Casque Pulse 3D sans fil", "brand": "PlayStation", "image": "https://images.unsplash.com/photo-1580327344181-c1163234e5a0?q=80&w=600&auto=format&fit=crop", "price": 99.99, "originalPrice": 119.99, "discountPercent": 17 },
+    { "id": "sv-3", "name": "Station de charge double DualSense", "brand": "PlayStation", "image": "https://images.unsplash.com/photo-1591370874773-6702e8f12fd8?q=80&w=600&auto=format&fit=crop", "price": 29.99, "originalPrice": null, "discountPercent": 0 },
+    { "id": "sv-4", "name": "Façade manette — édition Wolverine", "brand": "PlayStation", "image": "https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?q=80&w=600&auto=format&fit=crop", "price": 24.99, "originalPrice": 29.99, "discountPercent": 17 },
+    { "id": "sv-5", "name": "Câble USB-C tressé 3m", "brand": "PlayStation", "image": "https://images.unsplash.com/photo-1580327344181-c1163234e5a0?q=80&w=600&auto=format&fit=crop", "price": 12.99, "originalPrice": null, "discountPercent": 0 },
+    { "id": "sv-6", "name": "Étui de transport rigide manette", "brand": "PlayStation", "image": "https://images.unsplash.com/photo-1486572788966-cfd3df1f5b42?q=80&w=600&auto=format&fit=crop", "price": 19.99, "originalPrice": null, "discountPercent": 0 }
+  ],
+  "recommended": [
+    { "id": "rc-1", "name": "Manette Pro sans fil compatible PS5/PC", "brand": "GripX", "image": "https://images.unsplash.com/photo-1591370874773-6702e8f12fd8?q=80&w=600&auto=format&fit=crop", "rating": 4.6, "soldCount": "7k+", "price": 44.99, "originalPrice": null, "discountPercent": 0, "deliveryLabel": "Livraison d'ici demain", "badge": "Nouveau" },
+    { "id": "rc-2", "name": "Sticks de précision interchangeables (lot de 4)", "brand": "GripX", "image": "https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?q=80&w=600&auto=format&fit=crop", "rating": 4.4, "soldCount": "2k+", "price": 11.99, "originalPrice": 14.99, "discountPercent": 20, "deliveryLabel": "Livraison d'ici aujourd'hui" },
+    { "id": "rc-3", "name": "Casque gaming sans fil 7.1", "brand": "SonicWave", "image": "https://images.unsplash.com/photo-1580327344181-c1163234e5a0?q=80&w=600&auto=format&fit=crop", "rating": 4.7, "soldCount": "11k+", "price": 79.0, "originalPrice": 99.0, "discountPercent": 20, "badge": "Meilleures ventes", "deliveryLabel": "Livraison d'ici aujourd'hui" },
+    { "id": "rc-4", "name": "Support manette double RGB", "brand": "GripX", "image": "https://images.unsplash.com/photo-1591370874773-6702e8f12fd8?q=80&w=600&auto=format&fit=crop", "rating": 4.2, "soldCount": "800+", "price": 17.5, "originalPrice": null, "discountPercent": 0, "deliveryLabel": "Livraison d'ici demain" },
+    { "id": "rc-5", "name": "Skin de protection manette (lot de 3)", "brand": "SkinLab", "image": "https://images.unsplash.com/photo-1486572788966-cfd3df1f5b42?q=80&w=600&auto=format&fit=crop", "rating": 4.0, "soldCount": "1k+", "price": 9.99, "originalPrice": 12.99, "discountPercent": 23, "badge": "Outlet", "deliveryLabel": "Livraison d'ici aujourd'hui" }
+  ]
+}
