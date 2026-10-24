@@ -1,95 +1,286 @@
-import { motion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
+import PageSEO from "@/components/PageSEO";
+import { motion, useReducedMotion } from "framer-motion";
 import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
+import { LEGAL_INFO, FOOTNOTES, buildArticles } from "@/assets/data/cgv.js";
 
-const Section = ({ title, children }) => (
-  <div className="mb-10">
-    <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-4">{title}</h2>
-    <div className="text-neutral-600 dark:text-neutral-400 space-y-4 leading-relaxed text-sm sm:text-base">
-      {children}
-    </div>
-  </div>
+const FONTS_HREF ="";
+
+function useDocumentFonts() {
+  useEffect(() => {
+    if (document.getElementById("cgv-fonts")) return;
+    const link = document.createElement("link");
+    link.id = "cgv-fonts";
+    link.rel = "stylesheet";
+    link.href = FONTS_HREF;
+    document.head.appendChild(link);
+  }, []);
+}
+
+const FootnoteRef = ({ id }) => (
+  <sup className="mx-px">
+    <a
+      href={`#fn-${id}`}
+      id={`fnref-${id}`}
+      aria-label={`Voir la note ${id}`}
+      className="rounded px-[3px] py-px font-mono text-[0.62rem] font-semibold text-[var(--cgv-gold)] no-underline ring-1 ring-[var(--cgv-gold)]/40 transition-colors hover:bg-[var(--cgv-gold)]/10"
+    >
+      {id}
+    </a>
+  </sup>
 );
 
-export default function Terms() {
-  const { data: appConfig } = useAppConfig();
-  const legalEmail = appConfig?.contactEmail || "legal@lid.ci";
+const renderParagraph = (paragraph) => {
+  if (typeof paragraph === "string") return paragraph;
+  return paragraph.map((segment, i) =>
+    typeof segment === "string" ? (
+      <span key={i}>{segment}</span>
+    ) : (
+      <FootnoteRef key={i} id={segment.fn} />
+    )
+  );
+};
+
+const Seal = () => (
+ <div className="flex items-center justify-center w-[10%]">
+  <img src="/imgs/badge.png" alt="Badge" className="w-full h-full" />
+ </div>
+);
+
+// ---------------------------------------------------------------------------
+// Article
+// ---------------------------------------------------------------------------
+const Article = ({ index, title, paragraphs = [], list, paragraphsAfterList = [], setRef }) => {
+  const num = String(index + 1).padStart(2, "0");
+  const label = title.split(" : ")[1] || title;
+  const id = `article-${index + 1}`;
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-20 pb-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto bg-white dark:bg-neutral-900 rounded-3xl p-8 sm:p-12 border border-neutral-200 dark:border-neutral-800 shadow-sm">
+    <section id={id} ref={(el) => setRef(id, el)} className="scroll-mt-28 border-t border-[var(--cgv-rule)] py-9 first:border-t-0 first:pt-0">
+      <div className="mb-3 flex items-baseline gap-3">
+        <span className=" text-xs font-medium tracking-widest text-gray-500">
+          ARTICLE. {num}
+        </span>
+        <h2 className=" text-xl font-semibold leading-snug text-[var(--cgv-ink)] sm:text-[1.4rem]">
+          {label}
+        </h2>
+      </div>
+      <div className="space-y-4 text-[0.95rem] leading-[1.75] text-[var(--cgv-ink)]/80">
+        {paragraphs.map((p, i) => (
+          <p key={i}>{renderParagraph(p)}</p>
+        ))}
+        {list && (
+          <ul className="space-y-2.5 border-l-2 border-[var(--cgv-gold)]/30 pl-5">
+            {list.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
+        )}
+        {paragraphsAfterList.map((p, i) => (
+          <p key={`after-${i}`}>{renderParagraph(p)}</p>
+        ))}
+      </div>
+    </section>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+export default function Terms() {
+  useDocumentFonts();
+  const { data: appConfig } = useAppConfig();
+  const legalEmail = appConfig?.contactEmail || "";
+  const prefersReducedMotion = useReducedMotion();
+
+  const articles = useMemo(
+    () => buildArticles({ legalEmail, legal: LEGAL_INFO }),
+    [legalEmail]
+  );
+
+  const sectionRefs = useRef(new Map());
+  const setRef = (id, el) => {
+    if (el) sectionRefs.current.set(id, el);
+    else sectionRefs.current.delete(id);
+  };
+
+  const [activeId, setActiveId] = useState("article-1");
+
+  useEffect(() => {
+    const els = Array.from(sectionRefs.current.values());
+    if (!els.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveId(visible[0].target.id);
+      },
+      { rootMargin: "-15% 0px -70% 0px", threshold: 0 }
+    );
+    els.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [articles]);
+
+  return (
+    <div
+      id="cgv-page"
+      className="min-h-screen  pb-20 pt-20 px-4 sm:px-6 lg:px-8"
+    >
+      <style>{`
+        #cgv-page{
+          --cgv-ink:#182A22; --cgv-paper:#F5F1E6; --cgv-forest:#000;
+          --cgv-gold:#A97D2F; --cgv-rule:rgba(70, 70, 70, 0.08); --cgv-card:#FFF;
+        }
+        .dark #cgv-page{
+          --cgv-ink:#ECE7DA; --cgv-paper:#0E1712; --cgv-forest:#5FBE93;
+          --cgv-gold:#D9B268; --cgv-rule:rgba(48, 136, 23, 0.65); --cgv-card:#141E19;
+        }
+      `}</style>
+
+      <PageSEO
+        title="Conditions générales de vente"
+        description="Conditions générales de vente de la marketplace LID, applicables en République de Côte d'Ivoire et dans l'espace UEMOA/CEDEAO."
+        canonical="/terms"
+      />
+
+      <div className="mx-auto max-w-6xl">
+        {/* Letterhead */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-10 flex flex-col items-start gap-6 border-b border-[var(--cgv-rule)] pb-10 sm:flex-row sm:items-center sm:justify-between"
         >
-          <h1 className="text-3xl sm:text-4xl font-bold text-neutral-900 dark:text-white mb-2">Conditions Générales</h1>
-          <p className="text-neutral-500 mb-12">Dernière mise à jour : 8 Janvier 2026</p>
-
-          <Section title="1. Introduction">
-            <p>
-              Bienvenue sur LID. En accédant à notre site web et en utilisant nos services, vous acceptez d'être lié par les présentes Conditions Générales d'Utilisation (CGU) et Conditions Générales de Vente (CGV). Veuillez les lire attentivement.
+          <div>
+            <p className="mb-3 font-mono text-xs uppercase tracking-[0.2em] text-[var(--cgv-forest)]">
+              Acte contractuel LID
             </p>
-          </Section>
-
-          <Section title="2. Commandes">
-            <p>
-              Toute commande passée sur LID vaut acceptation des prix et descriptions des produits disponibles à la vente. Nous nous réservons le droit d'annuler ou de refuser toute commande d'un client avec lequel il existerait un litige relatif au paiement d'une commande antérieure.
+            <h1 className=" text-3xl font-semibold leading-tight text-[var(--cgv-ink)] sm:text-4xl">
+              Conditions Générales de Vente
+            </h1>
+            <p className="mt-3 max-w-xl text-sm text-[var(--cgv-ink)]/65">
+              Applicables en République de Côte d&apos;Ivoire et, le cas échéant, dans l&apos;espace UEMOA/CEDEAO.
             </p>
-            <p>
-              Les informations contractuelles sont présentées en langue française et feront l'objet d'une confirmation au plus tard au moment de la validation de votre commande.
-            </p>
-          </Section>
-
-          <Section title="3. Prix et Paiement">
-            <p>
-              Les prix de nos produits sont indiqués en Francs CFA (XOF) toutes taxes comprises (TTC), hors participation aux frais de traitement et d'expédition.
-            </p>
-            <p>
-              LID se réserve le droit de modifier ses prix à tout moment, mais le produit sera facturé sur la base du tarif en vigueur au moment de la validation de la commande et sous réserve de disponibilité.
-            </p>
-          </Section>
-
-          <Section title="4. Livraison">
-            <p>
-              Les produits sont livrés à l'adresse de livraison indiquée au cours du processus de commande. Les délais indiqués sont des délais indicatifs, correspondant aux délais moyens de traitement et de livraison.
-            </p>
-            <p>
-              En cas de retard d'expédition, un mail vous sera adressé pour vous informer d'une éventuelle conséquence sur le délai de livraison qui vous a été indiqué.
-            </p>
-          </Section>
-
-          <Section title="5. Rétractation et Retours">
-            <p>
-              Conformément aux dispositions légales en vigueur, vous disposez d'un délai de 14 jours à compter de la réception de vos produits pour exercer votre droit de rétractation sans avoir à justifier de motifs ni à payer de pénalité.
-            </p>
-            <p>
-              Les retours sont à effectuer dans leur état d'origine et complets (emballage, accessoires, notice). Dans ce cadre, votre responsabilité est engagée. Tout dommage subi par le produit à cette occasion peut être de nature à faire échec au droit de rétractation.
-            </p>
-          </Section>
-
-          <Section title="6. Propriété Intellectuelle">
-            <p>
-              Tous les éléments du site LID sont et restent la propriété intellectuelle et exclusive de LID. Nul n'est autorisé à reproduire, exploiter, rediffuser, ou utiliser à quelque titre que ce soit, même partiellement, des éléments du site qu'ils soient logiciels, visuels ou sonores.
-            </p>
-          </Section>
-
-          <Section title="7. Données Personnelles">
-            <p>
-              LID se réserve le droit de collecter les informations nominatives et les données personnelles vous concernant. Elles sont nécessaires à la gestion de votre commande, ainsi qu'à l'amélioration des services et des informations que nous vous adressons.
-            </p>
-            <p>
-              Pour plus d'informations, veuillez consulter notre Politique de Confidentialité.
-            </p>
-          </Section>
-
-          <div className="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-800 text-center">
-            <p className="text-neutral-500 text-sm">
-              Pour toute question relative à ces conditions, contactez-nous à{" "}
-              <a href={`mailto:${legalEmail}`} className="text-orange-600 hover:underline">
-                {legalEmail}
-              </a>
+            <p className="mt-1 font-mono text-xs text-[var(--cgv-ink)]/50">
+              Dernière mise à jour : {LEGAL_INFO.updateDate}
             </p>
           </div>
+          <Seal />
         </motion.div>
+
+        {/* Mobile ToC */}
+        <details className="mb-8 rounded-2xl border border-[var(--cgv-rule)] bg-[var(--cgv-card)] p-4 lg:hidden">
+          <summary className="cursor-pointer font-mono text-xs uppercase tracking-widest text-[var(--cgv-forest)]">
+            Sommaire — 17 articles
+          </summary>
+          <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            {articles.map((a, i) => (
+              <li key={a.title}>
+                <a href={`#article-${i + 1}`} className="text-green-500/75 hover:text-green-500">
+                  <span className="mr-1.5 font-mono text-gray-500">{String(i + 1).padStart(2, "0")}</span>
+                  {a.title.split(" : ")[1]}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+
+        <div className="lg:grid lg:grid-cols-[240px_1fr] lg:gap-14">
+          {/* Sticky sidebar ToC */}
+          <nav className="sticky top-24 hidden h-fit max-h-[calc(100vh-8rem)] overflow-y-auto pr-2 lg:block">
+            <p className="mb-4 font-mono text-xs uppercase tracking-[0.2em] text-[var(--cgv-forest)]">
+              Sommaire
+            </p>
+            <ol className="space-y-1 border-l border-[var(--cgv-rule)]">
+              {articles.map((a, i) => {
+                const id = `article-${i + 1}`;
+                const isActive = activeId === id;
+                return (
+                  <li key={a.title}>
+                    <a
+                      href={`#${id}`}
+                      className={`-ml-px block border-l-2 py-1.5 pl-4 text-sm leading-snug transition-colors ${
+                        isActive
+                          ? "border-green-500 text-[var(--cgv-ink)]"
+                          : "border-transparent text-[var(--cgv-ink)]/50 hover:text-gray-500/80"
+                      }`}
+                    >
+                      <span className="mr-2 font-mono text-xs text-gray-500">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      {a.title.split(" : ")[1]}
+                    </a>
+                  </li>
+                );
+              })}
+              <li>
+                <a
+                  href="#sources"
+                  className="-ml-px block border-l-2 border-transparent py-1.5 pl-4 text-sm text-[var(--cgv-ink)]/50 hover:text-[var(--cgv-ink)]/80"
+                >
+                  <span className="mr-2 font-mono text-xs text-green-500">§</span>
+                  Sources &amp; références
+                </a>
+              </li>
+            </ol>
+          </nav>
+
+          {/* Main content */}
+          <div className="rounded-3xl border border-[var(--cgv-rule)] bg-[var(--cgv-card)] px-6 py-8 sm:px-10 sm:py-10">
+            {articles.map((article, i) => (
+              <Article key={article.title} index={i} {...article} setRef={setRef} />
+            ))}
+
+            {/* Footnotes / sources */}
+            <section id="sources" className="scroll-mt-24 border-t border-[var(--cgv-rule)] pt-9">
+              <p className="mb-5 font-mono text-xs uppercase tracking-widest text-[var(--cgv-forest)]">
+                Sources &amp; références
+              </p>
+              <ol className="space-y-4">
+                {FOOTNOTES.map((note) => (
+                  <li key={note.id} id={`fn-${note.id}`} className="scroll-mt-24 text-wrap flex text-sm leading-relaxed">
+                    <span className="mr-2 font-mono text-gray-500">[{note.id}]</span>
+                    <a
+                      href={note.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-[var(--cgv-ink)]/85 underline decoration-green-500/40 underline-offset-2 hover:text-green-500"
+                    >
+                      {note.label}
+                    </a>
+                    <span className="text-gray-500/45"> — {note.source}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            {/* Contact / seal card */}
+            <div className="mt-12 rounded-2xl border border-[var(--cgv-gold)]/30 bg-[var(--cgv-forest)]/[0.06] p-6 text-center sm:p-8">
+              <p className="text-left text-xs uppercase tracking-widest text-[var(--cgv-forest)]">
+                Contact
+              </p>
+              <p className=" text-left mt-3 text-sm text-[var(--cgv-ink)]/75">
+                Pour toute question relative à ces conditions, contactez-nous à{" "}
+                <a href={`mailto:${LEGAL_INFO.mail}`} className="font-medium text-[var(--cgv-forest)] hover:underline">
+                  {LEGAL_INFO.mail}
+                </a>
+                {LEGAL_INFO.telephone && (
+                  <>
+                    {" "}ou au{" "}
+                    <a
+                      href={`tel:${LEGAL_INFO.telephone.replace(/\s/g, "")}`}
+                      className="font-medium text-[var(--cgv-forest)] hover:underline"
+                    >
+                      {LEGAL_INFO.telephone}
+                    </a>
+                  </>
+                )}
+                .
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

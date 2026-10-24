@@ -3,7 +3,7 @@ import React, { forwardRef } from "react";
 const ShippingLabel = forwardRef(({ order, customer }, ref) => {
   if (!order) return null;
 
-  const orderId = order.id || "INV-2026-XXXXX";
+  const orderId = order.orderNumber || order.orderId || order.id || "INV-2026-XXXXX";
   const date = order.createdAt ? new Date(order.createdAt).toLocaleDateString("fr-FR") : new Date().toLocaleDateString("fr-FR");
   const shippingAddress = order.shippingAddress || "Adresse inconnue";
   
@@ -16,7 +16,7 @@ const ShippingLabel = forwardRef(({ order, customer }, ref) => {
 
   const customerName = customer?.name || order.customerName || "CLIENT";
   const customerPhone = customer?.phone || order.phone || "+225 05 00 00 00 00";
-  const trackingNumber = `LD${orderId.replace(/[^0-9]/g, "").slice(0, 10)}CI`;
+  const trackingNumber = order.trackingId || `LD${orderId.replace(/[^0-9A-Z]/gi, "").slice(-10)}CI`;
   const weight = "1.2 kg"; // Mock weight or calculate from items
 
   return (

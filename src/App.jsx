@@ -15,10 +15,10 @@ const ProductDetails = lazy(() => import('./pages/ProductDetailsDb.jsx'))
 const Login = lazy(() => import('./pages/Login.jsx'))
 const Callback = lazy(() => import('./pages/Callback.jsx')) // OIDC Callback
 const Seller = lazy(() => import('./pages/Seller.jsx'))
-const SellerDashboard = lazy(() => import('./pages/SellerDashboard/index'))
 const BackofficeSeller = lazy(() => import('./pages/backofficeSeller/index'))
 const BackofficeDashboard = lazy(() => import('./pages/backofficeSeller/Dashboard'))
 const BackofficeProducts = lazy(() => import('./pages/backofficeSeller/ProductManagement'))
+const BackofficeMedia = lazy(() => import('./pages/backofficeSeller/Media'))
 const BackofficeOrders = lazy(() => import('./pages/backofficeSeller/Orders'))
 const BackofficeCategories = lazy(() => import('./pages/backofficeSeller/Categories'))
 const BackofficeSettings = lazy(() => import('./pages/backofficeSeller/Settings'))
@@ -41,6 +41,7 @@ const OrderTracking = lazy(() => import('./pages/OrderTracking.jsx'))
 const Returns = lazy(() => import('./pages/Returns.jsx'))
 const Delivery = lazy(() => import('./pages/Delivery.jsx'))
 const NotFound = lazy(() => import('./pages/NotFound.jsx'))
+const Cgu = lazy(() => import('./pages/Cgu.jsx'))
 const Test = lazy(() => import('./pages/Test.jsx'))
 const PdpShowcase = lazy(() => import('./pages/PdpShowcase.jsx'))
 
@@ -61,15 +62,23 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/callback" element={<Callback />} />
           <Route path="/seller-join" element={<Seller />} />
-          <Route path="/dashboard/seller" element={<SellerDashboard />} />
-
-          <Route path="/sel-off" element={<BackofficeSeller />}>
-             <Route index element={<Navigate to="dashboard" replace />} />
-             <Route path="products" element={<BackofficeProducts />} />
-             <Route path="categories" element={<BackofficeCategories />} />
-             <Route path="dashboard" element={<BackofficeDashboard />} />
-             <Route path="orders" element={<BackofficeOrders />} />
-             <Route path="settings" element={<BackofficeSettings />} />
+          <Route path="/seller-joint" element={<Seller />} />
+          
+          <Route
+            path="/sel-off"
+            element={
+              <ProtectedRoute requiredRoles={["PARTNER"]} requireVerifiedPartner>
+                <BackofficeSeller />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="products" element={<BackofficeProducts />} />
+            <Route path="media" element={<BackofficeMedia />} />
+            <Route path="categories" element={<BackofficeCategories />} />
+            <Route path="dashboard" element={<BackofficeDashboard />} />
+            <Route path="orders" element={<BackofficeOrders />} />
+            <Route path="settings" element={<BackofficeSettings />} />
           </Route>
           
           <Route path="/" element={<Layout />}>
@@ -97,6 +106,7 @@ function App() {
             <Route path="help" element={<Help />} />
             <Route path="faq" element={<FAQ />} />
             <Route path="terms" element={<Terms />} />
+            <Route path="cgu" element={<Cgu />} />
             <Route path="privacy" element={<Privacy />} />
             <Route path="tracking" element={<OrderTracking />} />
             <Route path="returns" element={<Returns />} />

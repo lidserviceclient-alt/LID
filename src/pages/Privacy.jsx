@@ -1,3 +1,4 @@
+import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import { Shield, Lock, Eye, Server } from "lucide-react";
 
@@ -17,7 +18,7 @@ const PrivacyCard = ({ icon: Icon, title, children }) => (
 
 export default function Privacy() {
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-950 pt-20 pb-16 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-white dark:bg-neutral-950 pt-20 pb-16 px-4 sm:px-6 lg:px-8"><PageSEO title="Confidentialité" description="Politique de confidentialité et protection de vos données personnelles sur Lid." canonical="/privacy" />
       <div className="max-w-5xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

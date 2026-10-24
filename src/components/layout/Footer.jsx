@@ -13,13 +13,23 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import Logo from '../Logo';
 import { subscribeNewsletter } from '../../services/newsletterService';
-import { getCatalogCategories } from '../../services/categoryService';
 import { useAppConfig } from '@/features/appConfig/useAppConfig.js';
+import { useCatalogCategories } from '@/features/catalog/useCatalogCategories';
+
+const sameFooterItems = (left, right) => {
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  if (left.length !== right.length) return false;
+  return left.every((item, index) => {
+    const other = right[index];
+    return item?.name === other?.name && item?.path === other?.path;
+  });
+};
 
 export default function Footer() {
   const [email, setEmail] = useState('');
   const containerRef = useRef(null);
   const { data: appConfig } = useAppConfig();
+  const { data: categoriesData } = useCatalogCategories();
   
   // Parallax Effect for Background
   const { scrollYProgress } = useScroll({
@@ -34,55 +44,44 @@ export default function Footer() {
   const [footerCategories, setFooterCategories] = useState([]);
 
   useEffect(() => {
-    let cancelled = false;
-    getCatalogCategories()
-      .then((list) => {
-        if (cancelled) return;
-        const all = Array.isArray(list) ? list : [];
-        const pick = (arr) =>
-          arr
-            .filter((c) => c && c.estActive !== false)
-            .map((c) => ({
-              name: `${c?.nom || ""}`.trim(),
-              token: `${(c?.slug || c?.id || "")}`.trim(),
-              niveau: `${c?.niveau || ""}`.trim(),
-              ordre: Number(c?.ordre) || 0,
-              dateCreation: c?.dateCreation || null
-            }))
-            .filter((c) => c.name && c.token);
+    const all = Array.isArray(categoriesData) ? categoriesData : [];
+    const pick = (arr) =>
+      arr
+        .filter((c) => c && c.estActive !== false)
+        .map((c) => ({
+          name: `${c?.nom || ""}`.trim(),
+          token: `${(c?.slug || c?.id || "")}`.trim(),
+          niveau: `${c?.niveau || ""}`.trim(),
+          ordre: Number(c?.ordre) || 0,
+          dateCreation: c?.dateCreation || null
+        }))
+        .filter((c) => c.name && c.token);
 
-        const subSub = pick(all).filter((c) => c.niveau === "SOUS_SOUS_CATEGORIE");
-        const fallbackSubs = pick(all).filter((c) => c.niveau === "SOUS_CATEGORIE");
+    const subSub = pick(all).filter((c) => c.niveau === "SOUS_SOUS_CATEGORIE");
+    const fallbackSubs = pick(all).filter((c) => c.niveau === "SOUS_CATEGORIE");
 
-        const chosen = (subSub.length >= 4 ? subSub : subSub.concat(fallbackSubs))
-          .sort((a, b) => {
-            if (a.ordre !== b.ordre) return a.ordre - b.ordre;
-            return a.name.localeCompare(b.name, "fr");
-          })
-          .slice(0, 4)
-          .map((c) => ({
-            name: c.name,
-            path: `/shop?category=${encodeURIComponent(c.token)}&sort=featured`
-          }));
-
-        const items = chosen.filter((it) => it.name && it.path && !it.path.includes("category=&"));
-        setFooterCategories(items);
+    const chosen = (subSub.length >= 4 ? subSub : subSub.concat(fallbackSubs))
+      .sort((a, b) => {
+        if (a.ordre !== b.ordre) return a.ordre - b.ordre;
+        return a.name.localeCompare(b.name, "fr");
       })
-      .catch(() => {
-        if (cancelled) return;
-        setFooterCategories([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+      .slice(0, 4)
+      .map((c) => ({
+        name: c.name,
+        path: `/shop?category=${encodeURIComponent(c.token)}&sort=featured`
+      }));
+
+    const items = chosen.filter((it) => it.name && it.path && !it.path.includes("category=&"));
+    setFooterCategories((prev) => (sameFooterItems(prev, items) ? prev : items));
+  }, [categoriesData]);
 
   const collectionsLinks = footerCategories.length > 0
     ? footerCategories
     : [
         { name: "Nouveautés", path: "/shop?sort=newest" },
         { name: "Boutique", path: "/shop" },
-        { name: "Blog", path: "/blog" },
+        { name: "Billetterie", path: "/tickets" },
+
       ];
 
   const links = {
@@ -97,8 +96,8 @@ export default function Footer() {
     legal: [
       { name: "Confidentialité", path: "/privacy" },
       { name: "CGV", path: "/terms" },
-      { name: "Mentions Légales", path: "/terms" },
-      { name: "Cookies", path: "/privacy" },
+      { name: "CGU", path: "/cgu" },
+      { name: "Cookies", path: "/privacy#cookies" },
     ],
   };
 
@@ -335,10 +334,7 @@ export default function Footer() {
           
           <div className="flex items-center gap-8 mt-4 md:mt-0">
              <div className="flex items-center gap-2">
-               <div className="relative">
-                 <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                 <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
-               </div>
+               
              </div>
              <motion.button 
                whileHover={{ scale: 1.05 }}

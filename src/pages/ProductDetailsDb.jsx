@@ -6,6 +6,7 @@ import { useWishlist } from "@/features/wishlist/WishlistContext";
 import { getCatalogProduct, getCatalogProductsPage } from "@/services/productService";
 import { listProductReviews } from "@/services/reviewService";
 import { resolveBackendAssetUrl } from "@/services/categoryService";
+import PageSEO from "@/components/PageSEO";
 import FavoriteNotification from "@/components/FavoriteNotification";
 import CheckoutFlow from "@/components/CheckoutFlow";
 import { useAppConfig } from "@/features/appConfig/useAppConfig";
@@ -305,6 +306,13 @@ export default function ProductDetailsDb() {
 
   return (
     <div className="min-h-screen bg-white font-barlow">
+      <PageSEO
+        title={product?.name}
+        description={product?.name ? `Achetez ${product.name} sur Lid. Livraison rapide en Côte d'Ivoire.` : undefined}
+        canonical={product?.id ? `/product/${product.id}` : undefined}
+        image={product?.imageUrl ? resolveBackendAssetUrl(product.imageUrl) : undefined}
+        type="product"
+      />
       <FavoriteNotification
         isVisible={favNotification.show}
         onClose={() => setFavNotification((prev) => ({ ...prev, show: false }))}

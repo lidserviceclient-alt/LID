@@ -1,20 +1,126 @@
-import { useState } from 'react';
-import { LayoutDashboard, Package, ShoppingBag, Settings, LogOut, Menu, X, Layers, Home } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { LayoutDashboard, Package, ShoppingBag, Settings, LogOut, Menu, X, Layers, Home, Image } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { getMyPartnerCollection } from '@/services/partnerBackofficeDashboardService';
+import { getMyPartnerSettingsCollection } from '@/services/partnerBackofficeSettingsService';
+import { listMyProducts } from '@/services/partnerBackofficeProductService';
+import { listMyOrders } from '@/services/partnerBackofficeOrderService';
+import { getMyCategoriesCollection } from '@/services/partnerBackofficeCategoryService';
+import { PartnerBackofficeBootstrapProvider } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 
 export default function SellerBackoffice() {
+  const [pageTitle, setPageTitle] = useState("Tableau de bord");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const location = useLocation();
+  const routeKey = useMemo(() => {
+    const parts = `${location.pathname || ''}`.split('/').filter(Boolean);
+    const selOffIndex = parts.indexOf('sel-off');
+    return selOffIndex >= 0 ? (parts[selOffIndex + 1] || 'dashboard') : 'dashboard';
+  }, [location.pathname]);
 
-  const MENU_ITEMS = [
+  const MENU_ITEMS = useMemo(() => ([
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard, path: 'dashboard' },
     { id: 'products', label: 'Produits', icon: Package, path: 'products' },
+    { id: 'media', label: 'Médias', icon: Image, path: 'media' },
     { id: 'categories', label: 'Catégories', icon: Layers, path: 'categories' },
     { id: 'orders', label: 'Commandes', icon: ShoppingBag, path: 'orders' },
     { id: 'settings', label: 'Paramètres', icon: Settings, path: 'settings' },
-  ];
+  ]), []);
+
+  useEffect(() => {
+    const parts = `${location.pathname || ''}`.split('/').filter(Boolean);
+    const selOffIndex = parts.indexOf('sel-off');
+    const active = selOffIndex >= 0 ? parts[selOffIndex + 1] : null;
+    const currentId = active || 'dashboard';
+    const match = MENU_ITEMS.find((m) => m.id === currentId);
+    const nextTitle = match?.label || "Lid partenaire | Tableau de bord";
+    const shortTitle = `${nextTitle}`.split("|").slice(-1)[0].trim() || "Tableau de bord";
+    setPageTitle(shortTitle);
+    document.title = nextTitle;
+  }, [location.pathname, MENU_ITEMS]);
+
+  const settingsCollectionQuery = useQuery({
+    queryKey: ['partner-backoffice-settings-collection'],
+    queryFn: () => getMyPartnerSettingsCollection(),
+    enabled: routeKey === 'dashboard' || routeKey === 'settings',
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnMount: false,
+    retry: 1,
+  });
+
+  const categoriesCollectionQuery = useQuery({
+    queryKey: ['partner-backoffice-categories-collection'],
+    queryFn: () => getMyCategoriesCollection(),
+    enabled: routeKey === 'settings' || routeKey === 'categories' || routeKey === 'products',
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnMount: false,
+    retry: 1,
+  });
+
+  const bootstrapQuery = useQuery({
+    queryKey: ['partner-backoffice-bootstrap', routeKey],
+    queryFn: async () => {
+      if (routeKey === 'dashboard') {
+        return {
+          collection: await getMyPartnerCollection({ productLimit: 200, orderLimit: 50, customerLimit: 20 }),
+        };
+      }
+      if (routeKey === 'settings') {
+        return null;
+      }
+      if (routeKey === 'products') {
+        return await listMyProducts({ page: 0, size: 200 });
+      }
+      if (routeKey === 'orders') {
+        return await listMyOrders({ page: 0, size: 200 });
+      }
+      if (routeKey === 'categories') {
+        return null;
+      }
+      return null;
+    },
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnMount: false,
+    retry: 1,
+  });
+
+  const bootstrapValue = useMemo(() => ({
+    routeKey,
+    data: bootstrapQuery.data || null,
+    isLoading: bootstrapQuery.isLoading,
+    isResolved: Boolean(bootstrapQuery.isFetched || bootstrapQuery.error),
+    error: bootstrapQuery.error || null,
+    settingsCollection: settingsCollectionQuery.data || null,
+    isSettingsCollectionLoading: settingsCollectionQuery.isLoading,
+    isSettingsCollectionResolved: Boolean(settingsCollectionQuery.isFetched || settingsCollectionQuery.error),
+    settingsCollectionError: settingsCollectionQuery.error || null,
+    categoriesCollection: categoriesCollectionQuery.data || null,
+    isCategoriesCollectionLoading: categoriesCollectionQuery.isLoading,
+    isCategoriesCollectionResolved: Boolean(categoriesCollectionQuery.isFetched || categoriesCollectionQuery.error),
+    categoriesCollectionError: categoriesCollectionQuery.error || null,
+  }), [
+    bootstrapQuery.data,
+    bootstrapQuery.error,
+    bootstrapQuery.isFetched,
+    bootstrapQuery.isLoading,
+    routeKey,
+    settingsCollectionQuery.data,
+    settingsCollectionQuery.error,
+    settingsCollectionQuery.isFetched,
+    settingsCollectionQuery.isLoading,
+    categoriesCollectionQuery.data,
+    categoriesCollectionQuery.error,
+    categoriesCollectionQuery.isFetched,
+    categoriesCollectionQuery.isLoading,
+  ]);
 
   return (
+    <PartnerBackofficeBootstrapProvider value={bootstrapValue}>
     <div className="min-h-screen bg-gray-50 flex font-sans text-gray-900">
       {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
@@ -38,10 +144,10 @@ export default function SellerBackoffice() {
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 overflow-hidden rounded-lg flex items-center justify-center text-white font-bold">
-              <img src="/imgs/logo.png" alt="LID Partner" className="w-full h-full" />
+              <img src="/imgs/logo_partener.png" alt="LID Partner" className="w-full h-full" />
             </div>
             <span className="font-bold text-lg tracking-tight">Lid 
-partner </span>
+partenaire </span>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-gray-500">
             <X size={24} />
@@ -114,9 +220,13 @@ partner </span>
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-8">
+          <div className="hidden lg:block mb-6">
+            <h1 className="text-2xl font-bold tracking-tight">{pageTitle}</h1>
+          </div>
           <Outlet />
         </div>
       </main>
     </div>
+    </PartnerBackofficeBootstrapProvider>
   );
 }

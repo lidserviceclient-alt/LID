@@ -12,6 +12,31 @@ const users = [
   "https://i.pinimg.com/1200x/b8/e3/0c/b8e30c0bd21299e768d315448e6d60a0.jpg"
 ];
 
+const formatHeroPrice = (value) => {
+  const asNumber = Number(value);
+  if (Number.isFinite(asNumber)) {
+    return `${asNumber.toLocaleString("fr-FR")} FCFA`;
+  }
+  return `${value || ""}`.trim();
+};
+
+const normalizeHeroProducts = (products) => {
+  if (!Array.isArray(products)) return [];
+  return products
+    .map((product, index) => {
+      const id = `${product?.id ?? product?.referenceProduitPartenaire ?? ""}`.trim() || `hero-live-${index}`;
+      const name = `${product?.name ?? product?.nom ?? product?.title ?? ""}`.trim();
+      if (!name) return null;
+      return {
+        id,
+        name,
+        price: formatHeroPrice(product?.price ?? product?.prix ?? product?.amount),
+        mainImageUrl: `${product?.mainImageUrl ?? product?.image ?? ""}`.trim(),
+      };
+    })
+    .filter(Boolean);
+};
+
 const MarqueeRow = ({ items, direction = "left", speed = 10, enableMotion = true }) => {
   if (!items || items.length === 0) return null;
   if (!enableMotion) {
@@ -19,8 +44,8 @@ const MarqueeRow = ({ items, direction = "left", speed = 10, enableMotion = true
       <div className="flex overflow-hidden relative z-0 py-4">
         <div className="flex gap-4 flex-shrink-0 px-2">
           {items.map((product, i) => {
-            const hasImage = Boolean(product?.img);
-            const src = hasImage ? product.img : "/imgs/logo.png";
+            const hasImage = Boolean(product?.mainImageUrl);
+            const src = hasImage ? product.mainImageUrl : "/imgs/logo.png";
             const imgClass = hasImage
               ? "w-full h-full object-cover opacity-90 grayscale group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700 ease-out"
               : "w-full h-full object-contain opacity-30 p-10 transition-all duration-700 ease-out";
@@ -30,10 +55,11 @@ const MarqueeRow = ({ items, direction = "left", speed = 10, enableMotion = true
                 <img
                   src={src}
                   alt={product.name}
-                  width="100%"
-                  height="100%"
+                  width="350"
+                  height="437"
                   loading={i < 4 ? "eager" : "lazy"}
                   fetchPriority={i < 4 ? "high" : "auto"}
+                  decoding="async"
                   className={imgClass}
                   onError={(e) => {
                     e.currentTarget.onerror = null;
@@ -70,21 +96,22 @@ const MarqueeRow = ({ items, direction = "left", speed = 10, enableMotion = true
         className="flex gap-4 flex-shrink-0 px-2"
       >
         {[...items, ...items].map((product, i) => {
-          const hasImage = Boolean(product?.img);
-          const src = hasImage ? product.img : "/imgs/logo.png";
+          const hasImage = Boolean(product?.mainImageUrl);
+          const src = hasImage ? product.mainImageUrl : "/imgs/logo.png";
           const imgClass = hasImage
             ? "w-full h-full object-cover opacity-90 grayscale group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700 ease-out"
             : "w-full h-full object-contain opacity-30 p-10 transition-all duration-700 ease-out";
 
           return (
             <div key={i} className="relative group w-[280px] sm:w-[350px] aspect-[4/5] flex-shrink-0 overflow-hidden rounded-xl bg-neutral-100 shadow-sm border border-neutral-200/50">
-              <img 
-                src={src} 
-                alt={product.name} 
+              <img
+                src={src}
+                alt={product.name}
                 width="350"
                 height="437"
                 loading={i < 4 ? "eager" : "lazy"}
                 fetchPriority={i < 4 ? "high" : "auto"}
+                decoding="async"
                 className={imgClass}
                 onError={(e) => {
                   e.currentTarget.onerror = null;
@@ -111,7 +138,7 @@ const MarqueeRow = ({ items, direction = "left", speed = 10, enableMotion = true
   );
 };
 
-export default function Hero({ enableMotion = true }) {
+export default function Hero({ enableMotion = true, products = null }) {
   const navigate = useNavigate();
   const { scrollY } = useScroll();
   const y = useTransform(scrollY, [0, 500], [0, 200]);
@@ -145,11 +172,14 @@ export default function Hero({ enableMotion = true }) {
   };
 
   const [row1Items, row2Items] = useMemo(() => {
-    const items = Array.isArray(HERO_PRODUCTS) ? HERO_PRODUCTS : [];
+    const normalized = normalizeHeroProducts(products);
+    const items = normalized.length > 0
+      ? normalized
+      : (Array.isArray(HERO_PRODUCTS) ? HERO_PRODUCTS : []);
     if (items.length <= 1) return [items, items];
     const mid = Math.ceil(items.length / 2);
     return [items.slice(0, mid), items.slice(mid)];
-  }, []);
+  }, [products]);
 
   return (
     <section 
@@ -179,7 +209,7 @@ export default function Hero({ enableMotion = true }) {
           >
             <div className="inline-block overflow-hidden">
               { "MARKET".split("").map((char, index) => (
-                <motion.span key={index} variants={letter} className="inline-block">
+                <motion.span key={index} variants={letter} className="text-black inline-block">
                   {char}
                 </motion.span>
               ))}
@@ -216,7 +246,7 @@ export default function Hero({ enableMotion = true }) {
           {/* Right: Partner Button (User Request) */}
           <motion.button 
             whileHover={{ scale: 1.05 }}
-            onClick={() => navigate('/sel-off')}
+            onClick={() => navigate('/sellers')}
             whileTap={{ scale: 0.95 }}
             className="group relative px-8 py-4 bg-white/80 backdrop-blur-md border border-white/50 text-neutral-900 rounded-full flex items-center gap-4 shadow-2xl shadow-black/5 hover:bg-white transition-colors"
           >

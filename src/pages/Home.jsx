@@ -1,5 +1,6 @@
 import { motion, MotionConfig } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import PageSEO from "@/components/PageSEO";
 import { Link } from "react-router-dom";
 import { ChevronRight, ShieldCheck, Zap, Truck, ArrowUpRight } from "lucide-react";
 import Hero from "../components/Hero";
@@ -13,9 +14,9 @@ import Mark from "../components/Mark";
 import Newsletter from "../components/Newsletter";
 import Reassurance from "../components/Reassurance";
 import { cn } from "@/utils/cn";
-import { buildCategoryTree, getCatalogCategories, getFeaturedCatalogCategories, resolveBackendAssetUrl } from "@/services/categoryService";
-import { getBestSellerCatalogProducts, getCatalogProductsPage, getFeaturedCatalogProducts } from "@/services/productService";
+import { buildCategoryTree, resolveBackendAssetUrl } from "@/services/categoryService";
 import { useFlashSaleProduct } from "@/features/flashSale/useFlashSaleProduct";
+import { useCatalogBootstrap } from "@/features/catalog/CatalogBootstrapContext";
 
 const CATEGORY_FALLBACK_IMAGE = "/imgs/wall-1.jpg";
 
@@ -100,52 +101,17 @@ const BentoCard = ({ title, image_url, count, slug, className, large = false, en
   );
 };
 export default function Home() {
-  const [catalogCategories, setCatalogCategories] = useState([]);
-  const [featuredCategories, setFeaturedCategories] = useState([]);
-  const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [bestSellerProducts, setBestSellerProducts] = useState([]);
-  const [catalogProducts, setCatalogProducts] = useState([]);
-  const [mobileCategory, setMobileCategory] = useState("");
   const { data: flashSaleProduct } = useFlashSaleProduct(1);
   const hasFlashSale = Boolean(flashSaleProduct);
-
-  useEffect(() => {
-    let cancelled = false;
-    getCatalogCategories()
-      .then((list) => {
-        if (cancelled) return;
-        setCatalogCategories(Array.isArray(list) ? list : []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setCatalogCategories([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      getFeaturedCatalogCategories(6).catch(() => []),
-      getFeaturedCatalogProducts(12).catch(() => []),
-      getBestSellerCatalogProducts(12).catch(() => []),
-      getCatalogProductsPage(0, 24).catch(() => null)
-    ]).then(([cats, prods, bestsellers, catalog]) => {
-      if (cancelled) return;
-      const catalogList = Array.isArray(catalog?.content) ? catalog.content : [];
-      const featuredList = Array.isArray(prods) ? prods : [];
-      const bestSellerList = Array.isArray(bestsellers) ? bestsellers : [];
-      setFeaturedCategories(Array.isArray(cats) ? cats : []);
-      setCatalogProducts(catalogList);
-      setFeaturedProducts(featuredList);
-      setBestSellerProducts(bestSellerList);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const bootstrap = useCatalogBootstrap();
+  const globalCollection = bootstrap?.globalCollection;
+  const isHomeCollectionLoading = Boolean(bootstrap?.isGlobalCollectionLoading);
+  const catalogCategories = Array.isArray(globalCollection?.categories) ? globalCollection.categories : [];
+  const featuredCategories = Array.isArray(globalCollection?.featuredCategories) ? globalCollection.featuredCategories : [];
+  const featuredProducts = Array.isArray(globalCollection?.featuredProducts) ? globalCollection.featuredProducts : [];
+  const bestSellerProducts = Array.isArray(globalCollection?.bestSellerProducts) ? globalCollection.bestSellerProducts : [];
+  const catalogProducts = Array.isArray(globalCollection?.products?.content) ? globalCollection.products.content : [];
+  const blogPosts = Array.isArray(globalCollection?.posts) ? globalCollection.posts : [];
 
   const rootCategories = useMemo(() => {
     const roots = buildCategoryTree(catalogCategories);
@@ -199,49 +165,23 @@ export default function Home() {
   }, [bestSellerProducts]);
 
   const bestSellers = normalizedBestSellerProducts.slice(0, 8);
+  const heroProducts = useMemo(() => {
+    const pick = (Array.isArray(featuredOnHome) && featuredOnHome.length > 0)
+      ? featuredOnHome
+      : (Array.isArray(normalizedBestSellerProducts) && normalizedBestSellerProducts.length > 0)
+        ? normalizedBestSellerProducts
+        : (Array.isArray(catalogProducts) ? catalogProducts : []);
+    return pick.slice(0, 12);
+  }, [featuredOnHome, normalizedBestSellerProducts, catalogProducts]);
 
   const trending = useMemo(() => {
     const list = Array.isArray(catalogProducts) ? [...catalogProducts] : [];
     return list.sort(() => 0.5 - Math.random()).slice(0, 4);
   }, [catalogProducts]);
 
-  const mobileCategoryOptions = useMemo(() => {
-    if (rootCategories.length > 0) {
-      return [{ slug: "", label: "Tous" }, ...rootCategories.slice(0, 8)];
-    }
-    const options = new Map();
-    (normalizedFeaturedProducts.length > 0 ? normalizedFeaturedProducts : catalogProducts).forEach((product) => {
-      const slug = `${product?.categorySlug || ""}`.trim();
-      const label = `${product?.categoryName || ""}`.trim();
-      if (slug && label && !options.has(slug)) {
-        options.set(slug, { slug, label });
-      }
-    });
-    return [{ slug: "", label: "Tous" }, ...Array.from(options.values()).slice(0, 8)];
-  }, [rootCategories, normalizedFeaturedProducts, catalogProducts]);
+  const mobileFeaturedProducts = useMemo(() => normalizedFeaturedProducts.slice(0, 8), [normalizedFeaturedProducts]);
 
-  const filterByMobileCategory = (list) => {
-    if (!mobileCategory) return list;
-    return list.filter((product) => {
-      const slug = `${product?.categorySlug || ""}`.trim();
-      if (slug) return slug === mobileCategory;
-      const name = `${product?.categoryName || ""}`.trim().toLowerCase();
-      const target = `${mobileCategory || ""}`.trim().toLowerCase();
-      return name && target && name === target;
-    });
-  };
-
-  const mobileFeaturedProducts = useMemo(() => {
-    const filtered = normalizedFeaturedProducts.filter((product) => product?.name);
-    return filterByMobileCategory(filtered).slice(0, 8);
-  }, [normalizedFeaturedProducts, mobileCategory]);
-
-  const mobileBestSellers = useMemo(() => {
-    const filtered = normalizedBestSellerProducts.filter((product) => product?.name);
-    const byCategory = filterByMobileCategory(filtered);
-    const slice = byCategory.slice(8, 16);
-    return slice.length > 0 ? slice : filtered.slice(0, 8);
-  }, [normalizedBestSellerProducts, mobileCategory]);
+  const mobileBestSellers = useMemo(() => normalizedBestSellerProducts.slice(0, 8), [normalizedBestSellerProducts]);
 
   const featuredBento = useMemo(() => {
     const resolveCategoryImage = (slug, imageUrl) => {
@@ -279,6 +219,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950">
+      <PageSEO
+        title="Achetez et Vendez en Ligne"
+        description="Lid — la marketplace de référence en Côte d'Ivoire. Produits, billets d'événements et boutiques de vendeurs locaux."
+        canonical="/"
+      />
 
       {/* ================= MOBILE LAYOUT (md:hidden) ================= */}
       <MotionConfig reducedMotion="always">
@@ -286,7 +231,7 @@ export default function Home() {
           
           {/* Mobile Hero */}
           <div className="-mt-1">
-            <Hero enableMotion={false} />
+            <Hero enableMotion={false} products={heroProducts} />
           </div>
 
         {/* Reassurance Grid (Compact) - always visible on mobile */}
@@ -417,7 +362,7 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Hero />
+          <Hero products={heroProducts} />
         </motion.section>
 
         {/* Reassurance Bar */}
@@ -578,7 +523,7 @@ export default function Home() {
           transition={{ duration: 0.5, delay: 0.3 }}
           viewport={{ once: true }}
         >
-          <Blog />
+          <Blog initialPosts={blogPosts} deferFetch={isHomeCollectionLoading} disableFetch />
         </motion.section>
 
         {/* Opinion */}

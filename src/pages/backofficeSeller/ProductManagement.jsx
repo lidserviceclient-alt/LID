@@ -1,52 +1,225 @@
-import { useState } from 'react';
+import PageSEO from "@/components/PageSEO";
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, MoreVertical, Package, Image as ImageIcon, DollarSign, Tag, Archive, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Papa from 'papaparse';
+import { createMyProduct, deleteMyProduct, listMyProducts, updateMyProduct } from '@/services/partnerBackofficeProductService';
+import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
+import { uploadFile } from '@/services/fileStorageService';
 
-const MOCK_PRODUCTS = [
-  { id: 1, name: "Nike Air Max 90", price: 129.99, stock: 12, category: "Shoes", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=200&q=80" },
-  { id: 2, name: "Premium Cotton T-Shirt", price: 29.99, stock: 45, category: "Apparel", image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=200&q=80" },
-  { id: 3, name: "Wireless Headphones", price: 199.99, stock: 8, category: "Electronics", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=200&q=80" },
-];
+const DEFAULT_PRODUCT_IMAGE = "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80";
+
+const toIntPrice = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.round(n));
+};
+
+const formatFcfa = (value) => `${toIntPrice(value).toLocaleString("fr-FR")} FCFA`;
 
 export default function ProductManagement() {
-  const [products, setProducts] = useState(MOCK_PRODUCTS);
+  const bootstrap = usePartnerBackofficeBootstrap();
+  const [products, setProducts] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState(null);
+  const [autoSku, setAutoSku] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [importPreview, setImportPreview] = useState(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isImportGuideOpen, setIsImportGuideOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef(null);
+  const productImageInputRef = useRef(null);
+  const [productImageUrl, setProductImageUrl] = useState("");
+  const [uploadingProductImage, setUploadingProductImage] = useState(false);
+  const categoryOptions = useMemo(() => {
+    const list = Array.isArray(bootstrap?.categoriesCollection?.categories)
+      ? bootstrap.categoriesCollection.categories
+      : [];
+    return list
+      .filter((c) => !c?.parentId && !c?.parent_id)
+      .map((c) => ({
+        id: `${c?.id ?? ''}`.trim(),
+        label: `${c?.nom || c?.name || ''}`.trim(),
+        slug: `${c?.slug || ''}`.trim(),
+      }))
+      .filter((c) => c.id && c.label);
+  }, [bootstrap?.categoriesCollection?.categories]);
+  const selectableCategoryOptions = useMemo(() => {
+    if (categoryOptions.length > 0) return categoryOptions;
+    const seen = new Set();
+    return products
+      .map((p) => ({
+        id: `${p?.categoryId || ''}`.trim(),
+        label: `${p?.category || ''}`.trim(),
+      }))
+      .filter((c) => c.id && c.label && !seen.has(c.id) && seen.add(c.id));
+  }, [categoryOptions, products]);
+  const defaultCategoryId = selectableCategoryOptions[0]?.id || '';
+
+  const categoryById = useMemo(() => {
+    const map = new Map();
+    selectableCategoryOptions.forEach((c) => map.set(`${c.id}`, c.label));
+    return map;
+  }, [selectableCategoryOptions]);
+  const categoryIdByLowerLabel = useMemo(() => {
+    const map = new Map();
+    selectableCategoryOptions.forEach((c) => map.set(`${c.label || ''}`.trim().toLowerCase(), `${c.id}`));
+    return map;
+  }, [selectableCategoryOptions]);
+  const categoryIdByLowerSlug = useMemo(() => {
+    const map = new Map();
+    selectableCategoryOptions.forEach((c) => {
+      const key = `${c.slug || ''}`.trim().toLowerCase();
+      if (key) map.set(key, `${c.id}`);
+    });
+    return map;
+  }, [selectableCategoryOptions]);
+  const categorySlugById = useMemo(() => {
+    const map = new Map();
+    selectableCategoryOptions.forEach((c) => {
+      map.set(`${c.id}`, `${c.slug || ''}`.trim());
+    });
+    return map;
+  }, [selectableCategoryOptions]);
+  const defaultCategorySlug = useMemo(
+    () => `${selectableCategoryOptions.find((c) => `${c.slug || ''}`.trim())?.slug || 'categorie-exemple'}`,
+    [selectableCategoryOptions]
+  );
+
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const page = await listMyProducts({ page: 0, size: 200 });
+      const content = Array.isArray(page?.content) ? page.content : [];
+      const normalized = content.map((p) => ({
+        id: p.id,
+        sku: p.sku || "",
+        name: p.name || "",
+        price: toIntPrice(p.price || 0),
+        stock: Number(p.stock || 0),
+        categoryId: `${p.categoryId || ""}`.trim(),
+        categorySlug: `${p.categorySlug || ""}`.trim(),
+        category: `${p.category || categoryById.get(`${p.categoryId || ""}`) || ""}`.trim(),
+        image: p.mainImageUrl || ""
+      }));
+      setProducts(normalized);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (bootstrap?.routeKey !== 'products') {
+      return;
+    }
+    if (!bootstrap?.isResolved) {
+      setLoading(true);
+      return;
+    }
+    if (bootstrap?.data) {
+      const content = Array.isArray(bootstrap.data?.content) ? bootstrap.data.content : [];
+      const normalized = content.map((p) => ({
+        id: p.id,
+        sku: p.sku || "",
+        name: p.name || "",
+        price: toIntPrice(p.price || 0),
+        stock: Number(p.stock || 0),
+        categoryId: `${p.categoryId || ""}`.trim(),
+        categorySlug: `${p.categorySlug || ""}`.trim(),
+        category: `${p.category || categoryById.get(`${p.categoryId || ""}`) || ""}`.trim(),
+        image: p.mainImageUrl || ""
+      }));
+      setProducts(normalized);
+      setLoading(false);
+      return;
+    }
+    setLoading(false);
+    setProducts([]);
+  }, [bootstrap, categoryById]);
+
+  const generateAutoSku = () => {
+    const ts = Date.now().toString().slice(-8);
+    const rnd = Math.floor(Math.random() * 9000 + 1000).toString();
+    return `SKU-${ts}-${rnd}`;
+  };
 
   const handleEdit = (product) => {
     setCurrentProduct(product);
+    setAutoSku(`${product?.sku || ""}`.trim());
+    setProductImageUrl(`${product?.image || ""}`.trim());
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce produit ?")) {
-      setProducts(products.filter(p => p.id !== id));
+      await deleteMyProduct(id);
+      await refresh();
     }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
+    const categoryId = `${formData.get('categoryId') || ""}`.trim();
+    const sku = currentProduct?.id ? `${currentProduct?.sku || ""}`.trim() : `${autoSku || generateAutoSku()}`.trim();
     const newProduct = {
       id: currentProduct ? currentProduct.id : Date.now(),
+      sku,
       name: formData.get('name'),
-      price: parseFloat(formData.get('price')),
+      price: toIntPrice(formData.get('price')),
       stock: parseInt(formData.get('stock')),
-      category: formData.get('category'),
-      image: currentProduct?.image || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80" // Placeholder
+      categoryId,
+      category: categoryById.get(categoryId) || "",
+      image: productImageUrl
     };
 
-    if (currentProduct) {
-      setProducts(products.map(p => p.id === currentProduct.id ? newProduct : p));
+    const payload = {
+      sku: newProduct.sku,
+      name: newProduct.name,
+      price: toIntPrice(newProduct.price),
+      stock: Number.isFinite(newProduct.stock) ? newProduct.stock : 0,
+      categoryId: newProduct.categoryId,
+      categorySlug: categorySlugById.get(newProduct.categoryId) || null,
+      img: productImageUrl || null,
+      mainImageUrl: productImageUrl || null,
+      status: "ACTIF"
+    };
+
+    if (currentProduct?.id) {
+      await updateMyProduct(currentProduct.id, payload);
     } else {
-      setProducts([...products, newProduct]);
+      await createMyProduct(payload);
     }
+    await refresh();
     setIsModalOpen(false);
     setCurrentProduct(null);
+    setAutoSku("");
+    setProductImageUrl("");
+  };
+
+  const handleProductImageUpload = async (file) => {
+    if (!file || uploadingProductImage) return;
+    setUploadingProductImage(true);
+    try {
+      let res;
+      try {
+        res = await uploadFile(file, { folder: "partners/products" });
+      } catch (error) {
+        const message = error?.response?.data?.message || error?.message || "";
+        if (!message.toLowerCase().includes("existe déjà") || !window.confirm(`${message}\n\nVoulez-vous écraser cette image ?`)) {
+          throw error;
+        }
+        res = await uploadFile(file, { folder: "partners/products", overwrite: true });
+      }
+      const url = `${res?.url || ""}`.trim();
+      if (!url) throw new Error("Upload terminé, mais URL manquante.");
+      setProductImageUrl(url);
+    } catch (error) {
+      alert(error?.response?.data?.message || error?.message || "Upload de l'image impossible.");
+    } finally {
+      setUploadingProductImage(false);
+    }
   };
 
   const handleFileUpload = (e) => {
@@ -56,14 +229,23 @@ export default function ProductManagement() {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
-          const newProducts = results.data.map(item => ({
-            id: Date.now() + Math.random(),
-            name: item.name || item.nom,
-            price: parseFloat(item.price || item.prix || 0),
-            stock: parseInt(item.stock || 0),
-            category: item.category || item.categorie || 'Uncategorized',
-            image: item.image || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80"
-          })).filter(p => p.name); // Filter out empty entries
+          const newProducts = results.data.map(item => {
+            const categorySlug = `${item.categorySlug || item.category_slug || ""}`.trim();
+            const categoryLabel = `${item.category || item.categorie || ""}`.trim();
+            const categoryId = `${item.categoryId || ""}`.trim()
+              || `${categoryIdByLowerSlug.get(categorySlug.toLowerCase()) || ""}`
+              || `${categoryIdByLowerLabel.get(categoryLabel.toLowerCase()) || defaultCategoryId}`;
+            return {
+              categorySlug: categorySlug || categorySlugById.get(categoryId) || defaultCategorySlug,
+              categoryId,
+              id: Date.now() + Math.random(),
+              name: item.name || item.nom,
+              price: toIntPrice(item.price || item.prix || 0),
+              stock: parseInt(item.stock || 0),
+              category: categoryLabel || (categoryById.get(categoryId) || categoryById.get(defaultCategoryId) || 'Uncategorized'),
+              image: item.image || item.mainImageUrl || ""
+            };
+          }).filter(p => p.name); // Filter out empty entries
           
           setImportPreview(newProducts);
           setIsImportModalOpen(true);
@@ -76,13 +258,47 @@ export default function ProductManagement() {
     }
   };
 
-  const confirmImport = () => {
-    if (importPreview) {
-      setProducts(prev => [...prev, ...importPreview]);
-      setImportPreview(null);
-      setIsImportModalOpen(false);
-      alert(`${importPreview.length} produits importés avec succès !`);
+  const downloadImportTemplate = () => {
+    const rows = [
+      ["name", "price", "stock", "categorySlug", "image"],
+      ["Casque Bluetooth", "25000", "15", `${defaultCategorySlug}`, "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80"],
+      ["Chaussures Running", "32000", "8", `${defaultCategorySlug}`, "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80"],
+      ["Crème Hydratante", "8500", "30", `${defaultCategorySlug}`, "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=400&q=80"]
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${`${v}`.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "modele-import-produits.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const confirmImport = async () => {
+    if (!importPreview || importPreview.length === 0) return;
+    setIsImportModalOpen(false);
+    for (const p of importPreview) {
+      const categoryId = `${p.categoryId || ""}`.trim() || defaultCategoryId;
+      const payload = {
+        sku: `${p.sku || p.reference || p.id}`.toString().trim(),
+        name: `${p.name || ""}`.trim(),
+        price: toIntPrice(p.price || 0),
+        stock: Number(p.stock || 0),
+        categoryId,
+        categorySlug: `${p.categorySlug || ""}`.trim() || categorySlugById.get(categoryId) || null,
+        img: p.image || null,
+        mainImageUrl: p.image || null,
+        status: "ACTIF"
+      };
+      if (!payload.sku || !payload.name) continue;
+      await createMyProduct(payload);
     }
+    setImportPreview(null);
+    await refresh();
+    alert(`Produits importés avec succès !`);
   };
 
   const filteredProducts = products.filter(p => 
@@ -99,6 +315,7 @@ export default function ProductManagement() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      <PageSEO title="Gestion des produits" noindex />
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
@@ -106,18 +323,34 @@ export default function ProductManagement() {
           <p className="text-gray-500 text-sm mt-1">Gérez votre catalogue</p>
         </div>
         <div className="flex gap-2">
-          <label className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm cursor-pointer">
+          <button
+            onClick={() => setIsImportGuideOpen(true)}
+            className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            <Archive size={18} />
+            <span className="hidden sm:inline">Exemple Import</span>
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
+          >
             <Upload size={18} />
             <span className="hidden sm:inline">Import CSV</span>
-            <input 
-              type="file" 
-              accept=".csv"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
-          </label>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
           <button 
-            onClick={() => { setCurrentProduct(null); setIsModalOpen(true); }}
+            onClick={() => {
+              setCurrentProduct(null);
+              setAutoSku(generateAutoSku());
+              setProductImageUrl("");
+              setIsModalOpen(true);
+            }}
             className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
           >
             <Plus size={18} />
@@ -161,7 +394,7 @@ export default function ProductManagement() {
                 {/* Mobile: Header with Image & Name */}
                 <div className="col-span-5 flex items-center gap-4 w-full">
                   <div className="h-12 w-12 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
-                    <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+                    <img src={product.image || DEFAULT_PRODUCT_IMAGE} alt={product.name} className="h-full w-full object-cover" />
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-sm font-medium text-gray-900 truncate">{product.name}</h3>
@@ -171,7 +404,7 @@ export default function ProductManagement() {
 
                 {/* Desktop Columns */}
                 <div className="col-span-2 hidden md:block text-sm font-medium text-gray-900">
-                  {product.price.toFixed(2)} FCFA
+                  {formatFcfa(product.price)}
                 </div>
                 <div className="col-span-2 hidden md:block">
                   <div className="flex items-center gap-2">
@@ -187,7 +420,7 @@ export default function ProductManagement() {
 
                 {/* Mobile: Footer with Price & Actions */}
                 <div className="col-span-1 flex items-center justify-between md:justify-end w-full gap-2">
-                  <span className="md:hidden font-medium text-gray-900">{product.price.toFixed(2)} FCFA</span>
+                  <span className="md:hidden font-medium text-gray-900">{formatFcfa(product.price)}</span>
                   <div className="flex items-center gap-1">
                     <button 
                       onClick={() => handleEdit(product)}
@@ -207,7 +440,12 @@ export default function ProductManagement() {
             ))}
           </AnimatePresence>
           
-          {filteredProducts.length === 0 && (
+          {loading ? (
+            <div className="p-12 text-center text-gray-500">
+              <Package size={48} className="mx-auto mb-4 text-gray-300" />
+              <p>Chargement...</p>
+            </div>
+          ) : filteredProducts.length === 0 && (
             <div className="p-12 text-center text-gray-500">
               <Package size={48} className="mx-auto mb-4 text-gray-300" />
               <p>Aucun produit trouvé</p>
@@ -217,6 +455,90 @@ export default function ProductManagement() {
       </div>
 
       {/* Add/Edit Modal */}
+      <AnimatePresence>
+        {isImportGuideOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Exemple pour import en masse</h2>
+                  <p className="text-sm text-gray-500">Remplissez votre CSV avec ces colonnes obligatoires.</p>
+                </div>
+                <button onClick={() => setIsImportGuideOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">&times;</button>
+              </div>
+              <div className="p-6 overflow-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <h3 className="font-bold text-gray-900 mb-2">Colonnes attendues</h3>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li><span className="font-medium">name</span> : nom du produit</li>
+                      <li><span className="font-medium">price</span> : prix en FCFA entier</li>
+                      <li><span className="font-medium">stock</span> : quantité en stock</li>
+                      <li><span className="font-medium">categorySlug</span> : slug unique de la catégorie</li>
+                      <li><span className="font-medium">image</span> : URL image (optionnel)</li>
+                    </ul>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <h3 className="font-bold text-gray-900 mb-2">Référence catégories</h3>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      {selectableCategoryOptions.map((c) => (
+                        <li key={c.id}>
+                          <span className="font-medium">{c.slug || "Slug non exposé"}</span> : {c.label}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                <table className="w-full text-left text-sm border border-gray-200 rounded-xl overflow-hidden">
+                  <thead className="bg-gray-50 text-gray-500">
+                    <tr>
+                      <th className="px-3 py-2">name</th>
+                      <th className="px-3 py-2">price</th>
+                      <th className="px-3 py-2">stock</th>
+                      <th className="px-3 py-2">categorySlug</th>
+                      <th className="px-3 py-2">image</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    <tr>
+                      <td className="px-3 py-2">Casque Bluetooth</td>
+                      <td className="px-3 py-2">25000</td>
+                      <td className="px-3 py-2">15</td>
+                      <td className="px-3 py-2">{defaultCategorySlug}</td>
+                      <td className="px-3 py-2 text-xs text-gray-500 truncate">https://images.unsplash.com/...</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2">Chaussures Running</td>
+                      <td className="px-3 py-2">32000</td>
+                      <td className="px-3 py-2">8</td>
+                      <td className="px-3 py-2">{defaultCategorySlug}</td>
+                      <td className="px-3 py-2 text-xs text-gray-500 truncate">https://images.unsplash.com/...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+                <button onClick={() => setIsImportGuideOpen(false)} className="px-5 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-white transition-colors font-medium">Fermer</button>
+                <button onClick={downloadImportTemplate} className="px-5 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium">Télécharger le modèle CSV</button>
+                <button
+                  onClick={() => {
+                    setIsImportGuideOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="px-5 py-2 bg-[#6aa200] text-white rounded-lg hover:bg-[#5a8b00] transition-colors font-medium"
+                >
+                  Importer maintenant
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -240,6 +562,19 @@ export default function ProductManagement() {
               
               <form onSubmit={handleSave} className="p-6 space-y-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                      value={currentProduct?.id ? `${currentProduct?.sku || ""}` : autoSku}
+                      readOnly
+                      className="w-full pl-10 pr-4 py-2 border border-gray-200 bg-gray-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/5"
+                      placeholder="SKU automatique"
+                    />
+                  </div>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nom du produit</label>
                   <div className="relative">
                     <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
@@ -255,13 +590,14 @@ export default function ProductManagement() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Prix (€)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Prix (FCFA)</label>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                       <input 
                         name="price" 
                         type="number" 
-                        step="0.01" 
+                        step="1" 
+                        min="0"
                         defaultValue={currentProduct?.price} 
                         required 
                         className="w-full bg-gray-50 pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/5"
@@ -288,24 +624,58 @@ export default function ProductManagement() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
                   <select 
-                    name="category" 
-                    defaultValue={currentProduct?.category} 
+                    name="categoryId" 
+                    defaultValue={currentProduct?.categoryId || defaultCategoryId} 
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/5 bg-white"
                   >
-                    <option>Shoes</option>
-                    <option>Apparel</option>
-                    <option>Electronics</option>
-                    <option>Accessories</option>
+                    {selectableCategoryOptions.map((c) => (
+                      <option key={c.id} value={c.id}>{c.label}</option>
+                    ))}
                   </select>
                 </div>
 
-                {/* Image Upload Placeholder */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
-                  <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center hover:bg-gray-50 transition-colors cursor-pointer">
-                    <ImageIcon className="mx-auto text-gray-400 mb-2" size={24} />
-                    <p className="text-xs text-gray-500">Cliquez pour ajouter une image</p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => productImageInputRef.current?.click()}
+                    disabled={uploadingProductImage}
+                    className="w-full border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors disabled:opacity-60"
+                  >
+                    {productImageUrl ? (
+                      <img src={productImageUrl} alt="" className="mx-auto h-32 w-full max-w-xs rounded-lg object-contain bg-white" />
+                    ) : (
+                      <>
+                        <ImageIcon className="mx-auto text-gray-400 mb-2" size={24} />
+                        <p className="text-xs text-gray-500">
+                          {uploadingProductImage ? "Upload..." : "Cliquez pour uploader une image"}
+                        </p>
+                        <p className="mt-1 text-[11px] text-gray-400">Sans image, le catalogue affichera l'image par défaut.</p>
+                      </>
+                    )}
+                  </button>
+                  <input
+                    ref={productImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      handleProductImageUpload(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                  {productImageUrl ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        value={productImageUrl}
+                        onChange={(e) => setProductImageUrl(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs"
+                      />
+                      <button type="button" onClick={() => setProductImageUrl("")} className="px-3 py-2 text-xs border border-gray-200 rounded-lg">
+                        Retirer
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="pt-4 flex gap-3">
@@ -369,7 +739,7 @@ export default function ProductManagement() {
                     {importPreview.map((product, index) => (
                       <tr key={index} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-gray-900">{product.name}</td>
-                        <td className="px-4 py-3 text-gray-600">{product.price.toFixed(2)} FCFA</td>
+                        <td className="px-4 py-3 text-gray-600">{formatFcfa(product.price)}</td>
                         <td className="px-4 py-3">
                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStockStatus(product.stock).color}`}>
                              {product.stock}

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Eye, EyeOff, ArrowRight } from "lucide-react";
+import PageSEO from "@/components/PageSEO";
+import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { BackgroundLines } from "../components/textAnimat.jsx";
-import ResetPasswordForm from "../components/ResetPasswordForm.jsx";
 import { useNavigate } from "react-router-dom";
-import api from "@/services/api.js";
 import { loginWithGoogle } from "@/services/authService.js";
+import { toast } from "sonner";
 
 const avatars = [
   "https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=100&auto=format&fit=crop",
@@ -143,7 +143,7 @@ export default function Login() {
   const handleCredentialResponse = useCallback(async (credentialResponse) => {
     const idToken = credentialResponse?.credential;
     if (!idToken) {
-      console.error("Token Google manquant.");
+      toast.error("Connexion Google impossible : token manquant.");
       return;
     }
 
@@ -161,6 +161,11 @@ export default function Login() {
       navigate("/");
     } catch (error) {
       console.error("Erreur lors de la connexion Google:", error);
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        "Erreur lors de la connexion Google.";
+      toast.error(message);
       if (isDebug) {
         if (!error.response && error.request) {
           console.info('[AUTH] Réseau/CORS: aucune réponse API.');
@@ -173,6 +178,9 @@ export default function Login() {
     if (!googleClientId || googleInitRef.current) {
       if (isDebug && !googleClientId) {
         console.info('[AUTH] VITE_GOOGLE_CLIENT_ID manquant.');
+      }
+      if (!googleClientId) {
+        toast.error("Configuration Google manquante (VITE_GOOGLE_CLIENT_ID).");
       }
       return;
     }
@@ -216,6 +224,7 @@ export default function Login() {
 
   return (
     <div className="relative h-screen w-screen bg-neutral-950 text-white flex lg:flex-row overflow-hidden font-sans selection:bg-purple-500/30">
+      <PageSEO title="Connexion" description="Connectez-vous à votre compte Lid." noindex />
       {/* Left Side - Hero/Branding */}
       <div className="absolute inset-0 z-0 w-full h-full lg:static lg:z-auto lg:w-1/2 lg:h-auto flex flex-col justify-center items-center lg:p-12 bg-neutral-950 lg:border-r border-neutral-800 overflow-hidden">
         {/* Background Video */}

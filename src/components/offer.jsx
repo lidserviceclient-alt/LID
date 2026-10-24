@@ -15,7 +15,7 @@ export default function Offer({ className, onClose, enableMotion = true }) {
   const { data: offerProduct } = useFlashSaleProduct(1);
 
   const offerImageSrc = useMemo(() => {
-    const raw = offerProduct?.imageUrl || offerProduct?.image;
+    const raw = offerProduct?.mainImageUrl;
     const resolved = raw ? resolveBackendAssetUrl(raw) : "";
     return resolved || "/imgs/logo.png";
   }, [offerProduct]);
@@ -101,13 +101,18 @@ export default function Offer({ className, onClose, enableMotion = true }) {
                 <img
                   src={offerImageSrc}
                   alt={offerProduct?.name || "Produit"}
+                  width="400"
+                  height="500"
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
                     e.currentTarget.src = "/imgs/logo.png";
                   }}
                   className={cn(
                     "w-full h-full object-contain",
-                    offerProduct?.imageUrl || offerProduct?.image ? "opacity-100" : "opacity-30"
+                    offerProduct?.mainImageUrl ? "opacity-100" : "opacity-30"
                   )}
                 />
               </div>
@@ -324,13 +329,18 @@ function TiltCard({ isFlipped, onClose, product, imageSrc, price }) {
                 <img
                     src={imageSrc}
                     alt={product?.name || "Produit"}
+                    width="400"
+                    height="500"
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
                       e.currentTarget.src = "/imgs/logo.png";
                     }}
                     className={cn(
                       "h-auto drop-shadow-[0_30px_30px_rgba(0,0,0,0.5)] rotate-[-15deg] group-hover:rotate-[-5deg] group-hover:scale-110 transition-all duration-500 backface-hidden",
-                      product?.imageUrl || product?.image ? "w-[120%] object-cover" : "w-[70%] object-contain opacity-30"
+                      product?.mainImageUrl ? "w-[120%] object-cover" : "w-[70%] object-contain opacity-30"
                     )}
                 />
             </motion.div>
@@ -342,7 +352,7 @@ function TiltCard({ isFlipped, onClose, product, imageSrc, price }) {
                 animate={{ opacity: isFlipped ? 0 : 1 }}
                 transition={{ duration: 0.15, delay: 0.2 }}
             >
-                <div className="bg-white/10 backdrop-blur-md p-2 md:p-3 rounded-2xl border border-white/20 shadow-xl">
+                <div className="bg-black/50 backdrop-blur-md p-2 md:p-3 rounded-2xl border border-white/20 shadow-xl">
                     <h3 className="text-lg md:text-2xl font-bold text-white">
                       {price && Number(price) > 0 ? `${Number(price).toLocaleString()} FCFA` : "—"}
                     </h3>
@@ -379,9 +389,9 @@ function TiltCard({ isFlipped, onClose, product, imageSrc, price }) {
                 <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 to-black p-5 md:p-8 flex flex-col">
                     <h3 className="text-xl md:text-3xl font-bold text-white mb-2">{product?.name || "Offre exclusive"}</h3>
                     <div className="flex items-center gap-2 mb-3 md:mb-6">
-                        {Boolean(product?.isBestSeller) ? (
+                        {product?.isBestSeller ? (
                           <span className="px-3 py-1 bg-orange-600/20 text-orange-400 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider">Best Seller</span>
-                        ) : Boolean(product?.isFeatured) ? (
+                        ) : product?.isFeatured ? (
                           <span className="px-3 py-1 bg-orange-600/20 text-orange-400 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider">En phare</span>
                         ) : (
                           <span className="px-3 py-1 bg-orange-600/20 text-orange-400 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider">Offre</span>

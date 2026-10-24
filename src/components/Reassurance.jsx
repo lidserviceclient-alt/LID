@@ -75,9 +75,13 @@ export default function Reassurance() {
                 transition={{ duration: 0.4 }}
               >
                 <div className="absolute inset-0 bg-neutral-900/5 group-hover:bg-transparent transition-colors z-10" />
-                <motion.img 
-                  src={feature.image} 
+                <motion.img
+                  src={feature.image}
                   alt={feature.title}
+                  width="80"
+                  height="80"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover"
                   whileHover={{ scale: 1.2 }}
                   transition={{ duration: 0.6 }}

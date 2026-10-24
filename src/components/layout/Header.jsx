@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '@/features/theme/theme-provider.jsx';
 import { cn } from '@/utils/cn';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { 
   ShoppingCart, User, Search, ChevronDown, 
   Zap, Sun, Moon, Globe, Menu as MenuIcon, Phone, AlignLeft, X,
@@ -15,12 +15,21 @@ import MobileMenu from '../MobileMenu.jsx';
 import Offer from '../offer.jsx';
 import { useCart } from '@/features/cart/CartContext.jsx';
 import NavMobile from '../NavMobile.jsx'
-import { getCurrentUserPayload, getUserProfile } from '@/services/authService.js';
-import { getLatestCatalogProducts } from '@/services/productService.js';
 import { useAppConfig } from '@/features/appConfig/useAppConfig.js'
 import { useFlashSaleProduct } from '@/features/flashSale/useFlashSaleProduct.js'
+import { useLatestCatalogProducts } from '@/features/catalog/useLatestCatalogProducts.js'
+import { useCustomerSession } from '@/features/customerSession/CustomerSessionContext.jsx';
+import { useAuthPayload } from '@/hooks/useAuthPayload.js';
 
 const DEFAULT_AVATAR = 'https://www.transparentpng.com/download/user/gray-user-profile-icon-png-fP8Q1P.png';
+
+const normalizeFirstName = (value) => {
+  const raw = `${value || ''}`.trim();
+  if (!raw) return '';
+  const firstToken = raw.split(/\s+/)[0];
+  if (!firstToken) return '';
+  return firstToken.charAt(0).toUpperCase() + firstToken.slice(1);
+};
 
 export default function Header() {
   const { theme, setTheme } = useTheme();
@@ -33,34 +42,22 @@ export default function Header() {
   const [showOffer, setShowOffer] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [notifProducts, setNotifProducts] = useState([]);
-  const [notifUnreadCount, setNotifUnreadCount] = useState(0);
+  const [notifDisplayProducts, setNotifDisplayProducts] = useState([]);
+  const [notifSeenAt, setNotifSeenAt] = useState(() => {
+    const raw = Number(localStorage.getItem("lid_last_seen_products") || "0");
+    return Number.isFinite(raw) && raw > 0 ? raw : 0;
+  });
   const { data: flashSaleProduct } = useFlashSaleProduct(1)
+  const { data: latestProducts } = useLatestCatalogProducts(30)
   const hasFlashSale = Boolean(flashSaleProduct)
   const location = useLocation();
-  const tokenPayload = useMemo(() => getCurrentUserPayload(), []);
-  const [userProfile, setUserProfile] = useState(null);
-
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (!tokenPayload?.sub) {
-        return;
-      }
-      try {
-        const data = await getUserProfile(tokenPayload.sub);
-        setUserProfile(data);
-      } catch (error) {
-        setUserProfile(null);
-      }
-    };
-
-    loadProfile();
-  }, [tokenPayload]);
+  const tokenPayload = useAuthPayload();
+  const customerSession = useCustomerSession();
+  const userProfile = customerSession?.customer || null;
 
   const displayName = useMemo(() => {
-    const firstName = userProfile?.firstName || tokenPayload?.firstName || '';
-    return firstName || tokenPayload?.email || 'Utilisateur';
-  }, [tokenPayload?.email, tokenPayload?.firstName, userProfile?.firstName]);
+    return normalizeFirstName(userProfile?.firstName || tokenPayload?.firstName) || 'Utilisateur';
+  }, [tokenPayload?.firstName, userProfile?.firstName]);
 
   const getLastSeenProductsTs = () => {
     const raw = Number(localStorage.getItem("lid_last_seen_products") || "0");
@@ -77,46 +74,37 @@ export default function Header() {
     return latest;
   };
 
-  const computeUnread = (products) => {
-    const lastSeen = getLastSeenProductsTs();
-    const list = Array.isArray(products) ? products : [];
+  const notifState = useMemo(() => {
+    const lastSeen = Math.max(getLastSeenProductsTs(), notifSeenAt);
+    const list = Array.isArray(latestProducts) ? latestProducts : [];
     const fresh = list.filter((p) => {
       const t = p?.dateCreation ? new Date(p.dateCreation).getTime() : 0;
       return Number.isFinite(t) && t > lastSeen;
     });
-    setNotifUnreadCount(fresh.length);
-    setNotifProducts(fresh.slice(0, 8));
-  };
-
-  const refreshNotifications = async () => {
-    try {
-      const data = await getLatestCatalogProducts(30);
-      computeUnread(Array.isArray(data) ? data : []);
-      return Array.isArray(data) ? data : [];
-    } catch {
-      setNotifUnreadCount(0);
-      setNotifProducts([]);
-      return [];
-    }
-  };
-
-  useEffect(() => {
-    refreshNotifications();
-    const timer = setInterval(() => {
-      refreshNotifications();
-    }, 60_000);
-    return () => clearInterval(timer);
-  }, []);
+    return { unreadCount: fresh.length, products: fresh.slice(0, 8) };
+  }, [latestProducts, notifSeenAt]);
+  const notifUnreadCount = notifState.unreadCount;
 
   const openNotifications = async () => {
-    const products = await refreshNotifications();
-    setIsNotifOpen((v) => !v);
-    if (!isNotifOpen) {
+    const products = Array.isArray(latestProducts) ? latestProducts : [];
+    if (isNotifOpen) {
+      setIsNotifOpen(false);
+      setNotifDisplayProducts([]);
+      return;
+    }
+    const lastSeen = Math.max(getLastSeenProductsTs(), notifSeenAt);
+    const fresh = products.filter((p) => {
+      const t = p?.dateCreation ? new Date(p.dateCreation).getTime() : 0;
+      return Number.isFinite(t) && t > lastSeen;
+    });
+    setNotifDisplayProducts(fresh.slice(0, 8));
+    setIsNotifOpen(true);
+    if (fresh.length > 0) {
       const lastSeen = getLastSeenProductsTs();
       const latest = getLatestProductTs(products);
       const nextSeen = Math.max(lastSeen, latest);
       localStorage.setItem("lid_last_seen_products", `${nextSeen}`);
-      setNotifUnreadCount(0);
+      setNotifSeenAt(nextSeen);
     }
   };
 
@@ -217,6 +205,10 @@ export default function Header() {
                                     <img
                                         src={avatarUrl}
                                         alt="Profile"
+                                        width="22"
+                                        height="22"
+                                        loading="lazy"
+                                        decoding="async"
                                         className="w-[22px] h-[22px] rounded-full object-cover"
                                         onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_AVATAR; }}
                                     />
@@ -234,13 +226,12 @@ export default function Header() {
                             </div>
                         </Link>
 
-                        {/* Orders - Detailed */}
-                        <Link to="/returns" className="flex items-center gap-3 group">
+                        <Link to={isAuthenticated ? "/profile?tab=orders" : "/tracking"} className="flex items-center gap-3 group">
                             <div className="p-2.5 rounded-full bg-neutral-50 dark:bg-neutral-900 group-hover:bg-[#6aa200]/10 transition-colors">
                                 <Package size={22} strokeWidth={1.5} className="text-neutral-700 dark:text-neutral-300 group-hover:text-[#6aa200] transition-colors" />
                             </div>
                             <div className="flex flex-col items-start leading-none gap-1">
-                                <span className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">Retours &</span>
+                                <span className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">Mes</span>
                                 <span className="text-sm font-bold text-neutral-900 dark:text-white group-hover:text-[#6aa200] transition-colors">Commandes</span>
                             </div>
                         </Link>
@@ -294,10 +285,14 @@ export default function Header() {
                         <Link to={isAuthenticated ? "/profile" : "/login"} className="flex items-center gap-3 bg-white/50 dark:bg-neutral-800/50 rounded-full p-1 pr-5 border border-white/20 shadow-sm transition-transform active:scale-95">
                             <div className="w-10 h-10 rounded-full border-2 border-white dark:border-neutral-950 overflow-hidden shadow-sm flex items-center justify-center bg-neutral-100 dark:bg-neutral-800">
                                 {isAuthenticated ? (
-                                    <img 
-                                        src={avatarUrl} 
-                                        alt="Profile" 
-                                        className="w-full h-full object-cover" 
+                                    <img
+                                        src={avatarUrl}
+                                        alt="Profile"
+                                        width="40"
+                                        height="40"
+                                        loading="lazy"
+                                        decoding="async"
+                                        className="w-full h-full object-cover"
                                         onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_AVATAR; }}
                                     />
                                 ) : (
@@ -316,6 +311,7 @@ export default function Header() {
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setIsMobileMenuOpen(true)}
+                                aria-label="Ouvrir le menu"
                                 className="w-11 h-11 rounded-full bg-white dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-sm border border-neutral-100 dark:border-neutral-700 active:scale-90 transition-all"
                             >
                                 <MenuIcon size={20} strokeWidth={2} />
@@ -350,7 +346,7 @@ export default function Header() {
                     {/* Search Dropdown (Floating Card) */}
                     <AnimatePresence>
                         {isSearchOpen && (
-                            <motion.div 
+                            <Motion.div 
                                 initial={{ opacity: 0, scale: 0.95, y: -20, filter: "blur(10px)" }}
                                 animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
                                 exit={{ opacity: 0, scale: 0.95, y: -10, filter: "blur(10px)" }}
@@ -358,7 +354,7 @@ export default function Header() {
                                 className="pointer-events-auto w-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-3xl rounded-[2rem] shadow-2xl border border-neutral-200/50 dark:border-neutral-800/50 overflow-hidden p-2"
                             >
                                 <SearchBar variant="mobile" onSearch={() => setIsSearchOpen(false)} />
-                            </motion.div>
+                            </Motion.div>
                         )}
                     </AnimatePresence>
 
@@ -460,14 +456,14 @@ export default function Header() {
         <AnimatePresence>
           {isNotifOpen && (
             <>
-              <motion.div
+              <Motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setIsNotifOpen(false)}
                 className="fixed inset-0 bg-neutral-950/30 backdrop-blur-sm z-[120]"
               />
-              <motion.div
+              <Motion.div
                 initial={{ opacity: 0, y: -10, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10, scale: 0.98 }}
@@ -484,13 +480,13 @@ export default function Header() {
                   </button>
                 </div>
                 <div className="max-h-[60vh] overflow-auto">
-                  {notifProducts.length === 0 ? (
+                  {notifDisplayProducts.length === 0 ? (
                     <div className="px-4 py-6 text-sm text-neutral-600 dark:text-neutral-400">
                       Aucun nouveau produit.
                     </div>
                   ) : (
                     <div className="py-2">
-                      {notifProducts.map((p) => (
+                      {notifDisplayProducts.map((p) => (
                         <button
                           key={p.id}
                           onClick={() => {
@@ -508,7 +504,7 @@ export default function Header() {
                     </div>
                   )}
                 </div>
-              </motion.div>
+              </Motion.div>
             </>
           )}
         </AnimatePresence>
@@ -516,14 +512,14 @@ export default function Header() {
         <AnimatePresence>
             {showOffer && hasFlashSale && (
               <>
-                <motion.div
+                <Motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onClick={() => setShowOffer(false)}
                   className="fixed inset-0 bg-neutral-950/80 backdrop-blur-sm z-[100]"
                 />
-                <motion.div
+                <Motion.div
                   initial={{ opacity: 0, scale: 0.9, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -533,7 +529,7 @@ export default function Header() {
                   <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto pointer-events-auto no-scrollbar">
                     <Offer onClose={() => setShowOffer(false)} />
                   </div>
-                </motion.div>
+                </Motion.div>
               </>
             )}
         </AnimatePresence>

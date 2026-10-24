@@ -1,0 +1,19 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Produit LID",
+  "description": "Produit disponible sur la marketplace LID.",
+  "image": "https://lid-shop.web.app/imgs/og-1.png",
+  "sku": "LID-PRODUCT",
+  "brand": {
+    "@type": "Brand",
+    "name": "LID"
+  },
+  "offers": {
+    "@type": "Offer",
+    "url": "https://lid-shop.web.app/shop",
+    "priceCurrency": "XOF",
+    "price": "0",
+    "availability": "https://schema.org/InStock"
+  }
+}

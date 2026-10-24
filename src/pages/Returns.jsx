@@ -1,3 +1,4 @@
+import PageSEO from "@/components/PageSEO";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, PackageX, FileText, CheckCircle, ArrowRight, Minus, Plus } from "lucide-react";
@@ -181,6 +182,7 @@ export default function Returns() {
 
   return (
     <div className="min-h-screen pt-24 pb-12 px-4 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white">
+      <PageSEO title="Retours & Remboursements" description="Découvrez la politique de retours et remboursements de Lid. Retours simples et rapides." canonical="/returns" />
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-12">
           <h1 className="text-3xl md:text-5xl font-bold mb-4">Centre de <span className="text-[#6aa200]">Retours</span></h1>
@@ -232,7 +234,7 @@ export default function Returns() {
                     <label className="text-sm font-medium text-neutral-500">Numéro de commande</label>
                     <input 
                       type="text" 
-                      placeholder="Ex: ORD-12"
+                      placeholder="Ex: ORD-9XK3-7P2L"
                       value={formData.orderId}
                       onChange={(e) => setFormData({...formData, orderId: e.target.value})}
                       className="w-full p-4 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 focus:border-[#6aa200] outline-none"

@@ -1,15 +1,26 @@
 import { ChevronDown, Search, TrendingUp } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCatalogCategories } from '@/services/categoryService';
 import { resolveBackendAssetUrl } from '@/services/categoryService';
 import { getCatalogProductsPage } from '@/services/productService';
+import { useCatalogCategories } from '@/features/catalog/useCatalogCategories';
+
+const DEFAULT_CATEGORY_OPTION = { label: 'Toutes catégories', value: '' };
+
+const sameCategoryOptions = (left, right) => {
+  if (!Array.isArray(left) || !Array.isArray(right)) return false;
+  if (left.length !== right.length) return false;
+  return left.every((item, index) => {
+    const other = right[index];
+    return item?.label === other?.label && item?.value === other?.value;
+  });
+};
 
 export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchValue, setSearchValue] = useState('');
-  const [categories, setCategories] = useState([{ label: 'Toutes catégories', value: '' }]);
-  const [selectedCategory, setSelectedCategory] = useState({ label: 'Toutes catégories', value: '' });
+  const [categories, setCategories] = useState([DEFAULT_CATEGORY_OPTION]);
+  const [selectedCategory, setSelectedCategory] = useState(DEFAULT_CATEGORY_OPTION);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
@@ -17,26 +28,26 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
   const debounceRef = useRef(null);
   const requestSeqRef = useRef(0);
   const navigate = useNavigate();
+  const { data: categoriesData } = useCatalogCategories();
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const list = await getCatalogCategories();
-        const options = [{ label: 'Toutes catégories', value: '' }].concat(
-          (Array.isArray(list) ? list : [])
-            .filter((c) => c?.estActive !== false)
-            .map((c) => ({ label: c.nom, value: c.slug || c.id }))
-            .filter((o) => o.value)
-        );
-        if (!cancelled) setCategories(options);
-      } catch {
+    const list = Array.isArray(categoriesData) ? categoriesData : [];
+    const options = [DEFAULT_CATEGORY_OPTION].concat(
+      list
+        .filter((c) => c?.estActive !== false)
+        .map((c) => ({ label: c.nom, value: c.slug || c.id }))
+        .filter((o) => o.value)
+    );
+    setCategories((prev) => (sameCategoryOptions(prev, options) ? prev : options));
+    setSelectedCategory((prev) => {
+      const currentValue = `${prev?.value || ''}`.trim();
+      if (!currentValue) {
+        return DEFAULT_CATEGORY_OPTION;
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+      const match = options.find((option) => option.value === currentValue);
+      return match || DEFAULT_CATEGORY_OPTION;
+    });
+  }, [categoriesData]);
   
   const trendingSearches = ['iPhone 15', 'Nike Air Max', 'MacBook Pro', 'PS5'];
 
@@ -95,9 +106,10 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
         if (requestSeqRef.current !== seq) return;
         setSuggestions([]);
       } finally {
-        if (requestSeqRef.current !== seq) return;
-        setSuggestLoading(false);
-        setActiveIndex(-1);
+        if (requestSeqRef.current === seq) {
+          setSuggestLoading(false);
+          setActiveIndex(-1);
+        }
       }
     }, 250);
 
@@ -299,7 +311,7 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
                         </span>
                       </div>
                       <div className="space-y-1">
-                        {categoryMatches.map((c, idx) => {
+                        {categoryMatches.map((c, _idx) => {
                           const actionIndex = flatActions.findIndex((a) => a.type === 'category' && a.category?.value === c.value);
                           return (
                             <button
@@ -340,7 +352,7 @@ export default function SearchBar({ autoFocus, onSearch, variant = 'desktop' }) 
                     {suggestions.length > 0 ? (
                       <div className="space-y-1">
                         {suggestions.map((p) => {
-                          const img = resolveBackendAssetUrl(p?.imageUrl) || '/imgs/logo.png';
+                          const img = resolveBackendAssetUrl(p?.mainImageUrl) || '/imgs/logo.png';
                           const actionIndex = flatActions.findIndex((a) => a.type === 'product' && a.product?.id === p.id);
                           const price = formatMoney(p?.price);
                           const rating = Number(p?.rating) || 0;

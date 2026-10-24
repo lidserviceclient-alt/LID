@@ -95,9 +95,13 @@ const TiltCard = ({ brand }) => {
         className="relative z-10 flex flex-col items-center gap-4 transition-transform duration-300"
       >
         <div className="w-24 h-16 flex items-center justify-center">
-          <img 
-            src={brand.logo} 
-            alt={brand.name} 
+          <img
+            src={brand.logo}
+            alt={brand.name}
+            width="96"
+            height="64"
+            loading="lazy"
+            decoding="async"
             className="max-w-full max-h-full object-contain dark:invert drop-shadow-2xl filter"
           />
         </div>

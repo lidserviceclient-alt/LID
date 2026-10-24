@@ -1,5 +1,6 @@
+import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
-import { Search, Book, Shield, FileText, MessageCircle, Truck, RefreshCcw, CreditCard } from "lucide-react";
+import { Search, Book, Shield, FileText, ReceiptText, MessageCircle, Truck, RefreshCcw, CreditCard } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Help() {
@@ -31,13 +32,14 @@ export default function Help() {
   ];
 
   const legalLinks = [
-    { icon: FileText, title: "Conditions Générales d'Utilisation", link: "/terms" },
+    { icon: FileText, title: "Conditions Générales de Vente", link: "/terms" },
+    { icon: ReceiptText, title: "Conditions Générales d'Utilisation", link: "/cgu" },
     { icon: Shield, title: "Politique de Confidentialité", link: "/privacy" },
     { icon: MessageCircle, title: "Contactez-nous", link: "/contact" },
   ];
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-20 pb-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-20 pb-10 px-4 sm:px-6 lg:px-8"><PageSEO title="Centre d'aide" description="Besoin d'aide ? Retrouvez tous nos guides pour profiter pleinement de Lid." canonical="/help" />
       {/* Hero Search */}
       <div className="max-w-3xl mx-auto text-center mb-16">
         <motion.h1 
@@ -92,7 +94,7 @@ export default function Help() {
       {/* Legal & Support */}
       <div className="max-w-4xl mx-auto">
         <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-8">Documentation & Légal</h2>
-        <div className="grid sm:grid-cols-3 gap-6">
+        <div className="grid sm:grid-cols-4 gap-6">
           {legalLinks.map((item, idx) => (
             <Link 
               key={idx} 
@@ -100,7 +102,7 @@ export default function Help() {
               className="flex flex-col items-center text-center p-6 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
             >
               <item.icon className="w-8 h-8 text-neutral-400 mb-3" />
-              <span className="font-medium text-neutral-900 dark:text-white">{item.title}</span>
+              <span className="font-medium text-sm text-neutral-900 dark:text-white">{item.title}</span>
             </Link>
           ))}
         </div>

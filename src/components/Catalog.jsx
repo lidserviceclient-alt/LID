@@ -21,6 +21,7 @@ import { useWishlist } from "@/features/wishlist/WishlistContext";
 import { getCatalogProductsPage } from "@/services/productService";
 import { resolveBackendAssetUrl } from "@/services/categoryService";
 import FavoriteNotification from "./FavoriteNotification";
+import { useCatalogBootstrap } from "@/features/catalog/CatalogBootstrapContext";
 
 // --- Components ---
 
@@ -54,6 +55,39 @@ const normalizeSortParam = (value) => {
 };
 
 const FALLBACK_PRODUCT_IMAGE = "/imgs/logo.png";
+const INITIAL_CATALOG_PAGE_TTL_MS = 4000;
+const initialCatalogPageCache = new Map();
+const initialCatalogPageInflight = new Map();
+
+const readInitialCatalogPageCache = (key) => {
+  const cached = initialCatalogPageCache.get(key);
+  if (!cached) return null;
+  if (Date.now() - cached.at > INITIAL_CATALOG_PAGE_TTL_MS) {
+    initialCatalogPageCache.delete(key);
+    return null;
+  }
+  return cached.data;
+};
+
+const loadInitialCatalogPage = async (key, loader) => {
+  const cached = readInitialCatalogPageCache(key);
+  if (cached) {
+    return cached;
+  }
+  if (initialCatalogPageInflight.has(key)) {
+    return initialCatalogPageInflight.get(key);
+  }
+  const request = loader()
+    .then((data) => {
+      initialCatalogPageCache.set(key, { at: Date.now(), data });
+      return data;
+    })
+    .finally(() => {
+      initialCatalogPageInflight.delete(key);
+    });
+  initialCatalogPageInflight.set(key, request);
+  return request;
+};
 
 const ProductSection = ({ title, products, onSeeAll }) => {
   if (!products || products.length === 0) return null;
@@ -265,7 +299,7 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid', enab
   const rating = Number(product?.rating) || 0;
   const reviews = Number(product?.reviews) || 0;
 
-  const rawImage = product?.imageUrl || product?.image;
+  const rawImage = product?.mainImageUrl;
   const resolvedImage = rawImage ? resolveBackendAssetUrl(rawImage) : "";
   const [imageFailed, setImageFailed] = useState(false);
 
@@ -334,11 +368,13 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid', enab
           </div>
           
           <Link to={`/product/${wishlistId}`} className="block w-full h-full">
-            <ImageTag 
-              src={imageSrc} 
+            <ImageTag
+              src={imageSrc}
               alt={product.name}
               width="400"
               height="500"
+              loading="lazy"
+              decoding="async"
               onError={() => setImageFailed(true)}
               {...imageMotionProps}
               className={`w-full h-full object-contain ${imageIsPlaceholder ? "opacity-30" : "mix-blend-multiply dark:mix-blend-normal"}`}
@@ -480,12 +516,13 @@ export const ProductCard = ({ product, onWishlistToggle, viewMode = 'grid', enab
         </div>
 
         <Link to={`/product/${wishlistId}`} className="block w-full h-full">
-          <ImageTag 
-            src={imageSrc} 
+          <ImageTag
+            src={imageSrc}
             alt={product.name}
             width="400"
             height="500"
             loading="lazy"
+            decoding="async"
             onError={() => setImageFailed(true)}
             {...imageMotionProps}
             className={`w-full h-full ${imageIsPlaceholder ? "object-contain opacity-30 p-8" : "object-cover"}`}
@@ -584,6 +621,12 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
   const [totalElements, setTotalElements] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const bootstrap = useCatalogBootstrap();
+  const hasCatalogBootstrap = !searchQuery && !categoryParam && normalizeSortParam(sortParam) === 'featured';
+  const bootstrapProductsPage = hasCatalogBootstrap ? bootstrap?.globalCollection?.products : null;
+  const hasBootstrapProducts = Array.isArray(bootstrapProductsPage?.content);
+  const isBootstrapLoading = hasCatalogBootstrap && Boolean(bootstrap?.isGlobalCollectionLoading);
+  const isBootstrapResolved = hasCatalogBootstrap && Boolean(bootstrap?.isGlobalCollectionResolved);
 
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedBrands, setSelectedBrands] = useState([]);
@@ -591,14 +634,63 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
   const sortMenuRef = useRef(null);
 
   useEffect(() => {
+    const initialQueryKey = JSON.stringify({
+      q: `${searchQuery || ""}`.trim(),
+      category: `${categoryParam || ""}`.trim(),
+      sort: normalizeSortParam(sortParam),
+      limit: limit == null ? null : Number(limit),
+    });
     let cancelled = false;
+    if (hasBootstrapProducts) {
+      const content = Array.isArray(bootstrapProductsPage?.content) ? bootstrapProductsPage.content : [];
+      const pages = Number.isFinite(Number(bootstrapProductsPage?.totalPages)) ? Number(bootstrapProductsPage.totalPages) : 1;
+      const total = Number.isFinite(Number(bootstrapProductsPage?.totalElements)) ? Number(bootstrapProductsPage.totalElements) : content.length;
+      setIsLoadingMore(false);
+      setIsLoading(false);
+      setLoadError("");
+      setCatalogProducts(content);
+      setLoadedPages(content.length > 0 ? 1 : 0);
+      setTotalPages(Math.max(1, pages));
+      setTotalElements(Math.max(0, Number(total) || 0));
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (isBootstrapLoading) {
+      setIsLoadingMore(false);
+      setIsLoading(true);
+      setLoadError("");
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (hasCatalogBootstrap && !isBootstrapResolved) {
+      setIsLoadingMore(false);
+      setIsLoading(true);
+      setLoadError("");
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (isBootstrapResolved) {
+      setIsLoadingMore(false);
+      setIsLoading(false);
+      setLoadError("");
+      setCatalogProducts([]);
+      setLoadedPages(0);
+      setTotalPages(1);
+      setTotalElements(0);
+      return () => {
+        cancelled = true;
+      };
+    }
     setIsLoadingMore(false);
     setIsLoading(true);
     setLoadError("");
     setCatalogProducts([]);
     setLoadedPages(0);
     setTotalPages(1);
-    fetchPage(0)
+    loadInitialCatalogPage(initialQueryKey, () => fetchPage(0))
       .then(({ content, pages, total }) => {
         if (cancelled) return;
         setCatalogProducts(Array.isArray(content) ? content : []);
@@ -621,7 +713,7 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
     return () => {
       cancelled = true;
     };
-  }, [categoryParam, searchQuery, sortParam]);
+  }, [bootstrapProductsPage, categoryParam, hasBootstrapProducts, hasCatalogBootstrap, isBootstrapLoading, isBootstrapResolved, searchQuery, sortParam]);
 
   useEffect(() => {
     const prev = prevCategoryParamRef.current;

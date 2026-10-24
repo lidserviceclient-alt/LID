@@ -7,7 +7,7 @@
 ## Présentation
 Lid App est une application e-commerce qui permet de parcourir un catalogue de produits, gérer son panier et passer des commandes facilement.
 
-## Fonctionnalités
+## Fonctionnalité
 - Catalogue produits avec images et prix
 - Panier et paiement sécurisé
 - Gestion des utilisateurs (inscription, connexion, profil)
