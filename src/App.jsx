@@ -15,7 +15,16 @@ import Customers from "./pages/Customers.jsx";
 import Users from "./pages/Users.jsx";
 import UserDetail from "./pages/UserDetail.jsx";
 import Analytics from "./pages/Analytics.jsx";
-import Settings from "./pages/Settings.jsx";
+import SettingsLayout from "./pages/settings/SettingsLayout.jsx";
+import ShopSettings from "./pages/settings/ShopSettings.jsx";
+import ReturnsAndPayoutsSettings from "./pages/settings/ReturnsAndPayoutsSettings.jsx";
+import ShippingSettings from "./pages/settings/ShippingSettings.jsx";
+import SocialLinksSettings from "./pages/settings/SocialLinksSettings.jsx";
+import CouriersSettings from "./pages/settings/CouriersSettings.jsx";
+import TeamSettings from "./pages/settings/TeamSettings.jsx";
+import NotificationsSettings from "./pages/settings/NotificationsSettings.jsx";
+import SecuritySettings from "./pages/settings/SecuritySettings.jsx";
+import { DEFAULT_SETTINGS_SECTION } from "./pages/settings/sections.js";
 import Inventory from "./pages/Inventory.jsx";
 import Logistics from "./pages/Logistics.jsx";
 import Marketing from "./pages/Marketing.jsx";
@@ -28,7 +37,6 @@ import Messages from "./pages/Messages.jsx";
 import ContactRequests from "./pages/ContactRequests.jsx";
 import ProductReviews from "./pages/ProductReviews.jsx";
 import BlogPosts from "./pages/BlogPosts.jsx";
-import TicketEvents from "./pages/TicketEvents.jsx";
 import { isAuthenticated } from "./services/auth.js";
 import { OverviewProvider } from "./contexts/OverviewContext.jsx";
 import TestLabel from "./pages/Test.jsx";
@@ -75,7 +83,6 @@ export default function App() {
         <Route path="/categories" element={<Categories />} />
         <Route path="/promo-codes" element={<PromoCodes />} />
         <Route path="/blog-posts" element={<BlogPosts />} />
-        <Route path="/ticket-events" element={<TicketEvents />} />
         <Route path="/customers" element={<Customers />} />
         <Route path="/users" element={<Users />} />
         <Route path="/users/:id" element={<UserDetail />} />
@@ -88,7 +95,18 @@ export default function App() {
         <Route path="/messages" element={<Messages />} />
         <Route path="/contacts" element={<ContactRequests />} />
         <Route path="/product-reviews" element={<ProductReviews />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/settings" element={<SettingsLayout />}>
+          <Route index element={<Navigate to={DEFAULT_SETTINGS_SECTION} replace />} />
+          <Route path="boutique" element={<ShopSettings />} />
+          <Route path="retours-commissions" element={<ReturnsAndPayoutsSettings />} />
+          <Route path="livraison" element={<ShippingSettings />} />
+          <Route path="reseaux-sociaux" element={<SocialLinksSettings />} />
+          <Route path="livreurs" element={<CouriersSettings />} />
+          <Route path="equipe" element={<TeamSettings />} />
+          <Route path="notifications" element={<NotificationsSettings />} />
+          <Route path="securite" element={<SecuritySettings />} />
+          <Route path="*" element={<Navigate to={DEFAULT_SETTINGS_SECTION} replace />} />
+        </Route>
       </Route>
         <Route path="/test-label" element={<TestLabel />} />
       <Route path="*" element={<Navigate to={authed ? "/" : "/login"} replace />} />

@@ -42,7 +42,7 @@ export default function ForgotPassword() {
     }
     setIsLoading(true);
     try {
-      await backofficeApi.verifyResetCode(codeValue);
+      await backofficeApi.verifyResetCode(email, codeValue);
       setStep(3);
     } catch (err) {
       setError(err.message || "Code invalide ou expiré.");
@@ -67,7 +67,7 @@ export default function ForgotPassword() {
 
     setIsLoading(true);
     try {
-      await backofficeApi.resetPassword({ code: codeValue, newPassword: password });
+      await backofficeApi.resetPassword({ email, code: codeValue, newPassword: password });
       navigate("/login");
     } catch (err) {
       setError(err.message || "Impossible de réinitialiser le mot de passe.");

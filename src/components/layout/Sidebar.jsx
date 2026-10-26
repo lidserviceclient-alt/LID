@@ -18,7 +18,6 @@ import {
   BadgePercent,
   MessageSquareText,
   FileText,
-  Ticket,
   RotateCcw,
   Image,
   Crown
@@ -68,8 +67,7 @@ const navSections = [
   {
     title: "Contenu",
     items: [
-      { label: "Blog", to: "/blog-posts", icon: FileText },
-      { label: "Billetterie", to: "/ticket-events", icon: Ticket }
+      { label: "Blog", to: "/blog-posts", icon: FileText }
     ]
   },
   {

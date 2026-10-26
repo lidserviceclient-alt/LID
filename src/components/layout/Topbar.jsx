@@ -21,6 +21,7 @@ import { clearAccessToken, getAuthenticatedUser } from "../../services/auth.js";
 import { backofficeApi } from "../../services/api.js";
 import { useNotificationsContext } from "../../contexts/NotificationsContext.jsx";
 import { cn } from "../../utils/cn.js";
+import { findSettingsSection } from "../../pages/settings/sections.js";
 export default function Topbar({ onMenuClick }) {
   const [focused, setFocused] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -110,6 +111,13 @@ export default function Topbar({ onMenuClick }) {
       return [
         { label: x.parent, to: path === "/" ? "/" : path.split("/").slice(0, 2).join("/") || "/" },
         { label: x.current, to: null }
+      ];
+    }
+
+    if (path.startsWith("/settings/")) {
+      return [
+        { label: "Paramètres", to: "/settings" },
+        { label: findSettingsSection(path)?.label || "Configuration", to: null }
       ];
     }
 

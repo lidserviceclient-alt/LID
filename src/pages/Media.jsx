@@ -10,7 +10,6 @@ const folderOptions = [
   { value: "products", label: "Produits" },
   { value: "categories", label: "Catégories" },
   { value: "blog", label: "Blog" },
-  { value: "tickets", label: "Billetterie" },
   { value: "uploads", label: "Autres" }
 ];
 

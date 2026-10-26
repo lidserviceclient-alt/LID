@@ -429,30 +429,6 @@ export const backofficeApi = {
     request(`/api/v1/backoffice/blog-posts/${id}`, {
       method: "DELETE"
     }),
-  ticketEvents: (page = 0, size = 10) => {
-    const params = new URLSearchParams({ page, size });
-    return request(`/api/v1/backoffice/tickets?${params.toString()}`);
-  },
-  createTicketEvent: (payload) =>
-    request("/api/v1/backoffice/tickets", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    }),
-  updateTicketEvent: (id, payload) =>
-    request(`/api/v1/backoffice/tickets/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(payload)
-    }),
-  deleteTicketEvent: (id) =>
-    request(`/api/v1/backoffice/tickets/${id}`, {
-      method: "DELETE"
-    }),
-  ticketInventory: (id) => request(`/api/v1/backoffice/tickets/${id}/inventory`),
-  adjustTicketInventory: (id, payload) =>
-    request(`/api/v1/backoffice/tickets/${id}/inventory`, {
-      method: "POST",
-      body: JSON.stringify(payload)
-    }),
   marketingOverview: (days = 30) => {
     const params = new URLSearchParams();
     if (days !== null && days !== undefined && `${days}`.trim() !== "") params.set("days", `${days}`);
@@ -912,10 +888,10 @@ export const backofficeApi = {
       method: "POST",
       body: JSON.stringify({ email })
     }),
-  verifyResetCode: (code) =>
+  verifyResetCode: (email, code) =>
     request("/api/v1/auth/password/verify", {
       method: "POST",
-      body: JSON.stringify({ code })
+      body: JSON.stringify({ email, code })
     }),
   resetPassword: (payload) =>
     request("/api/v1/auth/password/reset", {
@@ -989,12 +965,6 @@ export const backofficeApi = {
       method: "DELETE"
     });
   },
-  integrations: () => request("/api/v1/backoffice/integrations"),
-  updateIntegrations: (payload) =>
-    request("/api/v1/backoffice/integrations", {
-      method: "PUT",
-      body: JSON.stringify(payload)
-    }),
   recipients: ({ segment = "CLIENT", roles = [], q = "", limit = 200 } = {}) => {
     const params = new URLSearchParams();
     if (segment) params.set("segment", segment);

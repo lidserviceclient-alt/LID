@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { cn } from "../../utils/cn";
 
-export default function Toggle({ label, checked, onChange, disabled = false }) {
+export default function Toggle({ label, checked, onChange, disabled = false, ...props }) {
   return (
     <div className="flex items-center justify-between">
       {label && <span className="text-sm font-medium text-foreground">{label}</span>}
@@ -9,6 +9,8 @@ export default function Toggle({ label, checked, onChange, disabled = false }) {
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-label={typeof label === "string" ? label : undefined}
+        {...props}
         disabled={disabled}
         onClick={() => !disabled && onChange(!checked)}
         className={cn(

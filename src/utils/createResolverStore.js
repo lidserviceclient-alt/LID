@@ -80,6 +80,15 @@ export function createResolverStore(fetcher, getKey = (...args) => JSON.stringif
     emit();
   }
 
+  // Met à jour les données en cache sans appel réseau (no-op si rien n'est encore chargé).
+  function update(args, updater) {
+    const key = getKey(...args);
+    const current = readEntry(key);
+    if (!current.data) return;
+    entries.set(key, { ...current, data: updater(current.data) });
+    emit();
+  }
+
   function useResolver(...args) {
     const key = getKey(...args);
     const entry = useSyncExternalStore(subscribe, () => readEntry(key), () => readEntry(key));
@@ -102,6 +111,7 @@ export function createResolverStore(fetcher, getKey = (...args) => JSON.stringif
     useResolver,
     load,
     invalidate,
+    update,
     readEntry: (...args) => readEntry(getKey(...args))
   };
 }
