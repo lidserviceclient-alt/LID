@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Bell, Home, MapPinned, Package, User, Menu } from 'lucide-react'
 
 const MotionSafeArea = ({ children, className }) => (
