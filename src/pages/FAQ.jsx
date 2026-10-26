@@ -3,6 +3,7 @@ import PageSEO from "@/components/PageSEO";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Plus, Minus } from "lucide-react";
 import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
+import { getReturnWindow } from "@/utils/policy.js";
 
 const FAQItem = ({ question, answer }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -41,6 +42,7 @@ const FAQItem = ({ question, answer }) => {
 export default function FAQ() {
   const { data: appConfig } = useAppConfig();
   const hubCity = appConfig?.city || "Abidjan";
+  const returnWindow = getReturnWindow(appConfig).label;
 
   const faqs = [
     {
@@ -65,11 +67,11 @@ export default function FAQ() {
       items: [
         {
           question: "Quelle est votre politique de retour ?",
-          answer: "Vous disposez de 14 jours après réception pour retourner un article. Il doit être dans son état d'origine, non porté et avec ses étiquettes. Les frais de retour sont à votre charge sauf erreur de notre part."
+          answer: `Vous disposez de ${returnWindow} après réception pour retourner un article. Il doit être dans son état d'origine, non porté et avec ses étiquettes. Les frais de retour sont à votre charge, sauf produit défectueux ou non conforme.`
         },
         {
           question: "Quand serai-je remboursé ?",
-          answer: "Le remboursement est effectué sous 5 à 10 jours ouvrables après réception et vérification de votre retour, via le même moyen de paiement utilisé lors de l'achat."
+          answer: "Le remboursement est effectué dans un délai maximum de 14 jours ouvrés après réception et vérification de votre retour, via le même moyen de paiement utilisé lors de l'achat."
         }
       ]
     },

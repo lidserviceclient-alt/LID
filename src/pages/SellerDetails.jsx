@@ -13,14 +13,6 @@ import { toast } from "sonner";
 import { getPublicPartnerCollection } from "@/services/publicPartnerCatalogService";
 import { resolveBackendAssetUrl } from "@/services/categoryService";
 
-// Mock events data for the seller
-const mockEvents = [
-    { id: 1, title: "Grand Concert Live", date: "12 Déc 2024", time: "20:00", price: "15.000 FCFA", image: "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?q=80&w=1000", location: "Palais des Congrès", type: "Concert" },
-    { id: 2, title: "Festival des Arts", date: "15 Jan 2025", time: "10:00", price: "5.000 FCFA", image: "https://images.unsplash.com/photo-1459749411177-0473ef716175?q=80&w=1000", location: "Place du Souvenir", type: "Festival" },
-    { id: 3, title: "Conférence Tech", date: "22 Fév 2025", time: "09:00", price: "Gratuit", image: "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?q=80&w=1000", location: "Radisson Blu", type: "Conférence" },
-    { id: 4, title: "Soirée Networking", date: "10 Mar 2025", time: "18:30", price: "25.000 FCFA", image: "https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=1000", location: "Terrou-Bi", type: "Networking" },
-];
-
 const mapCollectionToSeller = (collection, fallbackId) => {
     const partner = collection?.partner;
     if (!partner) return null;
@@ -154,11 +146,7 @@ export default function SellerDetails() {
 
     const openItemDetails = (item) => {
         if (!item?.id) return;
-        if (seller?.type === "product_seller") {
-            navigate(`/product/${item.id}`);
-            return;
-        }
-        navigate(`/tickets/${item.id}`);
+        navigate(`/product/${item.id}`);
     };
 
     const toggleFavorite = (itemId) => {
@@ -183,7 +171,7 @@ export default function SellerDetails() {
         );
     }
 
-    const items = seller.type === 'product_seller' ? remoteProducts : mockEvents;
+    const items = remoteProducts;
     const filteredItems = items.filter((item) => {
         if (!query.trim()) return true;
         const q = query.toLowerCase();
@@ -378,7 +366,7 @@ export default function SellerDetails() {
                                     {/* Filters & View Toggle */}
                                     <div className="flex justify-between items-center mb-6">
                                         <h2 className="text-xl font-bold">
-                                            {seller.type === 'product_seller' ? 'Tous les produits' : 'Prochains Événements'} 
+                                            {'Tous les produits'} 
                                             <span className="ml-2 text-neutral-400 text-sm font-medium">({filteredItems.length})</span>
                                         </h2>
                                         <div className="flex items-center gap-2">

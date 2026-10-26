@@ -62,7 +62,7 @@ export const FOOTNOTES = [
 //  - un tableau de segments (chaîne | { fn: <id note> }) quand un appel de
 //    note de bas de page doit être inséré au milieu du texte.
 // ---------------------------------------------------------------------------
-export const buildArticles = ({ legalEmail, legal }) => [
+export const buildArticles = ({ legalEmail, legal, returnWindowLabel = "sept (7) jours calendaires" }) => [
   {
     title: "Article 1 : Objet et champ d'application",
     paragraphs: [
@@ -132,7 +132,7 @@ export const buildArticles = ({ legalEmail, legal }) => [
       [
         "Conformément à la loi n°2016-412 du 15 juin 2016 relative à la consommation",
         { fn: 4 },
-        " et aux usages applicables au commerce électronique en Côte d'Ivoire, sauf exception légale (produits personnalisés, denrées périssables, produits descellés pour des raisons d'hygiène, services pleinement exécutés avec l'accord de l'Acheteur), l'Acheteur consommateur dispose d'un délai de sept (7) jours calendaires à compter de la réception du produit pour exercer son droit de rétractation, sans avoir à justifier de motif, que le produit soit vendu par l'Éditeur ou par un Vendeur tiers.",
+        " et aux usages applicables au commerce électronique en Côte d'Ivoire, sauf exception légale (produits personnalisés, denrées périssables, produits descellés pour des raisons d'hygiène, services pleinement exécutés avec l'accord de l'Acheteur), l'Acheteur consommateur dispose d'un délai de " + returnWindowLabel + " à compter de la réception du produit pour exercer son droit de rétractation, sans avoir à justifier de motif, que le produit soit vendu par l'Éditeur ou par un Vendeur tiers.",
       ],
       "Pour exercer ce droit, l'Acheteur doit contacter le service client de la Plateforme et retourner le produit dans son état d'origine, complet et non utilisé. Les frais de retour sont à la charge de l'Acheteur, sauf si le produit est non conforme ou défectueux, auquel cas ils sont pris en charge par le vendeur concerné (Éditeur ou Vendeur tiers).",
       "Le remboursement intervient dans un délai maximum de quatorze (14) jours ouvrés à compter de la réception et de la vérification du produit retourné, par le même moyen de paiement que celui utilisé lors de l'achat (recrédit Mobile Money, carte bancaire) ou par tout autre moyen convenu avec l'Acheteur. Pour les Ventes Marketplace, ce remboursement est avancé par la Plateforme via le compte séquestre puis, le cas échéant, répercuté sur les sommes dues au Vendeur tiers.",

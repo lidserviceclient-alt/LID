@@ -114,3 +114,28 @@ export const deleteCustomerAddress = async (customerId, addressId) => {
   }
   await api.delete(`/api/v1/customers/${resolvedCustomerId}/addresses/${addressId}`);
 };
+
+/** Annule la commande du client (CGV art. 12) : non payee, ou payee mais pas encore preparee. */
+export const cancelCustomerOrder = async (orderId) => {
+  if (!orderId) return;
+  await api.post(`/api/v1/orders/${orderId}/cancel`);
+};
+
+/** Ouvre le justificatif d'achat (CGV art. 10) dans un nouvel onglet, imprimable ou enregistrable en PDF. */
+export const openOrderReceipt = async (orderId) => {
+  if (!orderId) return;
+  const { data } = await api.get(`/api/v1/orders/${orderId}/receipt`, { responseType: 'text', transformResponse: [(raw) => raw] });
+  const url = URL.createObjectURL(new Blob([data], { type: 'text/html;charset=utf-8' }));
+  const win = window.open(url, '_blank', 'noopener');
+  if (!win) {
+    window.location.assign(url);
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+
+/** Droit de suppression (CGU art. 9 et 13) : supprime le compte, ou l'anonymise s'il a un historique de commandes. */
+export const deleteCustomerAccount = async (customerId) => {
+  const resolvedCustomerId = resolveCustomerId(customerId);
+  if (!resolvedCustomerId) return;
+  await api.delete(`/api/v1/customers/${resolvedCustomerId}`);
+};

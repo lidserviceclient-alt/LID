@@ -1,6 +1,5 @@
 import { useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { buildCategoryTree, resolveBackendAssetUrl } from "@/services/categoryService";
 import { useCatalogCategories } from "@/features/catalog/useCatalogCategories";

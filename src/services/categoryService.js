@@ -32,7 +32,7 @@ export function resolveBackendAssetUrl(url) {
   if (normalized.startsWith("cdn/")) {
     return `${apiBase}/api/v1/${normalized}`;
   }
-  if (/^(products|categories|partners|blog|tickets|media)\//i.test(normalized)) {
+  if (/^(products|categories|partners|blog|media)\//i.test(normalized)) {
     return `${apiBase}/api/v1/cdn/${normalized}`;
   }
   if (raw.startsWith("/")) return `${apiBase}${raw}`;

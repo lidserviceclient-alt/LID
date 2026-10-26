@@ -1,6 +1,5 @@
 import React from "react";
 import { Carousel, Card } from "./apple-cards-carousel";
-// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 
 const data = [

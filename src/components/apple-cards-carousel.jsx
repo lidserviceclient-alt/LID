@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 
-// eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from "framer-motion";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
 import { CarouselContext } from "@/features/carousel/CarouselContext";

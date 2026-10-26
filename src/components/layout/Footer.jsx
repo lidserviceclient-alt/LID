@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-// eslint-disable-next-line no-unused-vars
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
 import { 
   ArrowRight, 
@@ -80,7 +79,6 @@ export default function Footer() {
     : [
         { name: "Nouveautés", path: "/shop?sort=newest" },
         { name: "Boutique", path: "/shop" },
-        { name: "Billetterie", path: "/tickets" },
 
       ];
 

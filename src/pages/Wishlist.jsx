@@ -1,7 +1,6 @@
 import React from 'react';
 import PageSEO from '@/components/PageSEO';
 import { Link } from 'react-router-dom';
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Trash2, Heart, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';

@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import { Mail, ArrowRight, Check } from "lucide-react";
 import { subscribeNewsletter } from "../services/newsletterService";

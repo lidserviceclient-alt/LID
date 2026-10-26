@@ -221,7 +221,7 @@ export default function Home() {
     <div className="min-h-screen bg-white dark:bg-neutral-950">
       <PageSEO
         title="Achetez et Vendez en Ligne"
-        description="Lid — la marketplace de référence en Côte d'Ivoire. Produits, billets d'événements et boutiques de vendeurs locaux."
+        description="Lid — la marketplace de référence en Côte d'Ivoire. Produits et boutiques de vendeurs locaux."
         canonical="/"
       />
 

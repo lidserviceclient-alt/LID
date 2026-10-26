@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, CreditCard, Smartphone, User, MapPin, Phone, Mail, ArrowRight, ShieldCheck, Lock, ChevronLeft, Loader2, LocateFixed } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -12,6 +11,8 @@ import { useAppConfig } from '@/features/appConfig/useAppConfig';
 import { useCart } from '@/features/cart/CartContext';
 import InternationalPhoneField from '@/components/InternationalPhoneField';
 import { isValidInternationalPhone, isValidMobileMoneyPhone } from '@/utils/phone';
+import { formatAddressStreet, formatAddressSummary, normalizeCustomerAddresses, pickPreferredAddress } from '@/utils/customerAddress';
+import { locateCurrentAddress } from '@/utils/geolocation';
 
 const formatMoney = (value) => {
   const num = Number(value);
@@ -21,14 +22,6 @@ const formatMoney = (value) => {
     minimumFractionDigits: hasDecimals ? 2 : 0,
     maximumFractionDigits: hasDecimals ? 2 : 0
   });
-};
-
-const formatExpiryLong = (value) => {
-  const v = `${value || ''}`.trim();
-  if (!v) return '11/2026';
-  const match = v.match(/^(\d{2})\/(\d{2})$/);
-  if (!match) return v;
-  return `${match[1]}/20${match[2]}`;
 };
 
 const normalizeVatRate = (raw) => {
@@ -46,10 +39,10 @@ const roundAmount = (value) => {
 // Montant minimum accepte par l'API (verification cote client avant le paiement)
 const MINIMUM_ORDER_AMOUNT = 100;
 
-export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, selectedSize, quantity, cartItems, onSuccess, shippingCost = 0, discountAmount = 0, loyaltyDiscountAmount = 0, loyaltyTier = "", promoCode = "", shippingMethodCode = "STANDARD", shippingMethodLabel = "Standard" }) {
+export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartItems, onSuccess: _onSuccess, shippingCost = 0, discountAmount = 0, loyaltyDiscountAmount = 0, promoCode = "", shippingMethodCode = "STANDARD", shippingMethodLabel = "Standard" }) {
   const [step, setStep] = useState(1); // 1: Info, 2: Payment, 3: Processing, 4: Success
   const [loadingStep, setLoadingStep] = useState(0); // 0: Init, 1: Connecting, 2: Verifying, 3: Approved
-  const [orderNumber, setOrderNumber] = useState('');
+  const [, setOrderNumber] = useState('');
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -66,8 +59,11 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
   // Une cle par tentative : un rejeu (double clic, timeout) ne cree jamais une seconde commande
   const idempotencyKeyRef = useRef(null);
   const [savedAddresses, setSavedAddresses] = useState([]);
-  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [selectedAddressId, setSelectedAddressId] = useState(''); // '' = nouvelle adresse saisie a la main
   const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [accountPhone, setAccountPhone] = useState('');
+  // Vrai des que l'utilisateur tape un telephone : une adresse choisie ensuite ne l'ecrase plus
+  const phoneEditedRef = useRef(false);
   const [isResolvingCurrentAddress, setIsResolvingCurrentAddress] = useState(false);
   const [shippingCoordinates, setShippingCoordinates] = useState(null);
   const [phoneTouched, setPhoneTouched] = useState(false);
@@ -94,13 +90,8 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
   const mobilePhoneIsValid = !formData.mobilePhone || isValidMobileMoneyPhone(formData.mobilePhone);
 
   const toCheckoutItem = (item, fallbackQuantity = 1) => {
-    const itemType = `${item?.itemType || (item?.ticketEventId ? "TICKET" : item?.type === "ticket" ? "TICKET" : "ARTICLE")}`.trim().toUpperCase();
+    const itemType = "ARTICLE";
     const quantityValue = Number(item?.quantity) || fallbackQuantity;
-    if (itemType === "TICKET") {
-      const ticketEventId = Number(item?.ticketEventId ?? item?.id);
-      if (!Number.isFinite(ticketEventId) || ticketEventId <= 0) return null;
-      return { itemType, ticketEventId: Math.trunc(ticketEventId), quantity: quantityValue };
-    }
     const articleId = Number(item?.articleId ?? item?.id);
     const referenceProduitPartenaire = `${item?.referenceProduitPartenaire || item?.referencePartenaire || item?.sku || ""}`.trim();
     if ((!Number.isFinite(articleId) || articleId <= 0) && !referenceProduitPartenaire) return null;
@@ -120,6 +111,34 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     { id: 3, label: 'Confirmation', icon: Check },
   ];
 
+  // Remplit le formulaire avec une adresse enregistree ; les champs restent modifiables.
+  const applySavedAddress = (address, fallbackPhone) => {
+    setFormData((prev) => ({
+      ...prev,
+      address: formatAddressStreet(address),
+      city: address?.city || '',
+      zip: address?.postalCode || '',
+      phone: phoneEditedRef.current ? prev.phone : (address?.phoneNumber || fallbackPhone || prev.phone)
+    }));
+    const latitude = address?.latitude;
+    const longitude = address?.longitude;
+    setShippingCoordinates(
+      Number.isFinite(latitude) && Number.isFinite(longitude) ? { latitude, longitude } : null
+    );
+  };
+
+  const selectSavedAddress = (addressId) => {
+    setSelectedAddressId(addressId);
+    if (!addressId) {
+      // Nouvelle adresse : on vide l'adresse, le telephone saisi ou repris du compte est conserve
+      setFormData((prev) => ({ ...prev, address: '', city: '', zip: '' }));
+      setShippingCoordinates(null);
+      return;
+    }
+    const address = savedAddresses.find((addr) => addr.id === addressId);
+    if (address) applySavedAddress(address, accountPhone);
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     const payload = getCurrentUserPayload();
@@ -129,32 +148,33 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     (async () => {
       try {
         const [checkoutCollection, profile] = await Promise.all([
-          getMyCustomerCheckoutCollection(),
+          getMyCustomerCheckoutCollection().catch(() => null),
           getUserProfile(payload.sub).catch(() => null)
         ]);
         if (!active) return;
         const customer = checkoutCollection?.customer || profile || null;
+        const customerPhone = `${customer?.phoneNumber || profile?.phoneNumber || ''}`.trim();
+        setAccountPhone(customerPhone);
         setFormData((prev) => ({
           ...prev,
           firstName: `${customer?.firstName || payload?.firstName || ''}`.trim() || prev.firstName,
           lastName: `${customer?.lastName || payload?.lastName || ''}`.trim() || prev.lastName,
-          email: `${customer?.email || payload?.email || ''}`.trim() || prev.email
+          email: `${customer?.email || payload?.email || ''}`.trim() || prev.email,
+          // Telephone du compte en repli, jamais par-dessus une saisie
+          phone: phoneEditedRef.current || prev.phone ? prev.phone : customerPhone
         }));
-        const addresses = Array.isArray(checkoutCollection?.addresses) ? checkoutCollection.addresses : await getCustomerAddresses(payload.sub).catch(() => []);
+        const rawAddresses = Array.isArray(checkoutCollection?.addresses)
+          ? checkoutCollection.addresses
+          : await getCustomerAddresses(payload.sub).catch(() => []);
         if (!active) return;
+        const addresses = normalizeCustomerAddresses(rawAddresses).filter((addr) => addr.id && addr.line1);
         setSavedAddresses(addresses);
-        const defaultAddress = addresses.find((addr) => addr?.isDefault ?? addr?.default)
-          || (addresses.length === 1 ? addresses[0] : null);
-        if (defaultAddress) {
-          setSelectedAddressId(defaultAddress.id);
-          setFormData((prev) => ({
-            ...prev,
-            address: defaultAddress.addressLine || defaultAddress.address || prev.address,
-            city: defaultAddress.city || prev.city,
-            zip: defaultAddress.postalCode || prev.zip,
-            phone: defaultAddress.phone || prev.phone
-          }));
-          setShippingCoordinates(null);
+        const preferred = pickPreferredAddress(addresses);
+        if (preferred) {
+          setSelectedAddressId(preferred.id);
+          applySavedAddress(preferred, customerPhone);
+        } else {
+          setSelectedAddressId('');
         }
       } catch {
         if (active) setSavedAddresses([]);
@@ -165,69 +185,25 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     return () => { active = false; };
   }, [isOpen]);
 
-  const getGeolocationBlockReason = () => {
-    if (typeof window === 'undefined' || typeof document === 'undefined') return "";
-    if (!window.isSecureContext) {
-      return "La géolocalisation exige un contexte sécurisé HTTPS.";
-    }
-
-    const policy = document.permissionsPolicy || document.featurePolicy;
-    if (policy?.allowsFeature) {
-      try {
-        if (!policy.allowsFeature('geolocation')) {
-          return "La géolocalisation est bloquée par la politique de permissions du navigateur ou de l'iframe.";
-        }
-      } catch {
-        // no-op
-      }
-    }
-
-    return "";
-  };
-
-  const formatGeolocationError = (error) => {
-    const blockedReason = getGeolocationBlockReason();
-    if (blockedReason) return blockedReason;
-    const code = error?.code;
-    if (code === 1) return "L'accès à votre position a été refusé.";
-    if (code === 2) return "Votre position n'a pas pu être déterminée.";
-    if (code === 3) return "La récupération de votre position a expiré.";
-    return "Impossible de récupérer votre position actuellement.";
-  };
-
   const setAddressFromPosition = async () => {
     if (isResolvingCurrentAddress) return;
-    if (!navigator?.geolocation) {
-      toast.error("La géolocalisation n'est pas disponible sur cet appareil.");
-      return;
-    }
-
-    const blockedReason = getGeolocationBlockReason();
-    if (blockedReason) {
-      toast.error(blockedReason);
-      return;
-    }
-
     setIsResolvingCurrentAddress(true);
     try {
-      const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000 }));
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const addr = data.address;
+      const located = await locateCurrentAddress();
       setFormData(prev => ({
         ...prev,
-        address: [addr.house_number, addr.road].filter(Boolean).join(' ') || data.display_name,
-        city: addr.city || addr.town || addr.village || '',
-        zip: addr.postcode || ''
+        address: located.street,
+        city: located.city,
+        zip: located.postalCode
       }));
+      // La position GPS du moment prime sur celle de l'adresse enregistree
       setShippingCoordinates({
-        latitude: Number(pos.coords.latitude),
-        longitude: Number(pos.coords.longitude),
+        latitude: located.latitude,
+        longitude: located.longitude,
       });
       toast.success("Adresse détectée");
     } catch (error) {
-      toast.error(formatGeolocationError(error));
+      toast.error(error?.message || "Impossible de récupérer votre position actuellement.");
     } finally {
       setIsResolvingCurrentAddress(false);
     }
@@ -237,16 +213,6 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (name === 'address' || name === 'city' || name === 'zip') {
-      setShippingCoordinates(null);
-    }
-  };
-
-  const handleAddressSelect = (e) => {
-    const id = e.target.value;
-    setSelectedAddressId(id);
-    const addr = savedAddresses.find(a => `${a.id}` === `${id}`);
-    if (addr) {
-      setFormData(prev => ({ ...prev, address: addr.addressLine, city: addr.city, zip: addr.postalCode, phone: addr.phone }));
       setShippingCoordinates(null);
     }
   };
@@ -415,6 +381,9 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold truncate dark:text-white">{item.name}</p>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
+                        {item.sellerName && item.sellerName !== "LID" ? `Vendu par ${item.sellerName}` : "Vendu et expédié par LID"}
+                      </p>
                       <p className="text-xs text-orange-600 font-bold mt-0.5">{formatMoney(item.price)} FCFA</p>
                     </div>
                   </div>
@@ -520,7 +489,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                         <label className={labelCls}>Téléphone</label>
                         <InternationalPhoneField
                           value={formData.phone}
-                          onChange={(value) => { setPhoneTouched(true); setFormData(prev => ({ ...prev, phone: value })); }}
+                          onChange={(value) => { setPhoneTouched(true); phoneEditedRef.current = true; setFormData(prev => ({ ...prev, phone: value })); }}
                           onBlur={() => setPhoneTouched(true)}
                           defaultCountry="CI"
                           placeholder="Numéro de téléphone"
@@ -532,6 +501,43 @@ export default function CheckoutFlow({ isOpen, onClose, product, selectedColor, 
                           <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><Phone size={11} /> Numéro invalide</p>
                         )}
                       </div>
+
+                      {(loadingAddresses || savedAddresses.length > 0) && (
+                        <div>
+                          <label className={labelCls}>Mes adresses</label>
+                          {loadingAddresses ? (
+                            <p className="text-xs text-neutral-400 flex items-center gap-1.5"><Loader2 size={12} className="animate-spin" /> Chargement de vos adresses…</p>
+                          ) : (
+                            <div className="grid gap-2">
+                              {savedAddresses.map((addr) => (
+                                <button key={addr.id} type="button" onClick={() => selectSavedAddress(addr.id)}
+                                  className={cn("flex items-start gap-3 text-left py-3 px-4 rounded-xl border-2 text-sm transition-all",
+                                    selectedAddressId === addr.id
+                                      ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
+                                      : "border-neutral-200 dark:border-neutral-700 hover:border-neutral-300"
+                                  )}>
+                                  <MapPin size={16} className={cn("mt-0.5 shrink-0", selectedAddressId === addr.id ? "text-orange-500" : "text-neutral-400")} />
+                                  <span className="min-w-0">
+                                    <span className={cn("font-semibold", selectedAddressId === addr.id ? "text-orange-700 dark:text-orange-400" : "text-neutral-700 dark:text-neutral-300")}>
+                                      {addr.label || 'Adresse'}
+                                      {addr.isDefault && <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-orange-500">Par défaut</span>}
+                                    </span>
+                                    <span className="block text-xs text-neutral-500 dark:text-neutral-400 truncate">{formatAddressSummary(addr)}</span>
+                                  </span>
+                                </button>
+                              ))}
+                              <button type="button" onClick={() => selectSavedAddress('')}
+                                className={cn("flex items-center gap-3 py-3 px-4 rounded-xl border-2 font-semibold text-sm transition-all",
+                                  selectedAddressId === ''
+                                    ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400"
+                                    : "border-dashed border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:border-neutral-300"
+                                )}>
+                                <MapPin size={16} /> Nouvelle adresse (saisie manuelle)
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div>
                         <div className="flex items-center justify-between mb-1.5">

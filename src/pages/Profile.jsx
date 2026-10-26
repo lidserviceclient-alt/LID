@@ -9,22 +9,42 @@ import {
   Settings, 
   LogOut, 
   Heart,
-  ChevronRight,
   Clock,
   Store,
-  Camera
+  Camera,
+  LocateFixed,
+  Loader2
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/utils/cn';
 import { toast } from 'sonner';
 import { logout, getCurrentUserPayload, updateUserProfile } from '@/services/authService.js';
 import { 
+  cancelCustomerOrder,
   createCustomerAddress,
+  deleteCustomerAccount,
   deleteCustomerAddress,
-  setDefaultCustomerAddress
+  openOrderReceipt,
+  setDefaultCustomerAddress,
+  updateCustomerAddress
 } from '@/services/customerService.js';
+import { hasCoordinates, normalizeCustomerAddress, normalizeCustomerAddresses, toCustomerAddressPayload } from '@/utils/customerAddress';
+import { locateCurrentAddress } from '@/utils/geolocation';
 import { useWishlist } from '@/features/wishlist/WishlistContext';
 import { useCustomerSession } from '@/features/customerSession/CustomerSessionContext.jsx';
+import { useAppConfig } from '@/features/appConfig/useAppConfig';
+import { resolveBackendAssetUrl } from '@/services/categoryService';
+import { getReturnWindow } from '@/utils/policy';
+import {
+  computeReturnDeadline,
+  formatDate,
+  formatMoney,
+  getOrderStatusMeta,
+  hasReceipt,
+  isCustomerCancellable,
+} from '@/utils/orderStatus';
+import OrderCard from '@/components/orders/OrderCard';
+import OrderList, { OrderCardSkeleton, OrdersEmptyState } from '@/components/orders/OrderList';
 
 const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 const PAYMENT_STORAGE_KEY = 'paymentMethods';
@@ -77,84 +97,8 @@ const SidebarItem = ({ icon: Icon, label, active, onClick, danger }) => (
   </button>
 );
 
-const OrderCard = ({ order, email }) => {
-  const navigate = useNavigate();
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'delivered': return 'bg-green-100 text-green-700 border-green-200';
-      case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
-      case 'in_transit': return 'bg-purple-100 text-purple-700 border-purple-200';
-      case 'shipped': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
-      case 'paid': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      case 'processing': return 'bg-blue-100 text-blue-700 border-blue-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
-  };
-
-  const getStatusLabel = (status) => {
-    switch(status) {
-      case 'delivered': return 'Livré';
-      case 'cancelled': return 'Annulé';
-      case 'in_transit': return 'En livraison';
-      case 'shipped': return 'Expédié';
-      case 'paid': return 'Payé';
-      case 'processing': return 'En préparation';
-      case 'pending': return 'En attente';
-      default: return status;
-    }
-  };
-
-  const trackingHref = order?.orderNumber
-    ? `/tracking?order=${encodeURIComponent(order.orderNumber)}`
-    : "/tracking";
-  const returnsHref = order?.orderNumber && email
-    ? `/returns?order=${encodeURIComponent(order.orderNumber)}&email=${encodeURIComponent(email)}`
-    : "/returns";
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => navigate(trackingHref)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          navigate(trackingHref);
-        }
-      }}
-      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-neutral-100 bg-white hover:border-[#6aa200]/30 hover:shadow-md transition-all duration-300 gap-4 cursor-pointer"
-    >
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-500">
-          <Package size={20} />
-        </div>
-        <div>
-          <h4 className="font-bold text-neutral-900">{order.displayId}</h4>
-          <p className="text-xs text-neutral-500">{order.date} • {order.items} article(s)</p>
-        </div>
-      </div>
-      <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto flex-wrap sm:flex-nowrap">
-        <span className="font-bold text-neutral-900">{order.total}</span>
-        <span className={cn("px-3 py-1 rounded-full text-xs font-bold border", getStatusColor(order.status))}>
-          {getStatusLabel(order.status)}
-        </span>
-        <Link
-          to={returnsHref}
-          onClick={(e) => e.stopPropagation()}
-          className="text-xs font-semibold text-neutral-500 hover:text-[#6aa200] transition-colors"
-        >
-          Retour
-        </Link>
-        <span className="p-2 rounded-full text-neutral-400">
-          <ChevronRight size={18} />
-        </span>
-      </div>
-    </div>
-  );
-};
-
-const AddressCard = ({ address, onDelete, onSetDefault }) => {
-  const isDefault = Boolean(address?.isDefault ?? address?.default);
+const AddressCard = ({ address, onDelete, onSetDefault, onEdit }) => {
+  const isDefault = Boolean(address?.isDefault);
   return (
     <div className={cn(
       "p-5 rounded-2xl border transition-all duration-300 relative group",
@@ -171,14 +115,17 @@ const AddressCard = ({ address, onDelete, onSetDefault }) => {
         <div className={cn("p-2 rounded-full", isDefault ? "bg-[#6aa200] text-white" : "bg-neutral-100 text-neutral-500")}>
           <MapPin size={16} />
         </div>
-        <span className="font-bold text-neutral-900">{address.type || 'Adresse'}</span>
+        <span className="font-bold text-neutral-900">{address.label || 'Adresse'}</span>
       </div>
       <div className="space-y-1 text-sm text-neutral-600">
-        <p className="font-medium text-neutral-900">{address.name}</p>
-        <p>{address.addressLine || address.address}</p>
+        <p className="font-medium text-neutral-900">{address.line1}</p>
+        {address.line2 && <p>{address.line2}</p>}
         <p>{[address.city, address.postalCode].filter(Boolean).join(' ')}</p>
         <p>{address.country}</p>
-        <p className="text-xs text-neutral-400 mt-2">{address.phone}</p>
+        <p className="text-xs text-neutral-400 mt-2">{address.phoneNumber}</p>
+        {hasCoordinates(address) && (
+          <p className="text-xs text-[#6aa200] flex items-center gap-1"><LocateFixed size={11} /> Position GPS enregistrée</p>
+        )}
       </div>
       <div className="mt-4 flex items-center gap-3">
         {!isDefault && (
@@ -189,6 +136,12 @@ const AddressCard = ({ address, onDelete, onSetDefault }) => {
             Définir par défaut
           </button>
         )}
+        <button
+          onClick={onEdit}
+          className="text-xs font-bold text-neutral-500 hover:text-neutral-900"
+        >
+          Modifier
+        </button>
         <button
           onClick={onDelete}
           className="text-xs font-bold text-neutral-400 hover:text-red-500"
@@ -202,45 +155,13 @@ const AddressCard = ({ address, onDelete, onSetDefault }) => {
 
 // --- Sections ---
 
-const formatOrderDate = (value) => {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return `${value}`;
-  return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).format(d);
-};
-
-const formatMoney = (amount, currency = 'FCFA') => {
-  const n = Number(amount);
-  if (!Number.isFinite(n)) return `— ${currency}`;
-  return `${n.toLocaleString('fr-FR')} ${currency || 'FCFA'}`;
-};
-
-const mapOrderStatus = (status) => {
-  const s = `${status || ''}`.toUpperCase();
-  switch (s) {
-    case 'DELIVERED': return 'delivered';
-    case 'CANCELED': return 'cancelled';
-    case 'PENDING': return 'pending';
-    case 'PAID': return 'paid';
-    case 'PROCESSING': return 'processing';
-    case 'READY_TO_DELIVER': return 'shipped';
-    case 'DELIVERY_IN_PROGRESS': return 'in_transit';
-    default: return 'pending';
-  }
-};
-
-const countOrderItems = (items) => {
-  if (!Array.isArray(items)) return 0;
-  return items.reduce((acc, it) => acc + (Number(it?.quantity) || 0), 0);
-};
-
 const maskCardNumber = (value) => {
   const digits = `${value || ''}`.replace(/\D/g, '');
   if (digits.length < 4) return '••••';
   return `•••• •••• •••• ${digits.slice(-4)}`;
 };
 
-const OverviewSection = ({ stats, recentOrders, onSeeAllOrders, loading, email }) => (
+const OverviewSection = ({ stats, recentOrders, onSeeAllOrders, loading }) => (
   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
     {/* Stats Grid */}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -277,77 +198,106 @@ const OverviewSection = ({ stats, recentOrders, onSeeAllOrders, loading, email }
       </div>
       <div className="space-y-3">
         {loading ? (
-          <div className="text-sm text-neutral-500">Chargement...</div>
+          <>
+            <OrderCardSkeleton />
+            <OrderCardSkeleton />
+          </>
         ) : recentOrders.length === 0 ? (
-          <div className="text-sm text-neutral-500">Aucune commande.</div>
+          <OrdersEmptyState />
         ) : (
-          recentOrders.map((order) => <OrderCard key={order.displayId} order={order} email={email} />)
+          recentOrders.map((order) => <OrderCard key={order.id ?? order.orderNumber} order={order} compact />)
         )}
       </div>
     </div>
   </div>
 );
 
-const OrdersSection = ({ orders, loading, filter, onFilterChange, email }) => (
-  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-    <div className="flex items-center justify-between">
-      <h2 className="text-xl font-bold text-neutral-900">Mes Commandes</h2>
-      <select 
-        value={filter}
-        onChange={(e) => onFilterChange(e.target.value)}
-        className="bg-neutral-100 border-none rounded-lg text-sm font-medium px-3 py-2 outline-none focus:ring-2 focus:ring-[#6aa200]/20"
-      >
-        <option value="all">Toutes les commandes</option>
-        <option value="processing">En cours</option>
-        <option value="delivered">Livrées</option>
-        <option value="cancelled">Annulées</option>
-      </select>
-    </div>
-    <div className="space-y-3">
-      {loading ? (
-        <div className="text-sm text-neutral-500">Chargement...</div>
-      ) : orders.length === 0 ? (
-        <div className="text-sm text-neutral-500">Aucune commande.</div>
-      ) : (
-        orders.map((order) => <OrderCard key={order.displayId} order={order} email={email} />)
-      )}
-    </div>
-  </div>
-);
+const EMPTY_ADDRESS_FORM = {
+  label: 'Domicile',
+  line1: '',
+  line2: '',
+  city: '',
+  postalCode: '',
+  country: '',
+  phoneNumber: '',
+  latitude: null,
+  longitude: null,
+  isDefault: false
+};
 
-const AddressSection = ({ addresses, loading, onCreate, onDelete, onSetDefault }) => {
+const AddressSection = ({ addresses, loading, onCreate, onUpdate, onDelete, onSetDefault }) => {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    type: 'Domicile',
-    name: '',
-    addressLine: '',
-    city: '',
-    postalCode: '',
-    country: '',
-    phone: '',
-    isDefault: false
-  });
+  const [editingId, setEditingId] = useState(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [form, setForm] = useState(EMPTY_ADDRESS_FORM);
+
+  const closeForm = () => {
+    setForm(EMPTY_ADDRESS_FORM);
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const openCreateForm = () => {
+    if (showForm) {
+      closeForm();
+      return;
+    }
+    setForm(EMPTY_ADDRESS_FORM);
+    setEditingId(null);
+    setShowForm(true);
+  };
+
+  const openEditForm = (address) => {
+    setForm({ ...EMPTY_ADDRESS_FORM, ...address });
+    setEditingId(address.id);
+    setShowForm(true);
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    setForm((prev) => {
+      const next = { ...prev, [name]: type === 'checkbox' ? checked : value };
+      // Adresse retouchee a la main : la position GPS ne lui correspond plus forcement
+      if (name === 'line1' || name === 'city' || name === 'postalCode') {
+        next.latitude = null;
+        next.longitude = null;
+      }
+      return next;
+    });
+  };
+
+  const handleUseCurrentPosition = async () => {
+    if (isLocating) return;
+    setIsLocating(true);
+    try {
+      const located = await locateCurrentAddress();
+      setForm((prev) => ({
+        ...prev,
+        line1: located.street || prev.line1,
+        city: located.city || prev.city,
+        postalCode: located.postalCode || prev.postalCode,
+        country: located.country || prev.country,
+        latitude: located.latitude,
+        longitude: located.longitude
+      }));
+      toast.success("Adresse détectée");
+    } catch (error) {
+      toast.error(error?.message || "Impossible de récupérer votre position actuellement.");
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const saved = await onCreate(form);
+    const payload = toCustomerAddressPayload(form);
+    if (!payload.line1) {
+      toast.error("L'adresse est obligatoire.");
+      return;
+    }
+    const saved = editingId ? await onUpdate(editingId, payload) : await onCreate(payload);
     if (saved) {
-      setForm({
-        type: 'Domicile',
-        name: '',
-        addressLine: '',
-        city: '',
-        postalCode: '',
-        country: '',
-        phone: '',
-        isDefault: false
-      });
-      setShowForm(false);
+      closeForm();
     }
   };
 
@@ -356,7 +306,7 @@ const AddressSection = ({ addresses, loading, onCreate, onDelete, onSetDefault }
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-neutral-900">Mes Adresses</h2>
         <button 
-          onClick={() => setShowForm((v) => !v)}
+          onClick={openCreateForm}
           className="bg-neutral-900 hover:bg-neutral-800 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors"
         >
           {showForm ? 'Fermer' : '+ Nouvelle Adresse'}
@@ -364,39 +314,61 @@ const AddressSection = ({ addresses, loading, onCreate, onDelete, onSetDefault }
       </div>
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl border border-neutral-200 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {editingId && (
+            <p className="md:col-span-2 text-sm font-bold text-neutral-900">Modifier l'adresse</p>
+          )}
           <div className="space-y-1">
             <label className="text-xs font-bold text-neutral-500 uppercase">Type</label>
-            <input name="type" value={form.type} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            <input name="label" value={form.label} onChange={handleChange} placeholder="Domicile, Bureau…" maxLength={100} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-bold text-neutral-500 uppercase">Nom</label>
-            <input required name="name" value={form.name} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            <label className="text-xs font-bold text-neutral-500 uppercase">Complément</label>
+            <input name="line2" value={form.line2} onChange={handleChange} placeholder="Bâtiment, étage, repère…" maxLength={255} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
           </div>
           <div className="space-y-1 md:col-span-2">
-            <label className="text-xs font-bold text-neutral-500 uppercase">Adresse</label>
-            <input required name="addressLine" value={form.addressLine} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-neutral-500 uppercase">Adresse</label>
+              <button
+                type="button"
+                onClick={handleUseCurrentPosition}
+                disabled={isLocating}
+                className="inline-flex items-center gap-1 text-xs font-bold text-[#6aa200] hover:underline disabled:opacity-60"
+              >
+                {isLocating ? <Loader2 size={12} className="animate-spin" /> : <LocateFixed size={12} />}
+                {isLocating ? 'Localisation…' : 'Utiliser ma position'}
+              </button>
+            </div>
+            <input required name="line1" value={form.line1} onChange={handleChange} placeholder="Rue, numéro, quartier…" maxLength={255} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            {hasCoordinates(form) && (
+              <p className="text-xs text-[#6aa200] flex items-center gap-1"><MapPin size={11} /> Position GPS capturée</p>
+            )}
           </div>
           <div className="space-y-1">
             <label className="text-xs font-bold text-neutral-500 uppercase">Ville</label>
-            <input required name="city" value={form.city} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            <input required name="city" value={form.city} onChange={handleChange} maxLength={100} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
           </div>
           <div className="space-y-1">
             <label className="text-xs font-bold text-neutral-500 uppercase">Code postal</label>
-            <input name="postalCode" value={form.postalCode} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            <input name="postalCode" value={form.postalCode} onChange={handleChange} maxLength={20} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
           </div>
           <div className="space-y-1">
             <label className="text-xs font-bold text-neutral-500 uppercase">Pays</label>
-            <input name="country" value={form.country} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            <input name="country" value={form.country} onChange={handleChange} maxLength={100} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
           </div>
           <div className="space-y-1">
             <label className="text-xs font-bold text-neutral-500 uppercase">Téléphone</label>
-            <input name="phone" value={form.phone} onChange={handleChange} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
+            <input name="phoneNumber" type="tel" value={form.phoneNumber} onChange={handleChange} maxLength={30} className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:border-[#6aa200] outline-none" />
           </div>
           <label className="flex items-center gap-2 text-sm text-neutral-600 md:col-span-2">
             <input type="checkbox" name="isDefault" checked={form.isDefault} onChange={handleChange} />
             Définir comme adresse par défaut
           </label>
-          <div className="md:col-span-2 flex justify-end">
+          <div className="md:col-span-2 flex justify-end gap-3">
+            {editingId && (
+              <button type="button" onClick={closeForm} className="text-sm font-bold text-neutral-500 hover:text-neutral-900 px-4 py-2 rounded-lg transition-colors">
+                Annuler
+              </button>
+            )}
             <button type="submit" className="text-sm font-bold text-white bg-[#6aa200] hover:bg-[#5a8a00] px-4 py-2 rounded-lg transition-colors">
               Enregistrer
             </button>
@@ -413,6 +385,7 @@ const AddressSection = ({ addresses, loading, onCreate, onDelete, onSetDefault }
             <AddressCard 
               key={addr.id} 
               address={addr} 
+              onEdit={() => openEditForm(addr)}
               onDelete={() => onDelete(addr.id)} 
               onSetDefault={() => onSetDefault(addr.id)}
             />
@@ -560,9 +533,10 @@ const SettingsSection = ({ profile, userId, onProfileUpdated }) => {
       firstName: fixMojibake(profile?.firstName) || '',
       lastName: fixMojibake(profile?.lastName) || '',
       email: fixMojibake(profile?.email) || '',
-      telephone: profile?.telephone || '',
-      ville: profile?.ville || '',
-      pays: profile?.pays || ''
+      // Contrat API (CustomerDto) : phoneNumber, city, country ; anciens noms lus par tolerance
+      telephone: profile?.phoneNumber || profile?.telephone || '',
+      ville: profile?.city || profile?.ville || '',
+      pays: profile?.country || profile?.pays || ''
     });
   }, [profile]);
 
@@ -573,6 +547,22 @@ const SettingsSection = ({ profile, userId, onProfileUpdated }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCloseAccount = async () => {
+    if (!userId) return;
+    const confirmed = window.confirm(
+      'Fermer définitivement votre compte ? Vos données personnelles seront effacées ; vos commandes passées sont conservées sous forme anonyme (obligations comptables).'
+    );
+    if (!confirmed) return;
+    try {
+      await deleteCustomerAccount(userId);
+      await logout();
+      toast.success('Votre compte a été fermé.');
+      window.location.assign('/');
+    } catch {
+      toast.error('Impossible de fermer le compte pour le moment. Contactez le service client.');
+    }
   };
 
   const handleSave = async () => {
@@ -586,9 +576,9 @@ const SettingsSection = ({ profile, userId, onProfileUpdated }) => {
         firstName: form.firstName,
         lastName: form.lastName,
         email: form.email,
-        telephone: form.telephone,
-        ville: form.ville,
-        pays: form.pays
+        phoneNumber: form.telephone,
+        city: form.ville,
+        country: form.pays
       });
       onProfileUpdated(updated);
       toast.success("Profil mis à jour.");
@@ -660,6 +650,20 @@ const SettingsSection = ({ profile, userId, onProfileUpdated }) => {
         </div>
       </div>
 
+      <div className="bg-white p-6 rounded-2xl border border-red-100 space-y-3">
+        <h3 className="font-bold text-neutral-900 border-b border-neutral-100 pb-2">Fermer mon compte</h3>
+        <p className="text-xs text-neutral-500">
+          Vos données personnelles sont effacées et l'accès au compte est supprimé. Les commandes passées sont conservées sous forme anonyme.
+        </p>
+        <button
+          type="button"
+          onClick={handleCloseAccount}
+          className="text-sm font-bold text-red-600 hover:text-red-700 border border-red-200 px-3 py-1.5 rounded-lg"
+        >
+          Fermer mon compte
+        </button>
+      </div>
+
       <div className="bg-white p-6 rounded-2xl border border-neutral-200 space-y-4">
         <h3 className="font-bold text-neutral-900 border-b border-neutral-100 pb-2">Préférences</h3>
         <div className="flex items-center justify-between">
@@ -696,7 +700,8 @@ export default function Profile() {
   const { wishlistItems } = useWishlist();
   const customerSession = useCustomerSession();
   const localWishlistCount = wishlistItems.length;
-  const [ordersFilter, setOrdersFilter] = useState('all');
+  const [orderBusyAction, setOrderBusyAction] = useState('');
+  const { data: appConfig } = useAppConfig();
   const [paymentMethods, setPaymentMethods] = useState(() => loadLocalJson(PAYMENT_STORAGE_KEY, []));
 
   useEffect(() => {
@@ -716,33 +721,64 @@ export default function Profile() {
   const userProfile = useMemo(() => profileCollection?.customer || null, [profileCollection]);
 
   const addresses = useMemo(() => {
-    return Array.isArray(profileCollection?.addresses) ? profileCollection.addresses : [];
+    return normalizeCustomerAddresses(profileCollection?.addresses);
   }, [profileCollection]);
+
+  const customerEmail = fixMojibake(userProfile?.email) || fixMojibake(tokenPayload?.email) || '';
 
   const orders = useMemo(() => {
     const ordersDto = Array.isArray(profileCollection?.orders) ? profileCollection.orders : [];
+    const returnWindow = getReturnWindow(appConfig);
     return ordersDto.map((o) => {
       const orderNumber = o.orderNumber || `ORD-${o.id}`;
+      const meta = getOrderStatusMeta(o.currentStatus);
+      const lines = Array.isArray(o.items) ? o.items : [];
+      const returnDeadline = computeReturnDeadline(
+        { status: meta.code, deliveryDate: o.deliveryDate, createdAt: o.createdAt },
+        returnWindow
+      );
+      const returnable = Boolean(returnDeadline && Date.now() <= returnDeadline.getTime());
+      let statusHint = '';
+      if (meta.code === 'DELIVERED') {
+        statusHint = o.deliveryDate ? `Livrée le ${formatDate(o.deliveryDate)}` : '';
+        if (returnable) statusHint = `${statusHint ? `${statusHint} · ` : ''}Retour possible jusqu'au ${formatDate(returnDeadline)}`;
+      } else if (meta.code === 'PENDING') {
+        statusHint = 'Paiement non finalisé';
+      }
       return {
-        displayId: `#${orderNumber}`,
+        id: o.id,
         orderNumber,
-        date: formatOrderDate(o.createdAt),
+        date: formatDate(o.createdAt) || '—',
         total: formatMoney(o.amount, o.currency || 'FCFA'),
-        status: mapOrderStatus(o.currentStatus),
-        items: countOrderItems(o.items)
+        statusCode: meta.code,
+        statusLabel: meta.label,
+        statusTone: meta.tone,
+        statusHint,
+        itemCount: lines.reduce((acc, it) => acc + (Number(it?.quantity) || 0), 0),
+        thumbnails: lines.map((it, index) => ({
+          key: `${it?.articleId ?? 'line'}-${index}`,
+          name: `${it?.articleName || 'Article'}`,
+          imageUrl: resolveBackendAssetUrl(it?.mainImageUrl) || '',
+        })),
+        shippingMethod: `${o.shippingMethodLabel || ''}`.trim(),
+        shippingAddress: `${o.shippingAddress || ''}`.trim(),
+        cancellable: isCustomerCancellable(meta.code),
+        receiptAvailable: hasReceipt(meta.code),
+        returnable,
+        returnDeadline,
+        returnsHref: customerEmail
+          ? `/returns?order=${encodeURIComponent(orderNumber)}&email=${encodeURIComponent(customerEmail)}`
+          : `/returns?order=${encodeURIComponent(orderNumber)}`,
       };
     });
-  }, [profileCollection]);
+  }, [profileCollection, appConfig, customerEmail]);
 
   const recentOrders = useMemo(() => orders.slice(0, 3), [orders]);
 
   const stats = useMemo(() => {
     const ordersDto = Array.isArray(profileCollection?.orders) ? profileCollection.orders : [];
     const wishlist = Array.isArray(profileCollection?.wishlist) ? profileCollection.wishlist : [];
-    const inProgress = ordersDto.filter((o) => {
-      const st = `${o.currentStatus || ''}`.toUpperCase();
-      return st && st !== 'DELIVERED' && st !== 'CANCELED';
-    }).length;
+    const inProgress = ordersDto.filter((o) => getOrderStatusMeta(o.currentStatus).group === 'active').length;
 
     return {
       total: ordersDto.length,
@@ -775,13 +811,39 @@ export default function Profile() {
     ? String(userProfile.createdAt).slice(0, 4)
     : (tokenPayload?.iat ? new Date(tokenPayload.iat * 1000).getFullYear() : '—');
 
-    const filteredOrders = useMemo(() => {
-    if (ordersFilter === 'all') return orders;
-    if (ordersFilter === 'processing') {
-      return orders.filter(o => ['pending', 'paid', 'processing', 'shipped', 'in_transit'].includes(o.status));
+  const handleCancelOrder = async (order) => {
+    const paid = order.statusCode === 'PAID';
+    const question = paid
+      ? 'Annuler cette commande ? Elle sera remboursée automatiquement sur votre moyen de paiement.'
+      : 'Annuler cette commande ?';
+    if (!window.confirm(question)) return;
+    setOrderBusyAction(`cancel-${order.id}`);
+    try {
+      await cancelCustomerOrder(order.id);
+      customerSession?.updateCustomerCollection?.((prev) => ({
+        ...(prev || {}),
+        orders: (Array.isArray(prev?.orders) ? prev.orders : []).map((o) =>
+          o.id === order.id ? { ...o, currentStatus: 'CANCELED' } : o
+        )
+      }));
+      toast.success(paid ? 'Commande annulée, remboursement en cours.' : 'Commande annulée.');
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Cette commande n'est plus annulable (déjà en préparation). Contactez le service client.");
+    } finally {
+      setOrderBusyAction('');
     }
-    return orders.filter((order) => order.status === ordersFilter);
-  }, [orders, ordersFilter]);
+  };
+
+  const handleOrderReceipt = async (order) => {
+    setOrderBusyAction(`receipt-${order.id}`);
+    try {
+      await openOrderReceipt(order.id);
+    } catch {
+      toast.error("Impossible d'ouvrir le justificatif.");
+    } finally {
+      setOrderBusyAction('');
+    }
+  };
 
   const handleProfileUpdated = (updated) => {
     customerSession?.updateCustomerCollection?.((prev) => ({
@@ -790,17 +852,21 @@ export default function Profile() {
     }));
   };
 
+  const apiErrorMessage = (err, fallback) =>
+    err?.response?.data?.errorMessage || err?.response?.data?.message || err?.message || fallback;
+
   const handleCreateAddress = async (payload) => {
     if (!tokenPayload?.sub) {
       toast.error("Connexion requise.");
       return null;
     }
     try {
-      const created = await createCustomerAddress(tokenPayload.sub, payload);
+      const created = await createCustomerAddress(tokenPayload.sub, toCustomerAddressPayload(payload));
       if (!created) return null;
       customerSession?.updateCustomerCollection?.((prev) => {
         const currentAddresses = Array.isArray(prev?.addresses) ? prev.addresses : [];
-        const nextAddresses = [...currentAddresses, created];
+        // Plus recente en tete, comme la liste renvoyee par l'API
+        const nextAddresses = [created, ...currentAddresses];
         const normalizedAddresses = created.isDefault
           ? nextAddresses.map((addr) => (addr.id === created.id ? addr : { ...addr, isDefault: false }))
           : nextAddresses;
@@ -812,7 +878,31 @@ export default function Profile() {
       toast.success("Adresse enregistrée.");
       return created;
     } catch (err) {
-      toast.error(err?.response?.data?.message || err?.message || "Création impossible.");
+      toast.error(apiErrorMessage(err, "Création impossible."));
+      return null;
+    }
+  };
+
+  const handleUpdateAddress = async (addressId, payload) => {
+    if (!tokenPayload?.sub) {
+      toast.error("Connexion requise.");
+      return null;
+    }
+    try {
+      const updated = await updateCustomerAddress(tokenPayload.sub, addressId, toCustomerAddressPayload(payload));
+      if (!updated) return null;
+      const updatedIsDefault = normalizeCustomerAddress(updated).isDefault;
+      customerSession?.updateCustomerCollection?.((prev) => ({
+        ...(prev || {}),
+        addresses: (Array.isArray(prev?.addresses) ? prev.addresses : []).map((addr) => {
+          if (addr.id === updated.id) return updated;
+          return updatedIsDefault ? { ...addr, isDefault: false } : addr;
+        })
+      }));
+      toast.success("Adresse mise à jour.");
+      return updated;
+    } catch (err) {
+      toast.error(apiErrorMessage(err, "Mise à jour impossible."));
       return null;
     }
   };
@@ -830,7 +920,7 @@ export default function Profile() {
       }));
       toast.success("Adresse supprimée.");
     } catch (err) {
-      toast.error(err?.response?.data?.message || err?.message || "Suppression impossible.");
+      toast.error(apiErrorMessage(err, "Suppression impossible."));
     }
   };
 
@@ -850,7 +940,7 @@ export default function Profile() {
       }));
       toast.success("Adresse par défaut mise à jour.");
     } catch (err) {
-      toast.error(err?.response?.data?.message || err?.message || "Mise à jour impossible.");
+      toast.error(apiErrorMessage(err, "Mise à jour impossible."));
     }
   };
 
@@ -955,16 +1045,15 @@ export default function Profile() {
                 recentOrders={recentOrders}
                 loading={loadingOverview}
                 onSeeAllOrders={() => setActiveTab('orders')}
-                email={displayEmail}
               />
             )}
             {activeTab === 'orders' && (
-              <OrdersSection 
-                orders={filteredOrders} 
-                loading={loadingOverview} 
-                filter={ordersFilter}
-                onFilterChange={setOrdersFilter}
-                email={displayEmail}
+              <OrderList
+                orders={orders}
+                loading={loadingOverview}
+                onCancel={handleCancelOrder}
+                onReceipt={handleOrderReceipt}
+                busyAction={orderBusyAction}
               />
             )}
             {activeTab === 'addresses' && (
@@ -972,6 +1061,7 @@ export default function Profile() {
                 addresses={addresses}
                 loading={loadingAddresses}
                 onCreate={handleCreateAddress}
+                onUpdate={handleUpdateAddress}
                 onDelete={handleDeleteAddress}
                 onSetDefault={handleSetDefaultAddress}
               />

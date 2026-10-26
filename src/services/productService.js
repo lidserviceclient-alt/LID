@@ -15,7 +15,6 @@ export async function getCatalogCollection({
   latestLimit,
   featuredCategoryLimit,
   postsLimit,
-  ticketsLimit,
   partnersPage,
   partnersSize,
   partnersQ,
@@ -31,7 +30,6 @@ export async function getCatalogCollection({
   if (latestLimit !== null && latestLimit !== undefined) params.set("latestLimit", `${latestLimit}`);
   if (featuredCategoryLimit !== null && featuredCategoryLimit !== undefined) params.set("featuredCategoryLimit", `${featuredCategoryLimit}`);
   if (postsLimit !== null && postsLimit !== undefined) params.set("postsLimit", `${postsLimit}`);
-  if (ticketsLimit !== null && ticketsLimit !== undefined) params.set("ticketsLimit", `${ticketsLimit}`);
   if (partnersPage !== null && partnersPage !== undefined) params.set("partnersPage", `${partnersPage}`);
   if (partnersSize !== null && partnersSize !== undefined) params.set("partnersSize", `${partnersSize}`);
   if (partnersQ !== null && partnersQ !== undefined && `${partnersQ}`.trim()) params.set("partnersQ", `${partnersQ}`.trim());

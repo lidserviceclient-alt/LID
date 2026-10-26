@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Eye, EyeOff, Mail, Lock, KeyRound } from "lucide-react";
 import { toast } from "sonner";
@@ -44,7 +43,7 @@ export default function ResetPasswordForm({ onBack, initialEmail = "" }) {
           toast.error("Veuillez saisir un code à 6 chiffres.");
           return;
         }
-        await verifyPasswordResetCode(normalized);
+        await verifyPasswordResetCode(email, normalized);
         setStep(3);
         return;
       }
@@ -57,7 +56,7 @@ export default function ResetPasswordForm({ onBack, initialEmail = "" }) {
         toast.error("Le mot de passe doit contenir au moins 8 caractères.");
         return;
       }
-      await resetPasswordWithCode({ code: (code || "").replace(/\D/g, ""), newPassword: password });
+      await resetPasswordWithCode({ email, code: (code || "").replace(/\D/g, ""), newPassword: password });
       toast.success("Mot de passe réinitialisé avec succès !");
       onBack();
     } catch (error) {

@@ -51,7 +51,7 @@ const HeroSection = ({ featuredSellers, onOpenSeller }) => {
                     transition={{ delay: 0.2 }}
                     className="text-lg text-neutral-500 dark:text-neutral-400 max-w-sm text-right md:text-left leading-relaxed"
                 >
-                    Une sélection rigoureuse des meilleurs organisateurs, créateurs et marques qui redéfinissent l'expérience événementielle.
+                    Une sélection rigoureuse des meilleurs partenaires, créateurs et marques de la plateforme.
                 </motion.p>
             </div>
 

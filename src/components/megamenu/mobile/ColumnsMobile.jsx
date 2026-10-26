@@ -1,5 +1,4 @@
 import { useState } from "react";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import SubcategoryLeafList from "../shared/SubcategoryLeafList";

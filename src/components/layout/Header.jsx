@@ -390,7 +390,6 @@ export default function Header() {
                       { label: 'Accueil', path: '/' },
                       { label: 'Partenaires', path: '/sellers' }, 
                       { label: 'Catalogues', path: '/shop' },
-                      { label: 'Billetterie', path: '/tickets' },
                       { label: 'Blog', path: '/blog' },
                     ].map((link) => {
                         const isActive = location.pathname === link.path;

@@ -21,7 +21,6 @@ const CartContext = createContext({
 const LOCAL_CART_KEY = "cart";
 const ITEM_TYPES = {
   ARTICLE: "ARTICLE",
-  TICKET: "TICKET",
 };
 
 const normalizeVariant = (value) => {
@@ -30,12 +29,11 @@ const normalizeVariant = (value) => {
 };
 
 const lineKey = (item) => {
-  const itemType = `${item?.itemType || (item?.ticketEventId ? ITEM_TYPES.TICKET : ITEM_TYPES.ARTICLE)}`.trim().toUpperCase();
-  const articleId = Number(item?.articleId ?? (itemType === ITEM_TYPES.ARTICLE ? item?.id : null));
-  const ticketEventId = Number(item?.ticketEventId ?? (itemType === ITEM_TYPES.TICKET ? item?.id : null));
+  const itemType = ITEM_TYPES.ARTICLE;
+  const articleId = Number(item?.articleId ?? item?.id);
   const color = `${normalizeVariant(item?.color) || ""}`.toLowerCase();
   const size = `${normalizeVariant(item?.size) || ""}`.toLowerCase();
-  return `${itemType}::${articleId || 0}::${ticketEventId || 0}::${color}::${size}`;
+  return `${itemType}::${articleId || 0}::${color}::${size}`;
 };
 
 const toPositiveInt = (value, fallback = 0) => {
@@ -52,23 +50,22 @@ const toSignedInt = (value, fallback = 0) => {
 
 const normalizeCartItem = (item) => {
   if (!item) return null;
-  const itemType = `${item?.itemType || (item?.ticketEventId ? ITEM_TYPES.TICKET : item?.type === "ticket" ? ITEM_TYPES.TICKET : ITEM_TYPES.ARTICLE)}`.trim().toUpperCase();
-  const articleId = itemType === ITEM_TYPES.ARTICLE ? toPositiveInt(item?.articleId ?? item?.id, 0) : 0;
-  const ticketEventId = itemType === ITEM_TYPES.TICKET ? toPositiveInt(item?.ticketEventId ?? item?.id, 0) : 0;
-  if (itemType === ITEM_TYPES.ARTICLE && !articleId) return null;
-  if (itemType === ITEM_TYPES.TICKET && !ticketEventId) return null;
+  // La billetterie n'existe plus : une ancienne ligne « ticket » restee dans un panier local est ecartee
+  if (item?.ticketEventId || item?.type === "ticket" || `${item?.itemType || ""}`.toUpperCase() === "TICKET") return null;
+  const itemType = ITEM_TYPES.ARTICLE;
+  const articleId = toPositiveInt(item?.articleId ?? item?.id, 0);
+  if (!articleId) return null;
   const quantity = toPositiveInt(item?.quantity, 0);
   if (!quantity) return null;
   const price = Number(item?.price);
   return {
     ...item,
-    id: itemType === ITEM_TYPES.TICKET ? ticketEventId : articleId,
+    id: articleId,
     itemType,
     articleId,
-    ticketEventId,
     quantity,
-    color: itemType === ITEM_TYPES.ARTICLE ? normalizeVariant(item?.color) : null,
-    size: itemType === ITEM_TYPES.ARTICLE ? normalizeVariant(item?.size) : null,
+    color: normalizeVariant(item?.color),
+    size: normalizeVariant(item?.size),
     price: Number.isFinite(price) ? price : 0,
     name: `${item?.name ?? item?.articleName ?? item?.title ?? ""}`.trim(),
     image: `${item?.image ?? item?.articleImage ?? item?.imageUrl ?? ""}`.trim(),
@@ -132,7 +129,6 @@ const toServerPayload = (items) =>
     .map((item) => ({
       itemType: item.itemType || ITEM_TYPES.ARTICLE,
       articleId: item.articleId || undefined,
-      ticketEventId: item.ticketEventId || undefined,
       quantity: item.quantity,
       color: item.color || null,
       size: item.size || null,
@@ -344,21 +340,16 @@ export function CartProvider({ children }) {
         let remaining = Math.max(0, Math.trunc(Number(line?.quantity) || 0));
         if (remaining <= 0) return;
 
-        const lineType = `${line?.itemType || (line?.ticketEventId ? ITEM_TYPES.TICKET : ITEM_TYPES.ARTICLE)}`.trim().toUpperCase();
         const lineId = toNumberId(line?.articleId);
-        const ticketId = toNumberId(line?.ticketEventId);
         const lineRef = normalizeRef(line?.referenceProduitPartenaire);
 
         for (let i = 0; i < nextItems.length && remaining > 0; i += 1) {
           const item = nextItems[i];
-          const itemType = `${item?.itemType || (item?.ticketEventId ? ITEM_TYPES.TICKET : ITEM_TYPES.ARTICLE)}`.trim().toUpperCase();
           const itemId = toNumberId(item?.articleId ?? item?.id);
-          const itemTicketId = toNumberId(item?.ticketEventId);
           const itemRef = normalizeRef(item?.referenceProduitPartenaire || item?.referencePartenaire || item?.sku);
-          const idMatch = lineType === ITEM_TYPES.ARTICLE && itemType === ITEM_TYPES.ARTICLE && lineId !== null && itemId !== null && lineId === itemId;
-          const ticketMatch = lineType === ITEM_TYPES.TICKET && itemType === ITEM_TYPES.TICKET && ticketId !== null && itemTicketId !== null && ticketId === itemTicketId;
+          const idMatch = lineId !== null && itemId !== null && lineId === itemId;
           const refMatch = !!lineRef && !!itemRef && lineRef === itemRef;
-          if (!idMatch && !ticketMatch && !refMatch) continue;
+          if (!idMatch && !refMatch) continue;
 
           const itemQty = Math.max(0, Math.trunc(Number(item?.quantity) || 0));
           if (itemQty <= remaining) {
@@ -405,7 +396,6 @@ export function CartProvider({ children }) {
   );
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useCart = () => {
   const context = useContext(CartContext);
   if (context === undefined) {

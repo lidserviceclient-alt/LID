@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { Link } from 'react-router-dom';
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, ShoppingBag, Heart, Zap } from "lucide-react";
 import { buildCategoryTree } from "@/services/categoryService";
@@ -136,7 +135,6 @@ export default function MobileMenu({ isOpen, onClose, onOpenOffer, variant }) {
                 { label: 'Accueil', path: '/' },
                 { label: 'Boutique', path: '/shop' },
                 { label: 'Organisateurs', path: '/sellers' },
-                { label: 'Billetterie', path: '/tickets' },
                 { label: 'Blog', path: '/blog' },
                 { label: 'Contact', path: '/contact' },
               ].map((link) => (

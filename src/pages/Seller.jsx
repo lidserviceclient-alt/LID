@@ -1,4 +1,6 @@
 import PageSEO from "@/components/PageSEO";
+import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
+import { getPartnerCommissionPercent } from "@/utils/policy.js";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -267,15 +269,16 @@ function FileUploadZone({ label, accept, onChange, value }) {
 
 // Contenu fictif pour démonstration — à remplacer par le vrai contrat de partenariat.
 const CONTRACT_VERSION = "Contrat Partenaire Vendeur v1.0";
-const CONTRACT_SECTIONS = [
+// La commission est lue depuis la configuration du back-office (utils/policy.js).
+const buildContractSections = (commissionPercent) => [
   { title: "1. Objet du contrat", body: "Le présent contrat a pour objet de définir les conditions dans lesquelles le Vendeur propose ses produits sur la plateforme Life Distribution (LID)." },
   { title: "2. Obligations du Vendeur", body: "Le Vendeur s'engage à proposer des produits conformes, à respecter les délais de livraison indiqués et à fournir un service client de qualité. Toute contrefaçon est strictement interdite." },
-  { title: "3. Commission et Paiement", body: "LID prélève une commission de 10% sur chaque vente réalisée. Les paiements sont effectués hebdomadairement sur le compte bancaire fourni par le Vendeur." },
+  { title: "3. Commission et Paiement", body: `LID prélève une commission de ${commissionPercent}% sur chaque vente réalisée. Les sommes dues sont reversées dans un délai de 14 jours ouvrés après confirmation de la livraison, déduction faite de la commission et des frais de transaction Mobile Money ou bancaire, sur le compte fourni par le Vendeur.` },
   { title: "4. Résiliation", body: "Chaque partie peut résilier le contrat avec un préavis de 30 jours. En cas de manquement grave, LID se réserve le droit de suspendre le compte immédiatement." },
   { title: "5. Confidentialité", body: "Les parties s'engagent à garder confidentielles toutes les informations commerciales échangées." },
 ];
 
-function downloadContractPdf() {
+function downloadContractPdf(sections) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const marginX = 48;
   const maxWidth = 595 - marginX * 2;
@@ -292,7 +295,7 @@ function downloadContractPdf() {
   doc.setTextColor(20);
   y += 28;
 
-  for (const section of CONTRACT_SECTIONS) {
+  for (const section of sections) {
     if (y > 760) {
       doc.addPage();
       y = 64;
@@ -312,6 +315,9 @@ function downloadContractPdf() {
 }
 
 function PDFContractViewer({ onAccept, accepted }) {
+  const { data: appConfig } = useAppConfig();
+  const commissionPercent = getPartnerCommissionPercent(appConfig);
+  const contractSections = buildContractSections(commissionPercent);
   return (
     <div className="bg-neutral-50 rounded-2xl border border-neutral-200 overflow-hidden">
       <div className="bg-white border-b border-neutral-200 px-4 py-3 flex items-center justify-between">
@@ -321,7 +327,7 @@ function PDFContractViewer({ onAccept, accepted }) {
         </div>
         <button
           type="button"
-          onClick={downloadContractPdf}
+          onClick={() => downloadContractPdf(contractSections)}
           className="text-xs font-bold text-[#6aa200] hover:underline"
         >
           Télécharger PDF
@@ -331,7 +337,7 @@ function PDFContractViewer({ onAccept, accepted }) {
       {/* Contenu fictif pour démonstration — à remplacer par le vrai contrat de partenariat */}
       <div className="h-64 overflow-y-auto p-6 text-xs text-neutral-600 space-y-4 leading-relaxed font-serif bg-white">
         <p className="font-bold text-neutral-900 text-sm">CONDITIONS GÉNÉRALES DE PARTENARIAT - LID</p>
-        {CONTRACT_SECTIONS.map((section) => (
+        {contractSections.map((section) => (
           <p key={section.title}><strong>{section.title} :</strong> {section.body}</p>
         ))}
         <p className="italic text-neutral-400">... (Suite du contrat fictif pour démonstration) ...</p>

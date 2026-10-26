@@ -1,5 +1,4 @@
 import React from "react";
-// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import { ShieldCheck, Truck, RotateCcw, Headset, Wallet, Star, ArrowRight } from "lucide-react";
 // eslint-disable-next-line no-unused-vars

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, Send, User, MessageSquarePlus, ThumbsUp, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -7,7 +6,6 @@ import { getCurrentUserPayload, isAuthenticated } from '../services/authService'
 import { resolveBackendAssetUrl } from '../services/categoryService';
 import { deleteProductReview, listProductReviews, reportReview, toggleReviewLike, upsertProductReview } from '../services/reviewService';
 
-// eslint-disable-next-line no-unused-vars
 const ReviewSection = ({ productId }) => {
   const navigate = useNavigate();
   const [reviews, setReviews] = useState([]);

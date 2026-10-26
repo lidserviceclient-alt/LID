@@ -1,5 +1,4 @@
 import { useState } from "react";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import SubcategoryLeafList from "../shared/SubcategoryLeafList";
 import UniversGroupHeader from "../shared/UniversGroupHeader";

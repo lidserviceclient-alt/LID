@@ -28,7 +28,6 @@ export default function Layout() {
     bestSellerLimit: 12,
     latestLimit: 30,
     postsLimit: 100,
-    ticketsLimit: 100,
     partnersPage: 0,
     partnersSize: 100,
     page: 0,

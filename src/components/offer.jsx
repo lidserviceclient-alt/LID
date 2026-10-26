@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-// eslint-disable-next-line no-unused-vars
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { ArrowRight, TicketPercent, X } from "lucide-react";
 import { cn } from "@/utils/cn";
@@ -33,7 +32,6 @@ export default function Offer({ className, onClose, enableMotion = true }) {
       y: Math.random() * 100 - 50,
       duration: Math.random() * 10 + 10
     }));
-    // eslint-disable-next-line
     setParticles(newParticles);
   }, []); // Empty dependency array ensures this runs once on mount
 
@@ -131,8 +129,6 @@ export default function Offer({ className, onClose, enableMotion = true }) {
           isOpen={showCheckout} 
           onClose={() => setShowCheckout(false)} 
           product={offerProduct}
-          selectedColor={offerProduct?.color || "Noir"}
-          selectedSize={offerProduct?.sizes?.[0] || "42"}
           quantity={1}
         />
       </section>
@@ -260,8 +256,6 @@ export default function Offer({ className, onClose, enableMotion = true }) {
         isOpen={showCheckout} 
         onClose={() => setShowCheckout(false)} 
         product={offerProduct}
-        selectedColor={offerProduct?.color || "Noir"}
-        selectedSize={offerProduct?.sizes?.[0] || "42"}
         quantity={1}
       />
     </section>

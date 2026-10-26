@@ -31,8 +31,6 @@ const Help = lazy(() => import('./pages/Help.jsx'))
 const FAQ = lazy(() => import('./pages/FAQ.jsx'))
 const Terms = lazy(() => import('./pages/Terms.jsx'))
 const Privacy = lazy(() => import('./pages/Privacy.jsx'))
-const TicketCatalog = lazy(() => import('./pages/TicketCatalog.jsx'))
-const TicketDetails = lazy(() => import('./pages/TicketDetails.jsx'))
 const Blog = lazy(() => import('./pages/Blog.jsx'))
 const BlogDetails = lazy(() => import('./pages/BlogDetails.jsx'))
 const SellersList = lazy(() => import('./pages/SellersList.jsx'))
@@ -86,8 +84,6 @@ function App() {
             <Route path="shop" element={<Catalogue />} />
             <Route path="blog" element={<Blog />} />
             <Route path="blog/:id" element={<BlogDetails />} />
-            <Route path="tickets" element={<TicketCatalog />} />
-            <Route path="tickets/:id" element={<TicketDetails />} />
 
             {/**/} 
             <Route path="sellers" element={<SellersList />} />

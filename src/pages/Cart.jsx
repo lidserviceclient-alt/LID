@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import PageSEO from "@/components/PageSEO";
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { 
@@ -137,16 +136,13 @@ export default function Cart() {
         .map((item) => {
           const quantity = Number(item?.quantity) || 0;
           if (quantity <= 0) return null;
-          const itemType = `${item?.itemType || (item?.ticketEventId ? "TICKET" : "ARTICLE")}`.trim().toUpperCase();
+          const itemType = "ARTICLE";
           const referenceProduitPartenaire = item?.referenceProduitPartenaire || item?.referencePartenaire || item?.sku;
           const articleId = item?.articleId ?? toArticleId(item?.id);
-          const ticketEventId = item?.ticketEventId ?? (itemType === "TICKET" ? toArticleId(item?.id) : null);
           if (itemType === "ARTICLE" && !articleId && !referenceProduitPartenaire) return null;
-          if (itemType === "TICKET" && !ticketEventId) return null;
           return {
             itemType,
             articleId: itemType === "ARTICLE" ? articleId ?? undefined : undefined,
-            ticketEventId: itemType === "TICKET" ? ticketEventId ?? undefined : undefined,
             referenceProduitPartenaire: itemType === "ARTICLE" ? referenceProduitPartenaire ?? undefined : undefined,
             quantity
           };
@@ -261,16 +257,13 @@ export default function Cart() {
           .map((item) => {
             const quantity = Number(item?.quantity) || 0;
             if (quantity <= 0) return null;
-            const itemType = `${item?.itemType || (item?.ticketEventId ? "TICKET" : "ARTICLE")}`.trim().toUpperCase();
+            const itemType = "ARTICLE";
             const referenceProduitPartenaire = item?.referenceProduitPartenaire || item?.referencePartenaire || item?.sku;
             const articleId = item?.articleId ?? toArticleId(item?.id);
-            const ticketEventId = item?.ticketEventId ?? (itemType === "TICKET" ? toArticleId(item?.id) : null);
             if (itemType === "ARTICLE" && !articleId && !referenceProduitPartenaire) return null;
-            if (itemType === "TICKET" && !ticketEventId) return null;
             return {
               itemType,
               articleId: itemType === "ARTICLE" ? articleId ?? undefined : undefined,
-              ticketEventId: itemType === "TICKET" ? ticketEventId ?? undefined : undefined,
               referenceProduitPartenaire: itemType === "ARTICLE" ? referenceProduitPartenaire ?? undefined : undefined,
               quantity
             };
@@ -412,12 +405,9 @@ export default function Cart() {
                 <AnimatePresence>
                   {cartItems.map((item) => (
                     (() => {
-                      const isTicket = `${item?.itemType || ""}`.trim().toUpperCase() === "TICKET" || Number(item?.ticketEventId) > 0;
-                      const detailId = isTicket ? (item?.ticketEventId ?? item?.id) : (item?.articleId ?? item?.id);
-                      const detailPath = `${isTicket ? "/tickets" : "/product"}/${detailId}`;
-                      const imageSrc = isTicket
-                        ? resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/wall-1.jpg"
-                        : resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png";
+                      const detailId = item?.articleId ?? item?.id;
+                      const detailPath = `/product/${detailId}`;
+                      const imageSrc = resolveBackendAssetUrl(item?.image || item?.imageUrl) || "/imgs/logo.png";
                       return (
                     <motion.div 
                       key={`${item.itemType || "ARTICLE"}-${item.id}-${item.color}-${item.size}`}
@@ -431,18 +421,18 @@ export default function Cart() {
                         <Link
                           to={detailPath}
                           className={`w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer ${
-                            isTicket ? "bg-neutral-900 dark:bg-black p-0" : "bg-neutral-100 dark:bg-neutral-800 p-2"
+                            "bg-neutral-100 dark:bg-neutral-800 p-2"
                           }`}
                         >
                           <img 
                             src={imageSrc}
                             alt={item.name} 
                             className={`w-full h-full transition-transform duration-500 group-hover:scale-105 ${
-                              isTicket ? "object-cover" : "object-contain mix-blend-multiply dark:mix-blend-normal"
+                              "object-contain mix-blend-multiply dark:mix-blend-normal"
                             }`}
                             onError={(e) => {
                               e.currentTarget.onerror = null;
-                              e.currentTarget.src = isTicket ? "/imgs/wall-1.jpg" : "/imgs/logo.png";
+                              e.currentTarget.src = "/imgs/logo.png";
                             }}
                           />
                         </Link>
@@ -451,15 +441,12 @@ export default function Cart() {
                             <h3 className="font-bold text-neutral-900 dark:text-white text-base md:text-lg mb-1 hover:text-orange-600 transition-colors cursor-pointer line-clamp-1 md:line-clamp-none">
                               <Link to={detailPath}>{item.name}</Link>
                             </h3>
-                            <p className="text-sm text-neutral-500 dark:text-neutral-400">{isTicket ? "Billetterie LID" : item.brand}</p>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                              {item.sellerName && item.sellerName !== "LID" ? `Vendu par ${item.sellerName}` : "Vendu et expédié par LID"}
+                              {item.brand ? ` • ${item.brand}` : ""}
+                            </p>
                           </div>
                           <div className="flex items-center gap-3 text-sm text-neutral-500">
-                            {isTicket ? (
-                              <span className="px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-xs uppercase font-medium">
-                                Ticket
-                              </span>
-                            ) : (
-                              <>
                             <span className="px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-xs uppercase font-medium">
                               {item.size || "TU"}
                             </span>
@@ -467,8 +454,6 @@ export default function Cart() {
                               <span className="w-3 h-3 rounded-full border border-neutral-200 shadow-sm" style={{ backgroundColor: item.hex || item.color }}></span>
                               <span className="hidden md:inline">{item.color}</span>
                             </span>
-                              </>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -494,7 +479,6 @@ export default function Cart() {
                           <button
                             onClick={() => updateQuantity(item.id, item.color, item.size, 1)}
                             className="w-8 h-8 flex items-center justify-center hover:bg-white dark:hover:bg-neutral-700 rounded-full text-neutral-600 dark:text-neutral-300 transition-colors shadow-sm disabled:opacity-50"
-                            disabled={isTicket && Number(item?.quantityAvailable) > 0 && Number(item.quantity) >= Number(item.quantityAvailable)}
                           >
                             <Plus className="w-3 h-3" />
                           </button>
@@ -726,7 +710,6 @@ export default function Cart() {
         shippingMethodLabel={selectedShippingMethod?.label || "Standard"}
         discountAmount={discountAmount}
         loyaltyDiscountAmount={loyaltyDiscountAmount}
-        loyaltyTier={loyaltyPricing?.applied ? loyaltyPricing?.tier : ""}
         promoCode={appliedPromo?.code || ""}
       />
     </div>

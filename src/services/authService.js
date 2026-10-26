@@ -172,10 +172,10 @@ export const requestPasswordReset = async (email) => {
   return data;
 };
 
-export const verifyPasswordResetCode = async (code) => {
-  await api.post('/api/v1/auth/password/verify', { code });
+export const verifyPasswordResetCode = async (email, code) => {
+  await api.post('/api/v1/auth/password/verify', { email, code });
 };
 
-export const resetPasswordWithCode = async ({ code, newPassword }) => {
-  await api.post('/api/v1/auth/password/reset', { code, newPassword });
+export const resetPasswordWithCode = async ({ email, code, newPassword }) => {
+  await api.post('/api/v1/auth/password/reset', { email, code, newPassword });
 };
