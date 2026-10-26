@@ -1,4 +1,3 @@
-// eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from "framer-motion";
 
 export default function StickyBuyBar({ visible, product, imageSrc, variantLabel, onAddToCart, onBuyNow }) {

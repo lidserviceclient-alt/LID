@@ -24,6 +24,13 @@ export default {
           green: '#008011',
           orange: '#D4801F',
           violet: '#6D28D9',
+          // Accent de marque (vert du site) réservé aux actions principales de la fiche produit.
+          // `accent-strong` sert de fond aux boutons : contraste AA (≈ 4,6:1) avec un texte blanc.
+          accent: '#6aa200',
+          'accent-strong': '#558200',
+          'accent-deep': '#446608',
+          'accent-soft': '#f5fce8',
+          amber: '#B45309',
         },
         orange: {
           50: '#f5fce8',

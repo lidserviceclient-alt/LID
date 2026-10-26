@@ -1,5 +1,4 @@
 import { useState } from "react";
-// eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown, ChevronRight, Coins, Info, MapPin, Sparkles, Store, Truck } from "lucide-react";
 
@@ -30,16 +29,6 @@ export function PriceBlock({ pricing }) {
           {pricing.financingProvider} <button type="button" className="underline">En savoir plus</button>
         </p>
       ) : null}
-    </div>
-  );
-}
-
-export function PriceBlockLive({ price }) {
-  return (
-    <div className="flex items-baseline flex-wrap gap-4">
-      <span className="text-[32px] font-bold leading-[32px] text-pdp-ink">
-        {price.toLocaleString()} <span className="text-base font-semibold">FCFA</span>
-      </span>
     </div>
   );
 }
@@ -179,7 +168,6 @@ export function BuyButtons({ outOfStock, onBuyNow, onAddToCart }) {
   );
 }
 
-// eslint-disable-next-line no-unused-vars
 function DeliveryColumn({ icon: Icon, data }) {
   return (
     <div className="flex-1">
@@ -233,52 +221,6 @@ export function DeliveryCard({ delivery }) {
             </span>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-export function DeliveryCardLive({ city, zip, methods, selectedCode, onSelect }) {
-  if (!methods?.length) return null;
-  return (
-    <div>
-      <div className="flex items-center justify-between">
-        <h2 className="text-[24px] font-semibold leading-[32px] text-pdp-ink">Livraison et promesses</h2>
-      </div>
-      <div className="bg-pdp-surface rounded-lg p-4 mt-4">
-        {city ? (
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-base font-medium text-pdp-ink flex items-center gap-1.5">
-              <MapPin size={16} /> Livrer à : <span className="uppercase">{city}</span> {zip}
-            </span>
-          </div>
-        ) : null}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {methods.map((m) => {
-            const isSelected = selectedCode === m.code;
-            return (
-              <button
-                key={m.code}
-                type="button"
-                onClick={() => onSelect(m.code)}
-                className={`rounded-lg border p-3 text-left bg-white transition-all ${
-                  isSelected ? "border-pdp-red" : "border-pdp-line-2 hover:border-pdp-ink"
-                }`}
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <span className={`text-sm font-bold flex items-center gap-1.5 ${isSelected ? "text-pdp-red" : "text-pdp-ink"}`}>
-                    <Truck size={14} /> {m.label}
-                  </span>
-                  {isSelected ? <Check size={16} className="text-pdp-red" /> : null}
-                </div>
-                <p className="text-xs text-pdp-gray-700 mb-1">{m.description || "-"}</p>
-                <p className="text-xs font-bold text-pdp-ink">
-                  {m.freeApplied ? <span className="text-pdp-green">GRATUIT</span> : `${m.costAmount.toLocaleString()} FCFA`}
-                </p>
-              </button>
-            );
-          })}
-        </div>
       </div>
     </div>
   );

@@ -15,6 +15,13 @@ export const pdpColors = {
   orange: "#D4801F",
   violet: "#6D28D9",
   white: "#FFFFFF",
+  // Fiche produit réelle (/product/:id) : vert du site réservé aux actions principales,
+  // rouge limité aux remises et aux erreurs.
+  accent: "#6aa200",
+  accentStrong: "#558200",
+  accentDeep: "#446608",
+  accentSoft: "#f5fce8",
+  amber: "#B45309",
 };
 
 export const pdpRadius = {
