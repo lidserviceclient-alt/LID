@@ -5,10 +5,22 @@ on:
     branches:
       - backoffice
   workflow_dispatch:
+    inputs:
+      target:
+        description: "Site Firebase cible (staging = lidback-staging, production = lidback)"
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
 
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
+    env:
+      # Un push sur la branche `backoffice` déploie en production ; un lancement manuel choisit la cible
+      DEPLOY_TARGET: ${{ inputs.target || 'production' }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -17,7 +29,12 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: |
+          if [ "${DEPLOY_TARGET}" = "staging" ]; then
+            npm run build:staging
+          else
+            npm run build
+          fi
 
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -26,5 +43,6 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_LID_SHOP }}'
           channelId: live
           projectId: lid-shop
-          target: lidback
+          # Noms des cibles de firebase.json (production -> lidback, staging -> lidback-staging, voir .firebaserc)
+          target: ${{ env.DEPLOY_TARGET }}
           entryPoint: .
