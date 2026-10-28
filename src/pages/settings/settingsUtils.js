@@ -1,8 +1,11 @@
+// Suggestions proposées UNIQUEMENT dans le formulaire d'ajout : jamais affichées comme modalités existantes
+// (la base est la seule source de vérité).
 export const SHIPPING_METHOD_PRESETS = {
   STANDARD: {
     code: "STANDARD",
-    label: "Standard",
+    label: "Livraison standard",
     description: "3-5 jours ouvrables",
+    costAmount: 3250,
     sortOrder: 0,
     leadTimeUnit: "DAYS",
     leadTimeMin: 3,
@@ -10,8 +13,9 @@ export const SHIPPING_METHOD_PRESETS = {
   },
   EXPRESS: {
     code: "EXPRESS",
-    label: "Express",
+    label: "Livraison express",
     description: "24-48h",
+    costAmount: 5000,
     sortOrder: 1,
     leadTimeUnit: "HOURS",
     leadTimeMin: 24,
@@ -25,7 +29,7 @@ export const buildShippingMethodForm = (code = "STANDARD", overrides = {}) => {
     code: preset.code,
     label: preset.label,
     description: preset.description,
-    costAmount: "3250",
+    costAmount: `${preset.costAmount}`,
     leadTimeUnit: preset.leadTimeUnit,
     leadTimeMin: `${preset.leadTimeMin}`,
     leadTimeMax: `${preset.leadTimeMax}`,

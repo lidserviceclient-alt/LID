@@ -17,6 +17,15 @@ export function useShippingMethods() {
   const [shippingMethodTogglingId, setShippingMethodTogglingId] = useState("");
   const [shippingMethodDefaultId, setShippingMethodDefaultId] = useState("");
 
+  // Codes préréglés pas encore présents dans la liste (suggestions du formulaire d'ajout).
+  const usedCodes = new Set(shippingMethods.map((m) => `${m?.code ?? ""}`.trim().toUpperCase()));
+  const availablePresetCodes = Object.keys(SHIPPING_METHOD_PRESETS).filter((c) => !usedCodes.has(c));
+  const typedCode = `${shippingMethodForm.code || ""}`.trim().toUpperCase();
+  const shippingMethodCodeError =
+    !shippingMethodEditTarget?.id && typedCode && usedCodes.has(typedCode)
+      ? `Une modalité avec le code ${typedCode} existe déjà.`
+      : "";
+
   useSettingsSeed("shippingMethods", {
     apply: (list) => setShippingMethods(Array.isArray(list) ? list : []),
     setLoading: setShippingMethodsLoading,
@@ -43,7 +52,23 @@ export function useShippingMethods() {
     setShippingMethodsError("");
     setShippingMethodsSuccess("");
     setShippingMethodEditTarget(null);
-    setShippingMethodForm(buildShippingMethodForm("STANDARD"));
+    const firstFree = availablePresetCodes[0];
+    setShippingMethodForm(
+      firstFree
+        ? buildShippingMethodForm(firstFree)
+        : {
+            code: "",
+            label: "",
+            description: "",
+            costAmount: "",
+            leadTimeUnit: "DAYS",
+            leadTimeMin: "1",
+            leadTimeMax: "3",
+            enabled: true,
+            isDefault: false,
+            sortOrder: `${shippingMethods.length}`
+          }
+    );
     setShippingMethodModalOpen(true);
   };
 
@@ -51,16 +76,19 @@ export function useShippingMethods() {
     setShippingMethodsError("");
     setShippingMethodsSuccess("");
     setShippingMethodEditTarget(m);
-    setShippingMethodForm(buildShippingMethodForm(m?.code || "STANDARD", {
+    // Édition : uniquement les valeurs de la base (aucun préréglage).
+    setShippingMethodForm({
+      code: `${m?.code ?? ""}`,
+      label: `${m?.label ?? ""}`,
       description: m?.description || "",
       costAmount: `${m?.costAmount ?? ""}`,
-      leadTimeUnit: m?.leadTimeUnit || SHIPPING_METHOD_PRESETS[m?.code || "STANDARD"]?.leadTimeUnit || "DAYS",
-      leadTimeMin: `${m?.leadTimeMin ?? SHIPPING_METHOD_PRESETS[m?.code || "STANDARD"]?.leadTimeMin ?? 0}`,
-      leadTimeMax: `${m?.leadTimeMax ?? SHIPPING_METHOD_PRESETS[m?.code || "STANDARD"]?.leadTimeMax ?? 0}`,
+      leadTimeUnit: m?.leadTimeUnit || "DAYS",
+      leadTimeMin: `${m?.leadTimeMin ?? 0}`,
+      leadTimeMax: `${m?.leadTimeMax ?? 0}`,
       enabled: Boolean(m?.enabled),
       isDefault: Boolean(m?.isDefault),
-      sortOrder: `${m?.sortOrder ?? SHIPPING_METHOD_PRESETS[m?.code || "STANDARD"]?.sortOrder ?? 0}`
-    }));
+      sortOrder: `${m?.sortOrder ?? 0}`
+    });
     setShippingMethodModalOpen(true);
   };
 
@@ -72,14 +100,15 @@ export function useShippingMethods() {
 
   const changeShippingMethodCode = (nextCode) => {
     setShippingMethodForm((s) => {
-      const preset = SHIPPING_METHOD_PRESETS[nextCode] || SHIPPING_METHOD_PRESETS.STANDARD;
+      const preset = SHIPPING_METHOD_PRESETS[nextCode];
+      // Code libre : aucun préréglage à appliquer
+      if (!preset) return { ...s, code: nextCode };
       return {
         ...s,
         code: preset.code,
         label: preset.label,
-        description: s.description === s.label || s.description === SHIPPING_METHOD_PRESETS[s.code]?.description
-          ? preset.description
-          : s.description,
+        description: preset.description,
+        costAmount: `${preset.costAmount}`,
         leadTimeUnit: preset.leadTimeUnit,
         leadTimeMin: `${preset.leadTimeMin}`,
         leadTimeMax: `${preset.leadTimeMax}`,
@@ -111,10 +140,19 @@ export function useShippingMethods() {
         return;
       }
       const sortOrder = `${shippingMethodForm.sortOrder || ""}`.trim() === "" ? 0 : Number(shippingMethodForm.sortOrder);
-      const preset = SHIPPING_METHOD_PRESETS[shippingMethodForm.code] || SHIPPING_METHOD_PRESETS.STANDARD;
+      const code = `${shippingMethodForm.code || ""}`.trim().toUpperCase();
+      const label = `${shippingMethodForm.label || ""}`.trim();
+      if (!code || !label) {
+        setShippingMethodsError("Code et libellé requis.");
+        return;
+      }
+      if (shippingMethodCodeError) {
+        setShippingMethodsError(shippingMethodCodeError);
+        return;
+      }
       const payload = {
-        code: preset.code,
-        label: preset.label,
+        code,
+        label,
         description: `${shippingMethodForm.description || ""}`.trim() || null,
         costAmount: cost,
         leadTimeUnit: shippingMethodForm.leadTimeUnit || "DAYS",
@@ -212,6 +250,8 @@ export function useShippingMethods() {
     shippingMethodDeletingId,
     shippingMethodTogglingId,
     shippingMethodDefaultId,
+    availablePresetCodes,
+    shippingMethodCodeError,
     loadShippingMethods,
     openCreateShippingMethod,
     openEditShippingMethod,

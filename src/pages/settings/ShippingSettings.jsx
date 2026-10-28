@@ -36,6 +36,8 @@ function ShippingMethodsCard() {
     shippingMethodDeletingId,
     shippingMethodTogglingId,
     shippingMethodDefaultId,
+    availablePresetCodes,
+    shippingMethodCodeError,
     loadShippingMethods,
     openCreateShippingMethod,
     openEditShippingMethod,
@@ -52,7 +54,7 @@ function ShippingMethodsCard() {
   return (
     <SettingsCard
       title="Modalités de livraison"
-      description="Standard et Express : prix, délai, activation et mode proposé par défaut au client."
+      description="Prix, délai, activation et mode proposé par défaut au client."
       actions={
         <ListActions
           onRefresh={loadShippingMethods}
@@ -66,7 +68,14 @@ function ShippingMethodsCard() {
       <SettingsList
         items={shippingMethods}
         loading={shippingMethodsLoading}
-        emptyLabel="Aucune modalité."
+        emptyLabel={
+          <div className="flex flex-col items-center gap-3">
+            <span>Aucune modalité de livraison : ajoutez-en une.</span>
+            <Button type="button" size="sm" onClick={openCreateShippingMethod}>
+              Ajouter
+            </Button>
+          </div>
+        }
         renderItem={(m) => (
           <SettingsListItem
             key={m.id}
@@ -129,7 +138,9 @@ function ShippingMethodsCard() {
               form="shipping-method-form"
               disabled={
                 shippingMethodSaving ||
+                Boolean(shippingMethodCodeError) ||
                 !`${shippingMethodForm.code || ""}`.trim() ||
+                !`${shippingMethodForm.label || ""}`.trim() ||
                 `${shippingMethodForm.costAmount || ""}`.trim() === ""
               }
             >
@@ -140,19 +151,38 @@ function ShippingMethodsCard() {
       >
         <form id="shipping-method-form" onSubmit={submitShippingMethod} className="grid gap-3">
           <SettingsStatus error={shippingMethodsError} />
-          <SettingsField id="sm-code" label="Type de livraison">
-            <Select
-              id="sm-code"
-              value={shippingMethodForm.code}
-              onChange={(e) => changeShippingMethodCode(e.target.value)}
-              options={[
-                { value: "STANDARD", label: "Standard" },
-                { value: "EXPRESS", label: "Express" }
-              ]}
-            />
+          <SettingsField
+            id="sm-code"
+            label="Code"
+            error={shippingMethodCodeError}
+            hint={shippingMethodEditTarget?.id ? "Le code ne peut pas être modifié." : "STANDARD est offert au-delà du seuil de livraison gratuite."}
+          >
+            {shippingMethodEditTarget?.id ? (
+              <Input id="sm-code" value={shippingMethodForm.code} disabled />
+            ) : (
+              <>
+                <Input
+                  id="sm-code"
+                  placeholder="Ex: STANDARD"
+                  list="sm-code-suggestions"
+                  value={shippingMethodForm.code}
+                  onChange={(e) => changeShippingMethodCode(e.target.value.toUpperCase())}
+                />
+                <datalist id="sm-code-suggestions">
+                  {availablePresetCodes.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </>
+            )}
           </SettingsField>
-          <SettingsField id="sm-label" label="Libellé" hint="Déduit du type de livraison.">
-            <Input id="sm-label" placeholder="Libellé" value={shippingMethodForm.label} disabled />
+          <SettingsField id="sm-label" label="Libellé">
+            <Input
+              id="sm-label"
+              placeholder="Libellé"
+              value={shippingMethodForm.label}
+              onChange={(e) => setShippingMethodForm((s) => ({ ...s, label: e.target.value }))}
+            />
           </SettingsField>
           <SettingsField id="sm-description" label="Description">
             <Input

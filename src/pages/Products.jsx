@@ -109,7 +109,7 @@ export default function Products() {
     setLoading(true);
     setError("");
     try {
-      const data = await backofficeApi.productCollection(page, pageSize);
+      const data = await backofficeApi.productCollection(page, pageSize, statusFilter);
       setCategories(Array.isArray(data?.categories) ? data.categories : []);
       setProductsPage(data?.productsPage || null);
       setProducts(Array.isArray(data?.productsPage?.content) ? data.productsPage.content : []);
@@ -122,7 +122,7 @@ export default function Products() {
 
   useEffect(() => {
     reload();
-  }, [page]);
+  }, [page, statusFilter]);
 
   const hasActiveAdvancedFilters = useMemo(() => {
     const f = advancedFilters || DEFAULT_ADVANCED_FILTERS;
@@ -147,6 +147,7 @@ export default function Products() {
     setSearchQuery("");
     setCategoryFilter("");
     setStatusFilter("");
+    setPage(0);
     setAdvancedFilters(DEFAULT_ADVANCED_FILTERS);
     setSelectedIds(new Set());
   };
@@ -179,7 +180,7 @@ export default function Products() {
         id.includes(searchQuery.toLowerCase());
       
       const matchesCategory = !categoryFilter || product.categoryId === categoryFilter;
-      const matchesStatus = statusFilter ? product.status === statusFilter : product.status !== "ARCHIVE";
+      const matchesStatus = !statusFilter || product.status === statusFilter;
 
       if (!(matchesSearch && matchesCategory && matchesStatus)) return false;
 
@@ -439,7 +440,7 @@ export default function Products() {
 
   // --- Statistics ---
   const stats = useMemo(() => {
-    const base = products.filter((p) => p?.status !== "ARCHIVE");
+    const base = products;
     const totalSKU = base.length;
     const lowStock = base.filter(p => Number(p?.stock || 0) < 10).length;
     const activeProducts = base.filter(p => p?.status === "ACTIF").length;
@@ -634,7 +635,7 @@ export default function Products() {
             />
             <Select 
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
               className="bg-background w-full md:w-40"
               options={[
                 { value: "", label: "Tous statuts" },

@@ -6,7 +6,7 @@ import { cn } from "../../../utils/cn.js";
  * relié au contrôle par aria-describedby. Sans `id` (contrôle composite comme PhoneNumberField),
  * le libellé est un simple intitulé de groupe.
  */
-export default function SettingsField({ id, label, hint, children, className }) {
+export default function SettingsField({ id, label, hint, error, children, className }) {
   const hintId = hint && id ? `${id}-hint` : undefined;
   const control =
     hintId && isValidElement(children) ? cloneElement(children, { "aria-describedby": hintId }) : children;
@@ -21,6 +21,11 @@ export default function SettingsField({ id, label, hint, children, className }) 
         <div className={labelClassName}>{label}</div>
       )}
       {control}
+      {error ? (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
       {hint ? (
         <p id={hintId} className="text-xs text-muted-foreground/80">
           {hint}
