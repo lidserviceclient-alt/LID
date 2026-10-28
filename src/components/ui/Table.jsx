@@ -16,9 +16,10 @@ export function THead({ children }) {
   );
 }
 
-export function TRow({ children, className }) {
+export function TRow({ children, className, ...props }) {
   return (
-    <tr 
+    <tr
+      {...props}
       className={cn(
         "border-b border-border transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted", 
         className

@@ -1,402 +1,88 @@
-import { useEffect, useMemo, useState } from "react";
-import { Download, Filter, Plus, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChevronRight, Download, Plus, RefreshCcw, Search } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
-import Badge from "../components/ui/Badge.jsx";
 import Button from "../components/ui/Button.jsx";
 import Input from "../components/ui/Input.jsx";
 import Select from "../components/ui/Select.jsx";
-import Modal from "../components/ui/Modal.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
+import CreateOrderModal from "../components/orders/CreateOrderModal.jsx";
+import {
+  ORDER_STATUSES,
+  PaymentBadge,
+  SHIPMENT_LABELS,
+  StatusBadge,
+  formatCurrency,
+  formatDate,
+  statusLabel
+} from "../components/orders/orderUtils.jsx";
 import { backofficeApi } from "../services/api.js";
 
-const formatCurrency = (value) => {
-  if (value === null || value === undefined) return "-";
-  const num = Number(value);
-  if (Number.isNaN(num)) return `${value}`;
-  return `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(num))} FCFA`;
-};
-
-const formatDate = (value) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(date);
-};
-
-const mapStatus = (status) => {
-  if (!status) return "-";
-  switch (status) {
-    case "CREEE":
-      return "Nouvelle";
-    case "PAYEE":
-      return "Payée";
-    case "EXPEDIEE":
-      return "Expédiée";
-    case "LIVREE":
-      return "Livrée";
-    case "ANNULEE":
-      return "Annulée";
-    case "REMBOURSEE":
-      return "Remboursée";
-    default:
-      return status;
-  }
-};
-
-// Statut reel de la commande (9 valeurs) : le libelle reduit ci-dessus perd de l'information
-const REAL_STATUS_LABELS = {
-  PENDING: "En attente de paiement",
-  PAID: "Payée",
-  PROCESSING: "En préparation",
-  READY_TO_DELIVER: "Prête à livrer",
-  DELIVERY_IN_PROGRESS: "En cours de livraison",
-  DELIVERY_FAILED: "Livraison échouée",
-  DELIVERED: "Livrée",
-  CANCELED: "Annulée",
-  REFUNDED: "Remboursée"
-};
-
-const mapShipmentStatus = (status) => {
-  if (!status) return "-";
-  switch (status) {
-    case "EN_PREPARATION":
-      return "En préparation";
-    case "EN_COURS":
-      return "Remis au livreur";
-    case "LIVREE":
-      return "Livrée";
-    case "ECHEC":
-      return "Échec";
-    default:
-      return status;
-  }
-};
-
-const statusMapping = {
-  Toutes: "",
-  Nouvelles: "CREEE",
-  Payées: "PAYEE",
-  "Expédiées": "EXPEDIEE",
-  "Livrées": "LIVREE",
-  Annulées: "ANNULEE",
-  Remboursées: "REMBOURSEE"
-};
-
 export default function Orders() {
+  const navigate = useNavigate();
   const [ordersPage, setOrdersPage] = useState(null);
-  const [activeStatus, setActiveStatus] = useState("Toutes");
+  const [counts, setCounts] = useState({});
+  const [activeStatus, setActiveStatus] = useState("");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(20);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [courierModalOpen, setCourierModalOpen] = useState(false);
-  const [courierLoading, setCourierLoading] = useState(false);
-  const [courierError, setCourierError] = useState("");
-  const [courierDetail, setCourierDetail] = useState(null);
-  const [courierFallback, setCourierFallback] = useState(null);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [createSaving, setCreateSaving] = useState(false);
-  const [createError, setCreateError] = useState("");
-  const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [createForm, setCreateForm] = useState({
-    customerId: "",
-    promoCode: "",
-    lines: [{ productId: "", quantity: 1 }]
-  });
-  const [quote, setQuote] = useState({
-    subTotal: 0,
-    discountAmount: 0,
-    total: 0,
-    promoApplied: false,
-    promoCode: "",
-    promoMessage: ""
-  });
-  const [quoteLoading, setQuoteLoading] = useState(false);
-  const [quoteError, setQuoteError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    const status = statusMapping[activeStatus] || "";
     let cancelled = false;
     setLoading(true);
     setError("");
-
     const timer = setTimeout(() => {
       backofficeApi
-        .orders(page, size, status, q.trim())
-        .then((data) => {
-          if (cancelled) return;
-          setOrdersPage(data);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          setError(err?.message || "Impossible de charger les commandes.");
-        })
-        .finally(() => {
-          if (cancelled) return;
-          setLoading(false);
-        });
+        .orders(page, size, "", q.trim(), activeStatus)
+        .then((data) => !cancelled && setOrdersPage(data))
+        .catch((err) => !cancelled && setError(err?.message || "Impossible de charger les commandes."))
+        .finally(() => !cancelled && setLoading(false));
     }, 250);
-
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [activeStatus, page, q, size]);
-
-  const rows = useMemo(() => {
-    const list = Array.isArray(ordersPage?.content) ? ordersPage.content : [];
-    return list.map((order) => ({
-      id: order.orderNumber || order.id,
-      rawId: order.id,
-      orderNumber: order.orderNumber || null,
-      customer: order.customer,
-      items: order.items,
-      channel: "Backoffice",
-      total: formatCurrency(order.total),
-      status: REAL_STATUS_LABELS[order.currentStatus] || mapStatus(order.status),
-      rawStatus: order.status,
-      shipmentStatus: mapShipmentStatus(order.shipmentStatus),
-      courierReference: order.courierReference || "-",
-      courierName: order.courierName || "",
-      courierPhone: order.courierPhone || "",
-      courierUser: order.courierUser || "",
-      courierScannedAt: order.courierScannedAt || null,
-      date: formatDate(order.dateCreation)
-    }));
-  }, [ordersPage]);
-
-  const meta = useMemo(() => {
-    const totalPages = Number.isFinite(ordersPage?.totalPages) ? ordersPage.totalPages : 1;
-    const totalElements = Number.isFinite(ordersPage?.totalElements) ? ordersPage.totalElements : 0;
-    return { totalPages, totalElements };
-  }, [ordersPage]);
-
-  const tags = ["Toutes", "Nouvelles", "Payées", "Expédiées", "Livrées", "Annulées", "Remboursées"];
-
-  const productIndex = useMemo(() => {
-    const map = new Map();
-    (products || []).forEach((p) => {
-      if (p?.id) map.set(p.id, p);
-    });
-    return map;
-  }, [products]);
-
-  const createTotal = useMemo(() => {
-    return (createForm.lines || []).reduce((sum, line) => {
-      const qty = Number(line.quantity);
-      if (!Number.isFinite(qty) || qty <= 0) return sum;
-      const p = productIndex.get(line.productId);
-      const price = p?.price !== undefined ? Number(p.price) : 0;
-      if (!Number.isFinite(price) || price < 0) return sum;
-      return sum + price * qty;
-    }, 0);
-  }, [createForm.lines, productIndex]);
-
-  const cleanedLinesForRequest = useMemo(() => {
-    return (createForm.lines || [])
-      .map((l) => ({ productId: l.productId, quantity: Number(l.quantity) }))
-      .filter((l) => l.productId && Number.isFinite(l.quantity) && l.quantity > 0)
-      .map((l) => ({ ...l, quantity: Math.trunc(l.quantity) }));
-  }, [createForm.lines]);
-
-  const openCourier = async (order) => {
-    const fallback = {
-      courierReference: order?.courierReference || "-",
-      courierName: order?.courierName || "",
-      courierPhone: order?.courierPhone || "",
-      courierUser: order?.courierUser || "",
-      courierScannedAt: order?.courierScannedAt || null,
-    };
-    setCourierFallback(fallback);
-    setCourierDetail(null);
-    setCourierError("");
-    setCourierLoading(true);
-    setCourierModalOpen(true);
-
-    const key = `${fallback.courierUser || fallback.courierReference || ""}`.trim();
-    if (!key || key === "-") {
-      setCourierLoading(false);
-      return;
-    }
-
-    try {
-      const direct = await backofficeApi.user(key);
-      if (direct?.id) {
-        setCourierDetail(direct);
-        return;
-      }
-    } catch {}
-
-    try {
-      const rolesToTry = ["LIVREUR", ""];
-      for (const role of rolesToTry) {
-        const pageResult = await backofficeApi.users(0, 20, role, key);
-        const list = Array.isArray(pageResult?.content) ? pageResult.content : [];
-        const match = list.find((u) => u?.id === key || `${u?.email || ""}`.trim().toLowerCase() === key.toLowerCase());
-        const picked = match || list[0];
-        if (picked?.id) {
-          setCourierDetail(picked);
-          return;
-        }
-      }
-    } catch (e) {
-      setCourierError(e?.message || "Impossible de charger les infos du livreur.");
-    } finally {
-      setCourierLoading(false);
-    }
-  };
-
-  async function ensureCreateData() {
-    if (customers.length > 0 && products.length > 0) {
-      return;
-    }
-    const data = await backofficeApi.orderCreateBootstrap(0, 50, 0, 200).catch(() => null);
-    setCustomers(Array.isArray(data?.customers) ? data.customers : []);
-    setProducts(Array.isArray(data?.products) ? data.products : []);
-  }
-
-  async function openCreateModal() {
-    setCreateError("");
-    setIsCreateOpen(true);
-    await ensureCreateData();
-  }
-
-  function closeCreateModal() {
-    if (createSaving) return;
-    setIsCreateOpen(false);
-    setCreateError("");
-  }
-
-  async function submitCreateOrder() {
-    if (!createForm.customerId) {
-      setCreateError("Sélectionne un client.");
-      return;
-    }
-    if (!Array.isArray(createForm.lines) || createForm.lines.length === 0) {
-      setCreateError("Ajoute au moins une ligne.");
-      return;
-    }
-    if (cleanedLinesForRequest.length === 0) {
-      setCreateError("Sélectionne au moins un produit avec une quantité valide.");
-      return;
-    }
-
-    const promoCode = createForm.promoCode ? createForm.promoCode.trim() : "";
-    if (promoCode && !quoteLoading && quote && quote.promoApplied === false) {
-      setCreateError(quote.promoMessage || "Code promo invalide.");
-      return;
-    }
-
-    setCreateSaving(true);
-    setCreateError("");
-    try {
-      await backofficeApi.createOrder({
-        customerId: createForm.customerId,
-        promoCode: promoCode || undefined,
-        lines: cleanedLinesForRequest
-      });
-      setIsCreateOpen(false);
-      setCreateForm({ customerId: "", promoCode: "", lines: [{ productId: "", quantity: 1 }] });
-      const status = statusMapping[activeStatus] || "";
-      const data = await backofficeApi.orders(0, size, status, q.trim());
-      setOrdersPage(data);
-      setPage(0);
-    } catch (err) {
-      setCreateError(err?.message || "Impossible de créer la commande.");
-    } finally {
-      setCreateSaving(false);
-    }
-  }
+  }, [activeStatus, page, q, size, reloadKey]);
 
   useEffect(() => {
-    if (!isCreateOpen) return;
-    const customerId = createForm.customerId;
-    const promoCode = createForm.promoCode ? createForm.promoCode.trim() : "";
+    backofficeApi
+      .orderStatusCounts()
+      .then((data) => setCounts(data || {}))
+      .catch(() => setCounts({}));
+  }, [reloadKey]);
 
-    setQuoteError("");
-    setQuoteLoading(false);
+  const rows = useMemo(() => (Array.isArray(ordersPage?.content) ? ordersPage.content : []), [ordersPage]);
+  const totalPages = Number.isFinite(ordersPage?.totalPages) ? Math.max(1, ordersPage.totalPages) : 1;
+  const totalElements = Number.isFinite(ordersPage?.totalElements) ? ordersPage.totalElements : 0;
 
-    const fallback = {
-      subTotal: createTotal,
-      discountAmount: 0,
-      total: createTotal,
-      promoApplied: false,
-      promoCode: promoCode || "",
-      promoMessage: promoCode ? "Code promo non appliqué" : ""
-    };
+  const tabs = useMemo(
+    () => [{ value: "", short: "Toutes" }, ...ORDER_STATUSES].map((t) => ({ ...t, count: counts[t.value || "ALL"] })),
+    [counts]
+  );
 
-    if (!customerId || cleanedLinesForRequest.length === 0) {
-      setQuote(fallback);
-      return;
-    }
-    if (!promoCode) {
-      setQuote({
-        subTotal: createTotal,
-        discountAmount: 0,
-        total: createTotal,
-        promoApplied: false,
-        promoCode: "",
-        promoMessage: ""
-      });
-      return;
-    }
-
-    let cancelled = false;
-    setQuoteLoading(true);
-    const timer = setTimeout(() => {
-      backofficeApi
-        .orderQuote({ customerId, promoCode, lines: cleanedLinesForRequest })
-        .then((res) => {
-          if (cancelled) return;
-          setQuote(res);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          setQuoteError(err?.message || "Impossible d'évaluer le code promo.");
-          setQuote(fallback);
-        })
-        .finally(() => {
-          if (cancelled) return;
-          setQuoteLoading(false);
-        });
-    }, 250);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [cleanedLinesForRequest, createForm.customerId, createForm.promoCode, createTotal, isCreateOpen]);
-
-  async function changeOrderStatus(orderId, nextStatus) {
-    if (!orderId || !nextStatus) return;
-    try {
-      try {
-        await backofficeApi.updateOrderStatus(orderId, nextStatus);
-      } catch (err) {
-        // Hors parcours normal : l'administrateur peut forcer, avec un motif qui sera trace
-        if (!`${err?.message || ""}`.includes("forçage possible")) throw err;
-        const reason = window.prompt(`${err.message}\n\nMotif du forçage (obligatoire, conservé dans l'historique) :`);
-        if (!reason || !reason.trim()) throw err;
-        await backofficeApi.updateOrderStatus(orderId, nextStatus, { force: true, comment: reason.trim() });
-      }
-      const status = statusMapping[activeStatus] || "";
-      const data = await backofficeApi.orders(page, size, status, q.trim());
-      setOrdersPage(data);
-    } catch (err) {
-      setError(err?.message || "Impossible de mettre à jour le statut.");
-    }
-  }
+  const openOrder = useCallback((order) => navigate(`/orders/${encodeURIComponent(order.orderNumber || order.id)}`), [navigate]);
 
   function exportCsv() {
-    const header = ["Commande", "Client", "Articles", "Canal", "Total", "Statut", "Livraison", "Livreur", "Date"];
+    const header = ["Commande", "Date", "Client", "Vendeur(s)", "Articles", "Total", "Statut", "Paiement", "Livraison"];
     const csvRows = [
       header.join(";"),
-      ...rows.map((r) =>
-        [r.id, r.customer, r.items, r.channel, r.total, r.status, r.shipmentStatus, r.courierReference, r.date]
+      ...rows.map((o) =>
+        [
+          o.orderNumber || o.id,
+          formatDate(o.dateCreation),
+          o.customer,
+          (o.sellers || []).join(", "),
+          o.items,
+          formatCurrency(o.total),
+          statusLabel(o.currentStatus),
+          o.paymentStatus || "",
+          SHIPMENT_LABELS[o.shipmentStatus] || ""
+        ]
           .map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`)
           .join(";")
       )
@@ -416,14 +102,14 @@ export default function Orders() {
     <div className="space-y-6">
       <SectionHeader
         title="Commandes"
-        subtitle="Suivez, priorisez et automatisez vos flux logistiques."
+        subtitle="Suivez chaque commande, de la préparation à la livraison, et gérez annulations, retours et remboursements."
         rightSlot={
           <>
-            <Button variant="outline" className="gap-2" onClick={() => setIsFilterOpen(true)}>
-              <Filter className="h-4 w-4" />
-              Filtrer
+            <Button variant="outline" className="gap-2" onClick={() => setReloadKey((k) => k + 1)} aria-label="Actualiser">
+              <RefreshCcw className="h-4 w-4" />
+              <span className="hidden sm:inline">Actualiser</span>
             </Button>
-            <Button className="gap-2" onClick={openCreateModal}>
+            <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
               <Plus className="h-4 w-4" />
               Nouvelle commande
             </Button>
@@ -431,137 +117,131 @@ export default function Orders() {
         }
       />
 
-      <Card className="space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          {tags.map((tag) => (
-            <button
-              key={tag}
-              onClick={() => {
-                setActiveStatus(tag);
-                setPage(0);
-              }}
-              className={
-                tag === activeStatus
-                  ? "px-4 py-2 rounded-full text-xs font-semibold border border-input bg-foreground text-background transition-colors"
-                  : "px-4 py-2 rounded-full text-xs font-semibold border border-input text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              }
-            >
-              {tag}
-            </button>
-          ))}
-          <div className="ml-auto flex items-center gap-2">
-            <div className="w-64">
-              <Input
-                placeholder="Rechercher une commande"
-                value={q}
-                onChange={(e) => {
-                  setQ(e.target.value);
+      <Card className="space-y-4 p-3 sm:p-4">
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+          {tabs.map((tab) => {
+            const active = tab.value === activeStatus;
+            return (
+              <button
+                key={tab.value || "ALL"}
+                type="button"
+                onClick={() => {
+                  setActiveStatus(tab.value);
                   setPage(0);
                 }}
-              />
-              <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
-                <Search className="h-3.5 w-3.5" />
-                Recherche sur ID, nom, prénom, email
-              </div>
-            </div>
-            <Button variant="outline" className="gap-2" onClick={exportCsv} disabled={rows.length === 0}>
-              <Download className="h-4 w-4" />
-              Exporter
-            </Button>
-          </div>
+                className={
+                  "flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors " +
+                  (active
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-input text-muted-foreground hover:bg-muted hover:text-foreground")
+                }
+              >
+                {tab.short}
+                {tab.count !== undefined ? (
+                  <span
+                    className={
+                      "rounded-full px-1.5 py-0.5 text-[10px] " + (active ? "bg-background/20" : "bg-muted text-foreground")
+                    }
+                  >
+                    {tab.count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
 
-        {error ? <div className="text-sm text-red-600">{error}</div> : null}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full sm:w-80">
+            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="N° de commande, nom ou e-mail du client"
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(0);
+              }}
+            />
+          </div>
+          <Button variant="outline" className="ml-auto gap-2" onClick={exportCsv} disabled={rows.length === 0}>
+            <Download className="h-4 w-4" />
+            Exporter la page
+          </Button>
+        </div>
+
+        {error ? (
+          <div className="rounded-lg border border-red-200 bg-red-50/60 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/10 dark:text-red-200">
+            {error}
+          </div>
+        ) : null}
 
         <Table>
           <THead>
             <TRow>
               <TCell>Commande</TCell>
+              <TCell className="hidden md:table-cell">Date</TCell>
               <TCell>Client</TCell>
-              <TCell>Articles</TCell>
-              <TCell>Canal</TCell>
-              <TCell>Total</TCell>
+              <TCell className="hidden xl:table-cell">Vendeur(s)</TCell>
+              <TCell className="text-right">Montant</TCell>
               <TCell>Statut</TCell>
-              <TCell>Livraison</TCell>
-              <TCell>Livreur</TCell>
-              <TCell>Date</TCell>
-              <TCell className="text-right">Actions</TCell>
+              <TCell className="hidden lg:table-cell">Paiement</TCell>
+              <TCell className="hidden lg:table-cell">Livraison</TCell>
+              <TCell />
             </TRow>
           </THead>
           <tbody>
             {loading ? (
               <TRow>
-                <TCell className="text-muted-foreground text-sm">Chargement…</TCell>
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
+                <TCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+                  Chargement des commandes…
+                </TCell>
               </TRow>
             ) : rows.length === 0 ? (
               <TRow>
-                <TCell className="text-muted-foreground text-sm">Aucune commande.</TCell>
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
-                <TCell />
+                <TCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+                  Aucune commande ne correspond à ces filtres.
+                </TCell>
               </TRow>
             ) : (
               rows.map((order) => (
-                <TRow key={order.rawId || order.id}>
-                  <TCell className="font-semibold text-foreground">{order.id}</TCell>
-                  <TCell>{order.customer}</TCell>
-                  <TCell>{order.items}</TCell>
-                  <TCell>{order.channel}</TCell>
-                  <TCell>{order.total}</TCell>
+                <TRow key={order.id} className="cursor-pointer" onClick={() => openOrder(order)}>
                   <TCell>
-                    <Badge label={order.status} />
-                  </TCell>
-                  <TCell>
-                    <Badge label={order.shipmentStatus} />
-                  </TCell>
-                  <TCell>
-                    <button type="button" onClick={() => openCourier(order)} className="w-full text-left">
-                      <div className="font-semibold text-foreground">{order.courierName || order.courierReference}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {[order.courierPhone, order.courierUser].filter(Boolean).join(" • ") || "-"}
-                      </div>
-                      {order.courierScannedAt ? (
-                        <div className="text-xs text-muted-foreground">Scan: {formatDate(order.courierScannedAt)}</div>
-                      ) : null}
-                    </button>
-                  </TCell>
-                  <TCell>{order.date}</TCell>
-                  <TCell className="text-right">
-                    <div className="inline-flex items-center justify-end rounded-md border border-input bg-background/60 overflow-hidden">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 min-w-[150px] px-3 text-xs rounded-none"
-                        onClick={() => changeOrderStatus(order.orderNumber || order.id, "EXPEDIEE")}
-                        disabled={order.rawStatus === "EXPEDIEE" || order.rawStatus === "LIVREE"}
-                      >
-                        Envoyer pour livraison
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 px-2 text-xs rounded-none"
-                        onClick={() => changeOrderStatus(order.orderNumber || order.id, "LIVREE")}
-                        disabled={order.rawStatus === "LIVREE"}
-                      >
-                        Livrer
-                      </Button>
+                    <div className="font-semibold text-foreground">{order.orderNumber || order.id}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {order.items} article{order.items > 1 ? "s" : ""}
                     </div>
+                  </TCell>
+                  <TCell className="hidden whitespace-nowrap md:table-cell">{formatDate(order.dateCreation)}</TCell>
+                  <TCell className="max-w-[220px] truncate" title={order.customer}>
+                    {order.customer}
+                  </TCell>
+                  <TCell className="hidden max-w-[180px] truncate xl:table-cell" title={(order.sellers || []).join(", ")}>
+                    {(order.sellers || []).join(", ") || "-"}
+                  </TCell>
+                  <TCell className="whitespace-nowrap text-right font-medium">{formatCurrency(order.total)}</TCell>
+                  <TCell>
+                    <StatusBadge status={order.currentStatus} />
+                  </TCell>
+                  <TCell className="hidden lg:table-cell">
+                    <PaymentBadge status={order.paymentStatus} />
+                  </TCell>
+                  <TCell className="hidden text-xs text-muted-foreground lg:table-cell">
+                    {SHIPMENT_LABELS[order.shipmentStatus] || order.shippingMethodLabel || "-"}
+                  </TCell>
+                  <TCell className="text-right">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="gap-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openOrder(order);
+                      }}
+                    >
+                      Gérer
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
                   </TCell>
                 </TRow>
               ))
@@ -569,10 +249,10 @@ export default function Orders() {
           </tbody>
         </Table>
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
-            {new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(meta.totalElements)} commandes • page{" "}
-            {page + 1}/{meta.totalPages}
+            {new Intl.NumberFormat("fr-FR").format(totalElements)} commande{totalElements > 1 ? "s" : ""} • page {page + 1}/
+            {totalPages}
           </p>
           <div className="flex items-center gap-2">
             <div className="w-28">
@@ -591,317 +271,26 @@ export default function Orders() {
             <Button variant="outline" size="sm" disabled={page <= 0 || loading} onClick={() => setPage((p) => Math.max(0, p - 1))}>
               Précédent
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page + 1 >= meta.totalPages || loading}
-              onClick={() => setPage((p) => p + 1)}
-            >
+            <Button variant="outline" size="sm" disabled={page + 1 >= totalPages || loading} onClick={() => setPage((p) => p + 1)}>
               Suivant
             </Button>
           </div>
         </div>
       </Card>
 
-      <Modal
-        isOpen={courierModalOpen}
-        onClose={() => {
-          setCourierModalOpen(false);
-          setCourierError("");
-          setCourierDetail(null);
-          setCourierFallback(null);
-          setCourierLoading(false);
-        }}
-        title="Informations livreur"
-        size="lg"
-        footer={
-          <Button
-            variant="outline"
-            onClick={() => {
-              setCourierModalOpen(false);
-              setCourierError("");
-              setCourierDetail(null);
-              setCourierFallback(null);
-              setCourierLoading(false);
-            }}
-          >
-            Fermer
-          </Button>
-        }
-      >
-        {courierLoading ? (
-          <div className="text-sm text-muted-foreground">Chargement…</div>
-        ) : courierError ? (
-          <div className="text-sm text-red-600">{courierError}</div>
-        ) : courierDetail ? (
-          <div className="space-y-3 text-sm">
-            <div>
-              <div className="text-xs text-muted-foreground">Nom</div>
-              <div className="font-semibold text-foreground">
-                {`${courierDetail?.prenom || ""} ${courierDetail?.nom || ""}`.trim() || "-"}
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <div className="text-xs text-muted-foreground">Email</div>
-                <div className="font-semibold text-foreground">{courierDetail?.email || "-"}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Téléphone</div>
-                <div className="font-semibold text-foreground">{courierDetail?.telephone || "-"}</div>
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <div className="text-xs text-muted-foreground">Rôle</div>
-                <div className="font-semibold text-foreground">{courierDetail?.role || "-"}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">ID</div>
-                <div className="font-mono text-xs text-muted-foreground">{courierDetail?.id || "-"}</div>
-              </div>
-            </div>
-          </div>
-        ) : courierFallback ? (
-          <div className="space-y-3 text-sm">
-            <div className="text-xs text-muted-foreground">Aucun compte correspondant trouvé.</div>
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <div className="font-semibold text-foreground">{courierFallback.courierName || "-"}</div>
-              <div className="text-xs text-muted-foreground">
-                {[courierFallback.courierPhone, courierFallback.courierUser || courierFallback.courierReference]
-                  .filter(Boolean)
-                  .join(" • ") || "-"}
-              </div>
-              {courierFallback.courierScannedAt ? (
-                <div className="text-xs text-muted-foreground">Scan: {formatDate(courierFallback.courierScannedAt)}</div>
-              ) : null}
-            </div>
-          </div>
-        ) : (
-          <div className="text-sm text-muted-foreground">Aucune information.</div>
-        )}
-      </Modal>
-
-      <Modal
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        title="Filtres commandes"
-        size="lg"
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setIsFilterOpen(false)}>
-              Fermer
-            </Button>
-            <Button
-              onClick={() => {
-                setPage(0);
-                setIsFilterOpen(false);
-              }}
-            >
-              Appliquer
-            </Button>
-          </>
-        }
-      >
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Statut</p>
-            <Select
-              value={activeStatus}
-              onChange={(e) => {
-                setActiveStatus(e.target.value);
-                setPage(0);
-              }}
-            >
-              {tags.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Recherche</p>
-            <Input
-              placeholder="ID / nom / email..."
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setPage(0);
-              }}
-            />
-          </div>
-          <div className="p-4 rounded-lg border border-border bg-muted/30 md:col-span-2 space-y-2">
-            <p className="text-sm font-semibold">Notes opérationnelles</p>
-            <p className="text-xs text-muted-foreground">
-              Le backoffice filtre côté serveur sur l’ID de commande et les infos client (nom/prénom/email). Pagination et export utilisent les données visibles.
-            </p>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
+      <CreateOrderModal
         isOpen={isCreateOpen}
-        onClose={closeCreateModal}
-        title="Nouvelle commande"
-        size="xl"
-        footer={
-          <>
-            <Button variant="outline" onClick={closeCreateModal} disabled={createSaving}>
-              Annuler
-            </Button>
-            <Button onClick={submitCreateOrder} disabled={createSaving}>
-              {createSaving ? "Création..." : "Créer"}
-            </Button>
-          </>
-        }
-      >
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Client</p>
-              <Select value={createForm.customerId} onChange={(e) => setCreateForm((p) => ({ ...p, customerId: e.target.value }))}>
-                <option value="">Sélectionner…</option>
-                {(customers || []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} • {c.email}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Lignes</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setCreateForm((p) => ({ ...p, lines: [...p.lines, { productId: "", quantity: 1 }] }))
-                  }
-                >
-                  Ajouter
-                </Button>
-              </div>
-
-              <div className="space-y-3">
-                {(createForm.lines || []).map((line, idx) => {
-                  const product = productIndex.get(line.productId);
-                  const price = product?.price !== undefined ? Number(product.price) : 0;
-                  const qty = Number(line.quantity);
-                  const lineTotal = Number.isFinite(price) && Number.isFinite(qty) ? price * qty : 0;
-                  return (
-                    <div key={idx} className="rounded-lg border border-border p-3 space-y-3">
-                      <div className="grid gap-3 md:grid-cols-3">
-                        <div className="md:col-span-2 space-y-2">
-                          <p className="text-xs text-muted-foreground">Produit</p>
-                          <Select
-                            value={line.productId}
-                            onChange={(e) =>
-                              setCreateForm((p) => ({
-                                ...p,
-                                lines: p.lines.map((l, i) => (i === idx ? { ...l, productId: e.target.value } : l))
-                              }))
-                            }
-                          >
-                            <option value="">Sélectionner…</option>
-                            {(products || [])
-                              .slice()
-                              .sort((a, b) => (a?.name || "").localeCompare(b?.name || ""))
-                              .map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} • {formatCurrency(p.price)}
-                                </option>
-                              ))}
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="text-xs text-muted-foreground">Quantité</p>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={line.quantity}
-                            onChange={(e) =>
-                              setCreateForm((p) => ({
-                                ...p,
-                                lines: p.lines.map((l, i) => (i === idx ? { ...l, quantity: e.target.value } : l))
-                              }))
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Total ligne</span>
-                        <span className="font-semibold text-foreground">{formatCurrency(lineTotal)}</span>
-                      </div>
-                      <div className="flex justify-end">
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() =>
-                            setCreateForm((p) => ({ ...p, lines: p.lines.filter((_, i) => i !== idx) }))
-                          }
-                          disabled={(createForm.lines || []).length <= 1}
-                        >
-                          Supprimer
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Code promo</p>
-              <Input
-                placeholder="Ex: WELCOME10"
-                value={createForm.promoCode}
-                onChange={(e) => setCreateForm((p) => ({ ...p, promoCode: e.target.value }))}
-              />
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{quoteLoading ? "Vérification du code..." : quote?.promoMessage ? quote.promoMessage : "Optionnel"}</span>
-                {quoteError ? <span className="text-red-600">{quoteError}</span> : null}
-              </div>
-            </div>
-
-            {createError ? (
-              <div className="p-3 rounded-lg border border-red-200 bg-red-50/50 dark:bg-red-900/10 dark:border-red-900/50 text-sm text-red-700 dark:text-red-200">
-                {createError}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="space-y-4">
-            <Card className="p-4 space-y-3">
-              <p className="text-sm font-semibold">Résumé</p>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Nombre de lignes</span>
-                  <span className="font-semibold">{(createForm.lines || []).length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Sous-total</span>
-                  <span className="font-semibold">{formatCurrency(quote?.subTotal ?? createTotal)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Réduction</span>
-                  <span className={`font-semibold ${Number(quote?.discountAmount) > 0 ? "text-green-600" : ""}`}>
-                    -{formatCurrency(quote?.discountAmount ?? 0)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Total</span>
-                  <span className="text-xl font-semibold">{formatCurrency(quote?.total ?? createTotal)}</span>
-                </div>
-              </div>
-              <div className="p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
-                La commande est créée avec statut “Nouvelle”. Les livraisons sont créées quand tu cliques “Envoyer pour livraison”.
-              </div>
-            </Card>
-          </div>
-        </div>
-      </Modal>
+        onClose={() => setIsCreateOpen(false)}
+        onCreated={(created) => {
+          setIsCreateOpen(false);
+          if (created?.orderNumber) {
+            navigate(`/orders/${encodeURIComponent(created.orderNumber)}`);
+          } else {
+            setPage(0);
+            setReloadKey((k) => k + 1);
+          }
+        }}
+      />
     </div>
   );
 }
