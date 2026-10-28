@@ -23,6 +23,7 @@ import { useReactToPrint } from 'react-to-print';
 import Receipt from '../../components/Receipt';
 import { getMyOrder, listMyOrders, updateMyOrder } from '@/services/partnerBackofficeOrderService';
 import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
+import { toast } from "sonner";
 
 const STATUS_CONFIG = {
   'Completed': { label: 'Livré', icon: CheckCircle2, color: 'bg-green-100 text-green-700' },
@@ -41,11 +42,46 @@ const toUiStatus = (status) => {
   return "Pending";
 };
 
-const toApiStatus = (ui) => {
-  if (ui === "Completed") return "DELIVERED";
-  if (ui === "Cancelled") return "CANCELED";
-  if (ui === "Processing") return "PROCESSING";
-  return "PENDING";
+// Statut reel de la commande (affiche dans le detail) et actions permises au partenaire (meme matrice que l'API).
+const REAL_STATUS_LABELS = {
+  PENDING: "En attente de paiement",
+  PAID: "Payée",
+  PROCESSING: "En préparation",
+  READY_TO_DELIVER: "Colis prêt, en attente du livreur",
+  DELIVERY_IN_PROGRESS: "En cours de livraison",
+  DELIVERY_FAILED: "Livraison échouée",
+  DELIVERED: "Livrée",
+  CANCELED: "Annulée",
+  REFUNDED: "Remboursée",
+};
+
+const PARTNER_ACTIONS = {
+  PAID: ["PROCESSING", "READY_TO_DELIVER", "CANCELED"],
+  PROCESSING: ["READY_TO_DELIVER", "CANCELED"],
+};
+
+const PARTNER_ACTION_LABELS = {
+  PROCESSING: "Démarrer la préparation",
+  READY_TO_DELIVER: "Colis prêt pour le livreur",
+  CANCELED: "Annuler la commande",
+};
+
+const PARTNER_ACTION_HINTS = {
+  PROCESSING: "Vous commencez à rassembler et emballer les articles ; le client ne peut plus annuler et vous voyez ses coordonnées.",
+  READY_TO_DELIVER: "Le colis est emballé et attend le livreur : il devient disponible pour la livraison et la commande ne pourra plus être annulée.",
+  CANCELED: "Possible tant que le colis n'est pas prêt pour le livreur. Le client payé est remboursé automatiquement.",
+};
+
+const SHIPPED_STATUSES = ["READY_TO_DELIVER", "DELIVERY_IN_PROGRESS", "DELIVERY_FAILED", "DELIVERED"];
+
+const normalizeRawStatus = (status) => `${status || ""}`.trim().toUpperCase();
+
+/** Pourquoi aucune action n'est proposee (null si des actions existent). */
+const noActionReason = (rawStatus) => {
+  if (PARTNER_ACTIONS[rawStatus]) return null;
+  if (SHIPPED_STATUSES.includes(rawStatus)) return "Commande déjà envoyée pour livraison : annulation impossible (CGV art. 12). La suite est gérée par la logistique.";
+  if (rawStatus === "PENDING") return "En attente du paiement du client : rien à préparer pour l'instant.";
+  return "Commande clôturée : aucune action possible.";
 };
 
 const formatDate = (iso) => {
@@ -62,7 +98,7 @@ export default function Orders() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [statusDraft, setStatusDraft] = useState("Pending");
+  const [statusDraft, setStatusDraft] = useState("");
   
   // Create a ref for the component to be printed
   const componentRef = useRef();
@@ -90,6 +126,7 @@ export default function Orders() {
         items: [],
         total: Number(o.amount || 0),
         status: toUiStatus(o.status),
+        rawStatus: normalizeRawStatus(o.status),
         date: formatDate(o.createdAt),
         payment: "Paiement"
       }));
@@ -121,6 +158,7 @@ export default function Orders() {
         items: [],
         total: Number(o.amount || 0),
         status: toUiStatus(o.status),
+        rawStatus: normalizeRawStatus(o.status),
         date: formatDate(o.createdAt),
         payment: "Paiement"
       }));
@@ -140,6 +178,7 @@ export default function Orders() {
       ...order,
       total: Number(detail?.amount || order.total || 0),
       status: toUiStatus(detail?.status) || order.status,
+      rawStatus: normalizeRawStatus(detail?.status) || order.rawStatus,
       date: formatDate(detail?.createdAt) || order.date,
       customer: {
         name: detail?.customerName || order.customer?.name || "Client",
@@ -154,7 +193,7 @@ export default function Orders() {
         image: i.mainImageUrl || "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=100&q=80"
       }))
     };
-    setStatusDraft(normalized.status);
+    setStatusDraft("");
     setSelectedOrder(normalized);
   };
 
@@ -164,7 +203,7 @@ export default function Orders() {
       await refresh();
       const next = { ...selectedOrder, status: "Completed" };
       setSelectedOrder(next);
-      setStatusDraft("Completed");
+      setStatusDraft("");
     }
   };
 
@@ -426,16 +465,30 @@ export default function Orders() {
                   <span>{selectedOrder.total.toFixed(2)} FCFA</span>
                 </div>
                 <div className="mb-3">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Statut</label>
-                  <select
-                    value={statusDraft}
-                    onChange={(e) => setStatusDraft(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white text-sm font-medium"
-                  >
-                    {['Pending', 'Processing', 'Completed', 'Cancelled'].map((s) => (
-                      <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
-                    ))}
-                  </select>
+                  <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Statut</p>
+                  <p className="mb-2 text-sm font-medium text-gray-900">{REAL_STATUS_LABELS[selectedOrder.rawStatus] || "-"}</p>
+                  {(PARTNER_ACTIONS[selectedOrder.rawStatus] || []).length > 0 ? (
+                    <>
+                      <label htmlFor="partner-order-action" className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Action</label>
+                      <select
+                        id="partner-order-action"
+                        value={statusDraft}
+                        onChange={(e) => setStatusDraft(e.target.value)}
+                        aria-describedby={statusDraft ? "partner-order-action-hint" : undefined}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white text-sm font-medium"
+                      >
+                        <option value="">Choisir une action…</option>
+                        {PARTNER_ACTIONS[selectedOrder.rawStatus].map((s) => (
+                          <option key={s} value={s} title={PARTNER_ACTION_HINTS[s]}>{PARTNER_ACTION_LABELS[s]}</option>
+                        ))}
+                      </select>
+                      {statusDraft ? (
+                        <p id="partner-order-action-hint" className="mt-2 text-xs text-gray-500">{PARTNER_ACTION_HINTS[statusDraft]}</p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-500">{noActionReason(selectedOrder.rawStatus)}</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <button 
@@ -445,15 +498,27 @@ export default function Orders() {
                     Télécharger Facture
                   </button>
                   <button
+                    disabled={!statusDraft}
                     onClick={async () => {
-                      await updateMyOrder(selectedOrder.rawId, { status: toApiStatus(statusDraft), comment: "Statut mis à jour" });
-                      await refresh();
-                      const next = { ...selectedOrder, status: statusDraft };
-                      setSelectedOrder(next);
+                      if (!statusDraft) return;
+                      if (statusDraft === "READY_TO_DELIVER"
+                        && !window.confirm("Le colis est prêt pour le livreur : il sera proposé à la livraison et la commande ne pourra plus être annulée. Confirmer ?")) {
+                        return;
+                      }
+                      try {
+                        const detail = await updateMyOrder(selectedOrder.rawId, { status: statusDraft, comment: "Statut mis à jour par le partenaire" });
+                        await refresh();
+                        const raw = normalizeRawStatus(detail?.status) || statusDraft;
+                        setSelectedOrder({ ...selectedOrder, rawStatus: raw, status: toUiStatus(raw) });
+                        setStatusDraft("");
+                        toast.success(`Commande : ${REAL_STATUS_LABELS[raw] || raw}.`);
+                      } catch (err) {
+                        toast.error(err?.response?.data?.message || "Action impossible sur cette commande.");
+                      }
                     }}
-                    className="px-4 py-2 bg-black text-white rounded-xl hover:bg-gray-800 font-medium text-sm"
+                    className="px-4 py-2 bg-black text-white rounded-xl hover:bg-gray-800 font-medium text-sm disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Mettre à jour Statut
+                    Appliquer
                   </button>
                 </div>
                 

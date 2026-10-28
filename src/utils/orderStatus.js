@@ -18,8 +18,9 @@ const ORDER_STATUS = {
   PENDING: { label: "En attente de paiement", tone: "amber", step: 1, group: "active" },
   PAID: { label: "Commande confirmée", tone: "green", step: 2, group: "active" },
   PROCESSING: { label: "En préparation", tone: "blue", step: 2, group: "active" },
-  READY_TO_DELIVER: { label: "Remise au livreur", tone: "blue", step: 3, group: "active" },
-  DELIVERY_IN_PROGRESS: { label: "En cours de livraison", tone: "violet", step: 3, group: "active" },
+  // Colis emballe mais pas encore pris par le livreur : la preparation est faite, la livraison n'a pas commence.
+  READY_TO_DELIVER: { label: "Prête, en attente du livreur", tone: "blue", step: 3, stepHint: "En attente du livreur", group: "active" },
+  DELIVERY_IN_PROGRESS: { label: "En cours de livraison", tone: "violet", step: 3, stepHint: "Remis au livreur", group: "active" },
   DELIVERY_FAILED: { label: "Livraison à reprogrammer", tone: "red", step: 3, issue: true, group: "active" },
   DELIVERED: { label: "Livrée", tone: "green", step: 5, group: "delivered" },
   CANCELED: { label: "Annulée", tone: "neutral", step: -1, group: "closed" },
@@ -94,9 +95,9 @@ export const getOrderHeadline = (status, { eta, deliveredAt } = {}) => {
     case "PROCESSING":
       return `Votre commande est en cours de préparation. Livraison prévue${etaText}.`;
     case "READY_TO_DELIVER":
-      return `Votre commande est prête et confiée au livreur. Livraison prévue${etaText}.`;
+      return `Votre colis est prêt et attend le livreur. Livraison prévue${etaText}.`;
     case "DELIVERY_IN_PROGRESS":
-      return `Votre colis est en route. Livraison prévue${etaText}.`;
+      return `Votre colis a été remis au livreur et est en route. Livraison prévue${etaText}.`;
     case "DELIVERY_FAILED":
       return "Le livreur n'a pas pu vous remettre le colis. Une nouvelle tentative sera organisée ; contactez-nous si besoin.";
     case "DELIVERED":
@@ -115,8 +116,8 @@ export const ORDER_EVENT_LABEL = {
   PENDING: "Commande enregistrée",
   PAID: "Paiement confirmé",
   PROCESSING: "Préparation commencée",
-  READY_TO_DELIVER: "Commande remise au livreur",
-  DELIVERY_IN_PROGRESS: "Colis en cours de livraison",
+  READY_TO_DELIVER: "Colis prêt, en attente du livreur",
+  DELIVERY_IN_PROGRESS: "Colis remis au livreur",
   DELIVERY_FAILED: "Tentative de livraison échouée",
   DELIVERED: "Commande livrée",
   CANCELED: "Commande annulée",
@@ -125,7 +126,8 @@ export const ORDER_EVENT_LABEL = {
 
 /** Statuts d'un colis (logistique). */
 const SHIPMENT_STATUS = {
-  EN_PREPARATION: { label: "En préparation", tone: "blue" },
+  // Un colis n'existe qu'a partir de « Prête » : EN_PREPARATION = emballe, en attente du livreur.
+  EN_PREPARATION: { label: "Prêt, en attente du livreur", tone: "blue" },
   EN_COURS: { label: "En cours de livraison", tone: "violet" },
   LIVREE: { label: "Livré", tone: "green" },
   ECHEC: { label: "Livraison échouée", tone: "red" },

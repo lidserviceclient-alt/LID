@@ -5,8 +5,9 @@ import { ORDER_STEPS, formatDate } from "@/utils/orderStatus";
 /**
  * Frise d'avancement : verticale sur mobile, horizontale a partir de sm.
  * currentStep = index de l'etape en cours (les precedentes sont faites ; >= longueur : tout est fait).
+ * currentHint = precision affichee sous l'etape en cours (ex. « En attente du livreur »), sinon « En cours ».
  */
-export default function OrderProgress({ currentStep, issue = false, dates = {} }) {
+export default function OrderProgress({ currentStep, currentHint, issue = false, dates = {} }) {
   return (
     <ol className="relative grid gap-0 sm:grid-cols-5 sm:gap-2" aria-label="Avancement de la commande">
       {ORDER_STEPS.map((step, index) => {
@@ -53,7 +54,7 @@ export default function OrderProgress({ currentStep, issue = false, dates = {} }
                 {isIssue ? "Livraison à reprogrammer" : step.label}
               </span>
               <span className="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400">
-                {done && date ? formatDate(date) : current ? (isIssue ? "Action requise" : "En cours") : done ? "Terminé" : "À venir"}
+                {done && date ? formatDate(date) : current ? (isIssue ? "Action requise" : currentHint || "En cours") : done ? "Terminé" : "À venir"}
               </span>
               <span className="sr-only">{done ? "(terminée)" : current ? "(étape en cours)" : "(à venir)"}</span>
             </span>

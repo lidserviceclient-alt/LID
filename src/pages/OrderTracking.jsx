@@ -43,7 +43,7 @@ import {
 } from "@/utils/orderStatus";
 
 const SHIPMENT_EVENT_LABEL = {
-  EN_PREPARATION: "Colis en préparation",
+  EN_PREPARATION: "Colis prêt, en attente du livreur",
   EN_COURS: "Colis en cours de livraison",
   LIVREE: "Colis livré",
   ECHEC: "Tentative de livraison échouée",
@@ -348,8 +348,8 @@ export default function OrderTracking() {
     setBusyAction("receipt");
     try {
       await openOrderReceipt(order.id);
-    } catch {
-      toast.error("Impossible d'ouvrir le justificatif.");
+    } catch (error) {
+      toast.error(error?.message || "Impossible d'ouvrir le justificatif.");
     } finally {
       setBusyAction("");
     }
@@ -465,7 +465,7 @@ export default function OrderTracking() {
                     </p>
                   </div>
                 ) : (
-                  <OrderProgress currentStep={order.meta.step} issue={Boolean(order.meta.issue)} dates={order.stepDates} />
+                  <OrderProgress currentStep={order.meta.step} currentHint={order.meta.stepHint} issue={Boolean(order.meta.issue)} dates={order.stepDates} />
                 )}
                 {order.status === "REFUNDED" && (
                   <p className="mt-4 flex gap-2 rounded-xl bg-sky-50 p-3 text-sm text-sky-900 dark:bg-sky-500/10 dark:text-sky-200">
