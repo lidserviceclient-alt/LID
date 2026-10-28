@@ -4,7 +4,6 @@ import SectionHeader from "../components/ui/SectionHeader.jsx";
 import LineChart from "../components/charts/LineChart.jsx";
 import Select from "../components/ui/Select.jsx";
 import Button from "../components/ui/Button.jsx";
-import { analyticsSeries as analyticsSeriesMock } from "../data/mockData.js";
 import { useOverviewContext } from "../contexts/OverviewContext.jsx";
 import { useNotificationsContext } from "../contexts/NotificationsContext.jsx";
 
@@ -77,7 +76,7 @@ export default function Analytics() {
 
   const overviewEntry = getOverviewEntry(selected.days);
   const rawSeries = useMemo(() => {
-    if (!Array.isArray(overviewEntry.data?.analyticsSeries)) return analyticsSeriesMock;
+    if (!Array.isArray(overviewEntry.data?.analyticsSeries)) return [];
     return overviewEntry.data.analyticsSeries.map((v) => Number(v) || 0);
   }, [overviewEntry.data]);
   const isLoading = overviewEntry.loading;
@@ -107,29 +106,7 @@ export default function Analytics() {
     }
   }, [range]);
 
-  const conversionSteps = useMemo(() => {
-    const purchases = sumSeries(rawSeries);
-    const checkout = purchases ? Math.max(Math.round(purchases / 0.52), purchases) : 0;
-    const addToCart = checkout ? Math.max(Math.round(checkout / 0.62), checkout) : 0;
-    const visitors = addToCart ? Math.max(Math.round(addToCart / 0.13), addToCart) : 0;
-
-    const steps = [
-      { label: "Visiteurs", value: visitors },
-      { label: "Ajouts panier", value: addToCart },
-      { label: "Checkout", value: checkout },
-      { label: "Achats", value: purchases }
-    ];
-
-    return steps.map((step, index) => {
-      const prev = steps[index - 1]?.value || 0;
-      const drop = index === 0 || prev <= 0 ? 0 : Math.max(0, Math.round((1 - step.value / prev) * 100));
-      return {
-        ...step,
-        formatted: new Intl.NumberFormat("fr-FR").format(step.value),
-        drop
-      };
-    });
-  }, [rawSeries]);
+  const hasData = chartSeries.some((v) => v > 0);
 
   return (
     <div className="space-y-6">
@@ -154,40 +131,24 @@ export default function Analytics() {
         <Card className="lg:col-span-3 p-6 space-y-4">
           <SectionHeader title="Trafic & revenus" subtitle={trafficSubtitle} />
           {error && <div className="text-sm text-destructive">{error}</div>}
-          <LineChart
-            data={chartSeries}
-            className={`h-64 ${isLoading ? "opacity-60 animate-pulse" : ""}`}
-            stroke="hsl(var(--foreground))"
-          />
+          {isLoading && !hasData ? (
+            <div className="h-64 rounded-lg bg-muted animate-pulse" />
+          ) : hasData ? (
+            <LineChart
+              data={chartSeries}
+              className={`h-64 ${isLoading ? "opacity-60 animate-pulse" : ""}`}
+              stroke="hsl(var(--foreground))"
+            />
+          ) : (
+            <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">
+              {error ? "Données indisponibles." : "Aucune donnée sur la période."}
+            </div>
+          )}
         </Card>
 
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="p-6 space-y-3">
-          <SectionHeader title="Conversion" subtitle="Tunnel hebdo" />
-          {conversionSteps.map((step) => (
-            <div key={step.label} className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{step.label}</span>
-              <span className="text-sm font-semibold text-foreground">{step.formatted}</span>
-              <span className="text-xs text-muted-foreground">-{step.drop}%</span>
-            </div>
-          ))}
-        </Card>
-
-        <Card className="p-6 space-y-3">
-          <SectionHeader title="Cohortes" subtitle="Rétention clients" />
-          <div className="grid grid-cols-4 gap-2 text-xs">
-            {Array.from({ length: 8 }).map((_, idx) => (
-              <div
-                key={idx}
-                className="h-10 rounded-lg bg-primary/20"
-                style={{ opacity: 0.15 + idx * 0.08 }}
-              />
-            ))}
-          </div>
-        </Card>
-
         <Card className="p-6 space-y-3">
           <SectionHeader title="Notifications" subtitle={`${unreadNotificationsCount} non lue(s)`} />
           {notificationsError && (

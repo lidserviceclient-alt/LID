@@ -1,5 +1,6 @@
 ﻿﻿import { clearAccessToken, getAccessToken } from "./auth.js";
 import { setAccessToken } from "./auth.js";
+import { trackedFetch } from "./apiStatus.js";
 
 const BASE_URL = import.meta.env.VITE_BACKOFFICE_API_URL || "http://localhost:9000";
 let refreshPromise = null;
@@ -23,7 +24,7 @@ async function refreshAccessToken() {
   if (refreshPromise) {
     return refreshPromise;
   }
-  refreshPromise = fetch(`${BASE_URL}/api/v1/auth/refresh`, {
+  refreshPromise = trackedFetch(`${BASE_URL}/api/v1/auth/refresh`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -68,7 +69,7 @@ async function request(path, options = {}, retryAuth = true) {
   const shouldRetryAuth = typeof retryAuthOverride === "boolean" ? retryAuthOverride : retryAuth;
   let res;
   try {
-    res = await fetch(`${BASE_URL}${path}`, {
+    res = await trackedFetch(`${BASE_URL}${path}`, {
       headers: {
         "Content-Type": "application/json",
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
@@ -94,15 +95,20 @@ async function request(path, options = {}, retryAuth = true) {
     }
 
     if (res.status === 401 && shouldRetryAuth && !path.includes("/api/v1/auth/refresh") && !path.includes("/api/v1/auth/login")) {
+      let refreshedToken = null;
       try {
-        const refreshedToken = await refreshAccessToken();
+        refreshedToken = await refreshAccessToken();
+      } catch {
+        clearAccessToken();
+      }
+      if (refreshedToken) {
         const nextHeaders = {
           ...(optionHeaders || {}),
           Authorization: `Bearer ${refreshedToken}`
         };
-        return await request(path, { ...restOptions, headers: nextHeaders }, false);
-      } catch {
-        clearAccessToken();
+        // skipDedupe : sans lui, le rejeu d'un GET retrouve sa propre promesse dans inflightGetRequests et ne part jamais
+        // (la requête reste en attente indéfiniment). Une erreur du rejeu remonte telle quelle, sans déconnecter.
+        return request(path, { ...restOptions, headers: nextHeaders, skipDedupe: true }, false);
       }
     }
 
@@ -136,7 +142,7 @@ async function requestBlob(path, options = {}, retryAuth = true) {
   const shouldRetryAuth = typeof retryAuthOverride === "boolean" ? retryAuthOverride : retryAuth;
   let res;
   try {
-    res = await fetch(`${BASE_URL}${path}`, {
+    res = await trackedFetch(`${BASE_URL}${path}`, {
       headers: {
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...(optionHeaders || {})
@@ -196,7 +202,7 @@ async function requestForm(path, options = {}, retryAuth = true) {
   const shouldRetryAuth = typeof retryAuthOverride === "boolean" ? retryAuthOverride : retryAuth;
   let res;
   try {
-    res = await fetch(`${BASE_URL}${path}`, {
+    res = await trackedFetch(`${BASE_URL}${path}`, {
       headers: {
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...(optionHeaders || {})
@@ -546,22 +552,43 @@ export const backofficeApi = {
       headers: { Accept: "text/csv" }
     });
   },
-  orders: (page = 0, size = 20, status = "", q = "") => {
+  // `orderStatus` : statut réel (PENDING, PAID, PROCESSING, READY_TO_DELIVER, DELIVERY_IN_PROGRESS, DELIVERY_FAILED, DELIVERED, CANCELED, REFUNDED)
+  orders: (page = 0, size = 20, status = "", q = "", orderStatus = "") => {
     const params = new URLSearchParams({ page, size });
     if (status) params.set("status", status);
+    if (orderStatus) params.set("orderStatus", orderStatus);
     if (q) params.set("q", q);
     return request(`/api/v1/backoffice/orders?${params.toString()}`);
   },
+  orderStatusCounts: () => request("/api/v1/backoffice/orders/status-counts"),
+  orderDetail: (reference) => request(`/api/v1/backoffice/orders/${encodeURIComponent(reference)}`),
+  // Remboursement d'une commande annulée (montant optionnel = tout le reste remboursable)
+  refundOrder: (reference, { amount, reason }) =>
+    request(`/api/v1/backoffice/orders/${encodeURIComponent(reference)}/refunds`, {
+      method: "POST",
+      body: JSON.stringify(amount ? { amount, reason } : { reason })
+    }),
+  // Clôture d'un remboursement fait hors plateforme (référence obligatoire) / relance du traitement automatique
+  completeRefund: (refundId, reference) =>
+    request(`/api/v1/refunds/${encodeURIComponent(refundId)}/complete`, {
+      method: "POST",
+      body: JSON.stringify({ reference })
+    }),
+  processRefund: (refundId) =>
+    request(`/api/v1/refunds/${encodeURIComponent(refundId)}/process`, { method: "POST" }),
+  // Relance du remboursement automatique : { success, status, message, refund } (success=false : nouvel échec, message explicatif)
+  retryRefund: (refundId) =>
+    request(`/api/v1/refunds/${encodeURIComponent(refundId)}/retry`, { method: "POST" }),
   createOrder: (payload) =>
     request("/api/v1/backoffice/orders", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
-  // `force` + `comment` : transition hors parcours normal, tracee avec son motif
-  updateOrderStatus: (id, status, { force = false, comment = "" } = {}) =>
+  // Statut réel de la commande. `comment` : motif (obligatoire pour annuler) ; `force` : transition hors parcours normal, tracée
+  updateOrderStatus: (id, orderStatus, { force = false, comment = "" } = {}) =>
     request(`/api/v1/backoffice/orders/${encodeURIComponent(id)}/status`, {
       method: "PUT",
-      body: JSON.stringify(force ? { status, force: "true", comment } : { status })
+      body: JSON.stringify({ orderStatus, ...(comment ? { comment } : {}), ...(force ? { force: "true" } : {}) })
     }),
   unlockShipmentCode: (id) =>
     request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/unlock-code`, { method: "POST" }),
@@ -593,8 +620,9 @@ export const backofficeApi = {
     const params = new URLSearchParams({ page, size });
     return request(`/api/v1/backoffice/products?${params.toString()}`);
   },
-  productCollection: (page = 0, size = 20) => {
+  productCollection: (page = 0, size = 20, status = "") => {
     const params = new URLSearchParams({ page, size });
+    if (status) params.set("status", status);
     return request(`/api/v1/backoffice/products/collection?${params.toString()}`);
   },
   stockMovements: (page = 0, size = 20, sku = "", type = "") => {
@@ -720,28 +748,6 @@ export const backofficeApi = {
     if (toDate) params.set("toDate", toDate);
     return request(`/api/v1/backoffice/partners/${encodeURIComponent(id)}/transactions?${params.toString()}`);
   },
-  partnerSubscriptions: (page = 0, size = 20, q = "") => {
-    const params = new URLSearchParams({ page, size });
-    if (q) params.set("q", q);
-    return request(`/api/v1/backoffice/partner-subscriptions?${params.toString()}`);
-  },
-  partnerSubscription: (partnerId, invoicePage = 0, invoiceSize = 10) => {
-    const params = new URLSearchParams({ invoicePage, invoiceSize });
-    return request(`/api/v1/backoffice/partner-subscriptions/partners/${encodeURIComponent(partnerId)}?${params.toString()}`);
-  },
-  partnerSubscriptionEvents: (partnerId, page = 0, size = 20) => {
-    const params = new URLSearchParams({ page, size });
-    return request(`/api/v1/backoffice/partner-subscriptions/partners/${encodeURIComponent(partnerId)}/events?${params.toString()}`);
-  },
-  updatePartnerSubscriptionPlan: (partnerId, payload) =>
-    request(`/api/v1/backoffice/partner-subscriptions/partners/${encodeURIComponent(partnerId)}/plan`, {
-      method: "PUT",
-      body: JSON.stringify(payload || {})
-    }),
-  markPartnerSubscriptionInvoicePaid: (invoiceId) =>
-    request(`/api/v1/backoffice/partner-subscriptions/invoices/${encodeURIComponent(invoiceId)}/mark-paid`, {
-      method: "POST"
-    }),
   payPartnerTransactionDirect: (partnerId, transactionId) =>
     request(`/api/v1/backoffice/partners/${encodeURIComponent(partnerId)}/transactions/${encodeURIComponent(transactionId)}/pay`, {
       method: "POST"

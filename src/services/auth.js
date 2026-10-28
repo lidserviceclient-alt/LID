@@ -1,3 +1,4 @@
+import { trackedFetch } from "./apiStatus.js";
 // Le jeton d'acces ne vit qu'en memoire (une XSS ne peut plus le lire) ; la session est restauree au demarrage
 // par /auth/refresh grace au cookie HttpOnly. Seul un indicateur non secret est conserve.
 export const AUTH_TOKEN_KEY = "lid-backoffice-access-token"; // ancienne cle : purgee au chargement
@@ -37,7 +38,7 @@ export async function bootstrapSession() {
   const baseUrl = import.meta.env.VITE_BACKOFFICE_API_URL || "http://localhost:9000";
   try {
     const data = await runExclusiveRefresh(async () => {
-      const res = await fetch(`${baseUrl}/api/v1/auth/refresh`, {
+      const res = await trackedFetch(`${baseUrl}/api/v1/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include"

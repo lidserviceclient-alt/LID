@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
+import ApiStatusBubble from "./components/layout/ApiStatusBubble.jsx";
 import Layout from "./components/layout/Layout.jsx";
 import Login from "./pages/Login.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
@@ -6,6 +7,7 @@ import Privacy from "./pages/Privacy.jsx";
 import Terms from "./pages/Terms.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Orders from "./pages/Orders.jsx";
+import OrderDetail from "./pages/OrderDetail.jsx";
 import Returns from "./pages/Returns.jsx";
 import Products from "./pages/Products.jsx";
 import ProductCreate from "./pages/ProductCreate.jsx";
@@ -30,7 +32,6 @@ import Logistics from "./pages/Logistics.jsx";
 import Marketing from "./pages/Marketing.jsx";
 import Loyalty from "./pages/Loyalty.jsx";
 import Finance from "./pages/Finance.jsx";
-import PartnerSubscriptions from "./pages/PartnerSubscriptions.jsx";
 import Categories from "./pages/Categories.jsx";
 import PromoCodes from "./pages/PromoCodes.jsx";
 import Messages from "./pages/Messages.jsx";
@@ -63,6 +64,8 @@ export default function App() {
   const authed = isAuthenticated();
 
   return (
+    <>
+    <ApiStatusBubble />
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -75,6 +78,7 @@ export default function App() {
           <Route path="/analytics" element={<Analytics />} />
         </Route>
         <Route path="/orders" element={<Orders />} />
+        <Route path="/orders/:reference" element={<OrderDetail />} />
         <Route path="/returns" element={<Returns />} />
         <Route path="/partners" element={<Partners />} />
         <Route path="/products" element={<Products />} />
@@ -91,7 +95,7 @@ export default function App() {
         <Route path="/marketing" element={<Marketing />} />
         <Route path="/loyalty" element={<Loyalty />} />
         <Route path="/finance" element={<Finance />} />
-        <Route path="/partner-subscriptions" element={<PartnerSubscriptions />} />
+        <Route path="/partner-subscriptions" element={<Navigate to="/" replace />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/contacts" element={<ContactRequests />} />
         <Route path="/product-reviews" element={<ProductReviews />} />
@@ -111,5 +115,6 @@ export default function App() {
         <Route path="/test-label" element={<TestLabel />} />
       <Route path="*" element={<Navigate to={authed ? "/" : "/login"} replace />} />
     </Routes>
+    </>
   );
 }
