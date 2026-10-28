@@ -3,15 +3,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, CreditCard, Smartphone, User, MapPin, Phone, Mail, ArrowRight, ShieldCheck, Lock, ChevronLeft, Loader2, LocateFixed } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { toast } from 'sonner';
-import { getCurrentUserPayload, getUserProfile } from '@/services/authService.js';
+import { getCurrentUserPayload, getUserProfile, updateUserProfile, primeUserProfileCache } from '@/services/authService.js';
 import { checkout } from '@/services/orderService.js';
-import { getCustomerAddresses, getMyCustomerCheckoutCollection } from '@/services/customerService.js';
+import { createCustomerAddress, updateCustomerAddress, getCustomerAddresses, getMyCustomerCheckoutCollection } from '@/services/customerService.js';
+import { useCustomerSession } from '@/features/customerSession/CustomerSessionContext';
 import { resolveBackendAssetUrl } from '@/services/categoryService';
 import { useAppConfig } from '@/features/appConfig/useAppConfig';
 import { useCart } from '@/features/cart/CartContext';
 import InternationalPhoneField from '@/components/InternationalPhoneField';
 import { isValidInternationalPhone, isValidMobileMoneyPhone } from '@/utils/phone';
-import { formatAddressStreet, formatAddressSummary, normalizeCustomerAddresses, pickPreferredAddress } from '@/utils/customerAddress';
+import { findMatchingAddress, formatAddressSummary, normalizeCustomerAddress, normalizeCustomerAddresses, pickPreferredAddress, toCustomerAddressPayload } from '@/utils/customerAddress';
 import { locateCurrentAddress } from '@/utils/geolocation';
 
 const formatMoney = (value) => {
@@ -58,12 +59,20 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
 
   // Une cle par tentative : un rejeu (double clic, timeout) ne cree jamais une seconde commande
   const idempotencyKeyRef = useRef(null);
+  const [line2, setLine2] = useState(''); // complement d'adresse (facultatif)
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState(''); // '' = nouvelle adresse saisie a la main
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [accountPhone, setAccountPhone] = useState('');
   // Vrai des que l'utilisateur tape un telephone : une adresse choisie ensuite ne l'ecrase plus
   const phoneEditedRef = useRef(false);
+  const line2EditedRef = useRef(false); // saisie manuelle du complement : jamais ecrasee par le rechargement des adresses
+  const [accountCustomer, setAccountCustomer] = useState(null);
+  // null = pas de choix explicite : la case est cochee seulement pour une adresse inconnue
+  const [saveInfoChoice, setSaveInfoChoice] = useState(null);
+  const [saveMode, setSaveMode] = useState('update'); // adresse existante modifiee : 'update' | 'new'
+  const [addressLabel, setAddressLabel] = useState('');
+  const customerSession = useCustomerSession();
   const [isResolvingCurrentAddress, setIsResolvingCurrentAddress] = useState(false);
   const [shippingCoordinates, setShippingCoordinates] = useState(null);
   const [phoneTouched, setPhoneTouched] = useState(false);
@@ -105,6 +114,102 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
     };
   };
 
+  // Enregistrement des informations (utilisateur connecte uniquement)
+  const isLoggedIn = Boolean(getCurrentUserPayload()?.sub);
+  const selectedAddress = savedAddresses.find((addr) => addr.id === selectedAddressId) || null;
+  const matchedAddress = findMatchingAddress(savedAddresses, { line1: formData.address, line2, city: formData.city, postalCode: formData.zip });
+  const addressSituation = !formData.address.trim() ? 'none' : matchedAddress ? 'unchanged' : selectedAddress ? 'modified' : 'new';
+  const shouldSaveInfo = isLoggedIn && (saveInfoChoice ?? addressSituation === 'new');
+  const needsAccountPhone = isLoggedIn && !accountPhone && phoneIsValid && Boolean(accountCustomer);
+
+  const digitsOf = (value) => `${value ?? ''}`.replace(/\D/g, '');
+
+  // Reflete l'adresse creee/modifiee dans le contexte de session (Profil > Adresses) et dans le selecteur local
+  const reflectSavedAddress = (saved) => {
+    const normalized = normalizeCustomerAddress(saved);
+    if (!normalized.id) return;
+    customerSession?.updateCustomerCollection?.((prev) => {
+      const current = Array.isArray(prev?.addresses) ? prev.addresses : [];
+      const exists = current.some((addr) => addr.id === saved.id);
+      const merged = exists ? current.map((addr) => (addr.id === saved.id ? saved : addr)) : [saved, ...current];
+      return {
+        ...(prev || {}),
+        addresses: normalized.isDefault ? merged.map((addr) => (addr.id === saved.id ? addr : { ...addr, isDefault: false })) : merged
+      };
+    });
+    setSavedAddresses((prev) => {
+      const exists = prev.some((addr) => addr.id === normalized.id);
+      const merged = exists ? prev.map((addr) => (addr.id === normalized.id ? normalized : addr)) : [normalized, ...prev];
+      return normalized.isDefault ? merged.map((addr) => (addr.id === normalized.id ? addr : { ...addr, isDefault: false })) : merged;
+    });
+    setSelectedAddressId(normalized.id);
+  };
+
+  // Ne bloque jamais le paiement : chaque etape a son propre try/catch. Le numero Mobile Money n'est pas enregistre.
+  const persistCheckoutInfo = async (userId) => {
+    if (!shouldSaveInfo || addressSituation === 'none') return;
+    const street = formData.address.trim();
+    const complement = line2.trim();
+    const city = formData.city.trim();
+    const postalCode = formData.zip.trim();
+    const phone = phoneIsValid ? formData.phone.trim() : '';
+    const coordinates = shippingCoordinates || {};
+    try {
+      if (addressSituation === 'unchanged') {
+        if (phone && digitsOf(matchedAddress.phoneNumber) !== digitsOf(phone)) {
+          const updated = await updateCustomerAddress(userId, matchedAddress.id, toCustomerAddressPayload({ ...matchedAddress, phoneNumber: phone }));
+          if (updated) reflectSavedAddress(updated);
+        }
+      } else if (addressSituation === 'modified' && saveMode === 'update') {
+        const updated = await updateCustomerAddress(userId, selectedAddress.id, toCustomerAddressPayload({
+          ...selectedAddress,
+          line1: street,
+          line2: complement,
+          city,
+          postalCode,
+          phoneNumber: phone || selectedAddress.phoneNumber,
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude
+        }));
+        if (updated) reflectSavedAddress(updated);
+      } else {
+        const created = await createCustomerAddress(userId, toCustomerAddressPayload({
+          label: addressLabel.trim() || 'Domicile',
+          line1: street,
+          line2: complement,
+          city,
+          postalCode,
+          country: selectedAddress?.country || accountCustomer?.country || '',
+          phoneNumber: phone,
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+          isDefault: savedAddresses.length === 0
+        }));
+        if (created) reflectSavedAddress(created);
+      }
+    } catch {
+      toast.info('Adresse non enregistrée');
+    }
+    if (needsAccountPhone) {
+      try {
+        const updated = await updateUserProfile(userId, {
+          firstName: accountCustomer.firstName,
+          lastName: accountCustomer.lastName,
+          email: accountCustomer.email,
+          phoneNumber: formData.phone.trim(),
+          city: accountCustomer.city,
+          country: accountCustomer.country
+        });
+        const nextCustomer = updated || { ...accountCustomer, phoneNumber: formData.phone.trim() };
+        primeUserProfileCache(userId, nextCustomer);
+        setAccountPhone(formData.phone.trim());
+        customerSession?.updateCustomerCollection?.((prev) => ({ ...(prev || {}), customer: nextCustomer }));
+      } catch {
+        /* telephone du compte non enregistre : sans incidence sur le paiement */
+      }
+    }
+  };
+
   const steps = [
     { id: 1, label: 'Informations', icon: User },
     { id: 2, label: 'Paiement', icon: CreditCard },
@@ -112,14 +217,18 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
   ];
 
   // Remplit le formulaire avec une adresse enregistree ; les champs restent modifiables.
-  const applySavedAddress = (address, fallbackPhone) => {
+  const applySavedAddress = (address, fallbackPhone, { onLoad = false } = {}) => {
     setFormData((prev) => ({
       ...prev,
-      address: formatAddressStreet(address),
+      address: address?.line1 || '',
       city: address?.city || '',
       zip: address?.postalCode || '',
       phone: phoneEditedRef.current ? prev.phone : (address?.phoneNumber || fallbackPhone || prev.phone)
     }));
+    if (!(onLoad && line2EditedRef.current)) {
+      line2EditedRef.current = false;
+      setLine2(address?.line2 || '');
+    }
     const latitude = address?.latitude;
     const longitude = address?.longitude;
     setShippingCoordinates(
@@ -132,6 +241,8 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
     if (!addressId) {
       // Nouvelle adresse : on vide l'adresse, le telephone saisi ou repris du compte est conserve
       setFormData((prev) => ({ ...prev, address: '', city: '', zip: '' }));
+      line2EditedRef.current = false;
+      setLine2('');
       setShippingCoordinates(null);
       return;
     }
@@ -141,6 +252,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
 
   useEffect(() => {
     if (!isOpen) return;
+    setSaveInfoChoice(null);
     const payload = getCurrentUserPayload();
     if (!payload?.sub) return;
     let active = true;
@@ -155,6 +267,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
         const customer = checkoutCollection?.customer || profile || null;
         const customerPhone = `${customer?.phoneNumber || profile?.phoneNumber || ''}`.trim();
         setAccountPhone(customerPhone);
+        setAccountCustomer(customer && customer.email ? customer : null);
         setFormData((prev) => ({
           ...prev,
           firstName: `${customer?.firstName || payload?.firstName || ''}`.trim() || prev.firstName,
@@ -172,7 +285,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
         const preferred = pickPreferredAddress(addresses);
         if (preferred) {
           setSelectedAddressId(preferred.id);
-          applySavedAddress(preferred, customerPhone);
+          applySavedAddress(preferred, customerPhone, { onLoad: true });
         } else {
           setSelectedAddressId('');
         }
@@ -267,6 +380,8 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
 
     setStep(3);
     setLoadingStep(1);
+    // Enregistrement en parallele du paiement (jamais attendu avant la creation de la commande)
+    const saveInfoPromise = persistCheckoutInfo(payload.sub).catch(() => {});
     try {
       const checkoutItems = (isCartCheckout ? cartItems.map((i) => toCheckoutItem(i, i?.quantity)) : [toCheckoutItem({ ...product, quantity: normalizedQuantity }, normalizedQuantity)]).filter(Boolean);
       if (!idempotencyKeyRef.current) {
@@ -276,7 +391,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
         currency: 'XOF',
         email: formData.email,
         phone: checkoutPhone,
-        shippingAddress: `${formData.address}, ${formData.city} ${formData.zip}`,
+        shippingAddress: `${formData.address}, ${line2.trim() ? `${line2.trim()}, ` : ''}${formData.city} ${formData.zip}`,
         shippingLatitude: shippingCoordinates?.latitude ?? null,
         shippingLongitude: shippingCoordinates?.longitude ?? null,
         shippingMethodCode,
@@ -305,6 +420,8 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
         clearCart();
       }
       setLoadingStep(3);
+      // Laisse au plus 2,5 s a l'enregistrement pour finir avant de quitter la page
+      await Promise.race([saveInfoPromise, new Promise((resolve) => setTimeout(resolve, 2500))]);
       if (res?.paymentUrl) window.location.href = res.paymentUrl;
       else if (res?.invoiceToken) {
         const successUrl = new URL(`${window.location.origin}/payment/success`);
@@ -415,7 +532,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
                   <span className="font-black text-sm">Total</span>
                   <div className="text-right">
                     <p className="font-black text-xl text-orange-600">{formatMoney(finalTotal)} <span className="text-sm">FCFA</span></p>
-                    <p className="text-[10px] text-neutral-400">TVA ({vatPercentLabel}%) : {formatMoney(taxAmount)} FCFA</p>
+                    <p className="text-[10px] text-neutral-400">TTC, dont TVA incluse ({vatPercentLabel}%) : {formatMoney(taxAmount)} FCFA</p>
                   </div>
                 </div>
               </div>
@@ -556,6 +673,11 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
                           <MapPin size={15} className="absolute left-3.5 top-3.5 text-neutral-400 pointer-events-none" />
                           <input required name="address" value={formData.address} onChange={handleInputChange} placeholder="Rue, numéro…" className={cn(inputCls, "pl-9")} />
                         </div>
+                        <div className="mt-3">
+                          <label htmlFor="checkout-address-line2" className={labelCls}>Complément d'adresse (bâtiment, étage, repère…)</label>
+                          <input id="checkout-address-line2" name="line2" value={line2} onChange={(e) => { line2EditedRef.current = true; setLine2(e.target.value); }}
+                            autoComplete="address-line2" maxLength={255} className={inputCls} />
+                        </div>
                         {shippingCoordinates ? (
                           <p className="mt-1.5 text-xs text-orange-600 flex items-center gap-1"><MapPin size={11} /> Position GPS capturée</p>
                         ) : (
@@ -573,6 +695,44 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
                           <input required name="zip" value={formData.zip} onChange={handleInputChange} className={inputCls} />
                         </div>
                       </div>
+
+                      {isLoggedIn && (
+                        <div className="rounded-xl border border-neutral-200 dark:border-neutral-700 p-4 space-y-3">
+                          <div className="flex items-start gap-3">
+                            <input id="checkout-save-info" type="checkbox" checked={shouldSaveInfo}
+                              onChange={(e) => setSaveInfoChoice(e.target.checked)}
+                              className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 accent-orange-500 focus:ring-2 focus:ring-orange-500/30" />
+                            <label htmlFor="checkout-save-info" className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 cursor-pointer">
+                              Enregistrer ces informations pour mes prochaines commandes
+                              <span className="block text-xs font-normal text-neutral-400 mt-0.5">
+                                Adresse et téléphone seront préremplis la prochaine fois. Le numéro de paiement n'est jamais enregistré.
+                              </span>
+                            </label>
+                          </div>
+                          {shouldSaveInfo && addressSituation === 'modified' && (
+                            <fieldset className="pl-7 space-y-1.5">
+                              <legend className="sr-only">Que faire de l'adresse modifiée ?</legend>
+                              {[
+                                { value: 'update', label: `Mettre à jour cette adresse (${selectedAddress?.label || 'Adresse'})` },
+                                { value: 'new', label: "L'enregistrer comme nouvelle adresse" }
+                              ].map((opt) => (
+                                <label key={opt.value} className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-300 cursor-pointer">
+                                  <input type="radio" name="checkout-save-mode" value={opt.value} checked={saveMode === opt.value}
+                                    onChange={() => setSaveMode(opt.value)} className="accent-orange-500" />
+                                  {opt.label}
+                                </label>
+                              ))}
+                            </fieldset>
+                          )}
+                          {shouldSaveInfo && (addressSituation === 'new' || (addressSituation === 'modified' && saveMode === 'new')) && (
+                            <div className="pl-7">
+                              <label htmlFor="checkout-address-label" className={labelCls}>Nom de l'adresse (facultatif)</label>
+                              <input id="checkout-address-label" value={addressLabel} onChange={(e) => setAddressLabel(e.target.value)}
+                                maxLength={100} placeholder="Domicile, Bureau…" className={inputCls} />
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <button type="submit" className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-orange-500/25">
                         Continuer <ArrowRight size={16} />

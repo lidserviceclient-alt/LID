@@ -124,7 +124,25 @@ export const cancelCustomerOrder = async (orderId) => {
 /** Ouvre le justificatif d'achat (CGV art. 10) dans un nouvel onglet, imprimable ou enregistrable en PDF. */
 export const openOrderReceipt = async (orderId) => {
   if (!orderId) return;
-  const { data } = await api.get(`/api/v1/orders/${orderId}/receipt`, { responseType: 'text', transformResponse: [(raw) => raw] });
+  let data;
+  try {
+    // Le justificatif est du HTML ; les erreurs de l'API restent en JSON (d'ou le q=0.5).
+    ({ data } = await api.get(`/api/v1/orders/${orderId}/receipt`, {
+      responseType: 'text',
+      transformResponse: [(raw) => raw],
+      headers: { Accept: 'text/html, application/json;q=0.5' },
+    }));
+  } catch (error) {
+    const status = error?.response?.status;
+    let reason;
+    if (status === 401) reason = 'Veuillez vous reconnecter.';
+    else if (status === 403) reason = "Cette commande n'est pas la vôtre.";
+    else if (status === 404) reason = 'Commande introuvable.';
+    else if (status === 400) reason = "Aucun justificatif n'est disponible pour cette commande (non payée ou annulée).";
+    const failure = new Error(reason ? `Impossible d'ouvrir le justificatif. ${reason}` : "Impossible d'ouvrir le justificatif.");
+    failure.status = status;
+    throw failure;
+  }
   const url = URL.createObjectURL(new Blob([data], { type: 'text/html;charset=utf-8' }));
   const win = window.open(url, '_blank', 'noopener');
   if (!win) {

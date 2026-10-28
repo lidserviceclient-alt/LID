@@ -70,7 +70,7 @@ export const pickPreferredAddress = (addresses) => {
   return list.find((address) => address?.isDefault) || list[0] || null;
 };
 
-/** Rue + complement, tels qu'ils apparaissent dans le champ « Adresse de livraison » du checkout. */
+/** Rue + complement, pour l'affichage resume. */
 export const formatAddressStreet = (address) =>
   [address?.line1, address?.line2].map((part) => `${part || ''}`.trim()).filter(Boolean).join(', ');
 
@@ -78,3 +78,26 @@ export const formatAddressSummary = (address) =>
   [formatAddressStreet(address), [address?.postalCode, address?.city].filter(Boolean).join(' ')]
     .filter(Boolean)
     .join(' · ');
+
+/** Texte compare sans casse, accents ni espaces superflus (dedoublonnage des adresses). */
+const normalizeText = (value) =>
+  `${value ?? ''}`
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** Cle de comparaison d'une adresse : rue (line1) + complement (line2) + ville + code postal. */
+export const addressDedupKey = ({ line1, line2, city, postalCode }) =>
+  [line1, line2, city, postalCode].map(normalizeText).join('|');
+
+/** Cle d'une adresse enregistree. */
+export const savedAddressKey = (address) =>
+  addressDedupKey({ line1: address?.line1, line2: address?.line2, city: address?.city, postalCode: address?.postalCode });
+
+export const findMatchingAddress = (addresses, { line1, line2, city, postalCode }) => {
+  if (!normalizeText(line1)) return null;
+  const key = addressDedupKey({ line1, line2, city, postalCode });
+  return (Array.isArray(addresses) ? addresses : []).find((address) => savedAddressKey(address) === key) || null;
+};
