@@ -63,17 +63,10 @@ export default function Cart() {
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [freeShipping?.thresholdAmount]);
   const isFreeShippingEnabled = Boolean(freeShipping?.enabled) && Boolean(freeShippingThreshold);
-  const fallbackShippingMethods = useMemo(
-    () => [
-      { code: "STANDARD", label: "Standard", description: "3-5 jours ouvrables", costAmount: 3250, enabled: true, isDefault: true, sortOrder: 0, leadTimeUnit: "DAYS", leadTimeMin: 3, leadTimeMax: 5 },
-      { code: "EXPRESS", label: "Express", description: "24-48h", costAmount: 6500, enabled: true, isDefault: false, sortOrder: 1, leadTimeUnit: "HOURS", leadTimeMin: 24, leadTimeMax: 48 }
-    ],
-    []
-  );
   const shippingMethods = useMemo(() => {
-    const list = configuredShippingMethods.length ? configuredShippingMethods : fallbackShippingMethods;
-    return list.filter((m) => Boolean(m?.enabled));
-  }, [configuredShippingMethods, fallbackShippingMethods]);
+    // La base est la seule source de vérité : aucune modalité inventée côté front
+    return configuredShippingMethods.filter((m) => Boolean(m?.enabled));
+  }, [configuredShippingMethods]);
   const defaultShippingCode = useMemo(() => {
     const found = shippingMethods.find((m) => Boolean(m?.isDefault)) || shippingMethods[0];
     return found?.code || "STANDARD";
@@ -461,7 +454,7 @@ export default function Cart() {
                       {/* Price */}
                       <div className="col-span-1 md:col-span-2 md:text-center flex flex-col md:block">
                         <span className="md:hidden text-xs text-neutral-500 mb-1">Prix unitaire</span>
-                        <span className="font-medium text-neutral-900 dark:text-white">{item.price.toLocaleString()} FCFA</span>
+                        <span className="font-medium text-neutral-900 dark:text-white">{item.price.toLocaleString()} FCFA <span className="text-[10px] font-normal text-neutral-400">TTC</span></span>
                       </div>
 
                       {/* Quantity */}
@@ -609,7 +602,7 @@ export default function Cart() {
 
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between text-neutral-600 dark:text-neutral-400">
-                  <span>Sous-total</span>
+                  <span>Sous-total (TTC)</span>
                   <span>{cartTotal.toLocaleString()} FCFA</span>
                 </div>
                 
@@ -668,7 +661,7 @@ export default function Cart() {
                 <span className="text-lg font-bold text-neutral-900 dark:text-white">Total</span>
                 <div className="text-right">
                   <span className="block text-2xl font-bold text-neutral-900 dark:text-white">{finalTotal.toLocaleString()} FCFA</span>
-                  <span className="text-xs text-neutral-500">Dont TVA ({vatPercentLabel}%) : {taxAmount.toLocaleString()} FCFA</span>
+                  <span className="text-xs text-neutral-500">TTC, dont TVA incluse ({vatPercentLabel}%) : {taxAmount.toLocaleString()} FCFA</span>
                 </div>
               </div>
 

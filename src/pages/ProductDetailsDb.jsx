@@ -41,11 +41,6 @@ const normalizeVatRate = (raw) => {
   return value > 1 ? value / 100 : value;
 };
 
-const FALLBACK_SHIPPING_METHODS = [
-  { code: "STANDARD", label: "Standard", description: "3-5 jours ouvrables", costAmount: 3250, enabled: true, isDefault: true, sortOrder: 0, leadTimeUnit: "DAYS", leadTimeMin: 3, leadTimeMax: 5 },
-  { code: "EXPRESS", label: "Express", description: "24-48h", costAmount: 5000, enabled: true, isDefault: false, sortOrder: 1, leadTimeUnit: "HOURS", leadTimeMin: 24, leadTimeMax: 48 },
-];
-
 const isNotFoundError = (err) => {
   const status = Number(err?.response?.status);
   return status === 404 || status === 400;
@@ -162,8 +157,8 @@ export default function ProductDetailsDb() {
   const isFreeShippingEnabled = Boolean(freeShipping?.enabled) && Boolean(freeShippingThreshold);
   const shippingMethods = useMemo(() => {
     const configured = (Array.isArray(appConfig?.shippingMethods) ? appConfig.shippingMethods : []).filter((m) => m?.code && m?.label);
-    const list = configured.length ? configured : FALLBACK_SHIPPING_METHODS;
-    return list
+    // La base est la seule source de vérité : aucune modalité inventée côté front
+    return configured
       .filter((m) => Boolean(m?.enabled))
       .slice()
       .sort((a, b) => (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0))

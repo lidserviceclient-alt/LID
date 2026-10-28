@@ -18,6 +18,8 @@ const CartContext = createContext({
   setIsCartOpen: () => {},
 });
 
+// Contrat de prix : `price` d'une ligne est TOUJOURS TTC (TVA incluse), comme sur la fiche produit et
+// dans l'API panier (price/subtotal/totalPrice). Ne jamais y rajouter ni en retirer de TVA ici.
 const LOCAL_CART_KEY = "cart";
 const ITEM_TYPES = {
   ARTICLE: "ARTICLE",
