@@ -388,10 +388,30 @@ export default function OrderDetail() {
               {detail.customer?.name ? ` par ${detail.customer.name}` : ""}
             </p>
           </div>
-          <Button variant="outline" className="gap-2" onClick={() => load(true)} disabled={loading}>
-            <RefreshCcw className="h-4 w-4" />
-            Actualiser
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {status === "PENDING" ? (
+              <Button
+                variant="outline"
+                disabled={busy === "resync"}
+                onClick={() =>
+                  direct(
+                    "resync",
+                    async () => {
+                      const data = await backofficeApi.resyncOrderPayment(reference);
+                      setDetail(data);
+                    },
+                    "Paiement revérifié auprès de Paiement Pro."
+                  )
+                }
+              >
+                {busy === "resync" ? "Vérification…" : "Vérifier le paiement"}
+              </Button>
+            ) : null}
+            <Button variant="outline" className="gap-2" onClick={() => load(true)} disabled={loading}>
+              <RefreshCcw className="h-4 w-4" />
+              Actualiser
+            </Button>
+          </div>
         </div>
       </div>
 

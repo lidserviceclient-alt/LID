@@ -562,6 +562,9 @@ export const backofficeApi = {
   },
   orderStatusCounts: () => request("/api/v1/backoffice/orders/status-counts"),
   orderDetail: (reference) => request(`/api/v1/backoffice/orders/${encodeURIComponent(reference)}`),
+  // Resynchronise le paiement avec Paiement Pro (webhook perdu) et renvoie la commande à jour
+  resyncOrderPayment: (reference) =>
+    request(`/api/v1/backoffice/orders/${encodeURIComponent(reference)}/resync-payment`, { method: "POST" }),
   // Remboursement d'une commande annulée (montant optionnel = tout le reste remboursable)
   refundOrder: (reference, { amount, reason }) =>
     request(`/api/v1/backoffice/orders/${encodeURIComponent(reference)}/refunds`, {
