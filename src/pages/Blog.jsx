@@ -14,6 +14,7 @@ import Newsletter from "../components/Newsletter";
 import { getBlogPosts, normalizeBlogPost } from "../services/blogService";
 import { useCatalogBootstrap } from "@/features/catalog/CatalogBootstrapContext";
 import { subscribeFrontendRealtime } from "@/services/realtimeService";
+import { friendlyErrorMessage } from '@/utils/errorMessages';
 
 export default function BlogPage() {
   const [activeCategory, setActiveCategory] = useState("Tout");
@@ -76,7 +77,7 @@ export default function BlogPage() {
       .catch((err) => {
         if (cancelled) return;
         setPosts([]);
-        setLoadError(err?.message || "Impossible de charger les articles");
+        setLoadError(friendlyErrorMessage(err, "Impossible de charger les articles"));
       })
       .finally(() => {
         if (cancelled) return;
@@ -98,7 +99,7 @@ export default function BlogPage() {
           setLoadError("");
         })
         .catch((err) => {
-          setLoadError(err?.message || "Impossible de charger les articles");
+          setLoadError(friendlyErrorMessage(err, "Impossible de charger les articles"));
         })
         .finally(() => {
           control.inFlight = false;

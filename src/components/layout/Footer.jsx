@@ -14,6 +14,7 @@ import Logo from '../Logo';
 import { subscribeNewsletter } from '../../services/newsletterService';
 import { useAppConfig } from '@/features/appConfig/useAppConfig.js';
 import { useCatalogCategories } from '@/features/catalog/useCatalogCategories';
+import { friendlyErrorMessage } from '@/utils/errorMessages';
 
 const sameFooterItems = (left, right) => {
   if (!Array.isArray(left) || !Array.isArray(right)) return false;
@@ -111,7 +112,7 @@ export default function Footer() {
       toast.success("Merci de votre inscription à la newsletter !");
       setEmail('');
     } catch (err) {
-      toast.error(err?.response?.data?.message || err?.message || "Impossible de s'inscrire à la newsletter.");
+      toast.error(friendlyErrorMessage(err, "Impossible de s'inscrire à la newsletter."));
     }
   };
 

@@ -31,6 +31,7 @@ import {
   scrollToId,
   useSiteChromeOffsets,
 } from "@/components/pdpShowcase/liveUtils";
+import { scrollToTopNow } from "@/utils/scrollTop";
 
 const RELATED_LIMIT = 8;
 
@@ -201,6 +202,11 @@ export default function ProductDetailsDb() {
   useEffect(() => {
     setQuantity(1);
     setRatingSummary(null);
+  }, [id]);
+
+  // Toute ouverture d'une fiche produit commence en haut de page.
+  useEffect(() => {
+    scrollToTopNow();
   }, [id]);
 
   // Barre d'achat mobile : visible quand les boutons du bloc d'achat sortent de l'écran.

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { scrollToTopNow } from "@/utils/scrollTop";
 import { trackTrafficHit } from "@/services/traffic";
 
 export default function ScrollToTop() {
@@ -15,9 +16,7 @@ export default function ScrollToTop() {
   }, []);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
+    scrollToTopNow();
     trackTrafficHit({ path: pathname });
   }, [pathname]);
 

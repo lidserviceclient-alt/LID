@@ -14,6 +14,7 @@ import InternationalPhoneField from '@/components/InternationalPhoneField';
 import { isValidInternationalPhone, isValidMobileMoneyPhone } from '@/utils/phone';
 import { findMatchingAddress, formatAddressSummary, normalizeCustomerAddress, normalizeCustomerAddresses, pickPreferredAddress, toCustomerAddressPayload } from '@/utils/customerAddress';
 import { locateCurrentAddress } from '@/utils/geolocation';
+import { friendlyErrorMessage } from '@/utils/errorMessages';
 
 const formatMoney = (value) => {
   const num = Number(value);
@@ -436,7 +437,8 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
       if (status && status >= 400 && status < 500 && status !== 409) {
         idempotencyKeyRef.current = null;
       }
-      toast.error(err?.response?.data?.errorMessage || err?.response?.data?.message || err?.message || "Erreur de paiement");
+      console.error('[Checkout] paiement en echec', err);
+      toast.error(friendlyErrorMessage(err, "Le paiement n'a pas pu être lancé. Veuillez réessayer."));
     }
   };
 

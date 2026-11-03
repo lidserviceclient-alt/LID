@@ -21,6 +21,7 @@ import { getCatalogProductsPage } from "@/services/productService";
 import { resolveBackendAssetUrl } from "@/services/categoryService";
 import FavoriteNotification from "./FavoriteNotification";
 import { useCatalogBootstrap } from "@/features/catalog/CatalogBootstrapContext";
+import { friendlyErrorMessage } from '@/utils/errorMessages';
 
 // --- Components ---
 
@@ -699,7 +700,7 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
       })
       .catch((err) => {
         if (cancelled) return;
-        setLoadError(err?.message || "Erreur lors du chargement des produits");
+        setLoadError(friendlyErrorMessage(err, "Erreur lors du chargement des produits"));
         setCatalogProducts([]);
         setLoadedPages(0);
         setTotalPages(1);
@@ -1052,7 +1053,7 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
         setCatalogProducts((prev) => mergeUniqueById(prev, content));
         setLoadedPages((prev) => prev + 1);
       } catch (err) {
-        toast.error(err?.message || "Impossible de charger plus de produits.");
+        toast.error(friendlyErrorMessage(err, "Impossible de charger plus de produits."));
       } finally {
         setIsLoadingMore(false);
       }
@@ -1079,7 +1080,7 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
       }
       setVisibleCount(Number.MAX_SAFE_INTEGER);
     } catch (err) {
-      toast.error(err?.message || "Impossible de charger tous les produits.");
+      toast.error(friendlyErrorMessage(err, "Impossible de charger tous les produits."));
     } finally {
       setIsLoadingMore(false);
     }

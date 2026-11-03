@@ -41,6 +41,7 @@ import {
   readPendingPayment,
   toDate,
 } from "@/utils/orderStatus";
+import { friendlyErrorMessage } from '@/utils/errorMessages';
 
 const SHIPMENT_EVENT_LABEL = {
   EN_PREPARATION: "Colis prêt, en attente du livreur",
@@ -118,7 +119,8 @@ const buildHistory = (orderHistory, shipments, hasShipments) => {
   const sorted = events.sort((a, b) => time(a) - time(b));
   const deduped = sorted.filter((event, index) => {
     const previous = sorted.slice(0, index).reverse().find((e) => e.scope === event.scope);
-    return !previous || previous.title !== event.title;
+    // Même étape mais nouvelle information (ex. « livreur arrivé ») : on la garde
+    return !previous || previous.title !== event.title || Boolean(event.comment && event.comment !== previous.comment);
   });
   return deduped.reverse();
 };
@@ -302,6 +304,25 @@ export default function OrderTracking() {
     runTracking(urlRef);
   }, [urlRef, runTracking]);
 
+  // Commande en route : actualisation discrète toutes les 60 s tant que la page est visible
+  const liveStatus = rawData?.status;
+  const liveReference = rawData?.orderNumber;
+  useEffect(() => {
+    if (!liveReference || (liveStatus !== "READY_TO_DELIVER" && liveStatus !== "DELIVERY_IN_PROGRESS")) return undefined;
+    const timer = setInterval(async () => {
+      if (document.visibilityState !== "visible") return;
+      const ref = lastRequestedRef.current;
+      if (!ref) return;
+      try {
+        const data = await trackOrder(ref);
+        if (lastRequestedRef.current === ref) setRawData(data);
+      } catch {
+        // actualisation silencieuse : l'affichage précédent reste valable
+      }
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, [liveStatus, liveReference]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (isLoading) return;
@@ -339,7 +360,8 @@ export default function OrderTracking() {
       toast.success(paid ? "Commande annulée, remboursement en cours." : "Commande annulée.");
       await runTracking(order.orderNumber || urlRef);
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Cette commande n'est plus annulable (déjà en préparation). Contactez le service client.");
+      console.error(err);
+      toast.error(friendlyErrorMessage(err, "Cette commande n'est plus annulable (déjà en préparation). Contactez le service client."));
     } finally {
       setBusyAction("");
     }
@@ -351,7 +373,8 @@ export default function OrderTracking() {
     try {
       await openOrderReceipt(order.id);
     } catch (error) {
-      toast.error(error?.message || "Impossible d'ouvrir le justificatif.");
+      console.error(error);
+      toast.error(friendlyErrorMessage(error, "Impossible d'ouvrir le justificatif."));
     } finally {
       setBusyAction("");
     }

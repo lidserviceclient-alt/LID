@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Newsletter from "../components/Newsletter";
 import { getBlogPost, getBlogPosts } from "../services/blogService";
+import { friendlyErrorMessage } from '@/utils/errorMessages';
 
 export default function BlogDetails() {
   const { id } = useParams();
@@ -44,7 +45,7 @@ export default function BlogDetails() {
       .catch((err) => {
         if (cancelled) return;
         setPost(null);
-        setLoadError(err?.message || "Article introuvable");
+        setLoadError(friendlyErrorMessage(err, "Article introuvable"));
       })
       .finally(() => {
         if (cancelled) return;

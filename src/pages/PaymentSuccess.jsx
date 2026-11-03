@@ -5,6 +5,7 @@ import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { verifyPayment } from '@/services/paymentService.js';
 import { subscribeFrontendRealtime } from '@/services/realtimeService.js';
 import { useCart } from '@/features/cart/CartContext';
+import { friendlyErrorMessage, readPaymentReturnParams } from '@/utils/errorMessages';
 
 const verifyPromiseByToken = new Map();
 
@@ -32,7 +33,7 @@ export default function PaymentSuccess() {
   }, [consumePurchasedItems]);
 
   useEffect(() => {
-    const token = (params.get('token') || params.get('invoice_token') || params.get('invoiceToken') || '').trim();
+    const token = readPaymentReturnParams(params).token;
     if (!token) {
       setState({ loading: false, ok: false, message: 'Token de paiement manquant.' });
       return;
@@ -68,12 +69,10 @@ export default function PaymentSuccess() {
       })
       .catch((err) => {
         if (!mounted) return;
-        const message =
-          err?.response?.data?.message ||
-          err?.response?.data?.error ||
-          err?.response?.data?.errorMessage ||
-          err?.message ||
-          'Impossible de vérifier le paiement.';
+        console.error('[PaymentSuccess] verification du paiement en echec', err);
+        const message = err?.response?.status === 404
+          ? "Nous n'avons pas retrouvé ce paiement. Si vous avez été débité, ne payez pas une seconde fois : contactez-nous avec votre numéro de commande."
+          : friendlyErrorMessage(err, 'Impossible de vérifier le paiement pour le moment. Réessayez dans un instant.', { allowServerMessage: false });
         setState({ loading: false, ok: false, message });
       });
 
@@ -86,7 +85,7 @@ export default function PaymentSuccess() {
   // perdue ou retardee. Le WebSocket reste le chemin rapide.
   useEffect(() => {
     if (!state.pending) return () => {};
-    const token = (params.get('token') || params.get('invoice_token') || params.get('invoiceToken') || '').trim();
+    const token = readPaymentReturnParams(params).token;
     if (!token) return () => {};
     let attempts = 0;
     const timer = window.setInterval(async () => {
@@ -113,7 +112,7 @@ export default function PaymentSuccess() {
   }, [state.pending, params]);
 
   useEffect(() => {
-    const token = (params.get('token') || params.get('invoice_token') || params.get('invoiceToken') || '').trim();
+    const token = readPaymentReturnParams(params).token;
     if (!token) {
       return () => {};
     }
@@ -139,7 +138,7 @@ export default function PaymentSuccess() {
   function applyPaymentState(data) {
     const status = `${data?.status || ''}`.toUpperCase();
     if (status === 'COMPLETED') {
-      const token = (params.get('token') || params.get('invoice_token') || params.get('invoiceToken') || '').trim();
+      const token = readPaymentReturnParams(params).token;
       if (typeof window !== 'undefined' && token) {
         const consumedKey = `lid_payment_checkout_consumed_${token}`;
         const alreadyConsumed = window.localStorage.getItem(consumedKey) === '1';

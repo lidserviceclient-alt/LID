@@ -6,6 +6,7 @@ import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { sendContactMessage } from "@/services/contactService.js";
+import { friendlyErrorMessage } from '@/utils/errorMessages';
 
 export default function Contact() {
   const { data: appConfig } = useAppConfig();
@@ -36,7 +37,7 @@ export default function Contact() {
       form.reset();
     } catch (err) {
       toast.error("Envoi impossible", {
-        description: err?.message || "Merci de réessayer."
+        description: friendlyErrorMessage(err, "Merci de réessayer.")
       });
     } finally {
       setSending(false);

@@ -45,6 +45,7 @@ import {
 } from '@/utils/orderStatus';
 import OrderCard from '@/components/orders/OrderCard';
 import OrderList, { OrderCardSkeleton, OrdersEmptyState } from '@/components/orders/OrderList';
+import { friendlyErrorMessage } from '@/utils/errorMessages';
 
 const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 const PAYMENT_STORAGE_KEY = 'paymentMethods';
@@ -583,7 +584,8 @@ const SettingsSection = ({ profile, userId, onProfileUpdated }) => {
       onProfileUpdated(updated);
       toast.success("Profil mis à jour.");
     } catch (err) {
-      toast.error(err?.response?.data?.message || err?.message || "Mise à jour impossible.");
+      console.error(err);
+      toast.error(friendlyErrorMessage(err, "Mise à jour impossible."));
     } finally {
       setSaving(false);
     }
@@ -828,7 +830,8 @@ export default function Profile() {
       }));
       toast.success(paid ? 'Commande annulée, remboursement en cours.' : 'Commande annulée.');
     } catch (error) {
-      toast.error(error?.response?.data?.message || "Cette commande n'est plus annulable (déjà en préparation). Contactez le service client.");
+      console.error(error);
+      toast.error(friendlyErrorMessage(error, "Cette commande n'est plus annulable (déjà en préparation). Contactez le service client."));
     } finally {
       setOrderBusyAction('');
     }
@@ -853,7 +856,7 @@ export default function Profile() {
   };
 
   const apiErrorMessage = (err, fallback) =>
-    err?.response?.data?.errorMessage || err?.response?.data?.message || err?.message || fallback;
+    friendlyErrorMessage(err, fallback);
 
   const handleCreateAddress = async (payload) => {
     if (!tokenPayload?.sub) {

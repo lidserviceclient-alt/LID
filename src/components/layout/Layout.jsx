@@ -7,6 +7,7 @@ import { WishlistProvider } from '@/features/wishlist/WishlistContext'
 import { CustomerSessionProvider } from '@/features/customerSession/CustomerSessionContext'
 import { useEffect, useMemo, useState } from 'react'
 import Lenis from 'lenis'
+import { registerLenis, scrollToTopNow } from '@/utils/scrollTop'
 import { useCatalogCollection } from '@/features/catalog/useCatalogCollection'
 import { CatalogBootstrapProvider } from '@/features/catalog/CatalogBootstrapContext'
 import { subscribeFrontendRealtime } from '@/services/realtimeService'
@@ -133,8 +134,10 @@ export default function Layout() {
     }
 
     requestAnimationFrame(raf)
+    registerLenis(lenis)
 
     return () => {
+      registerLenis(null)
       lenis.destroy()
     }
   }, [])
@@ -142,7 +145,14 @@ export default function Layout() {
   // Scroll to top on route change (Lenis specific handling if needed, but ScrollToTop component usually handles window.scrollTo)
   // However, Lenis might interfere with instant scroll to top.
   useEffect(() => {
-     window.scrollTo(0, 0);
+    scrollToTopNow();
+    // Les pages sont chargées en lazy : on re-force le haut après le rendu du contenu.
+    const frame = requestAnimationFrame(() => scrollToTopNow());
+    const timer = setTimeout(scrollToTopNow, 150);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
   }, [location.pathname]);
 
   return (

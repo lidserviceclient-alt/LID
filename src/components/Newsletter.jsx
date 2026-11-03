@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, ArrowRight, Check } from "lucide-react";
 import { subscribeNewsletter } from "../services/newsletterService";
+import { friendlyErrorMessage } from '@/utils/errorMessages';
 
 export default function Newsletter() {
   const [email, setEmail] = useState("");
@@ -21,7 +22,7 @@ export default function Newsletter() {
       setEmail("");
     } catch (err) {
       setStatus("idle");
-      setError(err?.response?.data?.message || err?.message || "Erreur lors de l'inscription.");
+      setError(friendlyErrorMessage(err, "Erreur lors de l'inscription."));
     }
   };
 

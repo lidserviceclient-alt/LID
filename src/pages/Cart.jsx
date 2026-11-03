@@ -14,6 +14,7 @@ import { quoteCheckout } from "@/services/orderService.js";
 import { getCatalogProductsPage, getFeaturedCatalogProducts } from "@/services/productService";
 import { resolveBackendAssetUrl } from "@/services/categoryService";
 import { useAppConfig } from "@/features/appConfig/useAppConfig";
+import { friendlyErrorMessage } from '@/utils/errorMessages';
 
 const normalizeVatRate = (raw) => {
   const value = Number(raw);
@@ -176,7 +177,8 @@ export default function Cart() {
       toast.success(res?.promoMessage || "Code promo appliqué.");
     } catch (err) {
       setAppliedPromo(null);
-      toast.error(err?.response?.data?.message || err?.message || "Impossible d'appliquer le code promo.");
+      console.error(err);
+      toast.error(friendlyErrorMessage(err, "Impossible d'appliquer le code promo."));
     }
   };
 

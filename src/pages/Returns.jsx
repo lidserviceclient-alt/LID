@@ -6,6 +6,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { createReturnRequest, getReturnOrder } from "@/services/returnsService";
 import { resolveBackendAssetUrl } from "@/services/categoryService";
+import { friendlyErrorMessage } from '@/utils/errorMessages';
 
 const steps = [
   { id: 1, title: "Identification", icon: FileText },
@@ -68,12 +69,8 @@ export default function Returns() {
 
       return true;
     } catch (err) {
-      toast.error(
-        err?.response?.data?.errorMessage ||
-          err?.response?.data?.message ||
-          err?.message ||
-          "Impossible de retrouver la commande."
-      );
+      console.error(err);
+      toast.error(friendlyErrorMessage(err, "Impossible de retrouver la commande."));
       setOrderPreview(null);
       setOrderItems([]);
       setSelectedItems({});
@@ -169,12 +166,8 @@ export default function Returns() {
       toast.success("Demande de retour enregistrée !");
       setCurrentStep(4);
     } catch (err) {
-      toast.error(
-        err?.response?.data?.errorMessage ||
-          err?.response?.data?.message ||
-          err?.message ||
-          "Impossible d'enregistrer la demande."
-      );
+      console.error(err);
+      toast.error(friendlyErrorMessage(err, "Impossible d'enregistrer la demande."));
     } finally {
       setIsSubmitting(false);
     }
