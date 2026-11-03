@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { BackgroundLines } from "../components/textAnimat.jsx";
 import { useNavigate } from "react-router-dom";
 import { loginWithGoogle } from "@/services/authService.js";
@@ -133,6 +133,10 @@ const MotionLink = motion.create(Link);
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = /^\/(?!\/)/.test(location.state?.from?.pathname || '')
+    ? `${location.state.from.pathname}${location.state.from.search || ''}`
+    : '/';
   const videoSrc = `${import.meta.env.BASE_URL || '/'}videos/video-og.mp4`;
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const googleInitRef = useRef(false);
@@ -158,7 +162,7 @@ export default function Login() {
       if (isDebug) {
         console.info('[AUTH] Login OK, access token présent:', Boolean(accessToken));
       }
-      navigate("/");
+      navigate(returnTo, { replace: true });
     } catch (error) {
       console.error("Erreur lors de la connexion Google:", error);
       const message =
@@ -172,7 +176,7 @@ export default function Login() {
         }
       }
     }
-  }, [isDebug, navigate]);
+  }, [isDebug, navigate, returnTo]);
 
   useEffect(() => {
     if (!googleClientId || googleInitRef.current) {
@@ -271,14 +275,14 @@ export default function Login() {
               <h1 className="text-5xl font-bold text-white mb-12 leading-tight tracking-tight">
                 Nous vous donnons <br />
                 <span className="text-neutral-500">
-                  une raison de plus d'etre notre partenaire ?
+                  une raison de plus d'être notre partenaire ?
                 </span>
               </h1>
               
               <div className="flex flex-row items-center justify-between gap-1 w-full px-4 mb-16">
                   {/* Left Text Paragraph */}
                   <p className="text-neutral-100 text-left text-sm leading-relaxed max-w-[320px]">
-                    Cada dia mais pessoas comuns estão mudando de vida ao aprender como investir do jeito certo. Não fique só olhando de fora.
+                    Chaque jour, de plus en plus de commerçants développent leur activité en vendant sur LID. Ne restez pas simple spectateur.
                   </p>
 
                   {/* Right Social Proof Pill */}

@@ -1,5 +1,5 @@
-import api from './api';
-import { setAccessToken, clearAccessToken, getAccessTokenPayload, hasValidAccessToken } from './auth';
+import api, { refreshAccessToken, isDefinitiveRefreshFailure } from './api';
+import { setAccessToken, clearAccessToken, getAccessTokenPayload, hasValidAccessToken, hasSessionHint } from './auth';
 import { clearCustomerSessionCache } from './sessionCleanup';
 
 const profileCache = new Map();
@@ -155,16 +155,26 @@ export const isAuthenticated = () => {
  * @returns {Promise<boolean>} True si le refresh a réussi.
  */
 export const refreshSession = async () => {
+  const result = await refreshSessionDetailed();
+  return result === 'ok';
+};
+
+/**
+ * Variante détaillée : 'ok' | 'none' (aucun indice de session, aucun appel) |
+ * 'denied' (401/403 définitif, session vidée) | 'transient' (429/5xx/réseau après réessais, session conservée).
+ */
+export const refreshSessionDetailed = async () => {
+  if (!hasSessionHint()) return 'none';
   try {
-    const { data } = await api.post('/api/v1/auth/refresh');
-    if (data?.accessToken) {
-      setAccessToken(data.accessToken);
-      return true;
-    }
+    await refreshAccessToken();
+    return 'ok';
   } catch (error) {
-    console.warn('Erreur lors du refresh session:', error);
+    if (isDefinitiveRefreshFailure(error)) {
+      clearAccessToken();
+      return 'denied';
+    }
+    return 'transient';
   }
-  return false;
 };
 
 export const requestPasswordReset = async (email) => {

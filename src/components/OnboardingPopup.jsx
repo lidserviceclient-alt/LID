@@ -15,16 +15,30 @@ export default function OnboardingPopup() {
 
   useEffect(() => {
     // Vérifie si l'utilisateur a déjà vu l'onboarding
-    const hasSeen = localStorage.getItem("hasSeenOnboarding");
-    if (!hasSeen) {
+    if (localStorage.getItem("hasSeenOnboarding")) return undefined;
+    let timer = null;
+    const schedule = () => {
       // Petit délai pour ne pas agresser l'utilisateur immédiatement
-      const timer = setTimeout(() => {
+      timer = setTimeout(() => {
         setOpen(true);
         // Marquer comme vu dès l'affichage pour éviter la répétition au rechargement
         localStorage.setItem("hasSeenOnboarding", "true");
       }, 1500);
+    };
+    // Ne pas empiler la modale et le bandeau cookies : on attend la décision de l'utilisateur.
+    if (localStorage.getItem("lid_cookie_consent")) {
+      schedule();
       return () => clearTimeout(timer);
     }
+    const onDecided = () => {
+      window.removeEventListener("lid:cookie-consent-decided", onDecided);
+      schedule();
+    };
+    window.addEventListener("lid:cookie-consent-decided", onDecided);
+    return () => {
+      window.removeEventListener("lid:cookie-consent-decided", onDecided);
+      clearTimeout(timer);
+    };
   }, []);
 
   const close = () => {

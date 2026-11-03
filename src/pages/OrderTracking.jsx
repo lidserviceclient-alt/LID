@@ -22,7 +22,7 @@ import { TrackingErrorState, TrackingSearchForm, TrackingSkeleton } from "@/comp
 import { trackOrder } from "@/services/trackingService";
 import { resolveBackendAssetUrl } from "@/services/categoryService";
 import { cancelCustomerOrder, openOrderReceipt } from "@/services/customerService";
-import { getCurrentUserPayload } from "@/services/authService";
+import { getCurrentUserPayload, isAuthenticated } from "@/services/authService";
 import { useAppConfig } from "@/features/appConfig/useAppConfig";
 import { useCustomerSession } from "@/features/customerSession/CustomerSessionContext.jsx";
 import { getReturnWindow } from "@/utils/policy";
@@ -212,7 +212,9 @@ const normalizeTracking = (data, appConfig) => {
 
 const errorKind = (err) => {
   const status = err?.response?.status;
-  if (status === 401) return "auth";
+  // 404/400/403 : commande inconnue. 401 : commande privée et visiteur non connecté ;
+  // si une session valide existe déjà, un 401 ne justifie pas « Connectez-vous ».
+  if (status === 401) return isAuthenticated() ? "notFound" : "auth";
   if (status === 403 || status === 404 || status === 400) return "notFound";
   return "network";
 };

@@ -1,6 +1,5 @@
 import api from './api';
-import { clearAccessToken, getAccessToken } from './auth';
-import { clearCustomerSessionCache } from './sessionCleanup';
+import { getAccessToken } from './auth';
 
 const DEFAULT_TOPICS = [];
 const PUBLIC_TOPICS = new Set(['catalog.updated']);
@@ -23,9 +22,6 @@ function buildWsUrl(path, wsAccess) {
   const url = new URL(cleanPath, baseRoot);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   url.searchParams.set('ws-access', wsAccess);
-  // #region debug-point E:realtime-ws-url
-  typeof window !== 'undefined' && fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'staging-api-mismatch', runId: 'pre-fix', hypothesisId: 'E', location: 'src/services/realtimeService.js:26', msg: '[DEBUG] realtime websocket url built', data: { href: window.location.href, apiBase, inputPath: path || '/api/v1/realtime/ws', finalWsUrl: url.toString(), hasController: Boolean(navigator.serviceWorker?.controller) }, ts: Date.now() }) }).catch(() => {});
-  // #endregion
   return url.toString();
 }
 
@@ -84,10 +80,8 @@ async function connect() {
         data = response?.data;
       } catch (err) {
         if (authMode === 'private' && publicTopics.length > 0) {
-          if (err?.response?.status === 401) {
-            clearCustomerSessionCache();
-            clearAccessToken();
-          }
+          // Un 401 ici ne prouve pas que le refresh token est invalide : on ne touche pas à la session
+          // (api.js la vide si le refresh est refusé définitivement). On bascule simplement en public.
           authMode = 'public';
           topics = publicTopics;
           const fallback = await api.post('/api/v1/realtime/ws-access/public', { topics });

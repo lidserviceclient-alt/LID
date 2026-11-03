@@ -89,8 +89,19 @@ export default function Cart() {
       ? 0
       : selectedBaseCost;
   
+  const handleIncreaseQuantity = (item) => {
+    const stock = Number(item?.stock);
+    if (Number.isFinite(stock) && stock > 0 && Number(item.quantity) >= stock) {
+      toast.error(`Stock limité : seulement ${stock} exemplaire${stock > 1 ? "s" : ""} disponible${stock > 1 ? "s" : ""}.`);
+      return;
+    }
+    updateQuantity(item.id, item.color, item.size, 1);
+  };
+
   const handleCheckout = () => {
     if (!isAuthenticated()) {
+      // Le panier est conservé (local) ; retour au panier après connexion.
+      toast.info("Connectez-vous pour finaliser votre commande. Votre panier est conservé.");
       navigate('/login', { state: { from: { pathname: '/cart' } } });
       return;
     }
@@ -111,6 +122,7 @@ export default function Cart() {
       return;
     }
     if (!isAuthenticated()) {
+      toast.info("Connectez-vous pour utiliser un code promo. Votre panier est conservé.");
       navigate('/login', { state: { from: { pathname: '/cart' } } });
       return;
     }
@@ -358,7 +370,7 @@ export default function Cart() {
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-2xl font-bold text-neutral-900 dark:text-white flex items-center gap-3">
                 <ShoppingBag className="text-orange-600" />
-                Mon Panier <span className="text-neutral-500 text-lg font-normal">({cartItems.length} articles)</span>
+                Mon Panier <span className="text-neutral-500 text-lg font-normal">({cartItems.length} article{cartItems.length > 1 ? "s" : ""})</span>
               </h1>
               <button 
                 onClick={clearCart}
@@ -470,7 +482,7 @@ export default function Cart() {
                           </button>
                           <span className="w-8 text-center font-medium text-neutral-900 dark:text-white">{item.quantity}</span>
                           <button
-                            onClick={() => updateQuantity(item.id, item.color, item.size, 1)}
+                            onClick={() => handleIncreaseQuantity(item)}
                             className="w-8 h-8 flex items-center justify-center hover:bg-white dark:hover:bg-neutral-700 rounded-full text-neutral-600 dark:text-neutral-300 transition-colors shadow-sm disabled:opacity-50"
                           >
                             <Plus className="w-3 h-3" />

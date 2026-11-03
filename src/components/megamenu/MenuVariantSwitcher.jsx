@@ -10,11 +10,11 @@ const LABELS = {
 
 /**
  * Floating buttons to live-switch the "Nos Catégories" menu design variant,
- * for comparing 1a/1b/1c/2a on staging. Staging-only by design — never
- * rendered in production.
+ * for comparing 1a/1b/1c/2a on staging. Visible uniquement en DEV ou avec
+ * VITE_SHOW_DESIGN_MENU=true — jamais pour les visiteurs.
  */
 export default function MenuVariantSwitcher() {
-  if (import.meta.env.MODE !== "staging") return null;
+  if (!import.meta.env.DEV && import.meta.env.VITE_SHOW_DESIGN_MENU !== "true") return null;
   return <MenuVariantSwitcherInner />;
 }
 

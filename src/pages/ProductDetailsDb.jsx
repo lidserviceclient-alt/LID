@@ -265,6 +265,7 @@ export default function ProductDetailsDb() {
       imageUrl: rawMainImage,
       sellerName: product.sellerName || "LID",
       referenceProduitPartenaire: product.referenceProduitPartenaire,
+      stock: maxQuantity ?? undefined,
     });
   };
 

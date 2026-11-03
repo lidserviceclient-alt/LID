@@ -102,13 +102,60 @@ function getExistingAuthHeader(headers) {
   return headers['Authorization'] || headers['authorization'] || null;
 }
 
+const REFRESH_MAX_ATTEMPTS = 3;
+const REFRESH_MAX_TOTAL_WAIT_MS = 5_000;
+const REFRESH_BASE_BACKOFF_MS = 500;
+
+/** Refus définitif du refresh token (cookie expiré/révoqué) : seul cas où la session est vidée. */
+export function isDefinitiveRefreshFailure(error) {
+  const status = error?.response?.status;
+  return status === 401 || status === 403;
+}
+
+/** Erreur transitoire : 429, 5xx ou absence de réponse (réseau/timeout). */
+function isTransientRefreshFailure(error) {
+  const status = error?.response?.status;
+  if (!error?.response) return error?.isAxiosError === true;
+  return status === 429 || status >= 500;
+}
+
+function parseRetryAfterMs(error) {
+  const raw = error?.response?.headers?.['retry-after'];
+  if (!raw) return null;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const date = Date.parse(raw);
+  return Number.isNaN(date) ? null : Math.max(0, date - Date.now());
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Appelle /auth/refresh avec réessais bornés (3 tentatives, ~5 s cumulées max)
+ * sur 429 / 5xx / erreur réseau, en respectant Retry-After.
+ */
+async function postRefreshWithRetry() {
+  let waited = 0;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await runExclusiveRefresh(() => refreshClient.post('/api/v1/auth/refresh'));
+    } catch (error) {
+      if (!isTransientRefreshFailure(error) || attempt >= REFRESH_MAX_ATTEMPTS) throw error;
+      const delay = parseRetryAfterMs(error) ?? REFRESH_BASE_BACKOFF_MS * 2 ** (attempt - 1);
+      if (waited + delay > REFRESH_MAX_TOTAL_WAIT_MS) throw error;
+      waited += delay;
+      await sleep(delay);
+    }
+  }
+}
+
 /**
  * Rafraîchit l'access token via le refresh token (cookie HttpOnly).
  * La promesse est partagée pour éviter les appels parallèles.
  */
-async function refreshAccessToken() {
+export async function refreshAccessToken() {
   if (!refreshAccessTokenPromise) {
-    refreshAccessTokenPromise = runExclusiveRefresh(() => refreshClient.post('/api/v1/auth/refresh'))
+    refreshAccessTokenPromise = postRefreshWithRetry()
       .then(({ data }) => {
         const accessToken = data?.accessToken;
         if (typeof accessToken !== 'string' || !accessToken) {
@@ -124,18 +171,24 @@ async function refreshAccessToken() {
   return refreshAccessTokenPromise;
 }
 
-/** Restaure la session au demarrage a partir du cookie de rafraichissement (le jeton n'est plus stocke). */
+/**
+ * Restaure la session au demarrage a partir du cookie de rafraichissement (le jeton n'est plus stocke).
+ * Sans indice de session (visiteur anonyme), aucun appel n'est emis.
+ * Retourne 'none' | 'restored' | 'denied' | 'transient'.
+ */
 export async function bootstrapSession() {
-  if (getAccessToken() || !hasSessionHint()) {
-    return;
-  }
+  if (getAccessToken()) return 'restored';
+  if (!hasSessionHint()) return 'none';
   try {
     await refreshAccessToken();
+    return 'restored';
   } catch (error) {
-    // Cookie expire ou revoque : le visiteur est simplement deconnecte
-    if (error?.response?.status === 401 || error?.response?.status === 403) {
+    if (isDefinitiveRefreshFailure(error)) {
       clearAccessToken();
+      return 'denied';
     }
+    // Erreur transitoire : l'indice de session est conserve, la restauration sera retentee.
+    return 'transient';
   }
 }
 
@@ -170,11 +223,13 @@ api.interceptors.request.use(
     if (!isAuthLogin && !isRefresh && !isPublic && storedToken && !accessToken && !existingAuth) {
       try {
         accessToken = await refreshAccessToken();
-      } catch {
-        // On nettoie silencieusement — pas de log en prod pour ne pas exposer l'état.
+      } catch (refreshError) {
         if (isDebug) console.info('[AUTH] proactive refresh failed');
-        clearCustomerSessionCache();
-        clearAccessToken();
+        // Session vidée uniquement sur refus définitif (401/403), jamais sur 429/5xx/réseau.
+        if (isDefinitiveRefreshFailure(refreshError)) {
+          clearCustomerSessionCache();
+          clearAccessToken();
+        }
       }
     }
 
@@ -242,7 +297,10 @@ api.interceptors.response.use(
       const currentToken     = getAccessToken();
       const hadAccessToken   = Boolean(currentToken && !isTokenExpired(currentToken));
 
-      if (status === 401 && !originalRequest._retry && !isAuthEndpoint && !isPublic && !skipAuthRefresh) {
+      // Sans indice de session ni jeton (visiteur anonyme), inutile d'appeler /auth/refresh.
+      const canRefresh = Boolean(currentToken) || hasSessionHint();
+
+      if (status === 401 && canRefresh && !originalRequest._retry && !isAuthEndpoint && !isPublic && !skipAuthRefresh) {
         originalRequest._retry = true;
 
         try {
@@ -250,8 +308,10 @@ api.interceptors.response.use(
           originalRequest.headers = originalRequest.headers || {};
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return api(originalRequest);
-        } catch {
-          if (isDebug) console.info('[AUTH] refresh failed — session invalide');
+        } catch (refreshError) {
+          if (isDebug) console.info('[AUTH] refresh failed');
+          // Échec transitoire (429/5xx/réseau) : on garde la session et on propage l'erreur d'origine.
+          if (!isDefinitiveRefreshFailure(refreshError)) return Promise.reject(error);
         }
 
         // On ne redirige que si on avait effectivement une session ouverte.

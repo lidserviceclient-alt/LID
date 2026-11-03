@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { initAnalytics } from "@/services/firebase";
 import { trackTrafficHit } from "@/services/traffic";
 
+const COOKIE_CONSENT_EVENT = "lid:cookie-consent-decided";
+const notifyConsentDecided = () => window.dispatchEvent(new Event(COOKIE_CONSENT_EVENT));
+
 export default function CookieConsent() {
   const [visible, setVisible] = useState(false);
   const [openSettings, setOpenSettings] = useState(false);
@@ -21,11 +24,13 @@ export default function CookieConsent() {
     initAnalytics();
     trackTrafficHit({ path: window.location?.pathname || "/" });
     setVisible(false);
+    notifyConsentDecided();
   };
 
   const rejectAll = () => {
     localStorage.setItem("lid_cookie_consent", "essential");
     setVisible(false);
+    notifyConsentDecided();
   };
 
   const savePreferences = () => {
@@ -45,6 +50,7 @@ export default function CookieConsent() {
     }
 
     setVisible(false);
+    notifyConsentDecided();
   };
 
   if (!visible) return null;

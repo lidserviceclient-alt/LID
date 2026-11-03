@@ -118,6 +118,7 @@ const mapServerCartToItems = (cart) => {
         image: line?.article?.mainImageUrl,
         imageUrl: line?.article?.mainImageUrl,
         sku: line?.article?.sku,
+        stock: line?.article?.stock,
         referenceProduitPartenaire: line?.article?.referenceProduitPartenaire || line?.article?.sku,
       })
     )
@@ -243,9 +244,18 @@ export function CartProvider({ children }) {
         const dbItems = mapServerCartToItems(dbCart);
         const localItems = localCartSnapshot();
         const merged = mergeItems(dbItems, localItems);
-        const synced = await syncCustomerCart(customerId, toServerPayload(merged));
-        setCartItems(mapServerCartToItems(synced));
+        const payloadKey = (items) =>
+          JSON.stringify(toServerPayload(items).map((l) => `${l.itemType}|${l.articleId || ""}|${l.color || ""}|${l.size || ""}|${l.quantity}`).sort());
+        if (payloadKey(merged) === payloadKey(dbItems)) {
+          // Panier inchangé : aucune écriture inutile.
+          setCartItems(dbItems);
+        } else {
+          const synced = await syncCustomerCart(customerId, toServerPayload(merged));
+          setCartItems(mapServerCartToItems(synced));
+        }
         saveLocalCartSnapshot([]);
+      } catch {
+        // 401/429/réseau : on garde l'état local, la synchro sera retentée à la prochaine mutation.
       } finally {
         hydratingRef.current = false;
       }

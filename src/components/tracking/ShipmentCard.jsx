@@ -5,7 +5,7 @@ import { formatDate, getShipmentStatusMeta } from "@/utils/orderStatus";
 
 /**
  * Code de remise : genere au depart en livraison et visible uniquement par le titulaire de la commande
- * (l'API de suivi exige d'etre connecte et proprietaire). Il n'est plus utile une fois le colis livre.
+ * (l'API de suivi exige d'être connecté et propriétaire). Il n'est plus utile une fois le colis livré.
  */
 export function DeliveryCode({ code }) {
   if (!code) return null;

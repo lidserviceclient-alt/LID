@@ -78,7 +78,7 @@ const STATE_CONTENT = {
   notFound: {
     icon: PackageSearch,
     title: "Commande introuvable",
-    text: "Nous ne trouvons pas cette commande dans votre compte. Vérifiez le numéro (format ORD-XXXX-XXXX) ou consultez vos commandes.",
+    text: "Nous ne trouvons aucune commande correspondant à ce numéro. Vérifiez le numéro (format ORD-XXXX-XXXX) ou consultez vos commandes.",
   },
   network: {
     icon: WifiOff,

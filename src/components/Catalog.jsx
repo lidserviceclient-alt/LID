@@ -888,7 +888,9 @@ export default function Catalog({ showFilters = true, showHeader = true, limit =
 
     const desiredSort = sortBy === "featured" ? "" : sortBy;
     const currentSort = `${nextParams.get("sort") || ""}`.trim();
-    if (currentSort !== desiredSort) {
+    // Les alias (bestsellers, trending, featured…) équivalents à « featured » sont conservés dans l'URL.
+    const isFeaturedAlias = sortBy === "featured" && currentSort !== "" && normalizeSortParam(currentSort) === "featured";
+    if (currentSort !== desiredSort && !isFeaturedAlias) {
       if (desiredSort) nextParams.set("sort", desiredSort);
       else nextParams.delete("sort");
     }

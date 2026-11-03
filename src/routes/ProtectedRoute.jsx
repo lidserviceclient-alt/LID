@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import Loader from '@/components/Loader';
-import { getCachedUserProfile, getCurrentUserPayload, isAuthenticated, refreshSession } from '@/services/authService';
+import { getCachedUserProfile, getCurrentUserPayload, isAuthenticated, refreshSessionDetailed } from '@/services/authService';
 import { useAuthPayload } from '@/hooks/useAuthPayload';
 
 /**
@@ -31,7 +31,15 @@ const ProtectedRoute = ({
   const authQuery = useQuery({
     queryKey: ['protected-route-auth', tokenPayload?.sub || null, tokenPayload?.exp || null, (requiredRoles || []).join(','), requireVerifiedPartner],
     queryFn: async () => {
-      const allowed = tokenPayload?.sub && isAuthenticated() ? true : await refreshSession();
+      let allowed = Boolean(tokenPayload?.sub && isAuthenticated());
+      if (!allowed) {
+        const result = await refreshSessionDetailed();
+        // Erreur transitoire (429/5xx/réseau) : session conservée, on ne redirige pas vers /login.
+        if (result === 'transient') {
+          return { transient: true, allowed: false, roleOk: true, verifiedPartnerOk: true, payload: null };
+        }
+        allowed = result === 'ok';
+      }
       if (!allowed) {
         return {
           allowed: false,
@@ -56,7 +64,7 @@ const ProtectedRoute = ({
 
       return { allowed: true, roleOk, verifiedPartnerOk, payload };
     },
-    staleTime: 60_000,
+    staleTime: (query) => (query.state.data?.transient ? 0 : 60_000),
     gcTime: 10 * 60_000,
     retry: false,
     refetchOnMount: false,
@@ -72,6 +80,23 @@ const ProtectedRoute = ({
 
   if (authQuery.isLoading) {
     return <Loader />;
+  }
+
+  if (state.transient) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 px-4 text-center">
+        <p className="text-sm text-neutral-700 dark:text-neutral-200">
+          Restauration de votre session en cours. Le service est momentanément surchargé.
+        </p>
+        <button
+          type="button"
+          className="rounded-md bg-neutral-900 px-4 py-2 text-sm text-white dark:bg-white dark:text-neutral-900"
+          onClick={() => authQuery.refetch()}
+        >
+          Réessayer
+        </button>
+      </div>
+    );
   }
 
   if (!state.allowed) {
