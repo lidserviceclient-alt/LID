@@ -38,6 +38,7 @@ import Messages from "./pages/Messages.jsx";
 import ContactRequests from "./pages/ContactRequests.jsx";
 import ProductReviews from "./pages/ProductReviews.jsx";
 import BlogPosts from "./pages/BlogPosts.jsx";
+import ProductNotFound from "./pages/ProductNotFound.jsx";
 import { isAuthenticated } from "./services/auth.js";
 import { OverviewProvider } from "./contexts/OverviewContext.jsx";
 import TestLabel from "./pages/Test.jsx";
@@ -83,6 +84,7 @@ export default function App() {
         <Route path="/partners" element={<Partners />} />
         <Route path="/products" element={<Products />} />
         <Route path="/products/create" element={<ProductCreate />} />
+        <Route path="/products/:id" element={<ProductNotFound />} />
         <Route path="/media" element={<Media />} />
         <Route path="/categories" element={<Categories />} />
         <Route path="/promo-codes" element={<PromoCodes />} />

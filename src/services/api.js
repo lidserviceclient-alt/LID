@@ -20,33 +20,93 @@ function dedupeKey(path, options = {}) {
   return `${requestMethod(options)} ${path} ${accept}`;
 }
 
+const REFRESH_MAX_ATTEMPTS = 3;
+const REFRESH_BUDGET_MS = 5000;
+const TOO_MANY_REQUESTS_MESSAGE = "Trop de requêtes, réessayez dans un instant";
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseRetryAfterMs(res) {
+  const raw = res?.headers?.get?.("retry-after");
+  if (!raw) return null;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const date = Date.parse(raw);
+  return Number.isNaN(date) ? null : Math.max(0, date - Date.now());
+}
+
+// Une tentative de refresh. Erreur "definitive" = token invalide/expiré (401/403) : seule situation qui déconnecte.
+async function refreshOnce() {
+  let res;
+  try {
+    res = await trackedFetch(`${BASE_URL}/api/v1/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include"
+    });
+  } catch {
+    const error = new Error("API indisponible");
+    error.transient = true;
+    throw error;
+  }
+  if (!res.ok) {
+    const error = new Error(`Refresh failed: ${res.status}`);
+    if (res.status === 401 || res.status === 403) {
+      error.definitive = true;
+    } else {
+      error.transient = true;
+      error.retryAfterMs = parseRetryAfterMs(res);
+      error.status = res.status;
+    }
+    throw error;
+  }
+  const data = await res.json().catch(() => null);
+  const accessToken = data?.accessToken;
+  if (!accessToken) {
+    const error = new Error("Token manquant");
+    error.definitive = true;
+    throw error;
+  }
+  setAccessToken(accessToken);
+  return accessToken;
+}
+
+// Réessaie sur 429 / réseau / 5xx (backoff, Retry-After respecté), borné à REFRESH_MAX_ATTEMPTS et REFRESH_BUDGET_MS.
+async function refreshWithRetry() {
+  const startedAt = Date.now();
+  let lastError = null;
+  for (let attempt = 1; attempt <= REFRESH_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await refreshOnce();
+    } catch (error) {
+      if (error?.definitive || !error?.transient) throw error;
+      lastError = error;
+      if (attempt === REFRESH_MAX_ATTEMPTS) break;
+      const backoff = 500 * 2 ** (attempt - 1);
+      const remaining = REFRESH_BUDGET_MS - (Date.now() - startedAt);
+      const wait = Math.min(error.retryAfterMs ?? backoff, remaining);
+      if (wait <= 0 || (error.retryAfterMs != null && error.retryAfterMs > remaining)) break;
+      await sleep(wait);
+    }
+  }
+  throw lastError;
+}
+
 async function refreshAccessToken() {
   if (refreshPromise) {
     return refreshPromise;
   }
-  refreshPromise = trackedFetch(`${BASE_URL}/api/v1/auth/refresh`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    credentials: "include"
-  })
-    .then(async (res) => {
-      if (!res.ok) {
-        throw new Error(`Refresh failed: ${res.status}`);
-      }
-      const data = await res.json().catch(() => null);
-      const accessToken = data?.accessToken;
-      if (!accessToken) {
-        throw new Error("Token manquant");
-      }
-      setAccessToken(accessToken);
-      return accessToken;
-    })
-    .finally(() => {
-      refreshPromise = null;
-    });
+  refreshPromise = refreshWithRetry().finally(() => {
+    refreshPromise = null;
+  });
   return refreshPromise;
+}
+
+// Refresh en échec transitoire : on ne touche ni à la session ni à la navigation, l'erreur remonte à l'appelant.
+function transientRefreshError(error) {
+  return new Error(error?.status === 429 ? TOO_MANY_REQUESTS_MESSAGE : "Service momentanément indisponible, réessayez dans un instant");
 }
 
 async function request(path, options = {}, retryAuth = true) {
@@ -98,7 +158,8 @@ async function request(path, options = {}, retryAuth = true) {
       let refreshedToken = null;
       try {
         refreshedToken = await refreshAccessToken();
-      } catch {
+      } catch (refreshError) {
+        if (!refreshError?.definitive) throw transientRefreshError(refreshError);
         clearAccessToken();
       }
       if (refreshedToken) {
@@ -121,6 +182,10 @@ async function request(path, options = {}, retryAuth = true) {
         }
       }
       throw new Error("Session expirée ou accès refusé. Merci de vous reconnecter.");
+    }
+
+    if (res.status === 429) {
+      throw new Error(TOO_MANY_REQUESTS_MESSAGE);
     }
 
     throw new Error(message);
@@ -167,15 +232,19 @@ async function requestBlob(path, options = {}, retryAuth = true) {
     }
 
     if (res.status === 401 && shouldRetryAuth && !path.includes("/api/v1/auth/refresh") && !path.includes("/api/v1/auth/login")) {
+      let refreshedToken = null;
       try {
-        const refreshedToken = await refreshAccessToken();
+        refreshedToken = await refreshAccessToken();
+      } catch (refreshError) {
+        if (!refreshError?.definitive) throw transientRefreshError(refreshError);
+        clearAccessToken();
+      }
+      if (refreshedToken) {
         const nextHeaders = {
           ...(optionHeaders || {}),
           Authorization: `Bearer ${refreshedToken}`
         };
         return await requestBlob(path, { ...restOptions, headers: nextHeaders }, false);
-      } catch {
-        clearAccessToken();
       }
     }
 
@@ -188,6 +257,10 @@ async function requestBlob(path, options = {}, retryAuth = true) {
         }
       }
       throw new Error("Session expirée ou accès refusé. Merci de vous reconnecter.");
+    }
+
+    if (res.status === 429) {
+      throw new Error(TOO_MANY_REQUESTS_MESSAGE);
     }
 
     throw new Error(message);
@@ -227,15 +300,19 @@ async function requestForm(path, options = {}, retryAuth = true) {
     }
 
     if (res.status === 401 && shouldRetryAuth && !path.includes("/api/v1/auth/refresh") && !path.includes("/api/v1/auth/login")) {
+      let refreshedToken = null;
       try {
-        const refreshedToken = await refreshAccessToken();
+        refreshedToken = await refreshAccessToken();
+      } catch (refreshError) {
+        if (!refreshError?.definitive) throw transientRefreshError(refreshError);
+        clearAccessToken();
+      }
+      if (refreshedToken) {
         const nextHeaders = {
           ...(optionHeaders || {}),
           Authorization: `Bearer ${refreshedToken}`
         };
         return await requestForm(path, { ...restOptions, headers: nextHeaders }, false);
-      } catch {
-        clearAccessToken();
       }
     }
 
@@ -248,6 +325,10 @@ async function requestForm(path, options = {}, retryAuth = true) {
         }
       }
       throw new Error("Session expirée ou accès refusé. Merci de vous reconnecter.");
+    }
+
+    if (res.status === 429) {
+      throw new Error(TOO_MANY_REQUESTS_MESSAGE);
     }
 
     throw new Error(message);

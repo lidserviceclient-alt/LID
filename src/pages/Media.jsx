@@ -5,6 +5,7 @@ import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Button from "../components/ui/Button.jsx";
 import Select from "../components/ui/Select.jsx";
 import { backofficeApi } from "../services/api.js";
+import { isDuplicateUploadItem } from "../utils/uploadResult.js";
 
 const folderOptions = [
   { value: "products", label: "Produits" },
@@ -36,7 +37,7 @@ export default function Media() {
 
   const successfulItems = useMemo(() => items.filter((item) => item?.success && item?.file?.url), [items]);
   const mediaItems = Array.isArray(mediaPage?.content) ? mediaPage.content : [];
-  const isDuplicateError = (item) => `${item?.errorMessage || ""}`.toLowerCase().includes("existe déjà");
+  const isDuplicateError = isDuplicateUploadItem;
 
   const loadMedia = async (nextPage = page) => {
     setLoading(true);

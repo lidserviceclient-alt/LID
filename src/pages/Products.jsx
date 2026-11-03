@@ -13,6 +13,7 @@ import Toggle from "../components/ui/Toggle.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import BulkProductImportModal from "../components/products/BulkProductImportModal.jsx";
 import { backofficeApi } from "../services/api.js";
+import { isDuplicateUploadItem, emptyUploadMessage, skippedUploadNotice } from "../utils/uploadResult.js";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return "-";
@@ -350,14 +351,16 @@ export default function Products() {
     try {
       let res = await backofficeApi.uploadMediaBulk(selected, "products");
       const duplicateCount = (Array.isArray(res?.files) ? res.files : [])
-        .filter((item) => `${item?.errorMessage || ""}`.toLowerCase().includes("existe déjà")).length;
+        .filter(isDuplicateUploadItem).length;
       if (duplicateCount > 0 && window.confirm(`${duplicateCount} image(s) portent déjà le même nom. Voulez-vous les écraser ?`)) {
         res = await backofficeApi.uploadMediaBulk(selected, "products", { overwrite: true });
       }
       const urls = (Array.isArray(res?.files) ? res.files : [])
         .filter((item) => item?.success && item?.file?.url)
         .map((item) => item.file.url);
-      if (!urls.length) throw new Error("Aucune image n'a été uploadée.");
+      if (!urls.length) throw new Error(emptyUploadMessage(res));
+      const skippedNotice = skippedUploadNotice(res);
+      if (skippedNotice) setError(skippedNotice);
       setFormData((prev) => {
         const current = parseSecondaryImageUrls(prev.secondaryImageUrls);
         return { ...prev, secondaryImageUrls: [...current, ...urls].join("|") };
@@ -442,7 +445,7 @@ export default function Products() {
   const stats = useMemo(() => {
     const base = products;
     const totalSKU = base.length;
-    const lowStock = base.filter(p => Number(p?.stock || 0) < 10).length;
+    const lowStock = base.filter(p => p?.status !== "ARCHIVE" && Number(p?.stock || 0) < 10).length;
     const activeProducts = base.filter(p => p?.status === "ACTIF").length;
     const stockValue = base.reduce((acc, p) => {
       const price = Number(p?.price || 0);

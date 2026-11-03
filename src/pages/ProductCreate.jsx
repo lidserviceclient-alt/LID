@@ -9,6 +9,7 @@ import Select from "../components/ui/Select";
 import Toggle from "../components/ui/Toggle";
 import { backofficeApi } from "../services/api";
 import { useCategoriesResolver } from "../resolvers/categoriesResolver.js";
+import { isDuplicateUploadItem, emptyUploadMessage, skippedUploadNotice } from "../utils/uploadResult.js";
 
 const parseSecondaryImageUrls = (raw) =>
   `${raw ?? ""}`
@@ -95,14 +96,16 @@ export default function ProductCreate() {
     try {
       let res = await backofficeApi.uploadMediaBulk(selected, "products");
       const duplicateCount = (Array.isArray(res?.files) ? res.files : [])
-        .filter((item) => `${item?.errorMessage || ""}`.toLowerCase().includes("existe déjà")).length;
+        .filter(isDuplicateUploadItem).length;
       if (duplicateCount > 0 && window.confirm(`${duplicateCount} image(s) portent déjà le même nom. Voulez-vous les écraser ?`)) {
         res = await backofficeApi.uploadMediaBulk(selected, "products", { overwrite: true });
       }
       const urls = (Array.isArray(res?.files) ? res.files : [])
         .filter((item) => item?.success && item?.file?.url)
         .map((item) => item.file.url);
-      if (!urls.length) throw new Error("Aucune image n'a été uploadée.");
+      if (!urls.length) throw new Error(emptyUploadMessage(res));
+      const skippedNotice = skippedUploadNotice(res);
+      if (skippedNotice) setError(skippedNotice);
       setFormData((prev) => {
         const current = parseSecondaryImageUrls(prev.secondaryImageUrls);
         return { ...prev, secondaryImageUrls: [...current, ...urls].join("|") };

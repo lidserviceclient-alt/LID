@@ -44,7 +44,7 @@ function getSku(product) {
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState("inventory");
 
-  const [threshold, setThreshold] = useState(5);
+  const [threshold, setThreshold] = useState(10);
   const [productQuery, setProductQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [stockFilter, setStockFilter] = useState("");
@@ -176,11 +176,17 @@ export default function Inventory() {
     return sorted;
   }, [categories]);
 
+  // Règle unique : les produits archivés sont exclus ; « sous le seuil » = stock < seuil (ruptures incluses).
+  const activeProducts = useMemo(
+    () => (products || []).filter((p) => p?.status !== "ARCHIVE" && p?.status !== "ARCHIVED"),
+    [products]
+  );
+
   const inventoryRows = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
     const thresholdValue = Number.isFinite(threshold) ? threshold : 10;
 
-    return (products || [])
+    return activeProducts
       .map((p) => {
         const stock = Number.isFinite(p?.stock) ? p.stock : 0;
         const price = typeof p?.price === "number" ? p.price : Number(p?.price);
@@ -188,7 +194,7 @@ export default function Inventory() {
 
         let stockStatus = "OK";
         if (stock <= 0) stockStatus = "RUPTURE";
-        else if (stock <= thresholdValue) stockStatus = "FAIBLE";
+        else if (stock < thresholdValue) stockStatus = "FAIBLE";
 
         return {
           id: p?.id,
@@ -220,24 +226,24 @@ export default function Inventory() {
         }
         return a.name.localeCompare(b.name);
       });
-  }, [products, productQuery, categoryFilter, stockFilter, threshold]);
+  }, [activeProducts, productQuery, categoryFilter, stockFilter, threshold]);
 
   const inventoryKpis = useMemo(() => {
     const thresholdValue = Number.isFinite(threshold) ? threshold : 10;
-    const totalSkus = (products || []).length;
-    const totalUnits = (products || []).reduce((sum, p) => sum + (Number.isFinite(p?.stock) ? p.stock : 0), 0);
-    const lowCount = (products || []).reduce((sum, p) => sum + ((Number.isFinite(p?.stock) ? p.stock : 0) <= thresholdValue ? 1 : 0), 0);
-    const value = (products || []).reduce((sum, p) => {
+    const totalSkus = activeProducts.length;
+    const totalUnits = activeProducts.reduce((sum, p) => sum + (Number.isFinite(p?.stock) ? p.stock : 0), 0);
+    const lowCount = activeProducts.reduce((sum, p) => sum + ((Number.isFinite(p?.stock) ? p.stock : 0) < thresholdValue ? 1 : 0), 0);
+    const value = activeProducts.reduce((sum, p) => {
       const stock = Number.isFinite(p?.stock) ? p.stock : 0;
       const price = typeof p?.price === "number" ? p.price : Number(p?.price);
       return sum + (Number.isFinite(price) ? price : 0) * stock;
     }, 0);
     return { totalSkus, totalUnits, lowCount, value };
-  }, [products, threshold]);
+  }, [activeProducts, threshold]);
 
   const lowStockItems = useMemo(() => {
     const thresholdValue = Number.isFinite(threshold) ? threshold : 10;
-    return (products || [])
+    return activeProducts
       .map((p) => ({
         id: p?.id,
         sku: getSku(p),
@@ -245,10 +251,10 @@ export default function Inventory() {
         stock: Number.isFinite(p?.stock) ? p.stock : 0,
         threshold: thresholdValue
       }))
-      .filter((p) => p.stock <= p.threshold)
+      .filter((p) => p.stock < p.threshold)
       .sort((a, b) => a.stock - b.stock)
       .slice(0, 10);
-  }, [products, threshold]);
+  }, [activeProducts, threshold]);
 
   const movements = useMemo(() => {
     return Array.isArray(movementsPage?.content) ? movementsPage.content : [];

@@ -56,6 +56,7 @@ const aggregateDailyToLast12Months = (dailySeries) => {
 
 export default function Analytics() {
   const [range, setRange] = useState("week");
+  const [notificationsFetched, setNotificationsFetched] = useState(false);
   const { getOverviewEntry, loadOverview } = useOverviewContext();
   const {
     notifications,
@@ -159,7 +160,7 @@ export default function Analytics() {
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              onClick={() => loadNotifications().catch(() => {})}
+              onClick={() => loadNotifications().then(() => setNotificationsFetched(true)).catch(() => {})}
               disabled={notificationsLoading}
             >
               {notificationsLoading ? "Chargement..." : "Charger"}
@@ -174,8 +175,14 @@ export default function Analytics() {
                 </div>
               ))}
             </div>
-          ) : (
+          ) : notificationsFetched ? (
             <p className="text-sm text-muted-foreground">Aucune notification récente.</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {unreadNotificationsCount > 0
+                ? "Cliquez sur « Charger » pour afficher vos notifications non lues."
+                : "Cliquez sur « Charger » pour afficher les notifications récentes."}
+            </p>
           )}
         </Card>
       </div>

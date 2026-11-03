@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import Button from "../components/ui/Button.jsx";
+import NotFoundState, { isNotFoundMessage } from "../components/ui/NotFoundState.jsx";
 import OrderActionModal from "../components/orders/OrderActionModal.jsx";
 import {
   PaymentBadge,
@@ -346,6 +347,17 @@ export default function OrderDetail() {
 
   if (loading && !detail) {
     return <div className="py-16 text-center text-sm text-muted-foreground">Chargement de la commande…</div>;
+  }
+
+  if (!detail && (!error || isNotFoundMessage(error))) {
+    return (
+      <NotFoundState
+        title="Commande introuvable"
+        message={`Aucune commande ne correspond à la référence « ${reference} ».`}
+        backTo="/orders"
+        backLabel="Retour aux commandes"
+      />
+    );
   }
 
   if (!detail) {

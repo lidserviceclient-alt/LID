@@ -64,6 +64,7 @@ export default function Finance() {
         method: tx.method,
         amount,
         status,
+        statusLabel: status === "Succes" ? "Succès" : status,
         badgeVariant: success ? "success" : pending ? "warning" : "neutral",
         date: tx.date
       };
@@ -170,7 +171,7 @@ export default function Finance() {
                     {tx.amount >= 0 ? "+" : ""}
                     {formatCurrency(Math.abs(tx.amount))}
                   </TCell>
-                  <TCell><Badge label={tx.status} variant={tx.badgeVariant} /></TCell>
+                  <TCell><Badge label={tx.statusLabel} variant={tx.badgeVariant} /></TCell>
                   <TCell>{formatDate(tx.date)}</TCell>
                 </TRow>
               ))

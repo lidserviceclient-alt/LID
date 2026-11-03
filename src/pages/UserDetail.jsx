@@ -9,6 +9,7 @@ import Select from "../components/ui/Select.jsx";
 import Label from "../components/ui/Label.jsx";
 import Badge from "../components/ui/Badge.jsx";
 import Modal from "../components/ui/Modal.jsx";
+import NotFoundState, { isNotFoundMessage } from "../components/ui/NotFoundState.jsx";
 import { backofficeApi } from "../services/api.js";
 
 const roles = [
@@ -41,6 +42,7 @@ export default function UserDetail() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [user, setUser] = useState(null);
+  const [notFound, setNotFound] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -58,8 +60,14 @@ export default function UserDetail() {
   async function load() {
     setLoading(true);
     setError("");
+    setNotFound(false);
     try {
       const u = await backofficeApi.user(id);
+      if (!u || (!u.id && !u.email)) {
+        setUser(null);
+        setNotFound(true);
+        return;
+      }
       setUser(u || null);
       setFormData({
         avatarUrl: u?.avatarUrl || "",
@@ -73,7 +81,12 @@ export default function UserDetail() {
         pays: u?.pays || ""
       });
     } catch (e) {
-      setError(e?.message || "Impossible de charger l'utilisateur.");
+      setUser(null);
+      if (isNotFoundMessage(e?.message)) {
+        setNotFound(true);
+      } else {
+        setError(e?.message || "Impossible de charger l'utilisateur.");
+      }
     } finally {
       setLoading(false);
     }
@@ -131,6 +144,38 @@ export default function UserDetail() {
       setSaving(false);
     }
   };
+
+  if (notFound) {
+    return (
+      <NotFoundState
+        title="Utilisateur introuvable"
+        message="Cet utilisateur n'existe pas ou a été supprimé."
+        backTo="/users"
+        backLabel="Retour aux utilisateurs"
+      />
+    );
+  }
+
+  // Échec de chargement (hors « introuvable ») : pas de formulaire vide avec Sauvegarder/Supprimer actifs
+  if (!loading && !user) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg bg-destructive/10 p-4 text-destructive border border-destructive/20">
+          <p className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            {error || "Impossible de charger l'utilisateur."}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" type="button" onClick={() => navigate("/users")}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Retour
+          </Button>
+          <Button variant="outline" type="button" onClick={load}>Réessayer</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
