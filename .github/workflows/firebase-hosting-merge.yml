@@ -6,15 +6,35 @@ on:
   push:
     branches:
       - delivry
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Site Firebase cible (staging = liddelivery-staging, production = liddelivery)"
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
+    env:
+      # Un push sur la branche `delivry` déploie en production ; un lancement manuel choisit la cible
+      DEPLOY_TARGET: ${{ inputs.target || 'production' }}
     defaults:
       run:
         working-directory: Delivery
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci && npm run build
+      - run: npm ci
+      - name: Build
+        run: |
+          if [ "${DEPLOY_TARGET}" = "staging" ]; then
+            npm run build:staging
+          else
+            npm run build
+          fi
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           entryPoint: Delivery
@@ -22,3 +42,5 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LID_SHOP }}
           channelId: live
           projectId: lid-shop
+          # Cibles de Delivery/firebase.json : production -> liddelivery, staging -> liddelivery-staging (voir .firebaserc)
+          target: ${{ env.DEPLOY_TARGET }}
