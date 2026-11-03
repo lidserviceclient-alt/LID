@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Eye, EyeOff, Lock } from 'lucide-react'
-import { loginDelivery } from '../services/auth'
+import { clearSessionEndedNotice, loginDelivery, peekSessionEndedNotice } from '../services/auth'
 import PhoneNumberField from '../components/ui/PhoneNumberField'
 import { isValidInternationalPhone } from '../utils/phone'
 
@@ -11,8 +11,10 @@ export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => peekSessionEndedNotice())
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => { clearSessionEndedNotice() }, [])
 
   const onSubmit = async (e) => {
     e.preventDefault()

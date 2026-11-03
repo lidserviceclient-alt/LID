@@ -6,6 +6,51 @@ const LEGACY_TOKEN_KEY = 'lid_delivery_access_token'
 let accessTokenInMemory = null
 let refreshPromise = null;
 
+export const SESSION_ENDED_EVENT = 'lid:session-ended'
+const SESSION_ENDED_KEY = 'lid_session_ended'
+export const SESSION_ENDED_MESSAGE =
+  'Votre compte a été désactivé ou votre session a expiré. Reconnectez-vous ou contactez l\'administration.'
+
+// Memorise (le temps de la navigation vers /login) que la session a ete invalidee par le serveur
+function markSessionEnded() {
+  try { sessionStorage.setItem(SESSION_ENDED_KEY, '1') } catch { /* sans incidence */ }
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(SESSION_ENDED_EVENT))
+}
+
+export function peekSessionEndedNotice() {
+  try {
+    return sessionStorage.getItem(SESSION_ENDED_KEY) ? SESSION_ENDED_MESSAGE : ''
+  } catch {
+    return ''
+  }
+}
+
+export function clearSessionEndedNotice() {
+  try { sessionStorage.removeItem(SESSION_ENDED_KEY) } catch { /* sans incidence */ }
+}
+
+
+const RATE_LIMIT_MAX_ATTEMPTS = 3
+const RATE_LIMIT_MAX_WAIT_MS = 5000
+const RATE_LIMIT_DEFAULT_WAIT_MS = 1000
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// 429 : on respecte Retry-After (borne) puis on reessaie, sans jamais vider la session
+async function withRateLimitRetry(task) {
+  const deadline = Date.now() + RATE_LIMIT_MAX_WAIT_MS
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await task()
+    } catch (err) {
+      if (err?.status !== 429 || attempt >= RATE_LIMIT_MAX_ATTEMPTS) throw err
+      const wait = Math.min(err.retryAfterMs ?? RATE_LIMIT_DEFAULT_WAIT_MS, deadline - Date.now())
+      if (wait < 0 || (err.retryAfterMs ?? 0) > RATE_LIMIT_MAX_WAIT_MS) throw err
+      await sleep(wait)
+    }
+  }
+}
+
 try { localStorage.removeItem(LEGACY_TOKEN_KEY) } catch { /* sans incidence */ }
 
 export function getAccessToken() {
@@ -56,7 +101,19 @@ function assertDeliveryRole(token) {
 
 export async function loginDelivery(phoneNumber, password) {
   const payload = { phoneNumber, password }
-  const data = await apiRequest('/api/v1/auth/login/local/delivery', { method: 'POST', body: payload })
+  let data
+  try {
+    data = await withRateLimitRetry(() =>
+      apiRequest('/api/v1/auth/login/local/delivery', { method: 'POST', body: payload }),
+    )
+  } catch (err) {
+    if (err?.status === 401) err.message = 'Numéro ou mot de passe incorrect.'
+    else if (err?.status === 429) err.message = 'Trop de tentatives. Patientez quelques instants avant de réessayer.'
+    else if (err?.status === 403 && (!err.message || err.message === 'Forbidden')) {
+      err.message = 'Compte désactivé. Contactez l\'administration.'
+    }
+    throw err
+  }
   const token = data?.accessToken
   if (!token) {
     throw new Error('Token manquant dans la réponse')
@@ -74,7 +131,9 @@ export async function refreshSession() {
   if (refreshPromise) {
     return refreshPromise
   }
-  refreshPromise = runExclusiveRefresh(() => apiRequest('/api/v1/auth/refresh', { method: 'POST' }))
+  refreshPromise = runExclusiveRefresh(() =>
+    withRateLimitRetry(() => apiRequest('/api/v1/auth/refresh', { method: 'POST' })),
+  )
     .then((data) => {
       const token = data?.accessToken
       if (!token) {
@@ -85,7 +144,10 @@ export async function refreshSession() {
       return token
     })
     .catch((error) => {
+      // 429 : le livreur reste connecte (seul un refus du serveur 401/403 invalide la session)
+      if (error?.status === 429) throw error
       clearAccessToken()
+      if (error?.status === 401 || error?.status === 403) markSessionEnded()
       throw error
     })
     .finally(() => {
