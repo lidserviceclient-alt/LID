@@ -1,6 +1,9 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { useMemo, useState } from 'react'
-import { Bell, Home, MapPinned, Package, User, Menu } from 'lucide-react'
+import { useMemo } from 'react'
+import { AlertTriangle, Bell, Home, MapPinned, Package, User, X } from 'lucide-react'
+
+import { useConnectivity } from '../hooks/useConnectivity'
+import { dismissRejected } from '../services/offlineQueue'
 
 const MotionSafeArea = ({ children, className }) => (
   <div className={`pt-safe ${className || ''}`.trim()}>{children}</div>
@@ -20,7 +23,37 @@ function isPathActive(pathname, to) {
   return pathname === to || pathname.startsWith(`${to}/`)
 }
 
-function TopBar({ title, isOnline, toggleOnline }) {
+function ConnectionPill({ online, realtime, pendingCount }) {
+  let label = 'En ligne'
+  let tone = 'bg-[#6aa200]/10 text-[#3f6600] border-[#6aa200]/30'
+  let dot = 'bg-[#6aa200]'
+  if (!online) {
+    label = pendingCount > 0 ? `Hors ligne · ${pendingCount} en attente` : 'Hors ligne'
+    tone = 'bg-red-50 text-red-700 border-red-200'
+    dot = 'bg-red-500'
+  } else if (pendingCount > 0) {
+    label = `Envoi… (${pendingCount})`
+    tone = 'bg-amber-50 text-amber-800 border-amber-200'
+    dot = 'bg-amber-500 animate-pulse'
+  } else if (!realtime) {
+    label = 'En ligne · synchro auto'
+    tone = 'bg-neutral-100 text-neutral-700 border-neutral-200'
+    dot = 'bg-neutral-500'
+  }
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`flex items-center gap-2 px-3 py-2 rounded-full font-bold text-xs border ${tone}`}
+      title={realtime ? 'Mises à jour en temps réel' : 'Mises à jour automatiques toutes les 20 secondes'}
+    >
+      <span className={`w-2 h-2 rounded-full ${dot}`} />
+      {label}
+    </div>
+  )
+}
+
+function TopBar({ title, connectivity }) {
   return (
     <div className="pointer-events-auto w-full bg-white shadow-sm">
       <div className="mx-auto max-w-[430px] px-4 py-3 flex items-center justify-between">
@@ -34,17 +67,11 @@ function TopBar({ title, isOnline, toggleOnline }) {
           </div>
         </div>
         
-        <button 
-          onClick={toggleOnline}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs transition-all ${
-            isOnline 
-              ? "bg-[#6aa200]/10 text-[#6aa200] border border-[#6aa200]/20" 
-              : "bg-neutral-100 text-neutral-500 border border-neutral-200"
-          }`}
-        >
-          <div className={`w-2 h-2 rounded-full ${isOnline ? "bg-[#6aa200] animate-pulse" : "bg-neutral-400"}`} />
-          {isOnline ? "En ligne" : "Hors ligne"}
-        </button>
+        <ConnectionPill
+          online={connectivity.online}
+          realtime={connectivity.realtime}
+          pendingCount={connectivity.pending.length}
+        />
       </div>
     </div>
   )
@@ -97,7 +124,8 @@ function BottomNav({ pathname }) {
 
 export default function AppShell() {
   const location = useLocation()
-  const [isOnline, setIsOnline] = useState(true)
+  const connectivity = useConnectivity()
+  const isOnline = connectivity.online
 
   const title = useMemo(() => {
     const path = location.pathname || ''
@@ -115,7 +143,26 @@ export default function AppShell() {
       <div className="mx-auto min-h-dvh max-w-[430px] relative bg-white shadow-2xl overflow-hidden">
         <div className="fixed inset-x-0 top-0 z-50 pointer-events-none">
           <MotionSafeArea>
-            <TopBar title={title} isOnline={isOnline} toggleOnline={() => setIsOnline(!isOnline)} />
+            <TopBar title={title} connectivity={connectivity} />
+            {connectivity.rejected.map((action) => (
+              <div
+                key={action.key}
+                className="pointer-events-auto mx-auto max-w-[430px] flex items-start gap-3 bg-red-600 px-4 py-3 text-sm font-semibold text-white"
+              >
+                <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+                <p className="flex-1">
+                  Action non enregistrée (colis #{action.shipmentId}) : {action.error}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => dismissRejected(action.key)}
+                  className="-m-2 p-2"
+                  aria-label="Fermer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            ))}
           </MotionSafeArea>
         </div>
 

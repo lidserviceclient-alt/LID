@@ -55,7 +55,7 @@ export default function HomePage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-black text-neutral-900">Bonjour, Livreur</h1>
-            <p className="text-neutral-500 font-medium">Prêt à rouler ?</p>
+            <p className="text-neutral-500 font-medium">{isOnline ? 'Disponible' : 'En pause'}</p>
           </div>
           <button
             onClick={toggleStatus}
@@ -66,14 +66,11 @@ export default function HomePage() {
         </div>
 
         <button
-          onClick={() => navigate('/deliveries?status=EN_PREPARATION')}
-          className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
-            isOnline ? 'bg-black text-white shadow-lg shadow-black/20' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
-          }`}
-          disabled={!isOnline}
+          onClick={() => navigate('/deliveries')}
+          className="w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98] bg-black text-white shadow-lg shadow-black/20"
         >
-          {isOnline ? 'Trouver une mission' : 'Passez en ligne pour commencer'}
-          {isOnline && <ArrowRight size={20} />}
+          Voir mes missions
+          <ArrowRight size={20} />
         </button>
       </div>
 
@@ -82,15 +79,15 @@ export default function HomePage() {
           <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-3">
             <TrendingUp size={20} />
           </div>
-          <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">Courses</p>
+          <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">En livraison</p>
           <p className="text-2xl font-black text-neutral-900">{formatNumber(kpis?.inTransitCount || 0)}</p>
         </div>
         <div className="bg-white p-5 rounded-3xl shadow-sm border border-neutral-100">
           <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center mb-3">
             <Timer size={20} />
           </div>
-          <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">Temps moy.</p>
-          <p className="text-2xl font-black text-neutral-900">{formatNumber(kpis?.avgDelayDays || 0)}j</p>
+          <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">Livrées aujourd'hui</p>
+          <p className="text-2xl font-black text-neutral-900">{formatNumber(kpis?.deliveredTodayCount || 0)}</p>
         </div>
       </div>
 

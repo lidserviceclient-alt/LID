@@ -1,7 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
-import { getDeliveryBootstrap, getShipmentDetailsCollection } from '../services/logistics'
-import { subscribeDeliveryRealtime } from '../services/realtime'
+import { getCourierDay, getDeliveryBootstrap, getShipmentDetailsCollection } from '../services/logistics'
+import { isRealtimeConnected, subscribeDeliveryRealtime } from '../services/realtime'
+import { QUEUE_FLUSHED_EVENT } from '../services/offlineQueue'
+
+// Repli quand le WebSocket est coupé (réseau mobile instable) : rafraîchissement périodique
+const POLL_WITHOUT_REALTIME_MS = 20_000
+const POLL_WITH_REALTIME_MS = 120_000
 
 const LogisticsResolverContext = createContext(null)
 
@@ -75,6 +80,34 @@ export function LogisticsResolverProvider({ children }) {
   const bootstrapInflightRef = useRef(new Map())
   const detailInflightRef = useRef(new Map())
   const refreshTimerRef = useRef(null)
+  const [courierDay, setCourierDay] = useState({ data: null, error: '', isLoading: false, loaded: false, updatedAt: 0 })
+  const courierDayInflightRef = useRef(null)
+  const courierDayWantedRef = useRef(false)
+
+  const refreshCourierDay = () => {
+    courierDayWantedRef.current = true
+    if (courierDayInflightRef.current) return courierDayInflightRef.current
+    setCourierDay((prev) => ({ ...prev, isLoading: true }))
+    const request = getCourierDay()
+      .then((data) => {
+        setCourierDay({ data: data || null, error: '', isLoading: false, loaded: true, updatedAt: Date.now() })
+        return data
+      })
+      .catch((err) => {
+        setCourierDay((prev) => ({
+          ...prev,
+          error: err?.message || 'Impossible de charger vos missions.',
+          isLoading: false,
+          loaded: true,
+        }))
+        throw err
+      })
+      .finally(() => {
+        courierDayInflightRef.current = null
+      })
+    courierDayInflightRef.current = request
+    return request
+  }
 
   useEffect(() => {
     bootstrapsRef.current = bootstraps
@@ -242,6 +275,9 @@ export function LogisticsResolverProvider({ children }) {
       }
 
       const runRefresh = () => {
+        if (courierDayWantedRef.current) {
+          refreshCourierDay().catch(() => {})
+        }
         const entries = bootstrapsRef.current || {}
         Object.entries(entries).forEach(([key]) => {
           try {
@@ -280,15 +316,61 @@ export function LogisticsResolverProvider({ children }) {
     }
   }, [])
 
+  // Repli sans WebSocket + rafraîchissement au retour du réseau / au premier plan / après rejeu de la file
+  useEffect(() => {
+    const refreshAll = () => {
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return
+      if (courierDayWantedRef.current) refreshCourierDay().catch(() => {})
+      Object.keys(bootstrapsRef.current || {}).forEach((key) => {
+        try {
+          ensureBootstrap(JSON.parse(key), { force: true }).catch(() => {})
+        } catch {
+          // ignore
+        }
+      })
+      const loadedIds = Object.entries(detailsRef.current || {})
+        .filter(([, state]) => state?.loaded)
+        .map(([key]) => key)
+      if (loadedIds.length > 0) ensureShipmentDetails(loadedIds, { force: true }).catch(() => {})
+    }
+    let lastPoll = Date.now()
+    const tick = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      const wait = isRealtimeConnected() ? POLL_WITH_REALTIME_MS : POLL_WITHOUT_REALTIME_MS
+      if (Date.now() - lastPoll < wait) return
+      lastPoll = Date.now()
+      refreshAll()
+    }, 5_000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        lastPoll = Date.now()
+        refreshAll()
+      }
+    }
+    window.addEventListener('online', refreshAll)
+    window.addEventListener(QUEUE_FLUSHED_EVENT, refreshAll)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(tick)
+      window.removeEventListener('online', refreshAll)
+      window.removeEventListener(QUEUE_FLUSHED_EVENT, refreshAll)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const value = useMemo(
     () => ({
       bootstraps,
       details,
+      courierDay,
       ensureBootstrap,
       ensureShipmentDetails,
       primeShipmentDetail,
+      refreshCourierDay,
     }),
-    [bootstraps, details],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bootstraps, details, courierDay],
   )
 
   return <LogisticsResolverContext.Provider value={value}>{children}</LogisticsResolverContext.Provider>
@@ -345,4 +427,20 @@ export function useShipmentDetailsPrefetch(ids, { enabled = true } = {}) {
     if (!enabled || normalizedIds.length === 0) return
     resolver.ensureShipmentDetails(normalizedIds).catch(() => {})
   }, [enabled, joined, normalizedIds, resolver])
+}
+
+/** Journée du livreur (my-day), rafraîchie en temps réel et par repli périodique. */
+export function useCourierDay() {
+  const resolver = useLogisticsResolverContext()
+  const state = resolver.courierDay
+
+  useEffect(() => {
+    if (state.loaded || state.isLoading) return
+    resolver.refreshCourierDay().catch(() => {})
+  }, [resolver, state.isLoading, state.loaded])
+
+  return {
+    ...state,
+    refresh: () => resolver.refreshCourierDay(),
+  }
 }

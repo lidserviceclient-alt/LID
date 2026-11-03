@@ -10,6 +10,30 @@ let connectPromise = null
 const listeners = new Set()
 const seenEventIds = new Map()
 let subscribedTopics = new Set(DEFAULT_TOPICS)
+const stateListeners = new Set()
+let connected = false
+
+function setConnected(value) {
+  if (connected === value) return
+  connected = value
+  stateListeners.forEach((listener) => {
+    try {
+      listener(connected)
+    } catch {
+      // ignore
+    }
+  })
+}
+
+/** Etat de la connexion temps réel (vrai quand le WebSocket est ouvert). */
+export function isRealtimeConnected() {
+  return connected
+}
+
+export function subscribeRealtimeState(listener) {
+  stateListeners.add(listener)
+  return () => stateListeners.delete(listener)
+}
 
 function inferApiBaseUrl() {
   const env = import.meta.env.VITE_API_BASE_URL
@@ -88,6 +112,7 @@ async function connect() {
 
       socket.onopen = () => {
         reconnectAttempt = 0
+        setConnected(true)
       }
 
       socket.onmessage = (event) => {
@@ -109,8 +134,14 @@ async function connect() {
         })
       }
 
-      socket.onclose = scheduleReconnect
-      socket.onerror = scheduleReconnect
+      socket.onclose = () => {
+        setConnected(false)
+        scheduleReconnect()
+      }
+      socket.onerror = () => {
+        setConnected(false)
+        scheduleReconnect()
+      }
     } catch {
       scheduleReconnect()
     } finally {
@@ -142,6 +173,7 @@ function shutdownIfUnused() {
     reconnectTimer = null
   }
   reconnectAttempt = 0
+  setConnected(false)
   if (socket) {
     try {
       socket.close()

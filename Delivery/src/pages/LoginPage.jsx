@@ -30,7 +30,7 @@ export default function LoginPage() {
       await loginDelivery(phoneNumber, password)
       navigate('/home')
     } catch (err) {
-      setError(err?.message || 'Numéro ou mot de passe incorrect.')
+      setError(err?.message || 'Numéro ou code de connexion incorrect.')
     } finally {
       setIsLoading(false)
     }
@@ -65,7 +65,7 @@ export default function LoginPage() {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mot de passe"
+                placeholder="Code de connexion"
                 autoComplete="current-password"
                 className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl px-12 py-4 outline-none focus:border-[#6aa200] focus:ring-1 focus:ring-[#6aa200] transition-all placeholder:text-neutral-600"
               />

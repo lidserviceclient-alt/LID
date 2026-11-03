@@ -1,117 +1,221 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { QrCode, Search, X, Package, MapPin } from 'lucide-react'
+import { QrCode, Search, X, Package, MapPin, Phone, MessageCircle, Navigation, RefreshCw, CloudOff, ChevronRight } from 'lucide-react'
 import { Html5Qrcode } from 'html5-qrcode'
 
-import { DEFAULT_DELIVERY_BOOTSTRAP_PARAMS, useDeliveryBootstrap, useShipmentDetailResolver } from '../context/LogisticsResolverContext'
-import { getShipments, normalizeShipmentQr, scanShipment } from '../services/logistics'
+import { useCourierDay, useShipmentDetailResolver } from '../context/LogisticsResolverContext'
+import { normalizeShipmentQr, scanShipment } from '../services/logistics'
+import { getPendingActions, subscribeQueue } from '../services/offlineQueue'
+import { directionsLink, telLink, vibrate, whatsappLink } from '../utils/contact'
+
+const GROUPS = [
+  { key: 'transit', label: 'En livraison', empty: 'Aucun colis en route.' },
+  { key: 'pickup', label: 'À récupérer', empty: 'Aucun colis à récupérer.' },
+  { key: 'failed', label: 'Échecs à relancer', empty: 'Aucun échec.' },
+  { key: 'available', label: 'Disponibles au dépôt', empty: 'Aucun colis disponible.' },
+  { key: 'delivered', label: "Livrées aujourd'hui", empty: "Aucune livraison aujourd'hui." },
+]
 
 const TABS = [
-  { label: 'Toutes', value: '' },
-  { label: 'À récupérer', value: 'EN_PREPARATION' },
-  { label: 'En transit', value: 'EN_COURS' },
-  { label: 'Livrées', value: 'LIVREE' },
-  { label: 'Échecs', value: 'ECHEC' },
+  { label: 'Tout', value: '' },
+  { label: 'En livraison', value: 'transit' },
+  { label: 'À récupérer', value: 'pickup' },
+  { label: 'Échecs', value: 'failed' },
+  { label: 'Livrées', value: 'delivered' },
 ]
+
+// Compatibilité des anciens liens (?status=EN_PREPARATION…)
+const LEGACY_STATUS_TAB = { EN_PREPARATION: 'pickup', EN_COURS: 'transit', ECHEC: 'failed', LIVREE: 'delivered' }
 
 function toStatusUi(status) {
   const s = `${status || ''}`.trim().toUpperCase()
-  if (s === 'EN_PREPARATION') return { label: 'À récupérer', className: 'bg-neutral-100 text-neutral-600' }
-  if (s === 'EN_COURS') return { label: 'En transit', className: 'bg-blue-50 text-blue-700' }
-  if (s === 'LIVREE') return { label: 'Livrée', className: 'bg-green-50 text-green-700' }
-  if (s === 'ECHEC') return { label: 'Échec', className: 'bg-red-50 text-red-700' }
-  return { label: s || '-', className: 'bg-neutral-100 text-neutral-600' }
+  if (s === 'EN_PREPARATION') return { label: 'À récupérer', className: 'bg-neutral-200 text-neutral-800' }
+  if (s === 'EN_COURS') return { label: 'En livraison', className: 'bg-blue-100 text-blue-800' }
+  if (s === 'LIVREE') return { label: 'Livrée', className: 'bg-green-100 text-green-800' }
+  if (s === 'ECHEC') return { label: 'Échec', className: 'bg-red-100 text-red-800' }
+  return { label: s || '-', className: 'bg-neutral-100 text-neutral-700' }
 }
 
-function formatDate(value) {
-  if (!value) return '-'
+function groupOf(shipment, mine) {
+  const status = `${shipment?.status || ''}`.toUpperCase()
+  if (!mine) return 'available'
+  if (status === 'EN_COURS') return 'transit'
+  if (status === 'EN_PREPARATION') return 'pickup'
+  if (status === 'ECHEC') return 'failed'
+  return 'delivered'
+}
+
+function matches(shipment, query) {
+  if (!query) return true
+  const haystack = [
+    shipment?.orderId,
+    shipment?.trackingId,
+    shipment?.handoffCode,
+    shipment?.customerName,
+    shipment?.customerAddress,
+    shipment?.customerPhone,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(query.toLowerCase())
+}
+
+function formatAgo(timestamp) {
+  if (!timestamp) return ''
+  const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000))
+  if (seconds < 10) return "à l'instant"
+  if (seconds < 60) return `il y a ${seconds} s`
+  const minutes = Math.round(seconds / 60)
+  return `il y a ${minutes} min`
+}
+
+function formatTime(value) {
+  if (!value) return ''
   const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return `${value}`
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+function QuickLink({ href, label, icon, className, external }) {
+  const Icon = icon
+  if (!href) return null
+  return (
+    <a
+      href={href}
+      onClick={(event) => {
+        event.stopPropagation()
+        vibrate(15)
+      }}
+      target={external ? '_blank' : undefined}
+      rel={external ? 'noopener noreferrer' : undefined}
+      className={`flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl text-sm font-bold active:scale-[0.97] transition-transform ${className}`}
+    >
+      <Icon size={18} /> {label}
+    </a>
+  )
+}
+
+function MissionCard({ shipment, group, pending, maxAttempts, onOpen }) {
+  const badge = toStatusUi(shipment?.status)
+  const canContact = group === 'transit' || group === 'pickup' || group === 'failed'
+  const phone = shipment?.customerPhone
+  const directions = directionsLink({
+    latitude: shipment?.customerLatitude,
+    longitude: shipment?.customerLongitude,
+    address: shipment?.customerAddress,
+  })
+  return (
+    <div className="w-full rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+      <button type="button" onClick={onOpen} className="w-full text-left">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`rounded-full px-3 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
+              {pending ? (
+                <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">
+                  <CloudOff size={12} /> En attente d’envoi
+                </span>
+              ) : null}
+              {group === 'failed' ? (
+                <span className="rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">
+                  Tentative {shipment?.failedAttempts || 0}/{maxAttempts}
+                </span>
+              ) : null}
+            </div>
+            <h3 className="mt-2 truncate text-lg font-black text-neutral-900">
+              {shipment?.customerName || `Commande ${shipment?.orderId || shipment?.id}`}
+            </h3>
+            <p className="text-sm font-semibold text-neutral-500">
+              Cde {shipment?.orderId || '-'}
+              {shipment?.handoffCode ? ` · ${shipment.handoffCode}` : ''}
+              {group === 'delivered' && shipment?.deliveredAt ? ` · livrée à ${formatTime(shipment.deliveredAt)}` : ''}
+            </p>
+          </div>
+          <ChevronRight size={22} className="mt-1 shrink-0 text-neutral-400" />
+        </div>
+        {group === 'available' ? (
+          <p className="mt-3 text-sm font-medium text-neutral-600">Scannez le colis au dépôt pour le prendre en charge.</p>
+        ) : (
+          <div className="mt-3 flex items-start gap-2 text-sm text-neutral-700">
+            <MapPin size={16} className="mt-0.5 shrink-0" />
+            <span className="line-clamp-2 font-medium">{shipment?.customerAddress || 'Adresse non renseignée'}</span>
+          </div>
+        )}
+      </button>
+      {canContact && (phone || directions) ? (
+        <div className="mt-3 flex gap-2">
+          <QuickLink href={telLink(phone)} label="Appeler" icon={Phone} className="bg-green-600 text-white" />
+          <QuickLink
+            href={whatsappLink(phone, `Bonjour, je suis votre livreur LID pour la commande ${shipment?.orderId || ''}.`)}
+            label="WhatsApp"
+            icon={MessageCircle}
+            className="bg-[#25D366]/15 text-[#0b6b34]"
+            external
+          />
+          <QuickLink href={directions} label="Itinéraire" icon={Navigation} className="bg-neutral-900 text-white" external />
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 export default function DeliveriesPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [q, setQ] = useState('')
-  const [appliedQ, setAppliedQ] = useState('')
-  const [filteredPage, setFilteredPage] = useState(null)
-  const [filteredError, setFilteredError] = useState('')
-  const [filteredLoading, setFilteredLoading] = useState(false)
   const [scanOpen, setScanOpen] = useState(false)
   const [scanError, setScanError] = useState('')
   const [scanLoading, setScanLoading] = useState(false)
   const [manualQr, setManualQr] = useState('')
+  const [pending, setPending] = useState(() => getPendingActions())
+  const [, setClock] = useState(0)
   const html5QrCodeRef = useRef(null)
   const isScanningRef = useRef(false)
 
-  const status = `${searchParams.get('status') || ''}`.trim().toUpperCase()
-  const activeTab = useMemo(() => TABS.find((t) => t.value === status) || TABS[0], [status])
-  const bootstrapParams = useMemo(
-    () => ({
-      ...DEFAULT_DELIVERY_BOOTSTRAP_PARAMS,
-      status: '',
-      q: '',
-    }),
-    [],
-  )
-  const { data, error: bootstrapError, isLoading: bootstrapLoading } = useDeliveryBootstrap(bootstrapParams)
+  const rawTab = `${searchParams.get('tab') || ''}`.trim()
+  const legacyStatus = `${searchParams.get('status') || ''}`.trim().toUpperCase()
+  const activeTab = TABS.find((t) => t.value === (rawTab || LEGACY_STATUS_TAB[legacyStatus] || '')) || TABS[0]
+  const { data, error, isLoading, updatedAt, refresh } = useCourierDay()
   const { prime } = useShipmentDetailResolver(null, { enabled: false })
-  const isUsingBootstrapList = !activeTab.value && !appliedQ
-  const shipments = Array.isArray(
-    isUsingBootstrapList ? data?.deliveriesPage?.content : filteredPage?.content,
-  )
-    ? (isUsingBootstrapList ? data?.deliveriesPage?.content : filteredPage?.content)
-    : []
-  const error = isUsingBootstrapList ? bootstrapError : filteredError
-  const isLoading = isUsingBootstrapList ? bootstrapLoading : filteredLoading
 
+  useEffect(() => subscribeQueue(() => setPending(getPendingActions())), [])
   useEffect(() => {
-    setQ('')
-    setAppliedQ('')
-    setFilteredPage(null)
-    setFilteredError('')
-  }, [activeTab.value])
+    const timer = window.setInterval(() => setClock((n) => n + 1), 15_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
-  useEffect(() => {
-    if (isUsingBootstrapList) {
-      setFilteredPage(null)
-      setFilteredError('')
-      setFilteredLoading(false)
-      return
-    }
+  const maxAttempts = Number(data?.maxDeliveryAttempts) || 3
+  const grouped = useMemo(() => {
+    const result = Object.fromEntries(GROUPS.map((g) => [g.key, []]))
+    const query = q.trim()
+    ;(Array.isArray(data?.shipments) ? data.shipments : []).forEach((shipment) => {
+      if (matches(shipment, query)) result[groupOf(shipment, true)].push(shipment)
+    })
+    ;(Array.isArray(data?.available) ? data.available : []).forEach((shipment) => {
+      if (matches(shipment, query)) result.available.push(shipment)
+    })
+    // Les plus anciens d'abord : premier arrivé, premier servi
+    const byAge = (x, y) => `${x?.createdAt || ''}`.localeCompare(`${y?.createdAt || ''}`)
+    result.transit.sort(byAge)
+    result.pickup.sort(byAge)
+    result.failed.sort(byAge)
+    result.delivered.sort((x, y) => `${y?.deliveredAt || ''}`.localeCompare(`${x?.deliveredAt || ''}`))
+    return result
+  }, [data, q])
 
-    let cancelled = false
-
-    const run = async () => {
-      setFilteredLoading(true)
-      setFilteredError('')
-      try {
-        const page = await getShipments({
-          page: 0,
-          size: DEFAULT_DELIVERY_BOOTSTRAP_PARAMS.size,
-          status: activeTab.value,
-          q: appliedQ,
-        })
-        if (cancelled) return
-        setFilteredPage(page || null)
-      } catch (err) {
-        if (cancelled) return
-        setFilteredPage(null)
-        setFilteredError(err?.message || 'Impossible de charger les missions.')
-      } finally {
-        if (!cancelled) {
-          setFilteredLoading(false)
-        }
-      }
-    }
-
-    run()
-
-    return () => {
-      cancelled = true
-    }
-  }, [activeTab.value, appliedQ, isUsingBootstrapList])
+  const visibleGroups = GROUPS.filter((group) => {
+    if (!activeTab.value) return true
+    if (activeTab.value === 'pickup') return group.key === 'pickup' || group.key === 'available'
+    return group.key === activeTab.value
+  })
+  const countFor = (tab) => {
+    if (!tab) return GROUPS.reduce((total, g) => total + (g.key === 'delivered' ? 0 : grouped[g.key].length), 0)
+    if (tab === 'pickup') return grouped.pickup.length + grouped.available.length
+    return grouped[tab]?.length || 0
+  }
+  const pendingIds = new Set(pending.map((action) => `${action.shipmentId}`))
+  const totalShown = visibleGroups.reduce((total, g) => total + grouped[g.key].length, 0)
 
   const stopScan = async () => {
     try {
@@ -139,8 +243,10 @@ export default function DeliveriesPage() {
     try {
       const detail = await scanShipment(qr)
       if (detail?.id) {
+        vibrate([40, 40, 40])
         sessionStorage.setItem('lid_last_scanned_shipment', JSON.stringify(detail))
         prime(detail)
+        refresh().catch(() => {})
         setScanOpen(false)
         setManualQr('')
         navigate(`/deliveries/${encodeURIComponent(detail.id)}`)
@@ -148,7 +254,12 @@ export default function DeliveriesPage() {
       }
       setScanError('Scan OK mais expédition introuvable.')
     } catch (err) {
-      setScanError(err?.message || 'Impossible de démarrer la livraison.')
+      vibrate(200)
+      setScanError(
+        !err?.status
+          ? 'Pas de réseau : la prise en charge doit être faite en ligne. Réessayez dès que le réseau revient.'
+          : err?.message || 'Impossible de démarrer la livraison.',
+      )
     } finally {
       setScanLoading(false)
       isScanningRef.current = false
@@ -196,97 +307,115 @@ export default function DeliveriesPage() {
     }
   }, [scanOpen])
 
-  const applySearch = (event) => {
-    event.preventDefault()
-    setAppliedQ(q.trim())
-  }
-
   return (
-    <div className="pb-24 space-y-6">
+    <div className="pb-24 space-y-5">
       <div className="bg-white p-4 rounded-3xl shadow-sm border border-neutral-100">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-black text-neutral-900">Missions</h1>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <h1 className="text-2xl font-black text-neutral-900">Mes missions</h1>
+            <p className="text-xs font-semibold text-neutral-500">
+              {isLoading && !updatedAt ? 'Chargement…' : updatedAt ? `Mis à jour ${formatAgo(updatedAt)}` : ''}
+            </p>
+          </div>
           <div className="flex gap-2">
             <button
-              onClick={() => setScanOpen(true)}
-              className="bg-black text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
+              type="button"
+              onClick={() => refresh().catch(() => {})}
+              className="h-12 w-12 rounded-2xl bg-neutral-100 flex items-center justify-center text-neutral-800"
+              aria-label="Actualiser"
             >
-              <QrCode size={18} /> Scanner
+              <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setScanOpen(true)}
+              className="h-12 bg-black text-white px-5 rounded-2xl text-base font-bold flex items-center gap-2"
+            >
+              <QrCode size={20} /> Scanner
             </button>
           </div>
         </div>
 
-        <form onSubmit={applySearch} className="relative mb-4">
+        <div className="relative mb-4">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={20} />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Rechercher..."
-            className="w-full bg-neutral-50 border-none rounded-xl py-3 pl-12 pr-4 font-medium outline-none focus:ring-2 focus:ring-[#6aa200]"
+            placeholder="Client, commande, adresse…"
+            className="w-full bg-neutral-100 border-none rounded-2xl py-3 pl-12 pr-10 text-base font-medium outline-none focus:ring-2 focus:ring-[#6aa200]"
           />
-        </form>
+          {q ? (
+            <button type="button" onClick={() => setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1" aria-label="Effacer">
+              <X size={18} className="text-neutral-500" />
+            </button>
+          ) : null}
+        </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {TABS.map((tab) => {
             const active = tab.value === activeTab.value
+            const count = countFor(tab.value)
             return (
               <button
                 key={tab.label}
-                onClick={() => setSearchParams(tab.value ? { status: tab.value } : {})}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold transition-colors ${
-                  active ? 'bg-black text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                type="button"
+                onClick={() => setSearchParams(tab.value ? { tab: tab.value } : {})}
+                className={`whitespace-nowrap px-4 py-2.5 rounded-full text-sm font-bold transition-colors ${
+                  active ? 'bg-black text-white' : 'bg-neutral-100 text-neutral-700'
                 }`}
               >
                 {tab.label}
+                <span className={`ml-1.5 ${active ? 'text-white/80' : 'text-neutral-500'}`}>{count}</span>
               </button>
             )
           })}
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-medium border border-red-100">
-          {error}
+      {error ? (
+        <div className="bg-red-50 text-red-700 p-4 rounded-2xl text-sm font-semibold border border-red-200">
+          {data ? `Dernière actualisation impossible : ${error}. Les informations affichées peuvent dater.` : error}
         </div>
-      )}
+      ) : null}
 
-      <div className="space-y-3">
-        {shipments.length === 0 && !isLoading ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Package size={24} className="text-neutral-400" />
-            </div>
-            <p className="text-neutral-500 font-medium">Aucune mission trouvée</p>
+      {totalShown === 0 && !isLoading ? (
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Package size={24} className="text-neutral-400" />
           </div>
-        ) : (
-          shipments.map((shipment) => {
-            const badge = toStatusUi(shipment?.status)
-            return (
-              <button
-                key={shipment?.id}
-                onClick={() => navigate(`/deliveries/${encodeURIComponent(shipment.id)}`)}
-                className="w-full bg-white p-5 rounded-3xl shadow-sm border border-neutral-100 text-left active:scale-[0.99] transition-transform"
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${badge.className}`}>{badge.label}</span>
-                    <h3 className="font-bold text-neutral-900 mt-2 text-lg">#{shipment?.trackingId || shipment?.id}</h3>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">ETA</p>
-                    <p className="font-mono font-bold text-neutral-900">{formatDate(shipment?.eta)}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-neutral-500 text-sm">
-                  <MapPin size={16} />
-                  <span className="truncate font-medium">{shipment?.customerAddress || 'Adresse inconnue'}</span>
-                </div>
-              </button>
-            )
-          })
-        )}
-      </div>
+          <p className="text-neutral-600 font-semibold">{q ? 'Aucune mission ne correspond.' : 'Aucune mission pour le moment.'}</p>
+        </div>
+      ) : (
+        visibleGroups.map((group) => {
+          const list = grouped[group.key]
+          if (list.length === 0 && (!activeTab.value || group.key === 'available')) return null
+          return (
+            <section key={group.key} className="space-y-3">
+              <h2 className="px-1 text-sm font-black uppercase tracking-wider text-neutral-500">
+                {group.label} <span className="text-neutral-400">({list.length})</span>
+              </h2>
+              {list.length === 0 ? (
+                <p className="px-1 text-sm text-neutral-500">{group.empty}</p>
+              ) : (
+                list.map((shipment) => (
+                  <MissionCard
+                    key={`${group.key}-${shipment?.id}`}
+                    shipment={shipment}
+                    group={group.key}
+                    pending={pendingIds.has(`${shipment?.id}`)}
+                    maxAttempts={maxAttempts}
+                    onOpen={() =>
+                      group.key === 'available'
+                        ? setScanOpen(true)
+                        : navigate(`/deliveries/${encodeURIComponent(shipment.id)}`)
+                    }
+                  />
+                ))
+              )}
+            </section>
+          )
+        })
+      )}
 
       {scanOpen && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col">

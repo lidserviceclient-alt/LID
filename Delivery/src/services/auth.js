@@ -107,7 +107,7 @@ export async function loginDelivery(phoneNumber, password) {
       apiRequest('/api/v1/auth/login/local/delivery', { method: 'POST', body: payload }),
     )
   } catch (err) {
-    if (err?.status === 401) err.message = 'Numéro ou mot de passe incorrect.'
+    if (err?.status === 401) err.message = 'Numéro ou code de connexion incorrect.'
     else if (err?.status === 429) err.message = 'Trop de tentatives. Patientez quelques instants avant de réessayer.'
     else if (err?.status === 403 && (!err.message || err.message === 'Forbidden')) {
       err.message = 'Compte désactivé. Contactez l\'administration.'

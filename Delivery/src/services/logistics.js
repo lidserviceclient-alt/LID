@@ -97,3 +97,19 @@ export function confirmDelivery(id, code) {
     body: { code },
   })
 }
+
+/** Journée du livreur : ses colis (à récupérer, en livraison, échecs, livrés aujourd'hui) et colis disponibles. */
+export function getCourierDay() {
+  return authorizedApiRequest('/api/v1/backoffice/logistics/my-day')
+}
+
+export function getShipmentTimeline(id) {
+  return authorizedApiRequest(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/timeline`)
+}
+
+/** Signale l'arrivée chez le client (idempotent côté serveur). */
+export function markArrived(id) {
+  return authorizedApiRequest(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/arrived`, {
+    method: 'POST',
+  })
+}
