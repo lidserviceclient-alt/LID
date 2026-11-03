@@ -22,13 +22,14 @@ import ShopSettings from "./pages/settings/ShopSettings.jsx";
 import ReturnsAndPayoutsSettings from "./pages/settings/ReturnsAndPayoutsSettings.jsx";
 import ShippingSettings from "./pages/settings/ShippingSettings.jsx";
 import SocialLinksSettings from "./pages/settings/SocialLinksSettings.jsx";
-import CouriersSettings from "./pages/settings/CouriersSettings.jsx";
+import Couriers from "./pages/Couriers.jsx";
 import TeamSettings from "./pages/settings/TeamSettings.jsx";
 import NotificationsSettings from "./pages/settings/NotificationsSettings.jsx";
 import SecuritySettings from "./pages/settings/SecuritySettings.jsx";
 import { DEFAULT_SETTINGS_SECTION } from "./pages/settings/sections.js";
 import Inventory from "./pages/Inventory.jsx";
 import Logistics from "./pages/Logistics.jsx";
+import DeliveryBoard from "./pages/DeliveryBoard.jsx";
 import Marketing from "./pages/Marketing.jsx";
 import Loyalty from "./pages/Loyalty.jsx";
 import Finance from "./pages/Finance.jsx";
@@ -92,8 +93,10 @@ export default function App() {
         <Route path="/customers" element={<Customers />} />
         <Route path="/users" element={<Users />} />
         <Route path="/users/:id" element={<UserDetail />} />
+        <Route path="/couriers" element={<Couriers />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/logistics" element={<Logistics />} />
+        <Route path="/logistics/suivi" element={<DeliveryBoard />} />
         <Route path="/marketing" element={<Marketing />} />
         <Route path="/loyalty" element={<Loyalty />} />
         <Route path="/finance" element={<Finance />} />
@@ -107,7 +110,7 @@ export default function App() {
           <Route path="retours-commissions" element={<ReturnsAndPayoutsSettings />} />
           <Route path="livraison" element={<ShippingSettings />} />
           <Route path="reseaux-sociaux" element={<SocialLinksSettings />} />
-          <Route path="livreurs" element={<CouriersSettings />} />
+          <Route path="livreurs" element={<Navigate to="/couriers" replace />} />
           <Route path="equipe" element={<TeamSettings />} />
           <Route path="notifications" element={<NotificationsSettings />} />
           <Route path="securite" element={<SecuritySettings />} />

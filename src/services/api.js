@@ -129,9 +129,11 @@ async function request(path, options = {}, retryAuth = true) {
   const shouldRetryAuth = typeof retryAuthOverride === "boolean" ? retryAuthOverride : retryAuth;
   let res;
   try {
+    const isFormData = typeof FormData !== "undefined" && restOptions.body instanceof FormData;
     res = await trackedFetch(`${BASE_URL}${path}`, {
       headers: {
-        "Content-Type": "application/json",
+        // Multipart : le navigateur doit poser lui-même le Content-Type (avec la boundary)
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...(optionHeaders || {})
       },
@@ -681,6 +683,28 @@ export const backofficeApi = {
       method: "PUT",
       body: JSON.stringify({ courierUser, courierName, courierPhone })
     }),
+  // Suivi des livraisons : synthèse légère (compteurs, charge livreurs) + liste paginée/filtrée/triée côté serveur
+  deliveryBoardSummary: ({ preparationAlertHours, transitAlertHours } = {}) => {
+    const params = new URLSearchParams();
+    if (preparationAlertHours) params.set("preparationAlertHours", `${preparationAlertHours}`);
+    if (transitAlertHours) params.set("transitAlertHours", `${transitAlertHours}`);
+    const query = params.toString();
+    return request(`/api/v1/backoffice/logistics/board/summary${query ? `?${query}` : ""}`);
+  },
+  deliveryBoardShipments: ({ column, courier, late, q, page = 0, size = 25, sort, preparationAlertHours, transitAlertHours } = {}) => {
+    const params = new URLSearchParams();
+    if (column) params.set("column", column);
+    if (courier) params.set("courier", courier);
+    if (late) params.set("late", "true");
+    if (q) params.set("q", q);
+    if (sort) params.set("sort", sort);
+    if (preparationAlertHours) params.set("preparationAlertHours", `${preparationAlertHours}`);
+    if (transitAlertHours) params.set("transitAlertHours", `${transitAlertHours}`);
+    params.set("page", `${page}`);
+    params.set("size", `${size}`);
+    return request(`/api/v1/backoffice/logistics/board/shipments?${params.toString()}`);
+  },
+  shipmentTimeline: (id) => request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/timeline`),
   returnShipmentToDepot: (id, reason) =>
     request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/return-to-depot`, {
       method: "POST",
@@ -794,11 +818,31 @@ export const backofficeApi = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  couriers: (page = 0, size = 20, { q = "", status = "", agency = "" } = {}) => {
+    const params = new URLSearchParams({ page, size });
+    if (q) params.set("q", q);
+    if (status) params.set("status", status);
+    if (agency) params.set("agency", agency);
+    return request(`/api/v1/backoffice/couriers?${params.toString()}`);
+  },
   createCourier: (payload) =>
-    request("/api/v1/backoffice/users/couriers", {
-      method: "POST",
-      body: JSON.stringify(payload)
+    request("/api/v1/backoffice/couriers", { method: "POST", body: JSON.stringify(payload) }),
+  importCouriers: (file) => {
+    const body = new FormData();
+    body.append("file", file);
+    return request("/api/v1/backoffice/couriers/import", { method: "POST", body });
+  },
+  updateCourier: (id, payload) =>
+    request(`/api/v1/backoffice/couriers/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(payload) }),
+  setCourierStatus: (id, active) =>
+    request(`/api/v1/backoffice/couriers/${encodeURIComponent(id)}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ active })
     }),
+  courierLoginCode: (id) =>
+    request(`/api/v1/backoffice/couriers/${encodeURIComponent(id)}/login-code`),
+  resetCourierPassword: (id) =>
+    request(`/api/v1/backoffice/couriers/${encodeURIComponent(id)}/reset-password`, { method: "POST" }),
   updateUser: (id, payload) =>
     request(`/api/v1/backoffice/users/${id}`, {
       method: "PUT",

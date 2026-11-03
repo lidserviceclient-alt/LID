@@ -98,6 +98,7 @@ export default function Topbar({ onMenuClick }) {
       "/users": { parent: "Utilisateurs", current: "Liste" },
       "/inventory": { parent: "Stocks", current: "Inventaire" },
       "/logistics": { parent: "Livraison", current: "Suivi" },
+      "/logistics/suivi": { parent: "Livraison", current: "Suivi temps réel" },
       "/marketing": { parent: "Marketing", current: "Campagnes" },
       "/loyalty": { parent: "Fidélité", current: "Programme" },
       "/finance": { parent: "Finance", current: "Paiements" },

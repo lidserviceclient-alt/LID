@@ -28,6 +28,9 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      # Les variables VITE_* (API, VITE_STOREFRONT_URL pour les liens « Accueil » / « Mon compte » du menu) viennent de
+      # .env.production (npm run build) ou .env.staging (npm run build:staging) : staging -> https://lid-shop-staging.web.app,
+      # production -> https://lidshopping.com. Une variable posée dans l'environnement de l'étape l'emporterait sur ces fichiers.
       - name: Build
         run: |
           if [ "${DEPLOY_TARGET}" = "staging" ]; then

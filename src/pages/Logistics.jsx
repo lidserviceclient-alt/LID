@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Download, Plus, Search, Settings2, Truck, Printer } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Download, Plus, Radar, Search, Settings2, Truck, Printer } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 import ShippingLabel from "../components/ShippingLabel.jsx";
 import Card from "../components/ui/Card.jsx";
@@ -476,6 +477,12 @@ export default function Logistics() {
         subtitle="Suivi des expéditions et performance transporteurs."
         rightSlot={
           <div className="flex flex-wrap items-center gap-2">
+            <Link to="/logistics/suivi">
+              <Button variant="outline" className="gap-2">
+                <Radar className="h-4 w-4" />
+                Suivi temps réel
+              </Button>
+            </Link>
             <Button variant="outline" className="gap-2" onClick={() => setIsCarriersOpen(true)}>
               <Settings2 className="h-4 w-4" />
               Configurer transporteurs

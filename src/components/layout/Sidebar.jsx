@@ -19,11 +19,17 @@ import {
   MessageSquareText,
   FileText,
   RotateCcw,
-  Image
+  Image,
+  Bike,
+  Radar
 } from "lucide-react";
 import { cn } from "../../utils/cn.js";
 
-const linkShop = "https://lidshopping.com/"
+// URLs de la boutique propres à l'environnement (VITE_STOREFRONT_URL / VITE_ACCOUNT_URL, voir .env.example).
+// Repli sur la production uniquement si la variable est absente.
+const withTrailingSlash = (url) => (url.endsWith("/") ? url : `${url}/`);
+const linkShop = withTrailingSlash((import.meta.env.VITE_STOREFRONT_URL || "https://lidshopping.com").trim());
+const linkAccount = (import.meta.env.VITE_ACCOUNT_URL || "").trim() || `${linkShop}profile`;
 
 const navSections = [
   {
@@ -43,6 +49,7 @@ const navSections = [
       { label: "Media", to: "/media", icon: Image },
       { label: "Catégories", to: "/categories", icon: Tag },
       { label: "Stocks", to: "/inventory", icon: Boxes },
+      { label: "Suivi livraisons", to: "/logistics/suivi", icon: Radar },
       { label: "Livraison", to: "/logistics", icon: Truck }
     ]
   },
@@ -72,6 +79,7 @@ const navSections = [
     title: "Administration",
     items: [
       { label: "Utilisateurs", to: "/users", icon: Users },
+      { label: "Livreurs", to: "/couriers", icon: Bike },
       { label: "Messages", to: "/messages", icon: MessageSquareText },
       { label: "Contacts", to: "/contacts", icon: Inbox }
     ]
@@ -80,7 +88,7 @@ const navSections = [
     title: "Boutique",
     items: [
       { label: "Accueil", to: `${linkShop}`, icon: Store },
-      { label: "Mon compte", to: `${linkShop}profile`, icon: Inbox },
+      { label: "Mon compte", to: linkAccount, icon: Inbox },
 
     ]
   }
@@ -153,6 +161,7 @@ export default function Sidebar({ isOpen, onClose }) {
                   <NavLink
                     key={item.to}
                     to={item.to}
+                    end={item.to === "/logistics"}
                     className={({ isActive }) =>
                       cn(
                         "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 group relative",
