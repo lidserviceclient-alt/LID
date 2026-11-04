@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, Copy, Download, Edit2, Eye, EyeOff, KeyRound, Plus, Power, RefreshCw, Search, Upload } from "lucide-react";
+import { AlertCircle, Copy, Download, Edit2, KeyRound, Plus, Power, RefreshCw, Search, Upload } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Badge from "../components/ui/Badge.jsx";
@@ -110,82 +110,6 @@ function Toast({ toast, onClose }) {
   );
 }
 
-// Consultation à la demande du code de connexion : masqué par défaut, appel réseau au clic seulement,
-// remasqué après 15 s. Le code n'est jamais gardé hors de cet état local.
-const REVEAL_MS = 15000;
-
-function LoginCodeCell({ courier }) {
-  const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
-  const timer = useRef(null);
-  const available = courier.loginCodeAvailable !== false;
-
-  const hide = useCallback(() => {
-    clearTimeout(timer.current);
-    setCode("");
-    setCopied(false);
-  }, []);
-
-  useEffect(() => () => clearTimeout(timer.current), []);
-  useEffect(() => { hide(); setError(""); }, [courier.id, courier.loginCodeAvailable, hide]);
-
-  const reveal = async () => {
-    if (code) { hide(); return; }
-    setLoading(true);
-    setError("");
-    try {
-      const res = await backofficeApi.courierLoginCode(courier.id);
-      setCode(res?.loginCode || "");
-      clearTimeout(timer.current);
-      timer.current = setTimeout(hide, REVEAL_MS);
-    } catch (err) {
-      setError(err?.message || "Consultation impossible.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-    } catch {
-      setError("Copie impossible.");
-    }
-  };
-
-  return (
-    <div className="flex flex-col items-start gap-1">
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost" size="sm" type="button"
-          disabled={!available || loading}
-          title={!available ? "Code non consultable : régénérez le code de connexion" : code ? "Masquer le code de connexion" : "Afficher le code de connexion"}
-          aria-label={code ? "Masquer le code de connexion" : "Afficher le code de connexion"}
-          onClick={reveal}
-        >
-          {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : code
-            ? <EyeOff className="h-4 w-4 text-slate-500 hover:text-primary" />
-            : <Eye className={`h-4 w-4 ${available ? "text-slate-500 hover:text-primary" : "text-slate-300"}`} />}
-        </Button>
-        {code ? (
-          <>
-            <code className="rounded bg-muted px-2 py-1 font-mono text-sm select-all">{code}</code>
-            <Button variant="ghost" size="sm" type="button" title="Copier" aria-label="Copier le code de connexion" onClick={copy}>
-              <Copy className={`h-4 w-4 ${copied ? "text-emerald-600" : "text-slate-500 hover:text-primary"}`} />
-            </Button>
-          </>
-        ) : (
-          <span className="font-mono text-muted-foreground" aria-hidden="true">••••••••</span>
-        )}
-      </div>
-      {error ? <span role="alert" className="text-xs text-destructive">{error}</span> : null}
-    </div>
-  );
-}
-
 function ErrorBox({ message }) {
   if (!message) return null;
   return (
@@ -196,7 +120,7 @@ function ErrorBox({ message }) {
   );
 }
 
-// Codes de connexion générés à la création / l'import / la régénération ; ensuite consultables à la demande (icône œil).
+// Codes de connexion générés à la création / l'import / la régénération : affichés une seule fois, jamais consultables ensuite.
 function CredentialsPanel({ entries, filename, onSaved, onToast }) {
   const copy = async () => {
     const text = entries
@@ -218,7 +142,7 @@ function CredentialsPanel({ entries, filename, onSaved, onToast }) {
     <div className="space-y-3">
       <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
         <strong>Ces codes de connexion sont affichés ici une seule fois.</strong> Copiez-les ou téléchargez-les maintenant et
-        transmettez-les de façon sécurisée aux livreurs. Ils restent consultables ensuite via l’icône œil du tableau ; en cas d’indisponibilité, régénérez le code de connexion.
+        transmettez-les de façon sécurisée aux livreurs. Ils ne pourront plus être consultés ensuite : en cas de perte, régénérez le code de connexion du livreur.
       </div>
       <div className="max-h-64 overflow-auto rounded-lg border border-border">
         <table className="w-full text-sm">
@@ -523,17 +447,16 @@ export default function Couriers() {
               <TCell>Téléphone</TCell>
               <TCell>Agence</TCell>
               <TCell>Statut</TCell>
-              <TCell>Code de connexion</TCell>
               <TCell>Créé le</TCell>
               <TCell className="text-right">Actions</TCell>
             </TRow>
           </THead>
           <tbody>
             {loading && rows.length === 0 ? (
-              <TRow><TCell colSpan={7} className="text-muted-foreground">Chargement…</TCell></TRow>
+              <TRow><TCell colSpan={6} className="text-muted-foreground">Chargement…</TCell></TRow>
             ) : rows.length === 0 ? (
               <TRow>
-                <TCell colSpan={7} className="text-muted-foreground">
+                <TCell colSpan={6} className="text-muted-foreground">
                   {hasFilters ? "Aucun livreur ne correspond à ces filtres." : "Aucun livreur."}
                 </TCell>
               </TRow>
@@ -549,7 +472,6 @@ export default function Couriers() {
                   <TCell>
                     <Badge label={c.active ? "Actif" : "Inactif"} variant={c.active ? "success" : "outline"} />
                   </TCell>
-                  <TCell><LoginCodeCell courier={c} /></TCell>
                   <TCell>{formatDate(c.createdAt)}</TCell>
                   <TCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -558,7 +480,8 @@ export default function Couriers() {
                       </Button>
                       <Button variant="ghost" size="sm" type="button" title="Régénérer le code de connexion" aria-label="Régénérer le code de connexion"
                         onClick={() => { setConfirmError(""); setConfirm({ type: "reset", courier: c }); }}>
-                        <KeyRound className="h-4 w-4 text-slate-500 hover:text-primary" />
+                        <KeyRound className="mr-1 h-4 w-4 text-slate-500" />
+                        <span className="text-xs">Régénérer le code de connexion</span>
                       </Button>
                       <Button variant="ghost" size="sm" type="button" title={c.active ? "Désactiver" : "Activer"} aria-label={c.active ? "Désactiver" : "Activer"}
                         onClick={() => { setConfirmError(""); setConfirm({ type: "status", courier: c }); }}>

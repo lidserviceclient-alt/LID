@@ -691,8 +691,12 @@ export const backofficeApi = {
     const query = params.toString();
     return request(`/api/v1/backoffice/logistics/board/summary${query ? `?${query}` : ""}`);
   },
-  deliveryBoardShipments: ({ column, courier, late, q, page = 0, size = 25, sort, preparationAlertHours, transitAlertHours } = {}) => {
+  // `history` : tous les colis (livrés des jours précédents, commandes annulées comprises) ; `status`/`carrier` : filtres optionnels
+  deliveryBoardShipments: ({ column, courier, late, q, page = 0, size = 25, sort, preparationAlertHours, transitAlertHours, history, status, carrier } = {}) => {
     const params = new URLSearchParams();
+    if (history) params.set("history", "true");
+    if (status) params.set("status", status);
+    if (carrier) params.set("carrier", carrier);
     if (column) params.set("column", column);
     if (courier) params.set("courier", courier);
     if (late) params.set("late", "true");
@@ -839,8 +843,6 @@ export const backofficeApi = {
       method: "PATCH",
       body: JSON.stringify({ active })
     }),
-  courierLoginCode: (id) =>
-    request(`/api/v1/backoffice/couriers/${encodeURIComponent(id)}/login-code`),
   resetCourierPassword: (id) =>
     request(`/api/v1/backoffice/couriers/${encodeURIComponent(id)}/reset-password`, { method: "POST" }),
   updateUser: (id, payload) =>

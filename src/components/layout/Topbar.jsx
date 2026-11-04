@@ -98,13 +98,18 @@ export default function Topbar({ onMenuClick }) {
       "/users": { parent: "Utilisateurs", current: "Liste" },
       "/inventory": { parent: "Stocks", current: "Inventaire" },
       "/logistics": { parent: "Livraison", current: "Suivi" },
-      "/logistics/suivi": { parent: "Livraison", current: "Suivi temps réel" },
       "/marketing": { parent: "Marketing", current: "Campagnes" },
       "/loyalty": { parent: "Fidélité", current: "Programme" },
       "/finance": { parent: "Finance", current: "Paiements" },
       "/analytics": { parent: "Analytics", current: "Tableaux" },
       "/settings": { parent: "Paramètres", current: "Configuration" },
-      "/messages": { parent: "Messages", current: "Historique" }
+      "/messages": { parent: "Messages", current: "Historique" },
+      "/couriers": { parent: "Livreurs", current: "Liste" },
+      "/returns": { parent: "Retours", current: "Liste" },
+      "/media": { parent: "Média", current: "Bibliothèque" },
+      "/blog-posts": { parent: "Blog", current: "Articles" },
+      "/contacts": { parent: "Contacts", current: "Demandes" },
+      "/product-reviews": { parent: "Avis produits", current: "Modération" }
     };
 
     if (labelForStatic[path]) {
@@ -119,6 +124,13 @@ export default function Topbar({ onMenuClick }) {
       return [
         { label: "Paramètres", to: "/settings" },
         { label: findSettingsSection(path)?.label || "Configuration", to: null }
+      ];
+    }
+
+    if (path.startsWith("/orders/")) {
+      return [
+        { label: "Commandes", to: "/orders" },
+        { label: "Détail", to: null }
       ];
     }
 

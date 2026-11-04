@@ -216,8 +216,14 @@ export default function Orders() {
                   <TCell className="max-w-[220px] truncate" title={order.customer}>
                     {order.customer}
                   </TCell>
-                  <TCell className="hidden max-w-[180px] truncate xl:table-cell" title={(order.sellers || []).join(", ")}>
-                    {(order.sellers || []).join(", ") || "-"}
+                  <TCell className="hidden min-w-[140px] max-w-[220px] whitespace-normal break-words xl:table-cell" title={(order.sellers || []).join(", ")}>
+                    {(order.sellers || []).length === 0
+                      ? "-"
+                      : order.sellers.map((seller) => (
+                          <span key={seller} className="block leading-snug">
+                            {seller}
+                          </span>
+                        ))}
                   </TCell>
                   <TCell className="whitespace-nowrap text-right font-medium">{formatCurrency(order.total)}</TCell>
                   <TCell>

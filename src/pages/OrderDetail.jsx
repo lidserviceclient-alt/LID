@@ -23,7 +23,6 @@ import {
   Pill,
   REFUND_STATUS_LABELS,
   RETURN_STATUS_LABELS,
-  SHIPMENT_LABELS,
   StatusBadge,
   formatCurrency,
   formatDateTime,
@@ -61,6 +60,70 @@ function Row({ label, value, strong, negative }) {
       </span>
     </div>
   );
+}
+
+// Même vocabulaire que la page Livraison
+function parcelStatus(shipment) {
+  switch (shipment?.status) {
+    case "EN_PREPARATION":
+      return shipment.courierUser || shipment.courierName
+        ? { label: "À récupérer", tone: "slate" }
+        : { label: "À affecter", tone: "amber" };
+    case "EN_COURS":
+      return { label: "En livraison", tone: "blue" };
+    case "LIVREE":
+      return { label: "Livré", tone: "green" };
+    case "ECHEC":
+      return { label: "Échec", tone: "red" };
+    default:
+      return { label: shipment?.status || "-", tone: "slate" };
+  }
+}
+
+const parcelQrUrl = (payload, size = 112) =>
+  `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}`;
+
+// Libellé d'un évènement d'historique : « <fait> le <date et heure complètes> »
+const HISTORY_EVENT_LABELS = {
+  PENDING: "Commande créée",
+  PAID: "Paiement confirmé",
+  PROCESSING: "Préparation démarrée",
+  READY_TO_DELIVER: "Colis prêt pour le livreur",
+  DELIVERY_IN_PROGRESS: "Remise au livreur",
+  DELIVERY_FAILED: "Livraison échouée",
+  DELIVERED: "Commande livrée",
+  CANCELED: "Commande annulée",
+  REFUNDED: "Commande remboursée"
+};
+
+const fullDateTime = (value) => {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    .format(date);
+};
+
+// Historique chronologique (l'ordre d'insertion peut différer de l'ordre réel des dates) + livraisons de chaque colis
+function buildHistory(statusHistory, shipments) {
+  const entries = (statusHistory || []).map((h, index) => ({
+    key: `h-${h.id ?? index}`,
+    status: h.status,
+    label: HISTORY_EVENT_LABELS[h.status] || statusLabel(h.status),
+    at: h.changedAt,
+    comment: h.comment,
+    order: h.id ?? index
+  }));
+  (shipments || []).forEach((sh) => {
+    const name = sh.trackingId || `#${sh.id}`;
+    const seller = sh.sellerName ? ` (${sh.sellerName})` : "";
+    if (sh.readyAt) entries.push({ key: `sr-${sh.id}`, status: "READY_TO_DELIVER", label: `Colis ${name}${seller} prêt`, at: sh.readyAt, order: 1e6 + Number(sh.id || 0) });
+    if (sh.deliveredAt) entries.push({ key: `sd-${sh.id}`, status: "DELIVERED", label: `Colis ${name}${seller} livré`, at: sh.deliveredAt, order: 2e6 + Number(sh.id || 0) });
+  });
+  const time = (e) => {
+    const t = e.at ? new Date(e.at).getTime() : NaN;
+    return Number.isNaN(t) ? 0 : t;
+  };
+  return entries.sort((a, b) => time(a) - time(b) || a.order - b.order);
 }
 
 function Timeline({ status, history }) {
@@ -161,6 +224,17 @@ export default function OrderDetail() {
     }
   }
 
+  const historyEntries = useMemo(() => buildHistory(detail?.statusHistory, detail?.shipments), [detail]);
+
+  // Part LID : lignes vendues par LID sans colis LID créé (un colis par vendeur, déclaré séparément)
+  const hasLidLines = (detail?.items || []).some((item) => !item.sellerName || item.sellerName === "LID");
+  const lidParcelExists = (detail?.shipments || []).some((sh) => sh.shipperType === "LID" || (!sh.shipperType && sh.carrier === "LID"));
+  const canMarkLidReady =
+    ["PAID", "PROCESSING"].includes(status) &&
+    hasLidLines &&
+    !lidParcelExists &&
+    (actions?.allowedStatuses || []).includes("READY_TO_DELIVER");
+
   const forcible = useMemo(() => (actions?.forcibleStatuses || []).filter((s) => s !== "PENDING"), [actions]);
 
   const itemsBySeller = useMemo(() => {
@@ -198,6 +272,19 @@ export default function OrderDetail() {
           onConfirm: done(
             ({ reason }) => backofficeApi.updateOrderStatus(ref, modal.target, { comment: reason }),
             `Commande passée à « ${statusLabel(modal.target)} ».`
+          )
+        };
+      case "lidReady":
+        return {
+          title: "Marquer la part LID prête",
+          description: `Les articles vendus par LID de la commande ${ref} sont emballés : le colis LID est créé et proposé au livreur.`,
+          notice:
+            "Seul le colis LID est créé. Les colis des partenaires sont déclarés prêts par les partenaires eux-mêmes ; la commande passe « Colis prêt » quand tous les colis le sont. Le client est prévenu par e-mail.",
+          reasonLabel: "Commentaire",
+          confirmLabel: "Marquer la part LID prête",
+          onConfirm: done(
+            ({ reason }) => backofficeApi.updateOrderStatus(ref, "READY_TO_DELIVER", { comment: reason }),
+            "Part LID prête : le colis LID est créé."
           )
         };
       case "cancel":
@@ -375,7 +462,10 @@ export default function OrderDetail() {
   }
 
   const mp = modalProps();
-  const changeable = actions.allowedStatuses || [];
+  // « Prêt » pour une commande contenant du LID passe par le bouton dédié « part LID prête »
+  const changeable = (actions.allowedStatuses || []).filter(
+    (target) => !(target === "READY_TO_DELIVER" && hasLidLines && ["PAID", "PROCESSING"].includes(status))
+  );
   const cancelHint = !actions.cancellable ? actions.cancelBlockedReason : null;
   const retryableRefunds = (detail.refunds || []).filter((r) => (actions.retryableRefundIds || []).includes(r.id));
   const pendingRefunds = (detail.refunds || []).filter((r) => ["PENDING", "FAILED", "MANUAL_REVIEW", "PROCESSING"].includes(r.status));
@@ -453,14 +543,17 @@ export default function OrderDetail() {
             <div className="space-y-2 border-t border-border pt-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Historique</p>
               <ul className="space-y-2">
-                {[...(detail.statusHistory || [])].reverse().map((h, index) => (
-                  <li key={h.id ?? index} className="flex flex-wrap items-start gap-x-3 gap-y-1 text-sm">
+                {[...historyEntries].reverse().map((h) => (
+                  <li key={h.key} className="flex flex-wrap items-start gap-x-3 gap-y-1 text-sm">
                     <StatusBadge status={h.status} />
-                    <span className="text-xs text-muted-foreground">{formatDateTime(h.changedAt)}</span>
+                    <span className="font-medium text-foreground">
+                      {h.label}
+                      {fullDateTime(h.at) ? ` le ${fullDateTime(h.at)}` : ""}
+                    </span>
                     {h.comment ? <span className="basis-full text-muted-foreground sm:basis-auto">{h.comment}</span> : null}
                   </li>
                 ))}
-                {(detail.statusHistory || []).length === 0 ? <li className="text-sm text-muted-foreground">Aucun historique.</li> : null}
+                {historyEntries.length === 0 ? <li className="text-sm text-muted-foreground">Aucun historique.</li> : null}
               </ul>
             </div>
           </Section>
@@ -575,11 +668,51 @@ export default function OrderDetail() {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="flex items-center gap-2 font-semibold">
                       <Truck className="h-4 w-4" />
-                      Colis {s.trackingId || `#${s.id}`}
+                      Colis {s.sellerName ? `de ${s.sellerName}` : s.trackingNumber || s.trackingId || `#${s.id}`}
                     </span>
-                    <Pill tone={s.status === "LIVREE" ? "green" : s.status === "ECHEC" ? "red" : "blue"}>
-                      {SHIPMENT_LABELS[s.status] || s.status}
-                    </Pill>
+                    <Pill tone={parcelStatus(s).tone}>{parcelStatus(s).label}</Pill>
+                  </div>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-1.5 text-xs">
+                      {s.sellerName ? (
+                        <p>
+                          Vendeur : <strong>{s.sellerName}</strong>
+                          {s.shipperType ? ` (${s.shipperType === "LID" ? "LID" : "partenaire"})` : ""}
+                        </p>
+                      ) : null}
+                      {s.trackingNumber || s.trackingId ? (
+                        <p className="break-all">
+                          N° de suivi : <span className="font-mono">{s.trackingNumber || s.trackingId}</span>
+                        </p>
+                      ) : null}
+                      {Array.isArray(s.items) && s.items.length > 0 ? (
+                        <ul className="list-disc pl-4">
+                          {s.items.map((label, index) => (
+                            <li key={index}>{label}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      {s.handoffCode ? (
+                        <p>
+                          Code de prise en charge : <code className="rounded bg-muted px-1.5 py-0.5 font-mono">{s.handoffCode}</code>
+                        </p>
+                      ) : null}
+                      {s.deliveryCode ? (
+                        <p>
+                          Code de remise client : <code className="rounded bg-muted px-1.5 py-0.5 font-mono">{s.deliveryCode}</code>
+                        </p>
+                      ) : null}
+                    </div>
+                    {s.qrPayload ? (
+                      <a href={parcelQrUrl(s.qrPayload, 300)} target="_blank" rel="noopener noreferrer" title={`QR du colis ${s.qrPayload}`} className="shrink-0">
+                        <img
+                          src={parcelQrUrl(s.qrPayload)}
+                          alt={`QR du colis ${s.qrPayload}`}
+                          className="h-20 w-20 rounded border border-border bg-white p-1"
+                          referrerPolicy="no-referrer"
+                        />
+                      </a>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
                     <span>Transporteur : {s.carrier || "-"}</span>
@@ -746,6 +879,16 @@ export default function OrderDetail() {
                     {retryableRefunds.length > 1 ? ` (+ ${retryableRefunds.length - 1} autre${retryableRefunds.length > 2 ? "s" : ""} dans « Paiement et remboursements »)` : ""}
                     {retryableRefunds[0].lastError ? ` • ${retryableRefunds[0].lastError}` : ""}
                   </p>
+                </div>
+              ) : null}
+              {canMarkLidReady ? (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Part LID</p>
+                  <Button className="w-full justify-start gap-2" onClick={() => setModal({ kind: "lidReady" })}>
+                    <PackageCheck className="h-4 w-4" />
+                    Marquer la part LID prête
+                  </Button>
+                  <p className="text-xs text-muted-foreground">Crée uniquement le colis LID ; les partenaires déclarent leur part séparément.</p>
                 </div>
               ) : null}
               {changeable.length > 0 ? (

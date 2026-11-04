@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { cn } from "../../utils/cn";
 import Button from "./Button";
@@ -12,6 +12,29 @@ export default function Drawer({ isOpen, onClose, title, children, className, wi
     }
     return () => {
       document.body.style.overflow = "unset";
+    };
+  }, [isOpen]);
+
+  const panelRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // Échap ferme le panneau ; le focus entre dans le panneau puis revient à l'élément d'origine
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const previous = document.activeElement;
+    const timer = window.setTimeout(() => panelRef.current?.querySelector("[data-drawer-close]")?.focus(), 50);
+    const onKey = (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onCloseRef.current?.();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("keydown", onKey);
+      if (previous && typeof previous.focus === "function" && document.contains(previous)) previous.focus();
     };
   }, [isOpen]);
 
@@ -41,10 +64,12 @@ export default function Drawer({ isOpen, onClose, title, children, className, wi
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        aria-label={typeof title === "string" ? title : "Panneau"}
+        ref={panelRef}
       >
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-lg font-semibold tracking-tight truncate">{title}</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button data-drawer-close variant="ghost" size="icon" onClick={onClose} aria-label="Fermer le panneau">
             <X className="h-4 w-4" />
           </Button>
         </div>

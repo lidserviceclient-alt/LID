@@ -29,7 +29,6 @@ import SecuritySettings from "./pages/settings/SecuritySettings.jsx";
 import { DEFAULT_SETTINGS_SECTION } from "./pages/settings/sections.js";
 import Inventory from "./pages/Inventory.jsx";
 import Logistics from "./pages/Logistics.jsx";
-import DeliveryBoard from "./pages/DeliveryBoard.jsx";
 import Marketing from "./pages/Marketing.jsx";
 import Loyalty from "./pages/Loyalty.jsx";
 import Finance from "./pages/Finance.jsx";
@@ -96,7 +95,7 @@ export default function App() {
         <Route path="/couriers" element={<Couriers />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/logistics" element={<Logistics />} />
-        <Route path="/logistics/suivi" element={<DeliveryBoard />} />
+        <Route path="/logistics/suivi" element={<Navigate to="/logistics" replace />} />
         <Route path="/marketing" element={<Marketing />} />
         <Route path="/loyalty" element={<Loyalty />} />
         <Route path="/finance" element={<Finance />} />

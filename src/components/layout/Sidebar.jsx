@@ -20,8 +20,7 @@ import {
   FileText,
   RotateCcw,
   Image,
-  Bike,
-  Radar
+  Bike
 } from "lucide-react";
 import { cn } from "../../utils/cn.js";
 
@@ -49,7 +48,6 @@ const navSections = [
       { label: "Media", to: "/media", icon: Image },
       { label: "Catégories", to: "/categories", icon: Tag },
       { label: "Stocks", to: "/inventory", icon: Boxes },
-      { label: "Suivi livraisons", to: "/logistics/suivi", icon: Radar },
       { label: "Livraison", to: "/logistics", icon: Truck }
     ]
   },
@@ -161,7 +159,6 @@ export default function Sidebar({ isOpen, onClose }) {
                   <NavLink
                     key={item.to}
                     to={item.to}
-                    end={item.to === "/logistics"}
                     className={({ isActive }) =>
                       cn(
                         "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 group relative",
