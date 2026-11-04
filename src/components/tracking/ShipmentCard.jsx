@@ -7,16 +7,17 @@ import { formatDate, getShipmentStatusMeta } from "@/utils/orderStatus";
  * Code de remise : genere au depart en livraison et visible uniquement par le titulaire de la commande
  * (l'API de suivi exige d'être connecté et propriétaire). Il n'est plus utile une fois le colis livré.
  */
-export function DeliveryCode({ code }) {
+export function DeliveryCode({ code, seller }) {
   if (!code) return null;
+  const shop = `${seller || ""}`.trim();
   return (
     <div className="rounded-xl border border-dashed border-[#6aa200]/40 bg-[#6aa200]/5 p-3">
       <p className="flex items-center gap-1.5 text-xs font-semibold text-[#3f6300] dark:text-[#9fd63a]">
-        <KeyRound size={14} aria-hidden="true" /> Code de remise
+        <KeyRound size={14} aria-hidden="true" /> {shop ? `Code à donner au livreur du colis de ${shop}` : "Code de remise"}
       </p>
       <p className="mt-1 font-mono text-xl font-bold tracking-[0.3em] text-neutral-900 dark:text-white">{code}</p>
       <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-        Donnez ce code au livreur uniquement au moment où il vous remet le colis.
+        {shop ? "Ce code est propre à ce colis : donnez-le au livreur uniquement au moment où il vous le remet." : "Donnez ce code au livreur uniquement au moment où il vous remet le colis."}
       </p>
     </div>
   );
@@ -66,7 +67,7 @@ export default function ShipmentCard({ shipment, index, total, currency }) {
         <InfoRow label="N° de suivi">{shipment.trackingId ? <span className="font-mono text-xs">{shipment.trackingId}</span> : null}</InfoRow>
       </dl>
 
-      {!delivered && shipment.deliveryCode ? <div className="mt-3"><DeliveryCode code={shipment.deliveryCode} /></div> : null}
+      {!delivered && shipment.deliveryCode ? <div className="mt-3"><DeliveryCode code={shipment.deliveryCode} seller={shipment.sellerName} /></div> : null}
 
       {shipment.items.length > 0 && (
         <ul className="mt-4 divide-y divide-neutral-100 border-t border-neutral-100 pt-4 dark:divide-neutral-800 dark:border-neutral-800">

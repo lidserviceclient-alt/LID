@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { initAnalytics } from "@/services/firebase";
 import { trackTrafficHit } from "@/services/traffic";
@@ -13,6 +13,25 @@ export default function CookieConsent() {
     analytics: true,
     marketing: false,
   });
+
+  const barRef = useRef(null);
+
+  // Réserve de la place en bas de page tant que la bannière est visible, pour qu'elle ne masque aucun bouton.
+  useEffect(() => {
+    if (!visible) return undefined;
+    const apply = () => {
+      const h = barRef.current?.offsetHeight || 0;
+      document.body.style.paddingBottom = h ? `${h}px` : "";
+    };
+    apply();
+    window.addEventListener("resize", apply);
+    const t = window.setTimeout(apply, 400);
+    return () => {
+      window.removeEventListener("resize", apply);
+      window.clearTimeout(t);
+      document.body.style.paddingBottom = "";
+    };
+  }, [visible, openSettings]);
 
   useEffect(() => {
     const consent = localStorage.getItem("lid_cookie_consent");
@@ -61,6 +80,7 @@ export default function CookieConsent() {
         initial={{ y: 40, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 40, opacity: 0 }}
+        ref={barRef}
         className="fixed bottom-0 left-0 right-0 z-[99999]"
       >
         <div className="bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800 shadow-2xl backdrop-blur-xl">

@@ -101,3 +101,15 @@ export const findMatchingAddress = (addresses, { line1, line2, city, postalCode 
   const key = addressDedupKey({ line1, line2, city, postalCode });
   return (Array.isArray(addresses) ? addresses : []).find((address) => savedAddressKey(address) === key) || null;
 };
+
+/**
+ * Sépare prénom et nom quand le compte (ex. connexion Google) ne fournit qu'un « nom complet » :
+ * premier mot = prénom, reste = nom. Si un nom de famille existe déjà, rien n'est modifié.
+ */
+export const splitFullName = (firstName, lastName) => {
+  const first = `${firstName ?? ''}`.replace(/\s+/g, ' ').trim();
+  const last = `${lastName ?? ''}`.replace(/\s+/g, ' ').trim();
+  if (last || !first) return { firstName: first, lastName: last };
+  const [head, ...rest] = first.split(' ');
+  return { firstName: head, lastName: rest.join(' ').trim() };
+};

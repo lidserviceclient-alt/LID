@@ -70,6 +70,13 @@ const normalizeVatRate = (raw) => {
   return value > 1 ? value / 100 : value;
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Nom de boutique lisible : un identifiant technique (UUID) n'est jamais affiché. */
+const cleanSellerName = (value) => {
+  const name = `${value || ""}`.trim();
+  return UUID_RE.test(name) ? "" : name;
+};
+
 const normalizeItem = (item, index) => {
   const quantity = num(item?.quantity) ?? 0;
   const unitPrice = num(item?.unitPrice) ?? 0;
@@ -80,7 +87,7 @@ const normalizeItem = (item, index) => {
     quantity,
     unitPrice,
     subtotal: num(item?.subtotal) ?? unitPrice * quantity,
-    sellerName: `${item?.sellerName || ""}`.trim(),
+    sellerName: cleanSellerName(item?.shopName || item?.sellerName),
   };
 };
 
@@ -142,7 +149,7 @@ const normalizeTracking = (data, appConfig) => {
   const shipments = (Array.isArray(data?.shipments) ? data.shipments : []).map((s, index) => ({
     key: s?.id ?? `shipment-${index}`,
     status: `${s?.status || ""}`.toUpperCase(),
-    sellerName: `${s?.sellerName || (`${s?.shipperType || ""}`.toUpperCase() === "LID" ? "LID" : "")}`.trim(),
+    sellerName: cleanSellerName(s?.shopName || s?.sellerName) || (`${s?.shipperType || ""}`.toUpperCase() === "LID" ? "LID" : ""),
     trackingId: `${s?.trackingId || ""}`.trim(),
     eta: s?.eta || null,
     deliveredAt: s?.deliveredAt || null,
@@ -205,6 +212,13 @@ const normalizeTracking = (data, appConfig) => {
       delivered: deliveredAt || firstDate(history, "DELIVERED"),
     },
     canceledAt: firstDate(history, "CANCELED"),
+    // Commande réellement payée avant annulation (historique ou statut de paiement) ; null si on ne peut pas le savoir.
+    wasPaid: (() => {
+      const pay = `${data?.paymentStatus || ""}`.trim().toUpperCase();
+      if (["COMPLETED", "REFUNDED", "PARTIALLY_REFUNDED"].includes(pay)) return true;
+      if (history.some((h) => ["PAID", "PROCESSING", "READY_TO_DELIVER", "DELIVERY_IN_PROGRESS", "DELIVERED", "REFUNDED"].includes(`${h?.status || ""}`.toUpperCase()))) return true;
+      return pay || history.length ? false : null;
+    })(),
     cancellable: typeof data?.cancellable === "boolean" ? data.cancellable : isCustomerCancellable(status),
     receiptAvailable: typeof data?.receiptAvailable === "boolean" ? data.receiptAvailable : hasReceipt(status),
     returnable,
@@ -357,7 +371,7 @@ export default function OrderTracking() {
           o.id === order.id ? { ...o, currentStatus: "CANCELED" } : o
         ),
       }));
-      toast.success(paid ? "Commande annulée, remboursement en cours." : "Commande annulée.");
+      toast.success(paid ? "Commande annulée, remboursement en cours." : "Commande annulée, aucun prélèvement n'a été effectué.");
       await runTracking(order.orderNumber || urlRef);
     } catch (err) {
       console.error(err);
@@ -454,7 +468,7 @@ export default function OrderTracking() {
                 <h1 id="order-status-title" className="text-2xl font-bold tracking-tight sm:text-3xl">{order.meta.label}</h1>
               </div>
               <p className="mt-2 max-w-2xl text-sm text-neutral-600 sm:text-base dark:text-neutral-300">
-                {getOrderHeadline(order.status, { eta: order.eta, deliveredAt: order.deliveredAt })}
+                {getOrderHeadline(order.status, { eta: order.eta, deliveredAt: order.deliveredAt, wasPaid: order.wasPaid })}
               </p>
 
               {(order.status === "DELIVERED" && order.returnDeadline) ? (
@@ -486,7 +500,7 @@ export default function OrderTracking() {
                   <div className="flex gap-3 rounded-xl bg-neutral-100 p-4 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
                     <XCircle size={18} className="mt-0.5 shrink-0 text-neutral-500" aria-hidden="true" />
                     <p>
-                      Commande annulée{order.canceledAt ? ` le ${formatDate(order.canceledAt)}` : ""}. Aucun article ne vous sera livré.
+                      Commande annulée{order.canceledAt ? ` le ${formatDate(order.canceledAt)}` : ""}. Aucun article ne vous sera livré.{order.wasPaid === false ? " Aucun prélèvement n'a été effectué." : ""}
                     </p>
                   </div>
                 ) : (
@@ -549,7 +563,7 @@ export default function OrderTracking() {
                       </>
                     )}
                   </dl>
-                  {!multiShipment && !deliveryCompleted && singleDeliveryCode ? <div className="mt-3"><DeliveryCode code={singleDeliveryCode} /></div> : null}
+                  {!multiShipment && !deliveryCompleted && singleDeliveryCode ? <div className="mt-3"><DeliveryCode code={singleDeliveryCode} seller={singleShipment?.sellerName} /></div> : null}
                   {singleShipment?.comment && (singleShipment.status === "EN_COURS" || singleShipment.status === "ECHEC") ? (
                     <p className="mt-3 rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-200">{singleShipment.comment}</p>
                   ) : null}

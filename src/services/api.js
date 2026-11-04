@@ -13,36 +13,6 @@ if (!resolvedBaseUrl) {
 const isBrowser = typeof window !== 'undefined';
 const isDebug   = isBrowser && (import.meta.env.DEV || import.meta.env.VITE_DEBUG === 'true');
 
-// #region debug-point A : resolved-api-base
-// ⚠️  Uniquement en dev — aucune donnée sensible n'est envoyée en production.
-if (isDebug && !window.__lidDebugApiBaseReported) {
-  window.__lidDebugApiBaseReported = true;
-
-  // On ne transmet que des métadonnées non-sensibles (pas de token, pas de cookie).
-  fetch('http://127.0.0.1:7777/event', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sessionId:   'staging-api-mismatch',
-      runId:       'pre-fix',
-      hypothesisId:'A',
-      location:    'src/services/api.js',
-      msg:         '[DEBUG] resolved API base at module init',
-      data: {
-        href:          location.href,
-        host:          location.host,
-        mode:          import.meta.env.MODE,
-        baseUrl:       resolvedBaseUrl,
-        viteApiUrl:    import.meta.env.VITE_API_URL,
-        isDev:         import.meta.env.DEV,
-        isProd:        import.meta.env.PROD,
-        hasController: !!navigator.serviceWorker?.controller,
-      },
-      ts: Date.now(),
-    }),
-  }).catch(() => {});
-}
-// #endregion
 
 if (isDebug) {
   console.info('[API] baseURL:', resolvedBaseUrl);
@@ -246,27 +216,6 @@ api.interceptors.request.use(
       const method  = (config.method || 'get').toUpperCase();
       const fullUrl = `${config.baseURL || ''}${url}`;
       console.info('[API] request:', method, fullUrl);
-
-      fetch('http://127.0.0.1:7777/event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId:    'staging-api-mismatch',
-          runId:        'pre-fix',
-          hypothesisId: 'C',
-          location:     'src/services/api.js',
-          msg:          '[DEBUG] axios request prepared',
-          data: {
-            href:          window.location.href,
-            method,
-            baseURL:       config.baseURL || '',
-            url,
-            fullUrl,
-            hasController: Boolean(navigator.serviceWorker?.controller),
-          },
-          ts: Date.now(),
-        }),
-      }).catch(() => {});
     }
     // #endregion
 

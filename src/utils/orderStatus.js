@@ -85,7 +85,7 @@ export const computeReturnDeadline = ({ status, deliveryDate, createdAt }, retur
 };
 
 /** Phrase courte affichee sous le statut. */
-export const getOrderHeadline = (status, { eta, deliveredAt } = {}) => {
+export const getOrderHeadline = (status, { eta, deliveredAt, wasPaid } = {}) => {
   const etaText = eta ? ` le ${formatDate(eta, { long: true })}` : " prochainement";
   switch (normalizeOrderStatus(status)) {
     case "PENDING":
@@ -103,7 +103,9 @@ export const getOrderHeadline = (status, { eta, deliveredAt } = {}) => {
     case "DELIVERED":
       return deliveredAt ? `Votre commande a été livrée le ${formatDate(deliveredAt, { long: true })}.` : "Votre commande a été livrée.";
     case "CANCELED":
-      return "Cette commande a été annulée. Si vous aviez payé, le remboursement est effectué sur votre moyen de paiement.";
+      if (wasPaid === true) return "Cette commande a été annulée. Le remboursement est effectué sur votre moyen de paiement.";
+      if (wasPaid === false) return "Votre commande a été annulée, aucun prélèvement n'a été effectué.";
+      return "Cette commande a été annulée.";
     case "REFUNDED":
       return "Cette commande a été remboursée sur votre moyen de paiement.";
     default:

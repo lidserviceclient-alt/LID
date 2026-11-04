@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import SearchBar from '../Search.jsx';
 import Logo from '../Logo.jsx';
+import Avatar from '../Avatar.jsx';
 import MegaMenu from '../MegaMenu.jsx';
 import MobileMenu from '../MobileMenu.jsx';
 import Offer from '../offer.jsx';
@@ -21,7 +22,6 @@ import { useLatestCatalogProducts } from '@/features/catalog/useLatestCatalogPro
 import { useCustomerSession } from '@/features/customerSession/CustomerSessionContext.jsx';
 import { useAuthPayload } from '@/hooks/useAuthPayload.js';
 
-const DEFAULT_AVATAR = 'https://www.transparentpng.com/download/user/gray-user-profile-icon-png-fP8Q1P.png';
 
 const normalizeFirstName = (value) => {
   const raw = `${value || ''}`.trim();
@@ -109,7 +109,7 @@ export default function Header() {
   };
 
 
-  const avatarUrl = userProfile?.avatarUrl || tokenPayload?.avatarUrl || DEFAULT_AVATAR;
+  const avatarUrl = userProfile?.avatarUrl || tokenPayload?.avatarUrl || '';
   const isAuthenticated = Boolean(tokenPayload?.sub);
   const supportEmail = appConfig?.contactEmail || 'support@lid.com'
   const supportPhone = appConfig?.contactPhone || '+225 07 34 342 324'
@@ -183,40 +183,31 @@ export default function Header() {
             <div className="max-w-[1500px] mx-auto lg:px-4 sm:px-6">
                 
                 {/* Desktop Row */}
-                <div className="hidden lg:flex items-center justify-between gap-10">
+                <div className="hidden lg:flex items-center justify-between gap-4 xl:gap-10">
                     
                     {/* Logo */}
-                    <div className="flex-shrink-0 w-48">
+                    <div className="flex-shrink-0 w-32 xl:w-48">
                         <Logo size={scrolled ? "md" : "xl"} />
                     </div>
 
                     {/* Search Bar - Centered & Wide */}
-                    <div className="flex-1 max-w-2xl mx-auto transition-all duration-300">
+                    <div className="flex-1 min-w-0 max-w-2xl mx-auto transition-all duration-300">
                         <SearchBar /> 
                     </div>
 
                     {/* Actions - Enhanced for "Complete E-commerce" */}
-                    <div className="flex items-center gap-8 flex-shrink-0">
+                    <div className="flex items-center gap-3 xl:gap-8 flex-shrink-0">
                         
                         {/* Account - Detailed */}
                         <Link to={isAuthenticated ? "/profile" : "/login"} className="flex items-center gap-3 group">
                             <div className="p-2.5 rounded-full bg-neutral-50 dark:bg-neutral-900 group-hover:bg-[#6aa200]/10 transition-colors">
                                 {isAuthenticated ? (
-                                    <img
-                                        src={avatarUrl}
-                                        alt="Profile"
-                                        width="22"
-                                        height="22"
-                                        loading="lazy"
-                                        decoding="async"
-                                        className="w-[22px] h-[22px] rounded-full object-cover"
-                                        onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_AVATAR; }}
-                                    />
+                                    <Avatar src={avatarUrl} name={displayName} className="w-[22px] h-[22px]" textClassName="text-[9px]" />
                                 ) : (
                                     <User size={22} strokeWidth={1.5} className="text-neutral-700 dark:text-neutral-300 group-hover:text-[#6aa200] transition-colors" />
                                 )}
                             </div>
-                            <div className="flex flex-col items-start leading-none gap-1">
+                            <div className="hidden xl:flex flex-col items-start leading-none gap-1">
                                 <span className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
                                     {isAuthenticated ? 'Bon retour,' : 'Bonjour, Identifiez-vous'}
                                 </span>
@@ -230,7 +221,7 @@ export default function Header() {
                             <div className="p-2.5 rounded-full bg-neutral-50 dark:bg-neutral-900 group-hover:bg-[#6aa200]/10 transition-colors">
                                 <Package size={22} strokeWidth={1.5} className="text-neutral-700 dark:text-neutral-300 group-hover:text-[#6aa200] transition-colors" />
                             </div>
-                            <div className="flex flex-col items-start leading-none gap-1">
+                            <div className="hidden xl:flex flex-col items-start leading-none gap-1">
                                 <span className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">Mes</span>
                                 <span className="text-sm font-bold text-neutral-900 dark:text-white group-hover:text-[#6aa200] transition-colors">Commandes</span>
                             </div>
@@ -248,7 +239,7 @@ export default function Header() {
                                   </span>
                                 ) : null}
                             </div>
-                            <div className="flex flex-col items-start leading-none gap-1">
+                            <div className="hidden xl:flex flex-col items-start leading-none gap-1">
                                 <span className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">Nouveautés</span>
                                 <span className="text-sm font-bold text-neutral-900 dark:text-white group-hover:text-[#6aa200] transition-colors">Produits</span>
                             </div>
@@ -285,16 +276,7 @@ export default function Header() {
                         <Link to={isAuthenticated ? "/profile" : "/login"} className="flex items-center gap-3 bg-white/50 dark:bg-neutral-800/50 rounded-full p-1 pr-5 border border-white/20 shadow-sm transition-transform active:scale-95">
                             <div className="w-10 h-10 rounded-full border-2 border-white dark:border-neutral-950 overflow-hidden shadow-sm flex items-center justify-center bg-neutral-100 dark:bg-neutral-800">
                                 {isAuthenticated ? (
-                                    <img
-                                        src={avatarUrl}
-                                        alt="Profile"
-                                        width="40"
-                                        height="40"
-                                        loading="lazy"
-                                        decoding="async"
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => { e.target.onerror = null; e.target.src = DEFAULT_AVATAR; }}
-                                    />
+                                    <Avatar src={avatarUrl} name={displayName} className="w-full h-full" textClassName="text-xs" />
                                 ) : (
                                     <User size={20} className="text-neutral-500 dark:text-neutral-400" />
                                 )}

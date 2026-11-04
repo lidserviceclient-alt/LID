@@ -40,14 +40,15 @@ import {
   formatDate,
   formatMoney,
   getOrderStatusMeta,
+  getShipmentStatusMeta,
   hasReceipt,
   isCustomerCancellable,
 } from '@/utils/orderStatus';
 import OrderCard from '@/components/orders/OrderCard';
+import Avatar from '@/components/Avatar';
 import OrderList, { OrderCardSkeleton, OrdersEmptyState } from '@/components/orders/OrderList';
 import { friendlyErrorMessage } from '@/utils/errorMessages';
 
-const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 const PAYMENT_STORAGE_KEY = 'paymentMethods';
 const PREFS_STORAGE_KEY = 'appPreferences';
 
@@ -762,6 +763,18 @@ export default function Profile() {
           name: `${it?.articleName || 'Article'}`,
           imageUrl: resolveBackendAssetUrl(it?.mainImageUrl) || '',
         })),
+        shipments: (Array.isArray(o.shipments) ? o.shipments : []).map((sh, index) => {
+          const shipMeta = getShipmentStatusMeta(sh?.status);
+          const rawSeller = `${sh?.shopName || sh?.sellerName || ''}`.trim();
+          return {
+            key: sh?.id ?? `shipment-${index}`,
+            seller: /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(rawSeller) ? '' : rawSeller,
+            label: shipMeta.label,
+            tone: shipMeta.tone,
+            delivered: shipMeta.code === 'LIVREE',
+            code: `${sh?.customerValidationCode || ''}`.trim(),
+          };
+        }),
         shippingMethod: `${o.shippingMethodLabel || ''}`.trim(),
         shippingAddress: `${o.shippingAddress || ''}`.trim(),
         cancellable: isCustomerCancellable(meta.code),
@@ -808,7 +821,7 @@ export default function Profile() {
 
 
   const displayEmail = fixMojibake(userProfile?.email) || fixMojibake(tokenPayload?.email) || '—';
-  const avatarUrl = userProfile?.avatarUrl || tokenPayload?.avatarUrl || DEFAULT_AVATAR;
+  const avatarUrl = userProfile?.avatarUrl || tokenPayload?.avatarUrl || '';
   const memberSinceYear = userProfile?.createdAt
     ? String(userProfile.createdAt).slice(0, 4)
     : (tokenPayload?.iat ? new Date(tokenPayload.iat * 1000).getFullYear() : '—');
@@ -828,7 +841,7 @@ export default function Profile() {
           o.id === order.id ? { ...o, currentStatus: 'CANCELED' } : o
         )
       }));
-      toast.success(paid ? 'Commande annulée, remboursement en cours.' : 'Commande annulée.');
+      toast.success(paid ? 'Commande annulée, remboursement en cours.' : "Commande annulée, aucun prélèvement n'a été effectué.");
     } catch (error) {
       console.error(error);
       toast.error(friendlyErrorMessage(error, "Cette commande n'est plus annulable (déjà en préparation). Contactez le service client."));
@@ -974,9 +987,7 @@ export default function Profile() {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-10">
           <div className="relative group">
-            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden border-4 border-white dark:border-neutral-900 shadow-lg">
-              <img src={avatarUrl} alt="User" className="w-full h-full object-cover" />
-            </div>
+            <Avatar src={avatarUrl} name={displayName} className="w-20 h-20 md:w-24 md:h-24 border-4 border-white dark:border-neutral-900 shadow-lg" textClassName="text-2xl md:text-3xl" />
           </div>
           <div className="flex-1">
             <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white">{displayName}</h1>

@@ -12,7 +12,7 @@ import { useAppConfig } from '@/features/appConfig/useAppConfig';
 import { useCart } from '@/features/cart/CartContext';
 import InternationalPhoneField from '@/components/InternationalPhoneField';
 import { isValidInternationalPhone, isValidMobileMoneyPhone } from '@/utils/phone';
-import { findMatchingAddress, formatAddressSummary, normalizeCustomerAddress, normalizeCustomerAddresses, pickPreferredAddress, toCustomerAddressPayload } from '@/utils/customerAddress';
+import { findMatchingAddress, formatAddressSummary, normalizeCustomerAddress, normalizeCustomerAddresses, pickPreferredAddress, splitFullName, toCustomerAddressPayload } from '@/utils/customerAddress';
 import { locateCurrentAddress } from '@/utils/geolocation';
 import { friendlyErrorMessage } from '@/utils/errorMessages';
 
@@ -41,7 +41,7 @@ const roundAmount = (value) => {
 // Montant minimum accepte par l'API (verification cote client avant le paiement)
 const MINIMUM_ORDER_AMOUNT = 100;
 
-export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartItems, onSuccess: _onSuccess, shippingCost = 0, discountAmount = 0, loyaltyDiscountAmount = 0, promoCode = "", shippingMethodCode = "STANDARD", shippingMethodLabel = "Standard" }) {
+export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartItems, onSuccess: _onSuccess, shippingCost = 0, discountAmount = 0, loyaltyDiscountAmount = 0, quotedTotal = null, promoCode = "", shippingMethodCode = "STANDARD", shippingMethodLabel = "Standard" }) {
   const [step, setStep] = useState(1); // 1: Info, 2: Payment, 3: Processing, 4: Success
   const [loadingStep, setLoadingStep] = useState(0); // 0: Init, 1: Connecting, 2: Verifying, 3: Approved
   const [, setOrderNumber] = useState('');
@@ -93,7 +93,9 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
     ? cartItems.reduce((acc, item) => acc + (Number(item?.price) || 0) * (Number(item?.quantity) || 0), 0)
     : (Number(product?.price) || 0) * normalizedQuantity;
 
-  const finalTotal = Math.max(0, roundAmount(itemsTotal + normalizedShippingCost - normalizedDiscountAmount - normalizedLoyaltyDiscountAmount));
+  const localFinalTotal = Math.max(0, roundAmount(itemsTotal + normalizedShippingCost - normalizedDiscountAmount - normalizedLoyaltyDiscountAmount));
+  // Panier : le total du devis serveur (livraison comprise) fait foi ; achat direct : calcul local.
+  const finalTotal = isCartCheckout && quotedTotal !== null && Number.isFinite(Number(quotedTotal)) ? Number(quotedTotal) : localFinalTotal;
   const taxAmount = vatRate > 0 ? roundAmount(finalTotal - (finalTotal / (1 + vatRate))) : 0;
   const vatPercentLabel = Math.round(vatRate * 100);
   const phoneIsValid = isValidInternationalPhone(formData.phone);
@@ -269,10 +271,11 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
         const customerPhone = `${customer?.phoneNumber || profile?.phoneNumber || ''}`.trim();
         setAccountPhone(customerPhone);
         setAccountCustomer(customer && customer.email ? customer : null);
+        const accountName = splitFullName(customer?.firstName || payload?.firstName, customer?.lastName || payload?.lastName);
         setFormData((prev) => ({
           ...prev,
-          firstName: `${customer?.firstName || payload?.firstName || ''}`.trim() || prev.firstName,
-          lastName: `${customer?.lastName || payload?.lastName || ''}`.trim() || prev.lastName,
+          firstName: accountName.firstName || prev.firstName,
+          lastName: accountName.lastName || prev.lastName,
           email: `${customer?.email || payload?.email || ''}`.trim() || prev.email,
           // Telephone du compte en repli, jamais par-dessus une saisie
           phone: phoneEditedRef.current || prev.phone ? prev.phone : customerPhone
@@ -588,11 +591,11 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className={labelCls}>Prénom</label>
-                          <input required name="firstName" value={formData.firstName} onChange={handleInputChange} className={inputCls} />
+                          <input required name="firstName" autoComplete="given-name" value={formData.firstName} onChange={handleInputChange} className={inputCls} />
                         </div>
                         <div>
                           <label className={labelCls}>Nom</label>
-                          <input required name="lastName" value={formData.lastName} onChange={handleInputChange} className={inputCls} />
+                          <input name="lastName" autoComplete="family-name" value={formData.lastName} onChange={handleInputChange} className={inputCls} />
                         </div>
                       </div>
 

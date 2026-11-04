@@ -48,6 +48,8 @@ export default function Cart() {
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [loyaltyPricing, setLoyaltyPricing] = useState({ applied: false, tier: "", percent: 0, discountAmount: 0, points: 0 });
   const [shippingMethod, setShippingMethod] = useState("STANDARD");
+  // Totaux renvoyés par le devis du serveur, par couple (mode de livraison, code promo) : le serveur fait foi.
+  const [quotedTotals, setQuotedTotals] = useState({});
   const [showCheckout, setShowCheckout] = useState(false);
   const [recommendations, setRecommendations] = useState([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
@@ -90,6 +92,13 @@ export default function Cart() {
       ? 0
       : selectedBaseCost;
   
+  const quoteKey = (method, promo) => `${`${method || ""}`.toUpperCase()}|${`${promo || ""}`.toUpperCase()}`;
+  const rememberQuotedTotal = (method, promo, total) => {
+    const n = Number(total);
+    if (total === null || total === undefined || total === "" || !Number.isFinite(n) || n < 0) return;
+    setQuotedTotals((prev) => ({ ...prev, [quoteKey(method, promo)]: n }));
+  };
+
   const handleIncreaseQuantity = (item) => {
     const stock = Number(item?.stock);
     if (Number.isFinite(stock) && stock > 0 && Number(item.quantity) >= stock) {
@@ -163,8 +172,11 @@ export default function Cart() {
         email: payload?.email || "",
         phone: "",
         promoCode: code,
+        shippingMethodCode: selectedShippingMethod?.code || shippingMethod || "STANDARD",
+        shippingMethodLabel: selectedShippingMethod?.label || undefined,
         items
       });
+      rememberQuotedTotal(selectedShippingMethod?.code || shippingMethod, res?.promoApplied ? (res?.promoCode || code) : "", res?.total);
 
       if (!res?.promoApplied) {
         setAppliedPromo(null);
@@ -186,7 +198,10 @@ export default function Cart() {
   const loyaltyDiscountAmount = appliedPromo ? 0 : (Number(loyaltyPricing?.discountAmount) || 0);
   const vatRate = normalizeVatRate(appConfig?.vatPercent);
   const vatPercentLabel = Math.round(vatRate * 100);
-  const finalTotal = Math.max(0, roundAmount(cartTotal - discountAmount - loyaltyDiscountAmount + shippingCost));
+  const localTotal = Math.max(0, roundAmount(cartTotal - discountAmount - loyaltyDiscountAmount + shippingCost));
+  const serverTotal = quotedTotals[quoteKey(selectedShippingMethod?.code || shippingMethod, appliedPromo?.code || "")];
+  // Le total du devis serveur (livraison comprise) prime sur le calcul local lorsqu'il est disponible.
+  const finalTotal = Number.isFinite(serverTotal) ? serverTotal : localTotal;
   const taxAmount = vatRate > 0 ? roundAmount(finalTotal - (finalTotal / (1 + vatRate))) : 0;
   const remainingToFreeShipping = isFreeShippingEnabled ? Math.max(freeShippingThreshold - cartTotal, 0) : 0;
   const progressToFreeShipping = isFreeShippingEnabled ? Math.min((cartTotal / freeShippingThreshold) * 100, 100) : 0;
@@ -285,9 +300,12 @@ export default function Cart() {
           email: payload?.email || "",
           phone: "",
           promoCode: null,
+          shippingMethodCode: selectedShippingMethod?.code || shippingMethod || "STANDARD",
+          shippingMethodLabel: selectedShippingMethod?.label || undefined,
           items
         });
         if (cancelled) return;
+        rememberQuotedTotal(selectedShippingMethod?.code || shippingMethod, "", res?.total);
         setLoyaltyPricing({
           applied: Boolean(res?.loyaltyApplied),
           tier: res?.loyaltyTier || "",
@@ -302,7 +320,8 @@ export default function Cart() {
     return () => {
       cancelled = true;
     };
-  }, [cartItems, appliedPromo]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartItems, appliedPromo, selectedShippingMethod?.code]);
 
   const recommendedProducts = useMemo(() => {
     const cartIdSet = new Set((cartItems || []).map((item) => `${item?.id || ""}`));
@@ -717,6 +736,7 @@ export default function Cart() {
         shippingMethodLabel={selectedShippingMethod?.label || "Standard"}
         discountAmount={discountAmount}
         loyaltyDiscountAmount={loyaltyDiscountAmount}
+        quotedTotal={Number.isFinite(serverTotal) ? serverTotal : null}
         promoCode={appliedPromo?.code || ""}
       />
     </div>

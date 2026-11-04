@@ -32,8 +32,8 @@ export default function PaymentCancel() {
         <h1 className="text-xl font-bold text-neutral-900 dark:text-white">Paiement annulé</h1>
         <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-2">
           {pending
-            ? `Le paiement a été annulé. Votre commande ${pending.orderNumber || ''} est conservée 30 minutes : vous pouvez reprendre le paiement.`
-            : 'Le paiement a été annulé. Votre commande non payée est annulée automatiquement ; vous pouvez repasser commande depuis la boutique.'}
+            ? `Le paiement a été annulé et aucun prélèvement n'a été effectué. Votre commande ${pending.orderNumber || ''} est conservée 30 minutes : vous pouvez reprendre le paiement.`
+            : "Le paiement a été annulé et aucun prélèvement n'a été effectué. Votre commande non payée est annulée automatiquement ; vous pouvez repasser commande depuis la boutique."}
         </p>
         <div className="mt-6 flex gap-3">
           {pending ? (

@@ -191,6 +191,26 @@ export default function OrderCard({ order, compact = false, onCancel, onReceipt,
         </div>
       )}
 
+      {!compact && Array.isArray(order.shipments) && order.shipments.length > 0 && (
+        <ul className="mt-3 space-y-2" aria-label="Colis de la commande">
+          {order.shipments.map((shipment, index) => (
+            <li key={shipment.key} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-neutral-50 px-3 py-2 text-xs dark:bg-neutral-800/60">
+              <span className="font-medium text-neutral-700 dark:text-neutral-200">
+                {order.shipments.length > 1 ? `Colis ${index + 1}` : "Colis"}{shipment.seller ? ` · ${shipment.seller}` : ""}
+              </span>
+              <span className="flex flex-wrap items-center gap-2">
+                <OrderStatusBadge label={shipment.label} tone={shipment.tone} />
+                {!shipment.delivered && shipment.code ? (
+                  <span className="text-neutral-600 dark:text-neutral-300">
+                    Code à donner au livreur{shipment.seller ? ` du colis de ${shipment.seller}` : ""} : <span className="font-mono text-sm font-bold tracking-[0.2em] text-neutral-900 dark:text-white">{shipment.code}</span>
+                  </span>
+                ) : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {compact ? null : (
         <footer className="mt-4 flex items-center justify-end gap-2 border-t border-neutral-100 pt-4 dark:border-neutral-800">
           <MoreMenu items={menuItems} />

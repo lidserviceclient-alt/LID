@@ -13,17 +13,10 @@ import { useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
 import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 import { resolveBackendAssetUrl } from '@/services/categoryService';
+import { STATUS_LABELS, effectiveStatus, money, toNumber } from '@/utils/partnerOrders';
 
-const STATUS_LABEL = {
-  PENDING: "En attente",
-  PAID: "Payée",
-  PROCESSING: "En cours",
-  READY_TO_DELIVER: "Prête",
-  DELIVERY_IN_PROGRESS: "En livraison",
-  DELIVERED: "Livrée",
-  CANCELED: "Annulée",
-  REFUNDED: "Remboursée",
-};
+/** Part du partenaire pour une commande (partnerSubtotal), sinon montant fourni. */
+const orderShare = (o) => toNumber(o?.partnerSubtotal) ?? toNumber(o?.amount) ?? 0;
 
 const WEEK_DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const FALLBACK_PRODUCT_IMAGE = "/imgs/logo.png";
@@ -39,7 +32,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const bootstrap = usePartnerBackofficeBootstrap();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ products: 0, orders: 0, customers: 0, revenue: 0 });
+  const [stats, setStats] = useState({ products: 0, orders: 0, customers: 0, revenue: 0, payoutDue: null, payoutPending: null, payoutPaid: null, topProducts: null });
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [stockThreshold, setStockThreshold] = useState(5);
@@ -53,7 +46,7 @@ export default function Dashboard() {
       return;
     }
     if (!bootstrap?.data) {
-      setStats({ products: 0, orders: 0, customers: 0, revenue: 0 });
+      setStats({ products: 0, orders: 0, customers: 0, revenue: 0, payoutDue: null, payoutPending: null, payoutPaid: null, topProducts: null });
       setOrders([]);
       setProducts([]);
       setStockThreshold(5);
@@ -67,10 +60,15 @@ export default function Dashboard() {
     const ordersRes = Array.isArray(collection?.orders) ? collection.orders : [];
     const productsRes = Array.isArray(collection?.products) ? collection.products : [];
     setStats({
-      products: Number(statsRes?.products || 0),
-      orders: Number(statsRes?.orders || 0),
-      customers: Number(statsRes?.customers || 0),
-      revenue: Number(statsRes?.revenue || 0),
+      products: toNumber(statsRes?.products) ?? 0,
+      orders: toNumber(statsRes?.orders) ?? 0,
+      customers: toNumber(statsRes?.customers) ?? 0,
+      revenue: toNumber(statsRes?.salesTotal ?? statsRes?.revenue) ?? 0,
+      averageBasket: toNumber(statsRes?.averageBasket),
+      payoutDue: toNumber(statsRes?.payoutDue),
+      payoutPending: toNumber(statsRes?.payoutPending),
+      payoutPaid: toNumber(statsRes?.payoutPaid),
+      topProducts: Array.isArray(statsRes?.topProducts) ? statsRes.topProducts : null,
     });
     setOrders(ordersRes);
     setProducts(productsRes);
@@ -78,25 +76,39 @@ export default function Dashboard() {
     setLoading(false);
   }, [bootstrap]);
 
-  const avgBasket = useMemo(() => (stats.orders > 0 ? stats.revenue / stats.orders : 0), [stats.orders, stats.revenue]);
+  const avgBasket = stats.averageBasket ?? (stats.orders > 0 ? stats.revenue / stats.orders : 0);
 
-  const cards = useMemo(() => ([
-    { label: "Ventes Totales", value: `${stats.revenue.toFixed(2)} FCFA`, icon: DollarSign, color: "bg-green-100 text-green-600" },
-    { label: "Commandes", value: `${stats.orders}`, icon: ShoppingBag, color: "bg-blue-100 text-blue-600" },
-    { label: "Produits", value: `${stats.products}`, icon: Package, color: "bg-purple-100 text-purple-600" },
-    { label: "Panier Moyen", value: `${avgBasket.toFixed(2)} FCFA`, icon: TrendingUp, color: "bg-orange-100 text-orange-600" },
-  ]), [avgBasket, stats.orders, stats.products, stats.revenue]);
+  const cards = useMemo(() => {
+    const list = [
+      { label: "Ventes (votre part)", value: money(stats.revenue), icon: DollarSign, color: "bg-green-100 text-green-600" },
+    ];
+    if (stats.payoutDue !== null || stats.payoutPending !== null) {
+      list.push({ label: "À percevoir (net)", value: money((stats.payoutDue ?? 0) + (stats.payoutPending ?? 0)), icon: DollarSign, color: "bg-emerald-100 text-emerald-700", hint: `Net après commission, frais et livraison. Dont à verser : ${money(stats.payoutDue ?? 0)}` });
+    }
+    if (stats.payoutPaid !== null) {
+      list.push({ label: "Déjà versé", value: money(stats.payoutPaid), icon: DollarSign, color: "bg-teal-100 text-teal-700" });
+    }
+    list.push(
+      { label: "Commandes", value: `${stats.orders}`, icon: ShoppingBag, color: "bg-blue-100 text-blue-600" },
+      { label: "Produits", value: `${stats.products}`, icon: Package, color: "bg-purple-100 text-purple-600" },
+      { label: "Panier moyen", value: money(avgBasket), icon: TrendingUp, color: "bg-orange-100 text-orange-600" },
+    );
+    return list;
+  }, [avgBasket, stats.payoutDue, stats.payoutPending, stats.payoutPaid, stats.orders, stats.products, stats.revenue]);
 
   const recentOrders = useMemo(() => {
-    return orders.slice(0, 5).map((o) => ({
-      id: `#${o.orderNumber || `ORD-${o.id}`}`,
+    return orders.slice(0, 5).map((o) => {
+      const raw = effectiveStatus(o.status, o.shipments);
+      return {
+      id: `${o.orderNumber || ""}`.trim() || `ORD-${o.id}`,
       customer: o.customerName || "Client",
-      product: "-",
-      amount: `${Number(o.amount || 0).toFixed(2)} FCFA`,
-      status: STATUS_LABEL[o.status] || o.status || "En attente",
-      statusRaw: o.status || "PENDING",
+      product: Array.isArray(o.items) && o.items[0]?.name ? `${o.items[0].name}${o.items.length > 1 ? ` +${o.items.length - 1}` : ""}` : "—",
+      amount: money(orderShare(o)),
+      status: STATUS_LABELS[raw] || "En attente",
+      statusRaw: raw,
       date: o.createdAt ? new Date(o.createdAt).toLocaleString("fr-FR") : "",
-    }));
+      };
+    });
   }, [orders]);
 
   const weeklySales = useMemo(() => {
@@ -111,7 +123,7 @@ export default function Dashboard() {
       if (!o?.createdAt) return;
       const d = new Date(o.createdAt);
       const delta = Math.floor((d - monday) / (1000 * 60 * 60 * 24));
-      if (delta >= 0 && delta < 7) counts[delta] += Number(o.amount || 0);
+      if (delta >= 0 && delta < 7) counts[delta] += orderShare(o);
     });
     const max = Math.max(...counts, 1);
     return WEEK_DAYS.map((label, idx) => ({
@@ -121,19 +133,25 @@ export default function Dashboard() {
     }));
   }, [orders]);
 
+  // Top produits = ventes réelles uniquement (jamais stock x prix). Sans ventes : état vide.
   const topProducts = useMemo(() => {
-    const data = products.map((p) => {
-      const stock = Number(p.stock || 0);
-      const price = Number(p.price || 0);
-      return {
-        name: p.name || "Produit",
-        sales: stock,
-        revenue: `${(stock * price).toFixed(2)} FCFA`,
-        image: resolveProductImage(p.mainImageUrl),
-      };
-    });
-    return data.sort((a, b) => b.sales - a.sales).slice(0, 3);
-  }, [products]);
+    const soldOf = (p) => toNumber(p?.unitsSold ?? p?.soldQuantity) ?? 0;
+    const source = Array.isArray(stats.topProducts) ? stats.topProducts : [];
+    return source
+      .map((p) => {
+        const sold = soldOf(p);
+        const revenue = toNumber(p?.revenue ?? p?.salesAmount ?? p?.totalSales);
+        return {
+          name: p?.name || "Produit",
+          sales: sold,
+          revenue: revenue !== null ? money(revenue) : "",
+          image: resolveProductImage(p?.imageUrl ?? p?.mainImageUrl),
+        };
+      })
+      .filter((p) => p.sales > 0)
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 3);
+  }, [stats.topProducts]);
 
   const stockAlerts = useMemo(() => {
     return products
@@ -160,7 +178,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${cards.length > 4 ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
         {cards.map((stat, index) => (
           <motion.div
             key={index}
@@ -179,7 +197,8 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-sm text-gray-500 font-medium">{stat.label}</p>
-              <h3 className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</h3>
+              <h3 className="text-xl xl:text-2xl font-bold text-gray-900 mt-1 break-words">{stat.value}</h3>
+              {stat.hint ? <p className="mt-1 text-xs text-gray-500">{stat.hint}</p> : null}
             </div>
           </motion.div>
         ))}
@@ -248,7 +267,7 @@ export default function Dashboard() {
                     style={{ width: '60%' }}
                   >
                     <div className="opacity-0 group-hover:opacity-100 absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded pointer-events-none transition-opacity whitespace-nowrap z-10">
-                      {item.raw.toFixed(2)} FCFA
+                      {money(item.raw)}
                     </div>
                   </motion.div>
                 </div>
@@ -266,6 +285,9 @@ export default function Dashboard() {
         >
           <h3 className="text-lg font-bold text-gray-900 mb-6">Top Produits</h3>
           <div className="space-y-6">
+            {topProducts.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-500">Aucune vente pour l'instant</p>
+            ) : null}
             {topProducts.map((product, index) => (
               <div key={index} className="flex items-center gap-4">
                 <div className="h-12 w-12 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
@@ -273,7 +295,7 @@ export default function Dashboard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="text-sm font-semibold text-gray-900 truncate">{product.name}</h4>
-                  <p className="text-xs text-gray-500">{product.sales} en stock</p>
+                  <p className="text-xs text-gray-500">{product.sales} vendu{product.sales > 1 ? "s" : ""}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-gray-900">{product.revenue}</p>
@@ -306,7 +328,7 @@ export default function Dashboard() {
                 <th className="px-6 py-4">Commande</th>
                 <th className="px-6 py-4">Client</th>
                 <th className="px-6 py-4">Produit</th>
-                <th className="px-6 py-4">Montant</th>
+                <th className="px-6 py-4">Votre part</th>
                 <th className="px-6 py-4">Statut</th>
                 <th className="px-6 py-4 text-right">Date</th>
               </tr>

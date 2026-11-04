@@ -1382,7 +1382,7 @@ export default function Seller() {
                    style={{ background: BRAND }}
                  >
                    {stepLoading && <Loader2 size={18} className="animate-spin" />}
-                   Suivant <ArrowRight size={18} className="group-hover:translate-x-1 transition" />
+                   {step === 1 && !isAuth && authMode === "login" ? (showResetPassword ? "Suivant" : "Se connecter") : "Suivant"} <ArrowRight size={18} className="group-hover:translate-x-1 transition" />
                  </button>
                   ) : (
                     <button
