@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, MapPin, Package, Timer, TrendingUp } from 'lucide-react'
 
-import { DEFAULT_DELIVERY_BOOTSTRAP_PARAMS, useDeliveryBootstrap } from '../context/LogisticsResolverContext'
+import { useCourierDay } from '../context/LogisticsResolverContext'
+import { getAuthenticatedUser } from '../services/auth'
 
 const STATUS_KEY = 'lid_delivery_status'
 
@@ -37,11 +38,18 @@ function toStatusUi(status) {
 export default function HomePage() {
   const navigate = useNavigate()
   const [status, setStatus] = useState(getSavedStatus())
-  const { data } = useDeliveryBootstrap(DEFAULT_DELIVERY_BOOTSTRAP_PARAMS)
+  const { data } = useCourierDay()
+  const firstName = getAuthenticatedUser()?.firstName || ''
 
   const isOnline = status === 'AVAILABLE' || status === 'DELIVERING'
-  const kpis = data?.kpis || null
-  const active = Array.isArray(data?.activeShipments) ? data.activeShipments.slice(0, 5) : []
+  // Même source que la page Missions : uniquement les colis affectés au livreur connecté
+  const mine = Array.isArray(data?.shipments) ? data.shipments : []
+  const statusOf = (shipment) => `${shipment?.status || ''}`.toUpperCase()
+  const activeAll = mine.filter((shipment) => ['EN_COURS', 'EN_PREPARATION', 'ECHEC'].includes(statusOf(shipment)))
+  const rank = { EN_COURS: 0, ECHEC: 1, EN_PREPARATION: 2 }
+  const active = [...activeAll].sort((a, b) => rank[statusOf(a)] - rank[statusOf(b)]).slice(0, 5)
+  const inTransitCount = mine.filter((shipment) => statusOf(shipment) === 'EN_COURS').length
+  const deliveredTodayCount = mine.filter((shipment) => statusOf(shipment) === 'LIVREE').length
 
   const toggleStatus = () => {
     const next = isOnline ? 'OFFLINE' : 'AVAILABLE'
@@ -54,7 +62,7 @@ export default function HomePage() {
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-neutral-100">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-black text-neutral-900">Bonjour, Livreur</h1>
+            <h1 className="text-2xl font-black text-neutral-900">{firstName ? `Bonjour, ${firstName}` : 'Bonjour'}</h1>
             <p className="text-neutral-500 font-medium">{isOnline ? 'Disponible' : 'En pause'}</p>
           </div>
           <button
@@ -80,14 +88,14 @@ export default function HomePage() {
             <TrendingUp size={20} />
           </div>
           <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">En livraison</p>
-          <p className="text-2xl font-black text-neutral-900">{formatNumber(kpis?.inTransitCount || 0)}</p>
+          <p className="text-2xl font-black text-neutral-900">{formatNumber(inTransitCount)}</p>
         </div>
         <div className="bg-white p-5 rounded-3xl shadow-sm border border-neutral-100">
           <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center mb-3">
             <Timer size={20} />
           </div>
           <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">Livrées aujourd'hui</p>
-          <p className="text-2xl font-black text-neutral-900">{formatNumber(kpis?.deliveredTodayCount || 0)}</p>
+          <p className="text-2xl font-black text-neutral-900">{formatNumber(deliveredTodayCount)}</p>
         </div>
       </div>
 
@@ -126,7 +134,7 @@ export default function HomePage() {
                         <span className={`${statusUi.className} shrink-0 text-[10px] font-bold px-2 py-1 rounded-full`}>{statusUi.label}</span>
                       </div>
                       <p className="text-neutral-500 text-sm mt-1 truncate">
-                        {mission.customerAddress || 'Adresse non disponible'}
+                        {mission.customerName ? `${mission.customerName} · ` : ''}{mission.customerAddress || 'Adresse non renseignée'}
                       </p>
                     </div>
                   </div>

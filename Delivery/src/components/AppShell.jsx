@@ -166,7 +166,7 @@ export default function AppShell() {
           </MotionSafeArea>
         </div>
 
-        <main className="px-4 pb-24 pt-20 h-full overflow-y-auto bg-neutral-50 min-h-screen">
+        <main className="px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-20 h-full overflow-y-auto bg-neutral-50 min-h-screen">
           <Outlet context={{ isOnline }} />
         </main>
 

@@ -77,6 +77,27 @@ function formatTime(value) {
   return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
+/** Message explicite (en français) selon la cause de l'échec d'ouverture de la caméra. */
+function cameraErrorMessage(err) {
+  const raw = `${err?.name || ''} ${err?.message || err || ''}`
+  if (typeof window !== 'undefined' && window.isSecureContext === false) {
+    return 'La caméra nécessite une connexion sécurisée (https). Saisissez le code du colis ci-dessous.'
+  }
+  if (/NotAllowed|Permission|denied|SecurityError/i.test(raw)) {
+    return 'Autorisez la caméra dans les réglages du navigateur, ou saisissez le code du colis ci-dessous.'
+  }
+  if (/NotFound|DevicesNotFound|no camera|Requested device not found|OverconstrainedError/i.test(raw)) {
+    return 'Aucune caméra détectée : saisissez le code du colis ci-dessous.'
+  }
+  if (/NotReadable|TrackStart|Could not start|in use|AbortError/i.test(raw)) {
+    return 'La caméra est utilisée par une autre application. Fermez-la ou saisissez le code du colis ci-dessous.'
+  }
+  if (/not supported|NotSupported|mediaDevices|undefined/i.test(raw)) {
+    return 'La caméra nécessite une connexion sécurisée (https) et un navigateur compatible. Saisissez le code du colis ci-dessous.'
+  }
+  return 'Impossible de démarrer la caméra : saisissez le code du colis ci-dessous.'
+}
+
 function QuickLink({ href, label, icon, className, external }) {
   const Icon = icon
   if (!href) return null
@@ -297,7 +318,7 @@ export default function DeliveriesPage() {
         )
       } catch (err) {
         console.error(err)
-        setScanError(`Erreur caméra: ${err?.message || 'Inconnue'}`)
+        setScanError(cameraErrorMessage(err))
       }
     }, 100)
 
@@ -418,17 +439,17 @@ export default function DeliveriesPage() {
       )}
 
       {scanOpen && (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+        <div className="fixed inset-0 z-[80] bg-black flex flex-col">
           <div className="p-4 flex justify-between items-center text-white">
             <h2 className="font-bold text-lg">Scanner QR Code</h2>
             <button onClick={() => setScanOpen(false)} className="p-2 bg-white/10 rounded-full">
               <X size={24} />
             </button>
           </div>
-          <div className="flex-1 relative bg-black">
+          <div className="flex-1 min-h-0 relative bg-black overflow-hidden">
             <div id="reader" className="w-full h-full object-cover"></div>
           </div>
-          <div className="p-6 bg-white rounded-t-3xl">
+          <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-white rounded-t-3xl max-h-[55dvh] overflow-y-auto">
             <p className="text-center font-bold text-neutral-900 mb-2">Ou saisir le code QR manuellement</p>
             <p className="text-center text-sm text-neutral-500 mb-4">
               Saisissez exactement le code affiché sous le QR, par exemple <span className="font-mono">A7K2P</span>.

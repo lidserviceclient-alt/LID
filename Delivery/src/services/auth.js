@@ -57,8 +57,24 @@ export function getAccessToken() {
   return accessTokenInMemory
 }
 
+// Indice local (sans secret) qu'une session a existe sur cet appareil : sans lui, inutile d'appeler /auth/refresh
+// (pas de cookie => 400 inutile a la premiere ouverture).
+const SESSION_HINT_KEY = 'lid_delivery_session_hint'
+
+export function hasSessionHint() {
+  try { return localStorage.getItem(SESSION_HINT_KEY) === '1' } catch { return true }
+}
+
+function setSessionHint(on) {
+  try {
+    if (on) localStorage.setItem(SESSION_HINT_KEY, '1')
+    else localStorage.removeItem(SESSION_HINT_KEY)
+  } catch { /* sans incidence */ }
+}
+
 export function setAccessToken(token) {
   accessTokenInMemory = token || null
+  if (token) setSessionHint(true)
   if (!token) {
     // Donnees client gardees le temps d'une mission : jamais au-dela de la session
     try { sessionStorage.removeItem('lid_last_scanned_shipment') } catch { /* sans incidence */ }
@@ -94,6 +110,7 @@ function assertDeliveryRole(token) {
   const normalized = normalizeRoles(decoded)
   if (!normalized.includes('LIVREUR')) {
     clearAccessToken()
+    setSessionHint(false)
     throw new Error('Accès refusé: compte non livreur')
   }
   return decoded
@@ -131,6 +148,12 @@ export async function refreshSession() {
   if (refreshPromise) {
     return refreshPromise
   }
+  if (!hasSessionHint()) {
+    const err = new Error('Aucune session à restaurer')
+    err.status = 401
+    err.noSession = true
+    throw err
+  }
   refreshPromise = runExclusiveRefresh(() =>
     withRateLimitRetry(() => apiRequest('/api/v1/auth/refresh', { method: 'POST' })),
   )
@@ -147,6 +170,7 @@ export async function refreshSession() {
       // 429 : le livreur reste connecte (seul un refus du serveur 401/403 invalide la session)
       if (error?.status === 429) throw error
       clearAccessToken()
+      if (error?.status === 400 || error?.status === 401 || error?.status === 403) setSessionHint(false)
       if (error?.status === 401 || error?.status === 403) markSessionEnded()
       throw error
     })
@@ -162,6 +186,7 @@ export async function logout() {
   } catch {
     // ignore
   } finally {
+    setSessionHint(false)
     clearAccessToken()
   }
 }

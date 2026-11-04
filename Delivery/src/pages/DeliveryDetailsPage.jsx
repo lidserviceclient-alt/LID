@@ -25,7 +25,7 @@ import { useGeolocation } from '../hooks/useGeolocation'
 import { geocodeAddress } from '../services/geocoding'
 import { getDrivingRoute } from '../services/routing'
 import { getShipmentTimeline, normalizeShipmentQr, scanShipment } from '../services/logistics'
-import { getPendingFor, runOrQueue, subscribeQueue } from '../services/offlineQueue'
+import { QUEUE_FLUSHED_EVENT, getPendingFor, runOrQueue, subscribeQueue } from '../services/offlineQueue'
 import { directionsLink, smsLink, telLink, vibrate, whatsappLink } from '../utils/contact'
 
 const MotionDiv = motion.div
@@ -143,7 +143,6 @@ export default function DeliveryDetailsPage() {
   const [route, setRoute] = useState(null)
   const [follow, setFollow] = useState(true)
   const [actionError, setActionError] = useState('')
-  const [actionInfo, setActionInfo] = useState('')
   const [busyAction, setBusyAction] = useState('')
   const [deliveryCode, setDeliveryCode] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
@@ -188,6 +187,14 @@ export default function DeliveryDetailsPage() {
     if (!detail?.id || isLocked) return
     loadTimeline()
   }, [detail?.id, detail?.status, isLocked, loadTimeline])
+
+  useEffect(() => {
+    const onFlushed = () => {
+        loadTimeline()
+    }
+    window.addEventListener(QUEUE_FLUSHED_EVENT, onFlushed)
+    return () => window.removeEventListener(QUEUE_FLUSHED_EVENT, onFlushed)
+  }, [loadTimeline])
 
   const lastEvent = timeline.length > 0 ? timeline[timeline.length - 1] : null
   const arrived = pendingArrived || (status === 'EN_COURS' && `${lastEvent?.comment || ''}`.includes(ARRIVED_MARK))
@@ -305,12 +312,10 @@ export default function DeliveryDetailsPage() {
     if (!id || isUpdating) return
     setBusyAction(type)
     setActionError('')
-    setActionInfo('')
     try {
       const { queued } = await runOrQueue(type, id, payload)
       if (queued) {
         vibrate([20, 60, 20])
-        setActionInfo("Pas de réseau : l'action est enregistrée sur le téléphone et sera envoyée automatiquement.")
       } else {
         vibrate(40)
       }
@@ -354,9 +359,28 @@ export default function DeliveryDetailsPage() {
     )
   }
 
-  const confirmDelivered = (codeValue = deliveryCode) => {
-    const code = `${codeValue || ''}`.replace(/\D/g, '')
-    if (code.length !== 4 || isUpdating) return
+  // Remise : au 4e chiffre, 3 s pour corriger (Annuler) avant l'envoi définitif, puis « Validation… » et écran de réussite
+  const [countdown, setCountdown] = useState(0)
+  const [deliveredTo, setDeliveredTo] = useState('')
+  const deliverTimerRef = useRef(null)
+  const successTimerRef = useRef(null)
+
+  const clearDeliverTimer = () => {
+    if (deliverTimerRef.current) {
+      clearInterval(deliverTimerRef.current)
+      deliverTimerRef.current = null
+    }
+  }
+
+  useEffect(
+    () => () => {
+      clearDeliverTimer()
+      if (successTimerRef.current) clearTimeout(successTimerRef.current)
+    },
+    [],
+  )
+
+  const sendDelivery = (code) => {
     runAction(
       'deliver',
       { code },
@@ -365,15 +389,46 @@ export default function DeliveryDetailsPage() {
           setDeliveryCode('')
           if (!queued) {
             vibrate([60, 40, 120])
+            setDeliveredTo(`${detail?.customerName || ''}`.trim())
             setShowSuccess(true)
-            setTimeout(() => setShowSuccess(false), 2200)
+            if (successTimerRef.current) clearTimeout(successTimerRef.current)
+            successTimerRef.current = setTimeout(() => setShowSuccess(false), 3500)
           }
         },
       },
     )
   }
 
+  const cancelDelivery = () => {
+    clearDeliverTimer()
+    setCountdown(0)
+    setDeliveryCode('')
+  }
+
+  const confirmDelivered = (codeValue = deliveryCode, { immediate = false } = {}) => {
+    const code = `${codeValue || ''}`.replace(/\D/g, '')
+    if (code.length !== 4 || isUpdating || countdown > 0) return
+    if (immediate) {
+      sendDelivery(code)
+      return
+    }
+    let left = 3
+    setCountdown(left)
+    clearDeliverTimer()
+    deliverTimerRef.current = setInterval(() => {
+      left -= 1
+      if (left > 0) {
+        setCountdown(left)
+        return
+      }
+      clearDeliverTimer()
+      setCountdown(0)
+      sendDelivery(code)
+    }, 1000)
+  }
+
   const onCodeChange = (value) => {
+    if (countdown > 0) return
     const digits = `${value || ''}`.replace(/\D/g, '').slice(0, 4)
     setDeliveryCode(digits)
     if (digits.length === 4) confirmDelivered(digits)
@@ -471,7 +526,7 @@ export default function DeliveryDetailsPage() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
-        className="space-y-4 pb-20"
+        className="space-y-4 pb-8"
       >
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-neutral-200">
           <div className="flex items-start justify-between gap-3">
@@ -538,10 +593,6 @@ export default function DeliveryDetailsPage() {
             </div>
           ) : null}
 
-          {actionInfo && pending.length === 0 ? (
-            <div className="mb-4 rounded-2xl bg-neutral-100 px-4 py-3 text-sm font-semibold text-neutral-800">{actionInfo}</div>
-          ) : null}
-
           {actionError ? (
             <div role="alert" className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
               {actionError}
@@ -583,13 +634,13 @@ export default function DeliveryDetailsPage() {
                       placeholder="4 chiffres"
                       value={deliveryCode}
                       onChange={(e) => onCodeChange(e.target.value)}
-                      disabled={isUpdating}
+                      disabled={isUpdating || countdown > 0}
                       className="h-16 w-full rounded-2xl border-2 border-neutral-300 bg-white pl-12 pr-4 font-mono text-3xl font-black tracking-[0.4em] text-neutral-900 outline-none focus:border-[#4d7600] placeholder:text-base placeholder:tracking-normal placeholder:font-semibold placeholder:text-neutral-400"
                     />
                   </div>
                   <button
                     type="button"
-                    onClick={() => confirmDelivered()}
+                    onClick={() => confirmDelivered(deliveryCode, { immediate: true })}
                     disabled={deliveryCode.length !== 4 || isUpdating}
                     className="h-16 w-16 shrink-0 rounded-2xl bg-[#4d7600] text-white flex items-center justify-center disabled:opacity-40"
                     aria-label="Confirmer la remise"
@@ -597,9 +648,26 @@ export default function DeliveryDetailsPage() {
                     {busyAction === 'deliver' ? <RefreshCw className="animate-spin" /> : <CheckCircle2 size={28} />}
                   </button>
                 </div>
-                <p className="mt-2 text-xs font-semibold text-neutral-500">
-                  Le client a reçu ce code par e-mail. La remise est validée dès le 4e chiffre.
-                </p>
+                {countdown > 0 ? (
+                  <div role="status" className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-amber-50 px-4 py-3 text-amber-900">
+                    <span className="text-sm font-bold">Validation dans {countdown} s…</span>
+                    <button
+                      type="button"
+                      onClick={cancelDelivery}
+                      className="h-10 rounded-xl border-2 border-amber-400 bg-white px-4 text-sm font-black text-amber-900"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                ) : busyAction === 'deliver' ? (
+                  <p role="status" className="mt-3 flex items-center gap-2 text-sm font-bold text-neutral-700">
+                    <RefreshCw className="animate-spin" size={16} /> Validation…
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs font-semibold text-neutral-500">
+                    Le client a reçu ce code par e-mail. La remise est validée 3 s après le 4e chiffre (vous pouvez annuler).
+                  </p>
+                )}
               </div>
 
               <button
@@ -732,8 +800,10 @@ export default function DeliveryDetailsPage() {
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Check size={40} className="text-green-600" strokeWidth={4} />
               </div>
-              <h2 className="text-2xl font-black text-neutral-900 mb-2">Livraison validée !</h2>
-              <p className="text-neutral-600 font-medium">Bon travail. Le colis est remis.</p>
+              <h2 className="text-2xl font-black text-neutral-900 mb-2">
+                {deliveredTo ? `Colis livré à ${deliveredTo}` : 'Colis livré'}
+              </h2>
+              <p className="text-neutral-600 font-medium">Remise confirmée. Bon travail !</p>
             </motion.div>
           </motion.div>
         )}
