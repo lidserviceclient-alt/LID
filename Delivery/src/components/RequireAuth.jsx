@@ -16,7 +16,8 @@ export default function RequireAuth({ children }) {
         try {
           token = await refreshSession()
         } catch (err) {
-          if (err?.status === 429) {
+          // Seul un refus explicite (401/403) ferme l'acces ; reseau, 429 ou 5xx : session conservee, on reessaiera
+          if (err?.status !== 401 && err?.status !== 403) {
             if (active) setStatus('busy')
             return
           }

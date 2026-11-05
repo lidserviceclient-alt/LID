@@ -167,11 +167,12 @@ export async function refreshSession() {
       return token
     })
     .catch((error) => {
-      // 429 : le livreur reste connecte (seul un refus du serveur 401/403 invalide la session)
-      if (error?.status === 429) throw error
+      // Seul un refus explicite du serveur (401/403) invalide la session. Reseau coupe, timeout, 429 ou 5xx :
+      // le livreur reste connecte, la restauration sera retentee (sinon il serait deconnecte a chaque coupure 4G).
+      if (error?.status !== 401 && error?.status !== 403) throw error
       clearAccessToken()
-      if (error?.status === 400 || error?.status === 401 || error?.status === 403) setSessionHint(false)
-      if (error?.status === 401 || error?.status === 403) markSessionEnded()
+      setSessionHint(false)
+      markSessionEnded()
       throw error
     })
     .finally(() => {
