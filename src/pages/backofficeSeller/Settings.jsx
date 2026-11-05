@@ -19,6 +19,7 @@ import { updateMyPartnerPreferences } from '@/services/partnerBackofficePreferen
 import { getMyPartnerSettingsCollection, updateMyPartnerSettings } from '@/services/partnerBackofficeSettingsService';
 import { uploadFile } from '@/services/fileStorageService';
 import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
+import { PartnerLogisticsPanel } from '@/components/partner/PartnerLogistics';
 
 export default function Settings() {
   const bootstrap = usePartnerBackofficeBootstrap();
@@ -606,6 +607,9 @@ export default function Settings() {
           </button>
         </div>
       </form>
+
+      {/* Regle R4 : mode de livraison (A/B), adresse de retrait et frais de collecte */}
+      <PartnerLogisticsPanel />
     </div>
   );
 }

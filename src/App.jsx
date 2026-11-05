@@ -20,6 +20,7 @@ const BackofficeDashboard = lazy(() => import('./pages/backofficeSeller/Dashboar
 const BackofficeProducts = lazy(() => import('./pages/backofficeSeller/ProductManagement'))
 const BackofficeMedia = lazy(() => import('./pages/backofficeSeller/Media'))
 const BackofficeOrders = lazy(() => import('./pages/backofficeSeller/Orders'))
+const BackofficeInvoices = lazy(() => import('./pages/backofficeSeller/Invoices'))
 const BackofficeCategories = lazy(() => import('./pages/backofficeSeller/Categories'))
 const BackofficeSettings = lazy(() => import('./pages/backofficeSeller/Settings'))
 const Wishlist = lazy(() => import('./pages/Wishlist.jsx'))
@@ -76,6 +77,7 @@ function App() {
             <Route path="categories" element={<BackofficeCategories />} />
             <Route path="dashboard" element={<BackofficeDashboard />} />
             <Route path="orders" element={<BackofficeOrders />} />
+            <Route path="invoices" element={<BackofficeInvoices />} />
             <Route path="settings" element={<BackofficeSettings />} />
           </Route>
           

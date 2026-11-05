@@ -391,7 +391,7 @@ export default function Seller() {
     // 3. Branding
     logo: null, banner: null, businessRegistrationDocument: null,
     // 4. Contrat
-    contractAccepted: false, idDocument: null, nineaDocument: null
+    contractAccepted: false, idDocument: null, nineaDocument: null, dfeNumber: "", dfeDocument: null
   });
 
   useEffect(() => {
@@ -488,6 +488,8 @@ export default function Seller() {
       businessRegistrationDocument: prev.businessRegistrationDocument || hydrateUploadedAsset(step3.businessRegistrationDocumentUrl, "registre-commerce"),
       idDocument: prev.idDocument || hydrateUploadedAsset(step4.idDocumentUrl, "piece-identite"),
       nineaDocument: prev.nineaDocument || hydrateUploadedAsset(step4.nineaDocumentUrl, "ninea"),
+      dfeNumber: prev.dfeNumber || step2.dfeNumber || step4.dfeNumber || profile?.dfeNumber || "",
+      dfeDocument: prev.dfeDocument || hydrateUploadedAsset(step4.dfeDocumentUrl, "dfe"),
     }));
   }, [categoryOptions, currentUserEmail, currentUserFirstName, currentUserLastName]);
 
@@ -624,6 +626,8 @@ export default function Seller() {
     }
 
     if (stepToValidate === 4) {
+      if (!`${formData.dfeNumber || ""}`.trim()) return "Veuillez renseigner le numéro de votre Déclaration Fiscale d'Existence (DFE).";
+      if (!formData.dfeDocument?.path) return "Veuillez ajouter le document de votre Déclaration Fiscale d'Existence (DFE).";
       if (!formData.contractAccepted) return "Veuillez accepter le contrat pour finaliser.";
       return null;
     }
@@ -762,6 +766,8 @@ export default function Seller() {
         contractAccepted: true,
         idDocumentUrl: formData.idDocument?.path || null,
         nineaDocumentUrl: formData.nineaDocument?.path || null,
+        dfeNumber: `${formData.dfeNumber || ""}`.trim(),
+        dfeDocumentUrl: formData.dfeDocument?.path || null,
       });
       const normalizedStatus = normalizePartnerStatus(response?.registrationStatus);
       setPartnerStatus(normalizedStatus);
@@ -1351,6 +1357,20 @@ export default function Seller() {
                              }
                            }}
                          />
+                         <FileUploadZone
+                           label="Déclaration Fiscale d'Existence (DFE)"
+                           accept="image/*"
+                           value={formData.dfeDocument}
+                           onChange={async (file) => {
+                             try {
+                               await handleUploadedAsset("dfeDocument", file);
+                               toast.success("Document DFE uploadé.");
+                             } catch (error) {
+                               toast.error(error?.response?.data?.message || error?.message || "Upload de la DFE impossible.");
+                             }
+                           }}
+                         />
+                         <Field label="Numéro de DFE" placeholder="Ex: DFE-2026-000123" value={formData.dfeNumber} onChange={e => handleChange("dfeNumber", e.target.value)} />
                        </div>
                        <div className="flex items-center gap-2 mb-2">
                          <div className="h-8 w-8 rounded-full bg-[#6aa200] text-white flex items-center justify-center font-bold text-sm">1</div>
@@ -1387,7 +1407,7 @@ export default function Seller() {
                   ) : (
                     <button
                       onClick={finalizeRegistration}
-                      disabled={stepLoading || !formData.contractAccepted || isLockedPartnerStatus(partnerStatus)}
+                      disabled={stepLoading || !formData.contractAccepted || !formData.dfeDocument?.path || !`${formData.dfeNumber || ""}`.trim() || isLockedPartnerStatus(partnerStatus)}
                       className="group px-8 py-3 rounded-xl font-bold text-white shadow-lg shadow-[#6aa200]/30 hover:shadow-xl hover:shadow-[#6aa200]/40 hover:-translate-y-0.5 transition flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                       style={{ background: BRAND }}
                     >

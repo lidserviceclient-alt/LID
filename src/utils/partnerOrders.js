@@ -104,5 +104,8 @@ export const normalizeShipments = (shipments) =>
       trackingNumber: `${s?.trackingNumber || ""}`.trim(),
       handoffCode,
       qrPayload,
+      // Regle R4 : A = remise directe au livreur, B = collecte vers l'entrepot LID (null = colis anterieur = A)
+      logisticsMode: s?.logisticsMode || "DIRECT_FROM_PARTNER",
+      warehouseReceivedAt: s?.warehouseReceivedAt || null,
     };
   });

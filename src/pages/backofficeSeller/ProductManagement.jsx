@@ -6,6 +6,7 @@ import Papa from 'papaparse';
 import { createMyProduct, deleteMyProduct, listMyProducts, updateMyProduct } from '@/services/partnerBackofficeProductService';
 import { usePartnerBackofficeBootstrap } from '@/features/partnerBackoffice/PartnerBackofficeBootstrapContext';
 import { uploadFile } from '@/services/fileStorageService';
+import { PartnerLogisticsNotice } from '@/components/partner/PartnerLogistics';
 
 const DEFAULT_PRODUCT_IMAGE = "https://images.unsplash.com/photo-1560343090-f0409e92791a?auto=format&fit=crop&w=200&q=80";
 
@@ -677,6 +678,9 @@ export default function ProductManagement() {
                     </div>
                   ) : null}
                 </div>
+
+                {/* Regle R4 : mode de livraison et frais annonces avant la mise en vente (accuse non bloquant) */}
+                <PartnerLogisticsNotice articleId={currentProduct?.id} weightGrams={currentProduct?.weightGrams} />
 
                 <div className="pt-4 flex gap-3">
                   <button 

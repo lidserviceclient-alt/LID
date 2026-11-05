@@ -67,6 +67,39 @@ const PARTNER_ACTION_HINTS = {
 
 const SHIPPED_STATUSES = ["READY_TO_DELIVER", "DELIVERY_IN_PROGRESS", "DELIVERY_FAILED", "DELIVERED"];
 
+// Regle R4 : en option B (via l'entrepot LID), le colis pret part en collecte vers l'entrepot, pas chez le client.
+const VIA_WAREHOUSE = "VIA_WAREHOUSE";
+const WAREHOUSE_ACTION_LABEL = "Prêt pour collecte vers l'entrepôt LID";
+const WAREHOUSE_ACTION_HINT = "Le colis est emballé : un livreur LID vient le collecter à votre adresse de retrait et le dépose à l'entrepôt LID, d'où il sera livré au client. La commande ne pourra plus être annulée.";
+
+const actionLabel = (action, mode) =>
+  action === "READY_TO_DELIVER" && mode === VIA_WAREHOUSE ? WAREHOUSE_ACTION_LABEL : PARTNER_ACTION_LABELS[action];
+
+const actionHint = (action, mode) =>
+  action === "READY_TO_DELIVER" && mode === VIA_WAREHOUSE ? WAREHOUSE_ACTION_HINT : PARTNER_ACTION_HINTS[action];
+
+const confirmCopy = (action, mode) => {
+  const base = CONFIRM_COPY[action];
+  if (!base || action !== "READY_TO_DELIVER" || mode !== VIA_WAREHOUSE) return base;
+  return {
+    ...base,
+    title: "Le colis est-il prêt pour la collecte vers l'entrepôt LID ?",
+    message: "Un livreur LID le collectera à votre adresse de retrait pour le déposer à l'entrepôt LID. La commande ne pourra plus être annulée. Le code colis et son QR seront alors disponibles.",
+    confirmLabel: "Oui, prêt pour collecte",
+  };
+};
+
+/** Ce que le partenaire fait de CE colis selon son mode logistique. */
+const parcelHandoffText = (sh) => {
+  if (sh.status === "LIVREE" || sh.status === "DELIVERED") return "Colis remis au client.";
+  if (sh.logisticsMode === VIA_WAREHOUSE) {
+    return sh.warehouseReceivedAt
+      ? "Option B : colis reçu à l'entrepôt LID, livraison au client en cours d'organisation."
+      : "Option B : à remettre au livreur LID qui le collecte pour l'entrepôt LID (pas de livraison directe au client).";
+  }
+  return "Option A : à présenter au livreur, qui livre directement le client.";
+};
+
 /** Pourquoi aucune action n'est proposee (null si des actions existent). */
 const noActionReason = (rawStatus) => {
   if (PARTNER_ACTIONS[rawStatus]) return null;
@@ -123,6 +156,11 @@ const buildDetail = (base, detail) => {
     id: `${detail?.orderNumber || ""}`.trim() || base.id,
     total: detail ? partnerShare(detail) : base.total,
     net: toNumber(detail?.partnerNet) ?? base.net,
+    commissionHt: toNumber(detail?.partnerCommissionHt),
+    commissionVat: toNumber(detail?.partnerCommissionVat),
+    commissionTotal: toNumber(detail?.partnerCommissionTotal),
+    commissionVatPercent: toNumber(detail?.partnerCommissionVatPercent),
+    paymentFee: toNumber(detail?.partnerPaymentFee),
     settlement: settlementLabel(detail?.settlementStatus, detail?.settlementEligibleAt) || base.settlement,
     status: statusGroup(rawStatus),
     rawStatus,
@@ -133,6 +171,7 @@ const buildDetail = (base, detail) => {
     },
     shopName: readableShopName(detail?.shopName || detail?.partnerName),
     multiSeller: detail ? Boolean(detail.multiSeller) : Boolean(base.multiSeller),
+    logisticsMode: detail?.logisticsMode || shipments?.[0]?.logisticsMode || base.logisticsMode || "DIRECT_FROM_PARTNER",
     shipments,
     items: items.map((i) => {
       const quantity = toNumber(i?.quantity) ?? 0;
@@ -521,6 +560,18 @@ export default function Orders() {
 
                 <div className="h-px bg-gray-100" />
 
+                {/* Mode logistique (R4) : remise directe (A) ou collecte vers l'entrepot LID (B) */}
+                <div className={`rounded-xl border p-4 text-sm ${selectedOrder.logisticsMode === VIA_WAREHOUSE ? "border-amber-200 bg-amber-50 text-amber-900" : "border-gray-200 bg-gray-50 text-gray-700"}`}>
+                  <p className="font-semibold">
+                    {selectedOrder.logisticsMode === VIA_WAREHOUSE ? "Livraison en deux étapes (option B)" : "Livraison directe (option A)"}
+                  </p>
+                  <p className="mt-1 text-xs">
+                    {selectedOrder.logisticsMode === VIA_WAREHOUSE
+                      ? "Votre colis est collecté chez vous et déposé à l'entrepôt LID, puis livré au client depuis l'entrepôt. Des frais de collecte s'appliquent (voir Paramètres › Livraison)."
+                      : "Le livreur LID récupère le colis chez vous et le livre directement au client."}
+                  </p>
+                </div>
+
                 {/* Delivery QR Code : un QR par colis */}
                 <div>
                   <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -547,14 +598,16 @@ export default function Orders() {
                             {sh.trackingNumber ? ` · Suivi ${sh.trackingNumber}` : ""}
                           </p>
                           <p className="text-xs text-gray-500 text-center">
-                            {sh.status === "LIVREE" || sh.status === "DELIVERED" ? "Colis remis au client." : "À présenter au livreur lors de la récupération du colis."}
+                            {parcelHandoffText(sh)}
                           </p>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                      Le code et le QR du colis apparaissent une fois le colis marqué « prêt » pour le livreur.
+                      {selectedOrder.logisticsMode === VIA_WAREHOUSE
+                        ? "Option B : le code et le QR du colis apparaissent une fois le colis marqué « prêt pour collecte vers l'entrepôt LID »."
+                        : "Le code et le QR du colis apparaissent une fois le colis marqué « prêt » pour le livreur."}
                     </p>
                   )}
                 </div>
@@ -590,6 +643,30 @@ export default function Orders() {
                   <span>Vos ventes</span>
                   <span>{money(selectedOrder.total)}</span>
                 </div>
+                {selectedOrder.commissionTotal > 0 ? (
+                  <div className="mb-2 space-y-0.5 text-xs text-gray-600">
+                    <div className="flex justify-between">
+                      <span>Commission LID HT</span>
+                      <span className="whitespace-nowrap pl-2">- {money(selectedOrder.commissionHt)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>
+                        TVA sur commission ({Math.round((selectedOrder.commissionVatPercent > 1 ? selectedOrder.commissionVatPercent : (selectedOrder.commissionVatPercent || 0.18) * 100) * 100) / 100} %)
+                      </span>
+                      <span className="whitespace-nowrap pl-2">- {money(selectedOrder.commissionVat)}</span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                      <span>Commission TTC</span>
+                      <span className="whitespace-nowrap pl-2">- {money(selectedOrder.commissionTotal)}</span>
+                    </div>
+                    {selectedOrder.paymentFee > 0 ? (
+                      <div className="flex justify-between">
+                        <span>Frais de paiement</span>
+                        <span className="whitespace-nowrap pl-2">- {money(selectedOrder.paymentFee)}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 {selectedOrder.net !== null ? (
                   <div className="flex justify-between items-center mb-4 text-sm font-medium text-gray-700">
                     <span>À percevoir (net après commission, frais et livraison)</span>
@@ -611,11 +688,11 @@ export default function Orders() {
                       >
                         <option value="">Choisir une action…</option>
                         {PARTNER_ACTIONS[selectedOrder.rawStatus].map((s) => (
-                          <option key={s} value={s} title={PARTNER_ACTION_HINTS[s]}>{PARTNER_ACTION_LABELS[s]}</option>
+                          <option key={s} value={s} title={actionHint(s, selectedOrder.logisticsMode)}>{actionLabel(s, selectedOrder.logisticsMode)}</option>
                         ))}
                       </select>
                       {statusDraft ? (
-                        <p id="partner-order-action-hint" className="mt-2 text-xs text-gray-500">{statusDraft === "CANCELED" && selectedOrder.multiSeller ? "Commande multi-vendeurs : annulation via l'administration." : PARTNER_ACTION_HINTS[statusDraft]}</p>
+                        <p id="partner-order-action-hint" className="mt-2 text-xs text-gray-500">{statusDraft === "CANCELED" && selectedOrder.multiSeller ? "Commande multi-vendeurs : annulation via l'administration." : actionHint(statusDraft, selectedOrder.logisticsMode)}</p>
                       ) : null}
                     </>
                   ) : (
@@ -657,7 +734,7 @@ export default function Orders() {
 
       {confirm && CONFIRM_COPY[confirm.action] ? (
         <ConfirmActionModal
-          {...CONFIRM_COPY[confirm.action]}
+          {...confirmCopy(confirm.action, selectedOrder?.logisticsMode)}
           {...(confirm.action === "CANCELED" && selectedOrder?.multiSeller
             ? { title: "Annulation impossible ici", message: MULTI_SELLER_CANCEL_MESSAGE, infoOnly: true, danger: false }
             : {})}

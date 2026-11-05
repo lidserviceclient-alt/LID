@@ -4,7 +4,7 @@ import { X, Check, CreditCard, Smartphone, User, MapPin, Phone, Mail, ArrowRight
 import { cn } from '@/utils/cn';
 import { toast } from 'sonner';
 import { getCurrentUserPayload, getUserProfile, updateUserProfile, primeUserProfileCache } from '@/services/authService.js';
-import { checkout } from '@/services/orderService.js';
+import { checkout, quoteCheckout } from '@/services/orderService.js';
 import { createCustomerAddress, updateCustomerAddress, getCustomerAddresses, getMyCustomerCheckoutCollection } from '@/services/customerService.js';
 import { useCustomerSession } from '@/features/customerSession/CustomerSessionContext';
 import { resolveBackendAssetUrl } from '@/services/categoryService';
@@ -84,7 +84,10 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
  
   const isCartCheckout = cartItems && cartItems.length > 0;
 
-  const normalizedShippingCost = Number.isFinite(Number(shippingCost)) ? Number(shippingCost) : 0;
+  // Devis serveur selon l'adresse (livraison par distance) : les frais et le total affiches viennent du serveur
+  const [liveQuote, setLiveQuote] = useState(null);
+  const liveShipping = liveQuote && Number.isFinite(Number(liveQuote.shippingCost)) ? Number(liveQuote.shippingCost) : null;
+  const normalizedShippingCost = liveShipping !== null ? liveShipping : (Number.isFinite(Number(shippingCost)) ? Number(shippingCost) : 0);
   const normalizedDiscountAmount = Number.isFinite(Number(discountAmount)) ? Number(discountAmount) : 0;
   const normalizedLoyaltyDiscountAmount = Number.isFinite(Number(loyaltyDiscountAmount)) ? Number(loyaltyDiscountAmount) : 0;
   const normalizedQuantity = Number.isFinite(Number(quantity)) ? Number(quantity) : 1;
@@ -95,7 +98,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
 
   const localFinalTotal = Math.max(0, roundAmount(itemsTotal + normalizedShippingCost - normalizedDiscountAmount - normalizedLoyaltyDiscountAmount));
   // Panier : le total du devis serveur (livraison comprise) fait foi ; achat direct : calcul local.
-  const finalTotal = isCartCheckout && quotedTotal !== null && Number.isFinite(Number(quotedTotal)) ? Number(quotedTotal) : localFinalTotal;
+  const finalTotal = liveQuote && Number.isFinite(Number(liveQuote.total)) ? Number(liveQuote.total) : isCartCheckout && quotedTotal !== null && Number.isFinite(Number(quotedTotal)) ? Number(quotedTotal) : localFinalTotal;
   const taxAmount = vatRate > 0 ? roundAmount(finalTotal - (finalTotal / (1 + vatRate))) : 0;
   const vatPercentLabel = Math.round(vatRate * 100);
   const phoneIsValid = isValidInternationalPhone(formData.phone);
@@ -252,6 +255,39 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
     const address = savedAddresses.find((addr) => addr.id === addressId);
     if (address) applySavedAddress(address, accountPhone);
   };
+
+  // Recalcule les frais de livraison quand l'adresse (ou ses coordonnees) change
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const address = `${formData.address || ''}`.trim();
+    const hasCoords = Boolean(shippingCoordinates);
+    if (!address && !hasCoords) {
+      setLiveQuote(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const payload = getCurrentUserPayload();
+        const items = (isCartCheckout ? cartItems.map((i) => toCheckoutItem(i, i?.quantity)) : [toCheckoutItem({ ...product, quantity: normalizedQuantity }, normalizedQuantity)]).filter(Boolean);
+        if (!payload?.sub || items.length === 0) return;
+        const res = await quoteCheckout(payload.sub, {
+          currency: 'XOF',
+          shippingAddress: `${address}, ${formData.city || ''}`.trim(),
+          shippingLatitude: shippingCoordinates?.latitude ?? null,
+          shippingLongitude: shippingCoordinates?.longitude ?? null,
+          shippingMethodCode,
+          promoCode: `${promoCode || ''}`.trim() || undefined,
+          items
+        });
+        if (!cancelled) setLiveQuote(res || null);
+      } catch {
+        if (!cancelled) setLiveQuote(null); // repli : montants du panier
+      }
+    }, 600);
+    return () => { cancelled = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, formData.address, formData.city, shippingCoordinates, shippingMethodCode, promoCode]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -530,7 +566,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
                 <div className="flex justify-between text-sm text-neutral-500">
                   <span>Livraison</span>
                   <span className="font-medium text-neutral-800 dark:text-neutral-200">
-                    {normalizedShippingCost === 0 ? 'Gratuit' : `${formatMoney(normalizedShippingCost)} FCFA`}
+                    {normalizedShippingCost === 0 ? 'Gratuit' : `${formatMoney(normalizedShippingCost)} FCFA`}{liveQuote?.shippingDistanceEstimated ? ' (estimation)' : ''}
                   </span>
                 </div>
                 <div className="flex justify-between items-baseline pt-3 border-t border-neutral-100 dark:border-neutral-800">
