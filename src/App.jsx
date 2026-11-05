@@ -32,6 +32,7 @@ import Logistics from "./pages/Logistics.jsx";
 import Marketing from "./pages/Marketing.jsx";
 import Loyalty from "./pages/Loyalty.jsx";
 import Finance from "./pages/Finance.jsx";
+import Invoices from "./pages/Invoices.jsx";
 import Categories from "./pages/Categories.jsx";
 import PromoCodes from "./pages/PromoCodes.jsx";
 import Messages from "./pages/Messages.jsx";
@@ -99,6 +100,7 @@ export default function App() {
         <Route path="/marketing" element={<Marketing />} />
         <Route path="/loyalty" element={<Loyalty />} />
         <Route path="/finance" element={<Finance />} />
+        <Route path="/invoices" element={<Invoices />} />
         <Route path="/partner-subscriptions" element={<Navigate to="/" replace />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/contacts" element={<ContactRequests />} />

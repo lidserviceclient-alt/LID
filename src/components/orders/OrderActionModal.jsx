@@ -25,12 +25,16 @@ export default function OrderActionModal({
   referenceLabel,
   referenceMinLength = 3,
   fields = [],
+  faultLabel,
+  faultDefault = false,
+  faultHint,
   onConfirm
 }) {
   const [reason, setReason] = useState("");
   const [amount, setAmount] = useState("");
   const [reference, setReference] = useState("");
   const [values, setValues] = useState({});
+  const [sellerFault, setSellerFault] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -40,10 +44,11 @@ export default function OrderActionModal({
       setAmount(amountDefault !== undefined && amountDefault !== null ? `${amountDefault}` : "");
       setReference("");
       setValues({});
+      setSellerFault(Boolean(faultDefault));
       setError("");
       setSaving(false);
     }
-  }, [open, amountDefault]);
+  }, [open, amountDefault, faultDefault]);
 
   const reasonOk = !reasonLabel || !reasonRequired || reason.trim().length >= reasonMinLength;
   const referenceOk = !referenceLabel || reference.trim().length >= referenceMinLength;
@@ -62,6 +67,7 @@ export default function OrderActionModal({
         reason: reason.trim(),
         amount: amountLabel ? amountNumber : undefined,
         reference: reference.trim(),
+        sellerFault: faultLabel ? sellerFault : undefined,
         fields: values
       });
     } catch (err) {
@@ -146,6 +152,16 @@ export default function OrderActionModal({
               <p className="text-xs text-muted-foreground">Obligatoire ({reasonMinLength} caractères minimum), conservé dans l'historique.</p>
             ) : null}
           </div>
+        ) : null}
+
+        {faultLabel ? (
+          <label className="flex items-start gap-2 rounded-lg border border-border bg-muted/20 p-3 text-sm">
+            <input type="checkbox" className="mt-1" checked={sellerFault} onChange={(e) => setSellerFault(e.target.checked)} />
+            <span>
+              <span className="font-medium">{faultLabel}</span>
+              {faultHint ? <span className="block text-xs text-muted-foreground">{faultHint}</span> : null}
+            </span>
+          </label>
         ) : null}
 
         {error ? (

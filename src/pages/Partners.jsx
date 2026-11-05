@@ -10,6 +10,7 @@ import Modal from "../components/ui/Modal.jsx";
 import Label from "../components/ui/Label.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
+import { LogisticsModeBadge, PartnerLogisticsModeSection } from "../components/logistics/LogisticsMode.jsx";
 
 const STATUS_OPTIONS = [
   { value: "ALL", label: "Tous" },
@@ -54,7 +55,7 @@ const computePartnerPayoutAmount = (row) => {
   const grossAmount = Number(row?.grossAmount);
   const shipping = Number(row?.shippingAllocation);
   const returnCost = Number(row?.returnCostAllocation);
-  const margin = Number(row?.marginAmount);
+  const margin = commissionTtc(row);
   if (!Number.isFinite(grossAmount)) return null;
   return Math.max(
     0,
@@ -63,6 +64,16 @@ const computePartnerPayoutAmount = (row) => {
       - (Number.isFinite(returnCost) ? returnCost : 0)
       - (Number.isFinite(margin) ? margin : 0)
   );
+};
+
+const vatPercentLabel = (row) => {
+  const rate = Number(row?.commissionVatPercent);
+  return Number.isFinite(rate) && rate > 0 ? `${Math.round((rate > 1 ? rate : rate * 100) * 100) / 100} %` : "18 %";
+};
+
+const commissionTtc = (row) => {
+  const total = Number(row?.commissionTotalAmount);
+  return Number.isFinite(total) && total > 0 ? total : Number(row?.marginAmount);
 };
 
 const csvValue = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
@@ -256,7 +267,7 @@ export default function Partners() {
   const exportTransactionsCsv = () => {
     if (!paymentPartnerId || transactionRows.length === 0) return;
     const csvRows = [
-      ["Commande", "Date commande", "Paiement prevu", "Montant commande", "Montant article", "Livraison", "Retour", "Marge", "A verser", "Statut"],
+      ["Commande", "Date commande", "Paiement prevu", "Montant commande", "Montant article", "Livraison", "Retour", "Commission LID HT", "TVA sur commission", "Commission TTC", "Frais de paiement partenaire", "Frais de paiement pris en charge par LID", "A verser", "Statut"],
       ...transactionRows.map((row) => [
         row.orderNumber || (row.orderId ? `ORD-${row.orderId}` : "-"),
         formatDate(row.orderCreatedAt),
@@ -266,6 +277,10 @@ export default function Partners() {
         formatMoney(row.shippingAllocation),
         formatMoney(row.returnCostAllocation),
         formatMoney(row.marginAmount),
+        formatMoney(row.commissionVatAmount),
+        formatMoney(commissionTtc(row)),
+        formatMoney(row.paymentFeeAmount),
+        formatMoney(row.paymentFeeBorneByPlatformAmount),
         formatMoney(computePartnerPayoutAmount(row)),
         payoutUi(row.payoutStatus).label
       ])
@@ -512,7 +527,10 @@ export default function Partners() {
                   </TCell>
                   <TCell>{row?.mainCategoryName || "-"}</TCell>
                   <TCell>
-                    <Badge label={ui.label} variant={ui.variant} />
+                    <div className="flex flex-wrap gap-1">
+                      <Badge label={ui.label} variant={ui.variant} />
+                      <LogisticsModeBadge mode={row?.logisticsMode} />
+                    </div>
                   </TCell>
                   <TCell className="text-xs text-muted-foreground">{formatDate(row?.createdAt)}</TCell>
                   <TCell className="text-right">
@@ -707,7 +725,10 @@ export default function Partners() {
               <TCell>Montant article</TCell>
               <TCell>Livraison</TCell>
               <TCell>Retour</TCell>
-              <TCell>Marge</TCell>
+              <TCell>Commission LID HT</TCell>
+              <TCell>TVA sur commission ({vatPercentLabel(transactionRows[0])})</TCell>
+              <TCell>Commission TTC</TCell>
+              <TCell>Frais paiement (partenaire / LID)</TCell>
               <TCell>À verser</TCell>
               <TCell>Statut</TCell>
               <TCell className="text-right">Action</TCell>
@@ -767,6 +788,11 @@ export default function Partners() {
                   <TCell>{formatMoney(row.shippingAllocation)}</TCell>
                   <TCell>{formatMoney(row.returnCostAllocation)}</TCell>
                   <TCell>{formatMoney(row.marginAmount)}</TCell>
+                  <TCell>{formatMoney(row.commissionVatAmount)}</TCell>
+                  <TCell>{formatMoney(commissionTtc(row))}</TCell>
+                  <TCell>
+                    {formatMoney(row.paymentFeeAmount)} / {formatMoney(row.paymentFeeBorneByPlatformAmount)}
+                  </TCell>
                   <TCell className="font-semibold text-foreground">{formatMoney(payoutAmount)}</TCell>
                   <TCell>
                     <Badge label={payout.label} variant={payout.variant} />
@@ -893,6 +919,18 @@ export default function Partners() {
                 <div className="text-xs text-muted-foreground">Montant commande</div>
                 <div className="font-semibold text-foreground">{formatMoney(paymentModalTransaction.orderAmount)}</div>
               </div>
+              <div className="rounded-xl border border-border bg-muted/20 p-3 md:col-span-2">
+                <div className="text-xs text-muted-foreground">Détail de la commission (assiette : prix TTC des articles conservés)</div>
+                <div className="text-sm text-foreground">
+                  Commission LID HT : {formatMoney(paymentModalTransaction.marginAmount)} · TVA sur commission (
+                  {vatPercentLabel(paymentModalTransaction)}) : {formatMoney(paymentModalTransaction.commissionVatAmount)} · Commission TTC :{" "}
+                  {formatMoney(commissionTtc(paymentModalTransaction))}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Frais de paiement déduits du partenaire : {formatMoney(paymentModalTransaction.paymentFeeAmount)} · pris en charge par LID
+                  (parts remboursées sans faute du partenaire) : {formatMoney(paymentModalTransaction.paymentFeeBorneByPlatformAmount)}
+                </div>
+              </div>
               <div className="rounded-xl border border-border bg-muted/20 p-3">
                 <div className="text-xs text-muted-foreground">À verser</div>
                 <div className="font-semibold text-foreground">
@@ -946,7 +984,8 @@ export default function Partners() {
               </Button>
               <Button
                 onClick={() => setConfirmAction("approve")}
-                disabled={decisionLoading || detailLoading}
+                disabled={decisionLoading || detailLoading || (detail?.registrationStatus !== "VERIFIED" && (detail?.missingVerificationItems?.length ?? 0) > 0)}
+                title={(detail?.missingVerificationItems?.length ?? 0) > 0 ? `Pièces manquantes : ${detail.missingVerificationItems.join(", ")}` : undefined}
               >
                 <Check className="mr-2 h-4 w-4" />
                 Approuver
@@ -1019,9 +1058,27 @@ export default function Partners() {
                   <DocumentPreview label="Registre commerce" url={detail.businessRegistrationDocumentUrl} />
                   <DocumentPreview label="Pièce identité" url={detail.idDocumentUrl} />
                   <DocumentPreview label="NINEA" url={detail.nineaDocumentUrl} />
+                  <DocumentPreview label="DFE (Déclaration Fiscale d'Existence)" url={detail.dfeDocumentUrl} />
                 </div>
               </div>
             </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <div className="text-xs text-muted-foreground">N° DFE</div>
+                <div className="font-semibold text-foreground">{detail.dfeNumber || "-"}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Pièces de vérification</div>
+                {Array.isArray(detail.missingVerificationItems) && detail.missingVerificationItems.length > 0 ? (
+                  <Badge label={`Manquant : ${detail.missingVerificationItems.join(", ")}`} variant="warning" />
+                ) : (
+                  <Badge label="Dossier complet" variant="success" />
+                )}
+              </div>
+            </div>
+
+            <PartnerLogisticsModeSection partnerId={detail.partnerId || detailPartnerId} onChanged={() => loadPartners(page).catch(() => {})} />
 
             {confirmAction === "reject" ? (
               <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">

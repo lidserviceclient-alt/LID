@@ -635,6 +635,26 @@ export const backofficeApi = {
       headers: { Accept: "text/csv" }
     });
   },
+  // Factures de commission et avoirs numérotés (R7)
+  invoices: (params = {}) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && `${value}`.trim() !== "") query.set(key, `${value}`);
+    });
+    return request(`/api/v1/backoffice/invoices?${query.toString()}`);
+  },
+  invoiceDetail: (id) => request(`/api/v1/backoffice/invoices/${encodeURIComponent(id)}`),
+  invoiceReadiness: () => request("/api/v1/backoffice/invoices/readiness"),
+  invoiceDocument: (id) =>
+    requestBlob(`/api/v1/backoffice/invoices/${encodeURIComponent(id)}/document`, { headers: { Accept: "text/html" } }),
+  invoicesExportCsv: (params = {}) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && `${value}`.trim() !== "") query.set(key, `${value}`);
+    });
+    return requestBlob(`/api/v1/backoffice/invoices/export?${query.toString()}`, { headers: { Accept: "text/csv" } });
+  },
+  invoiceResend: (id) => request(`/api/v1/backoffice/invoices/${encodeURIComponent(id)}/resend`, { method: "POST" }),
   // `orderStatus` : statut réel (PENDING, PAID, PROCESSING, READY_TO_DELIVER, DELIVERY_IN_PROGRESS, DELIVERY_FAILED, DELIVERED, CANCELED, REFUNDED)
   orders: (page = 0, size = 20, status = "", q = "", orderStatus = "") => {
     const params = new URLSearchParams({ page, size });
@@ -671,10 +691,10 @@ export const backofficeApi = {
       body: JSON.stringify(payload)
     }),
   // Statut réel de la commande. `comment` : motif (obligatoire pour annuler) ; `force` : transition hors parcours normal, tracée
-  updateOrderStatus: (id, orderStatus, { force = false, comment = "" } = {}) =>
+  updateOrderStatus: (id, orderStatus, { force = false, comment = "", sellerFault } = {}) =>
     request(`/api/v1/backoffice/orders/${encodeURIComponent(id)}/status`, {
       method: "PUT",
-      body: JSON.stringify({ orderStatus, ...(comment ? { comment } : {}), ...(force ? { force: "true" } : {}) })
+      body: JSON.stringify({ orderStatus, ...(comment ? { comment } : {}), ...(force ? { force: "true" } : {}), ...(typeof sellerFault === "boolean" ? { sellerFault: String(sellerFault) } : {}) })
     }),
   unlockShipmentCode: (id) =>
     request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/unlock-code`, { method: "POST" }),
@@ -709,6 +729,9 @@ export const backofficeApi = {
     return request(`/api/v1/backoffice/logistics/board/shipments?${params.toString()}`);
   },
   shipmentTimeline: (id) => request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/timeline`),
+  // Option B (R4) : reception a l'entrepot LID d'un colis partenaire collecte (idempotent)
+  receiveShipmentAtWarehouse: (id) =>
+    request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/warehouse-receipt`, { method: "POST" }),
   returnShipmentToDepot: (id, reason) =>
     request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/return-to-depot`, {
       method: "POST",
@@ -895,6 +918,21 @@ export const backofficeApi = {
     request(`/api/v1/backoffice/partners/${encodeURIComponent(partnerId)}/transactions/${encodeURIComponent(transactionId)}/cancel`, {
       method: "POST"
     }),
+  // Regle R4 : modes logistiques A/B (LID decide ; motif obligatoire, historique conserve)
+  partnerLogisticsMode: (partnerId) =>
+    request(`/api/v1/backoffice/logistics-modes/partners/${encodeURIComponent(partnerId)}`, { skipDedupe: true }),
+  updatePartnerLogisticsMode: (partnerId, payload) =>
+    request(`/api/v1/backoffice/logistics-modes/partners/${encodeURIComponent(partnerId)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  productLogisticsMode: (articleId) =>
+    request(`/api/v1/backoffice/logistics-modes/products/${encodeURIComponent(articleId)}`, { skipDedupe: true }),
+  updateProductLogisticsMode: (articleId, payload) =>
+    request(`/api/v1/backoffice/logistics-modes/products/${encodeURIComponent(articleId)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
   returns: (page = 0, size = 20, status = "", q = "") => {
     const params = new URLSearchParams({ page, size });
     if (status) params.set("status", status);
@@ -902,10 +940,10 @@ export const backofficeApi = {
     return request(`/api/v1/backoffice/returns?${params.toString()}`);
   },
   returnDetail: (id) => request(`/api/v1/backoffice/returns/${id}`),
-  updateReturnStatus: (id, status) =>
+  updateReturnStatus: (id, status, sellerFault) =>
     request(`/api/v1/backoffice/returns/${id}/status`, {
       method: "PUT",
-      body: JSON.stringify({ status })
+      body: JSON.stringify({ status, ...(typeof sellerFault === "boolean" ? { sellerFault } : {}) })
     }),
   deleteUser: (id) =>
     request(`/api/v1/backoffice/users/${id}`, {
@@ -920,6 +958,32 @@ export const backofficeApi = {
       method: "POST"
     }),
   freeShippingRules: () => request("/api/v1/backoffice/free-shipping-rules"),
+  shippingPricing: () => request("/api/v1/backoffice/shipping-pricing"),
+  shippingPricingChangeStrategy: (code) =>
+    request("/api/v1/backoffice/shipping-pricing/strategy", { method: "PUT", body: JSON.stringify({ code }) }),
+  shippingPricingSaveSettings: (payload) =>
+    request("/api/v1/backoffice/shipping-pricing/settings", { method: "PUT", body: JSON.stringify(payload) }),
+  shippingPricingHistory: () => request("/api/v1/backoffice/shipping-pricing/settings/history"),
+  shippingPricingSimulate: (payload) =>
+    request("/api/v1/backoffice/shipping-pricing/simulate", { method: "POST", body: JSON.stringify(payload) }),
+  shippingPricingGeocode: (address) =>
+    request("/api/v1/backoffice/shipping-pricing/geocode", { method: "POST", body: JSON.stringify({ address }) }),
+  shippingPricingSaveZone: (code, payload) =>
+    request(`/api/v1/backoffice/shipping-pricing/zones/${encodeURIComponent(code)}`, { method: "PUT", body: JSON.stringify(payload) }),
+  shippingPricingDeleteZone: (code) =>
+    request(`/api/v1/backoffice/shipping-pricing/zones/${encodeURIComponent(code)}`, { method: "DELETE" }),
+  shippingPricingSaveTier: (code, payload) =>
+    request(`/api/v1/backoffice/shipping-pricing/tiers/${encodeURIComponent(code)}`, { method: "PUT", body: JSON.stringify(payload) }),
+  shippingPricingDeleteTier: (code) =>
+    request(`/api/v1/backoffice/shipping-pricing/tiers/${encodeURIComponent(code)}`, { method: "DELETE" }),
+  shippingPricingSaveRates: (rates) =>
+    request("/api/v1/backoffice/shipping-pricing/rates", { method: "PUT", body: JSON.stringify(rates) }),
+  shippingPricingImportRates: (csv) =>
+    request("/api/v1/backoffice/shipping-pricing/rates/import", { method: "POST", body: JSON.stringify({ csv }) }),
+  shippingPricingPartnerPickups: () => request("/api/v1/backoffice/shipping-pricing/partners/pickups"),
+  shippingPricingSavePartnerPickup: (partnerId, payload) =>
+    request(`/api/v1/backoffice/shipping-pricing/partners/${encodeURIComponent(partnerId)}/pickup`, { method: "PUT", body: JSON.stringify(payload) }),
+  shippingPricingCostReport: () => request("/api/v1/backoffice/shipping-pricing/cost-report"),
   createFreeShippingRule: (payload) =>
     request("/api/v1/backoffice/free-shipping-rules", {
       method: "POST",

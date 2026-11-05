@@ -299,8 +299,12 @@ export default function OrderDetail() {
           reasonPlaceholder: "Ex : rupture de stock chez le vendeur, demande du client…",
           confirmLabel: "Annuler la commande",
           destructive: true,
+          ...(actions?.refundOnCancel ? {
+            faultLabel: "Annulation imputable au partenaire (rupture de stock, refus de préparer)",
+            faultHint: "Si coché, les frais de paiement du prestataire sont déduits du partenaire ; sinon LID les supporte."
+          } : {}),
           onConfirm: done(
-            ({ reason }) => backofficeApi.updateOrderStatus(ref, "CANCELED", { comment: reason }),
+            ({ reason, sellerFault }) => backofficeApi.updateOrderStatus(ref, "CANCELED", { comment: reason, sellerFault }),
             "Commande annulée."
           )
         };
@@ -387,7 +391,12 @@ export default function OrderDetail() {
           description: modal.description,
           confirmLabel: modal.label,
           destructive: modal.status === "REJECTED",
-          onConfirm: done(() => backofficeApi.updateReturnStatus(modal.ret.id, modal.status), modal.success)
+          ...(modal.status === "APPROVED" || modal.status === "REFUNDED" ? {
+            faultLabel: "Retour imputable au partenaire (produit défectueux ou non conforme)",
+            faultDefault: Boolean(modal.ret?.sellerFault),
+            faultHint: "Pré-rempli d'après le motif. Si coché, les frais de paiement initiaux sont à la charge du partenaire ; sinon LID les supporte."
+          } : {}),
+          onConfirm: done(({ sellerFault }) => backofficeApi.updateReturnStatus(modal.ret.id, modal.status, modal.status === "REJECTED" ? undefined : sellerFault), modal.success)
         };
       case "courier":
         return {

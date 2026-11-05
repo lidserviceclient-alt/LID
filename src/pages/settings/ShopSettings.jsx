@@ -12,7 +12,7 @@ export default function ShopSettings() {
   const disabled = shopLoading || shopSaving;
 
   return (
-    <form onSubmit={submitShop}>
+    <form onSubmit={submitShop} className="space-y-4">
       <SettingsCard
         title="Informations boutique"
         description="Profil public de la boutique : nom, coordonnées de contact et TVA appliquée."
@@ -102,6 +102,38 @@ export default function ShopSettings() {
           </SettingsField>
         </div>
 
+        <SaveBar saving={shopSaving} loading={shopLoading} onRefresh={loadShopProfile} />
+      </SettingsCard>
+      <SettingsCard
+        title="Mentions légales (factures)"
+        description="Reprises sur les factures de commission et avoirs émis aux partenaires. Tant que la raison sociale, l'adresse, le RCCM et le NINEA sont vides, aucune facture n'est émise."
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <SettingsField id="legal-name" label="Raison sociale">
+            <Input id="legal-name" placeholder="Ex: LID SARL" value={shopForm.legalName}
+              onChange={(e) => setField("legalName")(e.target.value)} disabled={disabled} />
+          </SettingsField>
+          <SettingsField id="legal-capital" label="Forme juridique et capital" hint="Ex: SARL au capital de 1 000 000 FCFA.">
+            <Input id="legal-capital" value={shopForm.legalCapital}
+              onChange={(e) => setField("legalCapital")(e.target.value)} disabled={disabled} />
+          </SettingsField>
+          <SettingsField id="legal-address" label="Adresse du siège">
+            <Input id="legal-address" value={shopForm.legalAddress}
+              onChange={(e) => setField("legalAddress")(e.target.value)} disabled={disabled} />
+          </SettingsField>
+          <SettingsField id="legal-rccm" label="RCCM">
+            <Input id="legal-rccm" value={shopForm.legalRccm}
+              onChange={(e) => setField("legalRccm")(e.target.value)} disabled={disabled} />
+          </SettingsField>
+          <SettingsField id="legal-ninea" label="NINEA / numéro de contribuable">
+            <Input id="legal-ninea" value={shopForm.legalNinea}
+              onChange={(e) => setField("legalNinea")(e.target.value)} disabled={disabled} />
+          </SettingsField>
+          <SettingsField id="legal-dfe" label="Déclaration fiscale d'existence (DFE)">
+            <Input id="legal-dfe" value={shopForm.legalDfeNumber}
+              onChange={(e) => setField("legalDfeNumber")(e.target.value)} disabled={disabled} />
+          </SettingsField>
+        </div>
         <SaveBar saving={shopSaving} loading={shopLoading} onRefresh={loadShopProfile} />
       </SettingsCard>
     </form>

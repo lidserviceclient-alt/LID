@@ -37,6 +37,10 @@ export default function ProductCreate() {
     secondaryImageUrls: "",
     brand: "",
     price: "",
+    weightGrams: "",
+    lengthCm: "",
+    widthCm: "",
+    heightCm: "",
     status: "ACTIVE", // ACTIVE, DRAFT, ARCHIVED
     category: "",
     stock: 0,
@@ -146,6 +150,10 @@ export default function ProductCreate() {
         secondaryImageUrls: parseSecondaryImageUrls(formData.secondaryImageUrls),
         brand: formData.brand || null,
         price,
+        weightGrams: formData.weightGrams === "" ? null : Math.trunc(Number(formData.weightGrams)),
+        lengthCm: formData.lengthCm === "" ? null : Number(formData.lengthCm),
+        widthCm: formData.widthCm === "" ? null : Number(formData.widthCm),
+        heightCm: formData.heightCm === "" ? null : Number(formData.heightCm),
         status: formData.status,
         category: formData.category,
         stock,
@@ -347,6 +355,25 @@ export default function ProductCreate() {
               <h2 className="text-lg font-semibold">Prix & Taxes</h2>
             </div>
             
+            <div className="mb-6 grid gap-4 md:grid-cols-4">
+              <div className="space-y-2">
+                <Label htmlFor="weightGrams">Poids (g, optionnel)</Label>
+                <Input id="weightGrams" name="weightGrams" type="number" min="0" step="1" placeholder="Ex : 500" value={formData.weightGrams} onChange={handleChange} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lengthCm">Longueur (cm)</Label>
+                <Input id="lengthCm" name="lengthCm" type="number" min="0" step="0.1" value={formData.lengthCm} onChange={handleChange} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="widthCm">Largeur (cm)</Label>
+                <Input id="widthCm" name="widthCm" type="number" min="0" step="0.1" value={formData.widthCm} onChange={handleChange} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="heightCm">Hauteur (cm)</Label>
+                <Input id="heightCm" name="heightCm" type="number" min="0" step="0.1" value={formData.heightCm} onChange={handleChange} />
+              </div>
+            </div>
+
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="price" required>Prix de vente (TTC)</Label>

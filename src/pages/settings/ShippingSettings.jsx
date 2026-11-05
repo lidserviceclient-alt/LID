@@ -11,10 +11,12 @@ import { ListActions, SettingsList, SettingsListItem } from "./components/Settin
 import { useShippingMethods } from "./hooks/useShippingMethods.js";
 import { useFreeShippingRules } from "./hooks/useFreeShippingRules.js";
 import { useShopProfile } from "./hooks/useShopProfile.js";
+import ShippingPricingSettings from "./ShippingPricingSettings.jsx";
 
 export default function ShippingSettings() {
   return (
     <>
+      <ShippingPricingSettings />
       <ShippingMethodsCard />
       <FreeShippingRulesCard />
       <ShippingNoteCard />

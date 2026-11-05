@@ -23,7 +23,13 @@ const INITIAL_SHOP_FORM = {
   partnerMarginPercent: "10",
   paymentFeePercent: "5",
   partnerPayoutWithdrawMode: "",
-  returnPolicyText: ""
+  returnPolicyText: "",
+  legalName: "",
+  legalAddress: "",
+  legalRccm: "",
+  legalNinea: "",
+  legalDfeNumber: "",
+  legalCapital: ""
 };
 
 // Même mapping pour `settingsCollection().shopProfile` et `appConfig()`.
@@ -46,7 +52,13 @@ const toShopForm = (cfg) => ({
   partnerMarginPercent: toPercentInput(cfg?.partnerMarginPercent, "10"),
   paymentFeePercent: toPercentInput(cfg?.paymentFeePercent, "5"),
   partnerPayoutWithdrawMode: cfg?.partnerPayoutWithdrawMode || "",
-  returnPolicyText: cfg?.returnPolicyText || ""
+  returnPolicyText: cfg?.returnPolicyText || "",
+  legalName: cfg?.legalName || "",
+  legalAddress: cfg?.legalAddress || "",
+  legalRccm: cfg?.legalRccm || "",
+  legalNinea: cfg?.legalNinea || "",
+  legalDfeNumber: cfg?.legalDfeNumber || "",
+  legalCapital: cfg?.legalCapital || ""
 });
 
 /**
@@ -136,7 +148,14 @@ export function useShopProfile() {
         partnerMarginPercent: partnerMarginPercent / 100,
         paymentFeePercent: paymentFeePercent / 100,
         partnerPayoutWithdrawMode: shopForm.partnerPayoutWithdrawMode || null,
-        returnPolicyText: shopForm.returnPolicyText || null
+        returnPolicyText: shopForm.returnPolicyText || null,
+        // Mentions légales des factures (chaîne vide = effacer ; l'API ignore un champ absent)
+        legalName: shopForm.legalName,
+        legalAddress: shopForm.legalAddress,
+        legalRccm: shopForm.legalRccm,
+        legalNinea: shopForm.legalNinea,
+        legalDfeNumber: shopForm.legalDfeNumber,
+        legalCapital: shopForm.legalCapital
       });
       setShopSuccess("Informations boutique sauvegardées.");
       await loadShopProfile();

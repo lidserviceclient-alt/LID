@@ -70,6 +70,7 @@ export default function Returns() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
   const [statusUpdate, setStatusUpdate] = useState("");
+  const [sellerFault, setSellerFault] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
   const [refundReference, setRefundReference] = useState("");
   const [refundSaving, setRefundSaving] = useState(false);
@@ -126,6 +127,7 @@ export default function Returns() {
       const res = await backofficeApi.returnDetail(row.id);
       setDetail(res);
       setStatusUpdate(res?.status || "");
+      setSellerFault(Boolean(res?.sellerFault));
     } catch (err) {
       setDetailError(err?.message || "Impossible de charger le retour.");
     } finally {
@@ -155,7 +157,11 @@ export default function Returns() {
     setStatusSaving(true);
     setDetailError("");
     try {
-      const updated = await backofficeApi.updateReturnStatus(detail.id, statusUpdate);
+      const updated = await backofficeApi.updateReturnStatus(
+        detail.id,
+        statusUpdate,
+        statusUpdate === "APPROVED" || statusUpdate === "REFUNDED" ? sellerFault : undefined
+      );
       setDetail(updated);
       await refreshList(page, status, q.trim());
     } catch (err) {
@@ -422,6 +428,17 @@ export default function Returns() {
                   {statusSaving ? "..." : "Mettre à jour"}
                 </Button>
               </div>
+              {statusUpdate === "APPROVED" || statusUpdate === "REFUNDED" ? (
+                <label className="flex items-start gap-2 rounded-lg border border-border bg-muted/20 p-3 text-sm">
+                  <input type="checkbox" className="mt-1" checked={sellerFault} onChange={(e) => setSellerFault(e.target.checked)} />
+                  <span>
+                    <span className="font-medium">Retour imputable au partenaire (produit défectueux ou non conforme)</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Pré-rempli d'après le motif. Si coché, les frais de paiement initiaux sont à la charge du partenaire ; sinon LID les supporte.
+                    </span>
+                  </span>
+                </label>
+              ) : null}
             </div>
           </div>
         ) : null}

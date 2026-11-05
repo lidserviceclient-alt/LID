@@ -1185,6 +1185,13 @@ export default function Logistics() {
                             <LaneBadge lane={item.lane} status={sh.status} />
                             {sh.failedAttempts ? <span className="text-[11px] text-muted-foreground" title="Échecs de livraison">×{sh.failedAttempts}</span> : null}
                             {sh.codeLocked ? <span className="text-[11px] font-semibold text-rose-700">Code verrouillé</span> : null}
+                            {sh.awaitsWarehouseReceipt ? (
+                              <span className="text-[11px] font-semibold text-amber-700" title="Option B : collecte vers l'entrepôt LID, à réceptionner avant la livraison au client">
+                                Collecte → entrepôt
+                              </span>
+                            ) : sh.logisticsMode === "VIA_WAREHOUSE" && sh.warehouseReceivedAt ? (
+                              <span className="text-[11px] text-muted-foreground" title="Option B : colis reçu à l'entrepôt LID">Reçu entrepôt</span>
+                            ) : null}
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">
@@ -1473,6 +1480,18 @@ export default function Logistics() {
               <dd className="col-span-2 font-mono">{s.trackingId || "-"}</dd>
               <dt className="text-muted-foreground">Expéditeur</dt>
               <dd className="col-span-2">{shipperLabel(s)}</dd>
+              {s.shipperType === "PARTNER" ? (
+                <>
+                  <dt className="text-muted-foreground">Mode logistique</dt>
+                  <dd className="col-span-2">
+                    {s.logisticsMode === "VIA_WAREHOUSE"
+                      ? s.warehouseReceivedAt
+                        ? `B · via l'entrepôt — reçu le ${new Date(s.warehouseReceivedAt).toLocaleString("fr-FR")}`
+                        : "B · via l'entrepôt — en collecte, à réceptionner"
+                      : "A · enlèvement direct chez le partenaire"}
+                  </dd>
+                </>
+              ) : null}
               <dt className="text-muted-foreground">Client</dt>
               <dd className="col-span-2 font-medium">{s.customerName || "-"}</dd>
               <dt className="text-muted-foreground">Téléphone</dt>
@@ -1543,6 +1562,24 @@ export default function Logistics() {
                   />
                 ) : null}
                 {activeCouriers.length === 0 ? <p className="text-xs text-muted-foreground">Aucun livreur actif.</p> : null}
+              </div>
+            ) : null}
+
+            {s.awaitsWarehouseReceipt ? (
+              <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50/60 p-3 dark:bg-amber-500/5">
+                <p className="font-semibold">Option B : collecte vers l'entrepôt LID</p>
+                <p className="text-xs text-muted-foreground">
+                  Ce colis partenaire doit être déposé et réceptionné à l'entrepôt avant la livraison au client. Tant qu'il
+                  n'est pas réceptionné, le scan de livraison est refusé.
+                </p>
+                <Button
+                  size="sm"
+                  disabled={Boolean(actionBusy)}
+                  isLoading={actionBusy === "warehouse"}
+                  onClick={() => runAction("warehouse", () => backofficeApi.receiveShipmentAtWarehouse(s.id), "Colis réceptionné à l'entrepôt LID.")}
+                >
+                  Réceptionner à l'entrepôt
+                </Button>
               </div>
             ) : null}
 

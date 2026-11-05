@@ -13,6 +13,7 @@ import Toggle from "../components/ui/Toggle.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import BulkProductImportModal from "../components/products/BulkProductImportModal.jsx";
 import { backofficeApi } from "../services/api.js";
+import { LogisticsModeBadge, ProductLogisticsModeSection } from "../components/logistics/LogisticsMode.jsx";
 import { isDuplicateUploadItem, emptyUploadMessage, skippedUploadNotice } from "../utils/uploadResult.js";
 
 const formatCurrency = (value) => {
@@ -724,7 +725,12 @@ export default function Products() {
                       <TrendingUp className={product.isBestSeller ? "fill-current" : ""} size={16} />
                     </button>
                   </TCell>
-                  <TCell><Badge label={mapStatus(product.status)} /></TCell>
+                  <TCell>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge label={mapStatus(product.status)} />
+                      <LogisticsModeBadge mode={product.logisticsModeOverride} override />
+                    </div>
+                  </TCell>
                   <TCell className="text-right">
                     <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(product)}>
@@ -947,6 +953,11 @@ export default function Products() {
             />
           </div>
         </form>
+        {currentProduct?.id ? (
+          <div className="mt-4">
+            <ProductLogisticsModeSection articleId={currentProduct.id} />
+          </div>
+        ) : null}
       </Modal>
 
       {/* --- Delete Confirmation Modal --- */}
