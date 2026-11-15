@@ -34,6 +34,16 @@ import {
 } from "../components/orders/orderUtils.jsx";
 import { backofficeApi } from "../services/api.js";
 
+// Transfert pay-in -> wallet Paiement Pro (visible seulement si la fonction est active : walletTransfer absent sinon)
+const WALLET_STATUS = {
+  PENDING: { label: "En attente d'envoi", tone: "amber" },
+  INITIATED: { label: "Envoi en cours", tone: "blue" },
+  SUCCEEDED: { label: "Transféré", tone: "green" },
+  FAILED: { label: "Échec certain", tone: "red" },
+  UNCERTAIN: { label: "Incertain - à vérifier", tone: "orange" },
+  SKIPPED: { label: "Sans objet", tone: "slate" }
+};
+
 // Étapes du parcours normal d'une commande
 const FLOW = ["PENDING", "PAID", "PROCESSING", "READY_TO_DELIVER", "DELIVERY_IN_PROGRESS", "DELIVERED"];
 
@@ -350,6 +360,31 @@ export default function OrderDetail() {
             "Remboursement lancé."
           )
         };
+      case "walletResolve":
+        return {
+          title: modal.succeeded ? "Marquer le transfert comme réussi" : "Marquer le transfert comme échoué",
+          description: `Transfert de ${formatCurrency(modal.transfer.amount)} vers le wallet Paiement Pro. Aucun appel n'est refait : vous tranchez après avoir vérifié le solde et l'historique du wallet dans le tableau de bord XPAYE.`,
+          notice: modal.succeeded
+            ? "Le wallet doit avoir été crédité de ce montant."
+            : "Ne choisissez « échoué » que si le wallet n'a PAS été crédité : sinon une relance doublerait le crédit.",
+          reasonLabel: "Motif (obligatoire, conservé dans l'historique)",
+          reasonRequired: true,
+          confirmLabel: modal.succeeded ? "Marquer comme réussi" : "Marquer comme échoué",
+          destructive: !modal.succeeded,
+          onConfirm: done(
+            ({ reason }) => backofficeApi.resolveWalletTransfer(modal.transfer.id, { succeeded: modal.succeeded, reason }),
+            "Transfert tranché."
+          )
+        };
+      case "walletRetry":
+        return {
+          title: "Relancer le transfert vers le wallet",
+          description: `Un seul appel de ${formatCurrency(modal.transfer.amount)} va être envoyé à Paiement Pro.`,
+          notice: "Paiement Pro n'a pas de protection contre les doublons : confirmez uniquement si vous avez vérifié dans XPAYE que le wallet n'a pas été crédité par la tentative précédente.",
+          confirmLabel: "Je confirme, relancer",
+          destructive: true,
+          onConfirm: done(() => backofficeApi.retryWalletTransfer(modal.transfer.id), "Transfert relancé.")
+        };
       case "refundRetry": {
         const pay = (detail.payments || []).find((p) => p.id === modal.refund.paymentId);
         return {
@@ -612,6 +647,55 @@ export default function OrderDetail() {
                     {p.transactionId ? <span>Transaction : {p.transactionId}</span> : null}
                     {Number(p.refundedAmount) > 0 ? <span>Déjà remboursé : {formatCurrency(p.refundedAmount)}</span> : null}
                   </div>
+                  {p.walletTransfer ? (
+                    <div className="mt-2 space-y-2 rounded-md border border-border bg-muted/30 p-2 text-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-semibold">Transfert vers le wallet Paiement Pro : {formatCurrency(p.walletTransfer.amount)}</span>
+                        <Pill tone={(WALLET_STATUS[p.walletTransfer.status] || {}).tone || "slate"}>
+                          {(WALLET_STATUS[p.walletTransfer.status] || {}).label || p.walletTransfer.status}
+                        </Pill>
+                      </div>
+                      <div className="flex flex-wrap gap-x-6 gap-y-1 text-muted-foreground">
+                        <span>Frais pay-in retenus : {formatCurrency(p.walletTransfer.fee)}</span>
+                        <span>Tentatives : {p.walletTransfer.attempts}</span>
+                        {p.walletTransfer.providerReference ? <span>Référence : {p.walletTransfer.providerReference}</span> : null}
+                        {p.walletTransfer.completedAt ? <span>Terminé le {formatDateTime(p.walletTransfer.completedAt)}</span> : null}
+                        {p.walletTransfer.nextAttemptAt ? <span>Prochain envoi : {formatDateTime(p.walletTransfer.nextAttemptAt)}</span> : null}
+                      </div>
+                      {p.walletTransfer.lastError ? <p className="text-red-700 dark:text-red-200">{p.walletTransfer.lastError}</p> : null}
+                      {p.walletTransfer.rawResponse ? (
+                        <p className="break-all font-mono text-[11px] text-muted-foreground">
+                          Réponse{p.walletTransfer.httpStatus ? ` (HTTP ${p.walletTransfer.httpStatus})` : ""} : {p.walletTransfer.rawResponse}
+                        </p>
+                      ) : null}
+                      {p.walletTransfer.resolvedBy ? (
+                        <p className="text-muted-foreground">
+                          Tranché par {p.walletTransfer.resolvedBy} le {formatDateTime(p.walletTransfer.resolvedAt)} : {p.walletTransfer.resolutionNote}
+                        </p>
+                      ) : null}
+                      {p.walletTransfer.canResolve ? (
+                        <div className="space-y-1">
+                          <p className="flex items-start gap-1.5 text-muted-foreground">
+                            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            Issue inconnue : aucun renvoi automatique. Vérifiez le wallet dans XPAYE puis tranchez.
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setModal({ kind: "walletResolve", transfer: p.walletTransfer, succeeded: true })}>
+                              Marquer comme réussi
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setModal({ kind: "walletResolve", transfer: p.walletTransfer, succeeded: false })}>
+                              Marquer comme échoué
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                      {p.walletTransfer.canRetry ? (
+                        <Button size="sm" variant="outline" onClick={() => setModal({ kind: "walletRetry", transfer: p.walletTransfer })}>
+                          Relancer le transfert
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ))
             )}

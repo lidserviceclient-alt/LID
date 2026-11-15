@@ -1,30 +1,82 @@
-import Badge from "../../components/ui/Badge.jsx";
-import Button from "../../components/ui/Button.jsx";
-import Input from "../../components/ui/Input.jsx";
-import Modal from "../../components/ui/Modal.jsx";
-import Select from "../../components/ui/Select.jsx";
-import SettingsCard from "./components/SettingsCard.jsx";
-import SettingsField, { SettingsTextarea } from "./components/SettingsField.jsx";
-import SettingsStatus from "./components/SettingsStatus.jsx";
-import SaveBar from "./components/SaveBar.jsx";
-import { ListActions, SettingsList, SettingsListItem } from "./components/SettingsList.jsx";
-import { useShippingMethods } from "./hooks/useShippingMethods.js";
-import { useFreeShippingRules } from "./hooks/useFreeShippingRules.js";
-import { useShopProfile } from "./hooks/useShopProfile.js";
-import ShippingPricingSettings from "./ShippingPricingSettings.jsx";
+import { useEffect, useState } from "react";
+import Badge from "../../../components/ui/Badge.jsx";
+import Button from "../../../components/ui/Button.jsx";
+import Input from "../../../components/ui/Input.jsx";
+import Modal from "../../../components/ui/Modal.jsx";
+import Select from "../../../components/ui/Select.jsx";
+import SettingsCard from "../../settings/components/SettingsCard.jsx";
+import SettingsField, { SettingsTextarea } from "../../settings/components/SettingsField.jsx";
+import SettingsStatus from "../../settings/components/SettingsStatus.jsx";
+import SaveBar from "../../settings/components/SaveBar.jsx";
+import { ListActions, SettingsList, SettingsListItem } from "../../settings/components/SettingsList.jsx";
+import { useShippingMethods } from "../../settings/hooks/useShippingMethods.js";
+import { useFreeShippingRules } from "../../settings/hooks/useFreeShippingRules.js";
+import { useShopProfile } from "../../settings/hooks/useShopProfile.js";
+import { backofficeApi } from "../../../services/api.js";
+import { PricingSection } from "./PricingContext.jsx";
+import { num, fullSettings } from "./pricingUtils.js";
 
-export default function ShippingSettings() {
+/** Règles communes à toutes les stratégies : supplément express et plafond de prise en charge de la livraison offerte. */
+export function CommonRulesCard({ data, reload, onError, onSuccess }) {
+  const s = data.settings;
+  const [express, setExpress] = useState(s.expressSurchargeAmount ?? "");
+  const [cap, setCap] = useState(s.freeShippingCapAmount ?? "");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    setExpress(s.expressSurchargeAmount ?? "");
+    setCap(s.freeShippingCapAmount ?? "");
+  }, [s.expressSurchargeAmount, s.freeShippingCapAmount]);
+
+  async function submit(e) {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      await backofficeApi.shippingPricingSaveSettings(fullSettings(s, { expressSurchargeAmount: num(express), freeShippingCapAmount: num(cap) }));
+      onSuccess("Règles communes enregistrées (modification journalisée).");
+      await reload();
+    } catch (err) {
+      onError(err?.message || "Enregistrement impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <form onSubmit={submit}>
+      <SettingsCard
+        title="Express et plafond de prise en charge"
+        description="Le mode EXPRESS ajoute un supplément fixe par colis (jamais offert). Quand le seuil de livraison gratuite est atteint, LID prend en charge la livraison de toute la commande dans la limite du plafond."
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SettingsField id="zr-express" label="Supplément express par colis (FCFA)">
+            <Input id="zr-express" inputMode="decimal" value={express} onChange={(e) => setExpress(e.target.value)} />
+          </SettingsField>
+          <SettingsField id="zr-cap" label="Plafond de prise en charge (FCFA)" hint="Vide = livraison entièrement offerte au-delà du seuil.">
+            <Input id="zr-cap" inputMode="decimal" value={cap} onChange={(e) => setCap(e.target.value)} />
+          </SettingsField>
+        </div>
+        <div className="flex justify-end">
+          <Button type="submit" disabled={saving}>{saving ? "Enregistrement…" : "Enregistrer"}</Button>
+        </div>
+      </SettingsCard>
+    </form>
+  );
+}
+
+/** Modes de livraison (STANDARD / EXPRESS…), seuil de gratuité et note affichée au client. */
+export default function ModesSection() {
   return (
     <>
-      <ShippingPricingSettings />
       <ShippingMethodsCard />
       <FreeShippingRulesCard />
+      <PricingSection>
+        {({ data, reload, notify, onError }) => <CommonRulesCard data={data} reload={reload} onError={onError} onSuccess={notify} />}
+      </PricingSection>
       <ShippingNoteCard />
     </>
   );
 }
 
-function ShippingMethodsCard() {
+export function ShippingMethodsCard() {
   const {
     shippingMethods,
     shippingMethodsLoading,
@@ -274,7 +326,7 @@ function ShippingMethodsCard() {
   );
 }
 
-function FreeShippingRulesCard() {
+export function FreeShippingRulesCard() {
   const {
     freeShippingRules,
     freeShippingLoading,
@@ -416,7 +468,7 @@ function FreeShippingRulesCard() {
   );
 }
 
-function ShippingNoteCard() {
+export function ShippingNoteCard() {
   const { shopForm, setField, shopLoading, shopSaving, shopError, shopSuccess, loadShopProfile, submitShop } =
     useShopProfile();
 

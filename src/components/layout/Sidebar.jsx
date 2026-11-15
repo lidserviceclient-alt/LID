@@ -24,6 +24,7 @@ import {
   Receipt
 } from "lucide-react";
 import { cn } from "../../utils/cn.js";
+import { useContactSummary } from "../../resolvers/contactSummaryStore.js";
 
 // URLs de la boutique propres à l'environnement (VITE_STOREFRONT_URL / VITE_ACCOUNT_URL, voir .env.example).
 // Repli sur la production uniquement si la variable est absente.
@@ -80,8 +81,7 @@ const navSections = [
     items: [
       { label: "Utilisateurs", to: "/users", icon: Users },
       { label: "Livreurs", to: "/couriers", icon: Bike },
-      { label: "Messages", to: "/messages", icon: MessageSquareText },
-      { label: "Contacts", to: "/contacts", icon: Inbox }
+      { label: "Contact", to: "/contact", icon: Inbox, badgeKey: "contactUnread" }
     ]
   },
   {
@@ -96,6 +96,8 @@ const navSections = [
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
+  const { data: contactSummary } = useContactSummary();
+  const badges = { contactUnread: Number(contactSummary?.unread) || 0 };
   return (
     <aside
       className={cn(
@@ -184,6 +186,14 @@ export default function Sidebar({ isOpen, onClose }) {
                           )}
                         />
                         <span className={cn(isActive ? "font-bold" : "")}>{item.label}</span>
+                        {item.badgeKey && badges[item.badgeKey] > 0 ? (
+                          <span
+                            className="ml-auto rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold leading-none text-primary-foreground"
+                            aria-label={`${badges[item.badgeKey]} non traité${badges[item.badgeKey] > 1 ? "s" : ""}`}
+                          >
+                            {badges[item.badgeKey] > 99 ? "99+" : badges[item.badgeKey]}
+                          </span>
+                        ) : null}
                       </>
                     )}
                   </NavLink>

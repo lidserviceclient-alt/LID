@@ -64,7 +64,7 @@ const toShopForm = (cfg) => ({
 });
 
 /**
- * Configuration boutique (`appConfig`) partagée par les pages Boutique, Retours & commissions
+ * Configuration boutique (`appConfig`) partagée par les pages Boutique, Retours (politique) et Reversements
  * et Livraison (note de livraison).
  *
  * L'objet est TOUJOURS envoyé en entier à `updateAppConfig` : chaque page part des dernières

@@ -685,6 +685,17 @@ export const backofficeApi = {
   // Relance du remboursement automatique : { success, status, message, refund } (success=false : nouvel échec, message explicatif)
   retryRefund: (refundId) =>
     request(`/api/v1/refunds/${encodeURIComponent(refundId)}/retry`, { method: "POST" }),
+  // Transfert pay-in -> wallet Paiement Pro (admin) : trancher un état INCERTAIN (sans rappeler l'API) / relancer un échec certain
+  resolveWalletTransfer: (id, { succeeded, reason }) =>
+    request(`/api/v1/backoffice/wallet-transfers/${encodeURIComponent(id)}/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ succeeded, reason })
+    }),
+  retryWalletTransfer: (id) =>
+    request(`/api/v1/backoffice/wallet-transfers/${encodeURIComponent(id)}/retry`, {
+      method: "POST",
+      body: JSON.stringify({ confirmed: true })
+    }),
   // Remboursements à traiter avec ancienneté et niveau d'alerte (OK / WARNING > 48 h / CRITICAL > 10 j)
   refundSla: () => request("/api/v1/refunds/sla"),
   createOrder: (payload) =>
@@ -1023,6 +1034,29 @@ export const backofficeApi = {
     request("/api/v1/backoffice/shipping-pricing/rates", { method: "PUT", body: JSON.stringify(rates) }),
   shippingPricingImportRates: (csv) =>
     request("/api/v1/backoffice/shipping-pricing/rates/import", { method: "POST", body: JSON.stringify({ csv }) }),
+  // Grille de livraison : export / modele CSV, import en deux temps (apercu puis application), sauvegardes
+  shippingGridExport: () => requestBlob("/api/v1/backoffice/shipping-pricing/export", { headers: { Accept: "text/csv" } }),
+  shippingGridTemplate: () => requestBlob("/api/v1/backoffice/shipping-pricing/export/template", { headers: { Accept: "text/csv" } }),
+  shippingGridImportPreview: (file, { mode = "MERGE", validated = false } = {}) => {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("mode", mode);
+    body.append("validated", String(Boolean(validated)));
+    return request("/api/v1/backoffice/shipping-pricing/import/preview", { method: "POST", body });
+  },
+  shippingGridImportApply: (file, token, { mode = "MERGE", validated = false } = {}) => {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("token", token);
+    body.append("mode", mode);
+    body.append("validated", String(Boolean(validated)));
+    return request("/api/v1/backoffice/shipping-pricing/import/apply", { method: "POST", body });
+  },
+  shippingGridBackups: () => request("/api/v1/backoffice/shipping-pricing/import/backups"),
+  shippingGridBackupDownload: (id) =>
+    requestBlob(`/api/v1/backoffice/shipping-pricing/import/backups/${encodeURIComponent(id)}/download`, { headers: { Accept: "text/csv" } }),
+  shippingGridRestore: (id) =>
+    request(`/api/v1/backoffice/shipping-pricing/import/backups/${encodeURIComponent(id)}/restore`, { method: "POST" }),
   shippingPricingPartnerPickups: () => request("/api/v1/backoffice/shipping-pricing/partners/pickups"),
   shippingPricingSavePartnerPickup: (partnerId, payload) =>
     request(`/api/v1/backoffice/shipping-pricing/partners/${encodeURIComponent(partnerId)}/pickup`, { method: "PUT", body: JSON.stringify(payload) }),
@@ -1226,11 +1260,30 @@ export const backofficeApi = {
     if (limit !== null && limit !== undefined) params.set("limit", `${limit}`);
     return request(`/api/v1/backoffice/recipients?${params.toString()}`);
   },
-  messages: (page = 0, size = 20) => {
+  // Filtres optionnels : direction (INBOUND|OUTBOUND), handling (NEW|READ|PROCESSED|ARCHIVED), status (PENDING|SENT|FAILED), q
+  messages: (page = 0, size = 20, { direction, handling, status, q } = {}) => {
     const params = new URLSearchParams({ page, size });
+    if (direction) params.set("direction", direction);
+    if (handling) params.set("handling", handling);
+    if (status) params.set("status", status);
+    if (q && `${q}`.trim()) params.set("q", `${q}`.trim());
     return request(`/api/v1/backoffice/messages?${params.toString()}`);
   },
+  // Compteurs de la boîte de réception Contact : { unread, read, processed, archived, total }
+  contactSummary: () => request("/api/v1/backoffice/messages/summary"),
   message: (id) => request(`/api/v1/backoffice/messages/${id}`),
+  // Traitement d'un message reçu : { status?, internalNote? } (champ absent = inchangé)
+  updateMessageHandling: (id, payload) =>
+    request(`/api/v1/backoffice/messages/${id}/handling`, {
+      method: "PUT", // PATCH n'est pas autorisé par la configuration CORS (CORS_ALLOWED_METHODS)
+      body: JSON.stringify(payload)
+    }),
+  // Réponse e-mail à l'expéditeur : { subject?, body }
+  replyToMessage: (id, payload) =>
+    request(`/api/v1/backoffice/messages/${id}/reply`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   createMessage: (payload) =>
     request("/api/v1/backoffice/messages", {
       method: "POST",

@@ -31,7 +31,7 @@ const formatAge = (hours) => {
  * Remboursements « a traiter » : engages sous 48 h (orange au-dela), plafond de 14 jours (rouge apres 10 jours).
  * Masque tant qu'il n'y a rien a traiter ; ne remplace pas le traitement depuis le detail de la commande.
  */
-export default function RefundSlaPanel({ reloadKey = 0 }) {
+export default function RefundSlaPanel({ reloadKey = 0, showEmpty = false, compactLink = null }) {
   const navigate = useNavigate();
   const [sla, setSla] = useState(null);
   const [onlyLate, setOnlyLate] = useState(false);
@@ -48,12 +48,34 @@ export default function RefundSlaPanel({ reloadKey = 0 }) {
   }, [reloadKey]);
 
   const items = Array.isArray(sla?.items) ? sla.items : [];
-  if (!sla || items.length === 0) return null;
+  if (!sla || items.length === 0) {
+    if (!showEmpty) return null;
+    return (
+      <Card className="p-4 text-sm text-muted-foreground">
+        {sla ? "Aucun remboursement à traiter." : "Impossible de charger les remboursements à traiter."}
+      </Card>
+    );
+  }
 
   const visible = onlyLate ? items.filter((i) => i.level !== "OK") : items;
   const critical = sla.criticalCount || 0;
   const late = sla.warningCount || 0;
   const tone = critical > 0 ? "border-rose-300 dark:border-rose-900/60" : late > 0 ? "border-orange-300 dark:border-orange-900/60" : "";
+
+  if (compactLink) {
+    return (
+      <Card className={cn("flex flex-wrap items-center gap-3 p-3 sm:p-4", tone)}>
+        <AlertTriangle className={cn("h-5 w-5", critical > 0 ? "text-rose-600" : late > 0 ? "text-orange-500" : "text-muted-foreground")} />
+        <p className="text-sm">
+          <span className="font-semibold">Remboursements à traiter ({sla.total})</span>
+          {late > 0 ? <span className="text-muted-foreground"> · {late} en retard{critical > 0 ? `, dont ${critical} critique(s)` : ""}</span> : null}
+        </p>
+        <Button variant="outline" size="sm" className="ml-auto" onClick={() => navigate(compactLink)}>
+          Ouvrir la file
+        </Button>
+      </Card>
+    );
+  }
 
   return (
     <Card className={cn("space-y-3 p-3 sm:p-4", tone)}>

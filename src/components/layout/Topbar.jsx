@@ -22,6 +22,7 @@ import { backofficeApi } from "../../services/api.js";
 import { useNotificationsContext } from "../../contexts/NotificationsContext.jsx";
 import { cn } from "../../utils/cn.js";
 import { findSettingsSection } from "../../pages/settings/sections.js";
+import { findLogisticsSection } from "../../pages/logistics/sections.js";
 export default function Topbar({ onMenuClick }) {
   const [focused, setFocused] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -103,12 +104,11 @@ export default function Topbar({ onMenuClick }) {
       "/finance": { parent: "Finance", current: "Paiements" },
       "/analytics": { parent: "Analytics", current: "Tableaux" },
       "/settings": { parent: "Paramètres", current: "Configuration" },
-      "/messages": { parent: "Messages", current: "Historique" },
+      "/contact": { parent: "Contact", current: "Messages" },
       "/couriers": { parent: "Livreurs", current: "Liste" },
       "/returns": { parent: "Retours", current: "Liste" },
       "/media": { parent: "Média", current: "Bibliothèque" },
       "/blog-posts": { parent: "Blog", current: "Articles" },
-      "/contacts": { parent: "Contacts", current: "Demandes" },
       "/product-reviews": { parent: "Avis produits", current: "Modération" }
     };
 
@@ -117,6 +117,29 @@ export default function Topbar({ onMenuClick }) {
       return [
         { label: x.parent, to: path === "/" ? "/" : path.split("/").slice(0, 2).join("/") || "/" },
         { label: x.current, to: null }
+      ];
+    }
+
+    if (path.startsWith("/returns/")) {
+      const sec = path.startsWith("/returns/remboursements") ? "Remboursements" : path.startsWith("/returns/politique") ? "Politique de retour" : "Demandes";
+      return [
+        { label: "Retours", to: "/returns" },
+        { label: sec, to: null }
+      ];
+    }
+
+    if (path.startsWith("/contact/")) {
+      const sec = path.startsWith("/contact/envoyer") ? "Envoyer un message" : path.startsWith("/contact/historique") ? "Historique" : "Boîte de réception";
+      return [
+        { label: "Contact", to: "/contact" },
+        { label: sec, to: null }
+      ];
+    }
+
+    if (path.startsWith("/logistics/")) {
+      return [
+        { label: "Livraison", to: "/logistics" },
+        { label: findLogisticsSection(path)?.label || "Suivi", to: null }
       ];
     }
 
@@ -192,7 +215,7 @@ export default function Topbar({ onMenuClick }) {
       { label: "Créer un produit", keywords: ["creer", "créer", "produit"], action: () => navigate("/products/create") },
       { label: "Ajouter un client", keywords: ["creer", "créer", "client"], action: () => navigate("/customers?create=1") },
       { label: "Utilisateurs", keywords: ["users", "utilisateurs"], action: () => navigate("/users") },
-      { label: "Messages", keywords: ["messages", "email", "mail"], action: () => navigate("/messages") },
+      { label: "Contact", keywords: ["contact", "messages", "email", "mail", "boite", "inbox"], action: () => navigate("/contact") },
       { label: "Déconnexion", keywords: ["logout", "deconnexion", "déconnexion"], action: handleLogout }
     ],
     [handleLogout, navigate]
@@ -332,7 +355,7 @@ export default function Topbar({ onMenuClick }) {
               className="hidden lg:inline-flex h-9 rounded-full border-dashed"
               onClick={() => {
                 closeMenus();
-                navigate("/messages");
+                navigate("/contact");
               }}
             >
               Messages

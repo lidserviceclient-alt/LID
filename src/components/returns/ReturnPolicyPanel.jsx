@@ -1,13 +1,13 @@
-import Input from "../../components/ui/Input.jsx";
-import Select from "../../components/ui/Select.jsx";
-import SettingsCard from "./components/SettingsCard.jsx";
-import SettingsField, { SettingsTextarea } from "./components/SettingsField.jsx";
-import SettingsStatus from "./components/SettingsStatus.jsx";
-import SaveBar from "./components/SaveBar.jsx";
-import { useShopProfile } from "./hooks/useShopProfile.js";
-import { formatRefundPolicyLabel, formatReturnWindowLabel } from "./settingsUtils.js";
+import Input from "../ui/Input.jsx";
+import Select from "../ui/Select.jsx";
+import SettingsCard from "../../pages/settings/components/SettingsCard.jsx";
+import SettingsField, { SettingsTextarea } from "../../pages/settings/components/SettingsField.jsx";
+import SettingsStatus from "../../pages/settings/components/SettingsStatus.jsx";
+import SaveBar from "../../pages/settings/components/SaveBar.jsx";
+import { useShopProfile } from "../../pages/settings/hooks/useShopProfile.js";
+import { formatRefundPolicyLabel, formatReturnWindowLabel } from "../../pages/settings/settingsUtils.js";
 
-export default function ReturnsAndPayoutsSettings() {
+export default function ReturnPolicyPanel() {
   const { shopForm, setField, shopLoading, shopSaving, shopError, shopSuccess, loadShopProfile, submitShop } =
     useShopProfile();
   const disabled = shopLoading || shopSaving;
@@ -26,7 +26,7 @@ export default function ReturnsAndPayoutsSettings() {
     <form onSubmit={submitShop} className="space-y-6">
       <SettingsStatus error={shopError} success={shopSuccess} />
 
-      <SettingsCard title="Modalités de retour" description={summary}>
+      <SettingsCard title="Fenêtre, coût et remboursement" description={summary}>
         <div className="grid gap-4 md:grid-cols-2">
           <SettingsField id="return-unit" label="Unité du délai de retour">
             <Select
@@ -122,46 +122,6 @@ export default function ReturnsAndPayoutsSettings() {
               placeholder="Politique de retour affichée au client"
               value={shopForm.returnPolicyText}
               onChange={(e) => setField("returnPolicyText")(e.target.value)}
-              disabled={disabled}
-            />
-          </SettingsField>
-        </div>
-      </SettingsCard>
-
-      <SettingsCard
-        title="Commission et frais partenaires"
-        description="Montants retenus sur les ventes des partenaires avant reversement."
-      >
-        <div className="grid gap-4 md:grid-cols-2">
-          <SettingsField
-            id="partner-margin"
-            label="Commission LID sur les ventes partenaires (%)"
-            hint="Saisir 10 pour 10 %."
-          >
-            <Input
-              id="partner-margin"
-              placeholder="10"
-              type="number"
-              min="0"
-              step="0.1"
-              value={shopForm.partnerMarginPercent}
-              onChange={(e) => setField("partnerMarginPercent")(e.target.value)}
-              disabled={disabled}
-            />
-          </SettingsField>
-          <SettingsField
-            id="payment-fee"
-            label="Frais de transaction déduits du partenaire (%)"
-            hint="Saisir 3 pour 3 % (tarif Paiement Pro négocié : encaissement 3 %, reversement 2,5 %)."
-          >
-            <Input
-              id="payment-fee"
-              placeholder="3"
-              type="number"
-              min="0"
-              step="0.1"
-              value={shopForm.paymentFeePercent}
-              onChange={(e) => setField("paymentFeePercent")(e.target.value)}
               disabled={disabled}
             />
           </SettingsField>
