@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, MapPin, Package, Timer, TrendingUp } from 'lucide-react'
+import { ArrowRight, MapPin, Package, Store, Timer, TrendingUp } from 'lucide-react'
 
 import { useCourierDay } from '../context/LogisticsResolverContext'
 import { getAuthenticatedUser } from '../services/auth'
@@ -50,6 +50,11 @@ export default function HomePage() {
   const active = [...activeAll].sort((a, b) => rank[statusOf(a)] - rank[statusOf(b)]).slice(0, 5)
   const inTransitCount = mine.filter((shipment) => statusOf(shipment) === 'EN_COURS').length
   const deliveredTodayCount = mine.filter((shipment) => statusOf(shipment) === 'LIVREE').length
+  // Collectes option B (boutique -> entrepôt) : à retirer et en route vers l'entrepôt
+  const myCollections = Array.isArray(data?.collections?.mine) ? data.collections.mine : []
+  const toCollectCount = myCollections.filter((item) => item?.collection?.status === 'AFFECTEE').length
+  const toDepositCount = myCollections.filter((item) => item?.collection?.status === 'COLLECTEE' && !item?.collection?.depositedAt).length
+  const availableCollectCount = Array.isArray(data?.collections?.available) ? data.collections.available.length : 0
 
   const toggleStatus = () => {
     const next = isOnline ? 'OFFLINE' : 'AVAILABLE'
@@ -98,6 +103,25 @@ export default function HomePage() {
           <p className="text-2xl font-black text-neutral-900">{formatNumber(deliveredTodayCount)}</p>
         </div>
       </div>
+
+      {toCollectCount + toDepositCount + availableCollectCount > 0 ? (
+        <Link
+          to="/deliveries?tab=collect"
+          className="flex items-center gap-4 bg-white p-5 rounded-3xl shadow-sm border border-neutral-100 active:scale-[0.99] transition-transform"
+        >
+          <div className="w-10 h-10 bg-amber-50 text-amber-700 rounded-full flex items-center justify-center shrink-0">
+            <Store size={20} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-neutral-500 text-xs font-bold uppercase tracking-wider">Collectes boutique → entrepôt</p>
+            <p className="text-sm font-bold text-neutral-900">
+              {formatNumber(toCollectCount)} à retirer · {formatNumber(toDepositCount)} à déposer
+              {availableCollectCount ? ` · ${formatNumber(availableCollectCount)} disponibles` : ''}
+            </p>
+          </div>
+          <ArrowRight size={20} className="text-neutral-400" />
+        </Link>
+      ) : null}
 
       <div>
         <div className="flex items-center justify-between px-2 mb-4">

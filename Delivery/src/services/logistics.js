@@ -113,3 +113,35 @@ export function markArrived(id) {
     method: 'POST',
   })
 }
+
+/** Missions de collecte (option B) : les miennes, disponibles, reçues aujourd'hui, et l'entrepôt de destination. */
+export function getMyCollections() {
+  return authorizedApiRequest('/api/v1/backoffice/logistics/my-collections')
+}
+
+/** Retrait chez le partenaire : le code du colis (QR scanné ou code saisi) prouve le retrait. Idempotent. */
+export function pickupCollection(qr, proof = 'SCAN') {
+  return authorizedApiRequest('/api/v1/backoffice/logistics/collections/pickup', {
+    method: 'POST',
+    body: { qr: normalizeShipmentQr(qr), proof },
+  })
+}
+
+/** Colis déposé à l'entrepôt LID (la réception est ensuite faite par le personnel). Idempotent. */
+export function depositCollection(shipmentId) {
+  return authorizedApiRequest(
+    `/api/v1/backoffice/logistics/shipments/${encodeURIComponent(shipmentId)}/collection/deposit`,
+    { method: 'POST' },
+  )
+}
+
+/**
+ * Scan unique : retrait d'une collecte (colis option B pas encore à l'entrepôt) ou prise en charge d'une livraison.
+ * @returns {{ legType: 'COLLECTE'|'LIVRAISON', shipmentId: number, collection?: object, delivery?: object }}
+ */
+export function courierScan(qr, proof = 'SCAN') {
+  return authorizedApiRequest('/api/v1/backoffice/logistics/courier/scan', {
+    method: 'POST',
+    body: { qr: normalizeShipmentQr(qr), proof },
+  })
+}

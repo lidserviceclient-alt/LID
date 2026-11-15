@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { QrCode, Search, X, Package, MapPin, Phone, MessageCircle, Navigation, RefreshCw, CloudOff, ChevronRight } from 'lucide-react'
+import { QrCode, Search, X, Package, MapPin, Phone, MessageCircle, Navigation, RefreshCw, CloudOff, ChevronRight, Store, Crosshair } from 'lucide-react'
 import { Html5Qrcode } from 'html5-qrcode'
 
 import { useCourierDay, useShipmentDetailResolver } from '../context/LogisticsResolverContext'
-import { normalizeShipmentQr, scanShipment } from '../services/logistics'
-import { getPendingActions, subscribeQueue } from '../services/offlineQueue'
+import { courierScan, normalizeShipmentQr } from '../services/logistics'
+import { getPendingActions, isNetworkError, runOrQueue, subscribeQueue } from '../services/offlineQueue'
+import { COLLECTION_BADGE, deliveryLegUi, distanceKm, formatKm, groupByPartner } from '../utils/collections'
 import { directionsLink, telLink, vibrate, whatsappLink } from '../utils/contact'
 
 const GROUPS = [
@@ -18,6 +19,7 @@ const GROUPS = [
 
 const TABS = [
   { label: 'Tout', value: '' },
+  { label: 'Collectes', value: 'collect' },
   { label: 'En livraison', value: 'transit' },
   { label: 'À récupérer', value: 'pickup' },
   { label: 'Échecs', value: 'failed' },
@@ -117,8 +119,9 @@ function QuickLink({ href, label, icon, className, external }) {
   )
 }
 
-function MissionCard({ shipment, group, pending, maxAttempts, onOpen }) {
+function MissionCard({ shipment, group, pending, maxAttempts, onOpen, distance }) {
   const badge = toStatusUi(shipment?.status)
+  const leg = deliveryLegUi(shipment)
   const canContact = group === 'transit' || group === 'pickup' || group === 'failed'
   const phone = shipment?.customerPhone
   const directions = directionsLink({
@@ -133,6 +136,8 @@ function MissionCard({ shipment, group, pending, maxAttempts, onOpen }) {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
+              <span className={`rounded-full px-2 py-1 text-[11px] font-bold ${leg.className}`}>{leg.label}</span>
+              {distance != null ? <span className="text-xs font-bold text-neutral-500">{formatKm(distance)}</span> : null}
               {pending ? (
                 <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">
                   <CloudOff size={12} /> En attente d’envoi
@@ -181,6 +186,50 @@ function MissionCard({ shipment, group, pending, maxAttempts, onOpen }) {
   )
 }
 
+/** Une boutique = un passage : tous ses colis à retirer pour l'entrepôt LID. */
+function PartnerCollectionCard({ group, distance, onOpen }) {
+  const { counts, partner } = group
+  const phone = partner?.phone
+  const directions = directionsLink({ latitude: partner?.latitude, longitude: partner?.longitude, address: partner?.address })
+  const parts = []
+  if (counts.toPickup) parts.push(`${counts.toPickup} à retirer`)
+  if (counts.available) parts.push(`${counts.available} disponible${counts.available > 1 ? 's' : ''}`)
+  if (counts.collected) parts.push(`${counts.collected} vers l’entrepôt`)
+  if (counts.deposited) parts.push(`${counts.deposited} déposé${counts.deposited > 1 ? 's' : ''}`)
+  return (
+    <div className="w-full rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+      <button type="button" onClick={onOpen} className="w-full text-left">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`rounded-full px-3 py-1 text-xs font-bold ${COLLECTION_BADGE.className}`}>{COLLECTION_BADGE.label}</span>
+              {counts.late ? <span className="rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">{counts.late} en retard</span> : null}
+              {distance != null ? <span className="text-xs font-bold text-neutral-500">{formatKm(distance)}</span> : null}
+            </div>
+            <h3 className="mt-2 flex items-center gap-2 truncate text-lg font-black text-neutral-900">
+              <Store size={18} className="shrink-0" /> {group.label}
+            </h3>
+            <p className="text-sm font-semibold text-neutral-500">
+              {group.items.length} colis · {parts.join(' · ')}
+            </p>
+          </div>
+          <ChevronRight size={22} className="mt-1 shrink-0 text-neutral-400" />
+        </div>
+        <div className="mt-3 flex items-start gap-2 text-sm text-neutral-700">
+          <MapPin size={16} className="mt-0.5 shrink-0" />
+          <span className="line-clamp-2 font-medium">{partner?.address || 'Adresse de retrait non renseignée'}</span>
+        </div>
+      </button>
+      {phone || directions ? (
+        <div className="mt-3 flex gap-2">
+          <QuickLink href={telLink(phone)} label="Appeler" icon={Phone} className="bg-green-600 text-white" />
+          <QuickLink href={directions} label="Itinéraire" icon={Navigation} className="bg-neutral-900 text-white" external />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export default function DeliveriesPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -190,6 +239,9 @@ export default function DeliveriesPage() {
   const [scanLoading, setScanLoading] = useState(false)
   const [manualQr, setManualQr] = useState('')
   const [pending, setPending] = useState(() => getPendingActions())
+  const [sortMode, setSortMode] = useState('age') // age | near
+  const [position, setPosition] = useState(null)
+  const [positionError, setPositionError] = useState('')
   const [, setClock] = useState(0)
   const html5QrCodeRef = useRef(null)
   const isScanningRef = useRef(false)
@@ -225,18 +277,75 @@ export default function DeliveriesPage() {
     return result
   }, [data, q])
 
+  // Tri par proximité : position demandée seulement quand le livreur choisit ce tri
+  const chooseSort = (mode) => {
+    setSortMode(mode)
+    if (mode !== 'near' || position) return
+    if (!navigator?.geolocation) {
+      setPositionError('Géolocalisation indisponible sur cet appareil.')
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        setPosition({ lat: p.coords.latitude, lng: p.coords.longitude })
+        setPositionError('')
+      },
+      () => setPositionError('Position indisponible : activez la localisation pour trier par proximité.'),
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    )
+  }
+  const distanceTo = (target) => (sortMode === 'near' && position ? distanceKm(position, target) : null)
+  const byNear = (target) => (x, y) => {
+    const dx = distanceTo(target(x))
+    const dy = distanceTo(target(y))
+    if (dx == null && dy == null) return 0
+    if (dx == null) return 1
+    if (dy == null) return -1
+    return dx - dy
+  }
+  const customerPoint = (sh) => ({ latitude: sh?.customerLatitude, longitude: sh?.customerLongitude })
+  if (sortMode === 'near' && position) {
+    ;['transit', 'pickup', 'failed'].forEach((key) => grouped[key].sort(byNear(customerPoint)))
+  }
+
+  const collectionGroups = useMemo(() => {
+    const query = q.trim().toLowerCase()
+    const groups = groupByPartner(data?.collections?.mine || [], data?.collections?.available || []).filter((group) => {
+      if (!query) return true
+      const haystack = [group.label, group.partner?.address, group.partner?.phone, ...group.items.map((i) => i?.shipment?.orderId)]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(query)
+    })
+    // Mes collectes d'abord, puis les plus anciennes (ou les plus proches)
+    groups.sort((x, y) => {
+      const ownX = x.counts.toPickup + x.counts.collected > 0 ? 0 : 1
+      const ownY = y.counts.toPickup + y.counts.collected > 0 ? 0 : 1
+      if (ownX !== ownY) return ownX - ownY
+      return `${x.oldest}`.localeCompare(`${y.oldest}`)
+    })
+    if (sortMode === 'near' && position) groups.sort(byNear((g) => g.partner))
+    return groups
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, q, sortMode, position])
+  const collectCount = collectionGroups.reduce((total, g) => total + g.items.filter((i) => i?.collection?.status !== 'COLLECTEE' || !i?.collection?.depositedAt).length, 0)
+  const showCollections = !activeTab.value || activeTab.value === 'collect'
+
   const visibleGroups = GROUPS.filter((group) => {
+    if (activeTab.value === 'collect') return false
     if (!activeTab.value) return true
     if (activeTab.value === 'pickup') return group.key === 'pickup' || group.key === 'available'
     return group.key === activeTab.value
   })
   const countFor = (tab) => {
-    if (!tab) return GROUPS.reduce((total, g) => total + (g.key === 'delivered' ? 0 : grouped[g.key].length), 0)
+    if (tab === 'collect') return collectCount
+    if (!tab) return collectCount + GROUPS.reduce((total, g) => total + (g.key === 'delivered' ? 0 : grouped[g.key].length), 0)
     if (tab === 'pickup') return grouped.pickup.length + grouped.available.length
     return grouped[tab]?.length || 0
   }
   const pendingIds = new Set(pending.map((action) => `${action.shipmentId}`))
-  const totalShown = visibleGroups.reduce((total, g) => total + grouped[g.key].length, 0)
+  const totalShown = visibleGroups.reduce((total, g) => total + grouped[g.key].length, 0) + (showCollections ? collectionGroups.length : 0)
 
   const stopScan = async () => {
     try {
@@ -262,7 +371,18 @@ export default function DeliveriesPage() {
     await stopScan()
 
     try {
-      const detail = await scanShipment(qr)
+      // Scan unique : retrait d'une collecte (option B, avant l'entrepôt) ou prise en charge d'une livraison
+      const result = await courierScan(qr)
+      if (result?.legType === 'COLLECTE' && result?.collection) {
+        vibrate([40, 40, 40])
+        refresh().catch(() => {})
+        setScanOpen(false)
+        setManualQr('')
+        const partnerId = result.collection.partner?.partnerId || result.collection.shipment?.shipperId
+        navigate(`/deliveries/collect/${encodeURIComponent(partnerId)}`)
+        return
+      }
+      const detail = result?.delivery
       if (detail?.id) {
         vibrate([40, 40, 40])
         sessionStorage.setItem('lid_last_scanned_shipment', JSON.stringify(detail))
@@ -276,11 +396,19 @@ export default function DeliveriesPage() {
       setScanError('Scan OK mais expédition introuvable.')
     } catch (err) {
       vibrate(200)
-      setScanError(
-        !err?.status
-          ? 'Pas de réseau : la prise en charge doit être faite en ligne. Réessayez dès que le réseau revient.'
-          : err?.message || 'Impossible de démarrer la livraison.',
-      )
+      if (isNetworkError(err) || !err?.status) {
+        // Hors ligne : seul un retrait de collecte peut être enregistré et rejoué (idempotent côté serveur)
+        try {
+          await runOrQueue('collect', qr, { qr, proof: 'SCAN' })
+        } catch {
+          // ignoré : message ci-dessous
+        }
+        setScanError(
+          'Pas de réseau : si c’est un retrait de collecte chez une boutique, il est enregistré et sera envoyé au retour du réseau. Une prise en charge de livraison doit être faite en ligne.',
+        )
+      } else {
+        setScanError(err?.message || 'Impossible de démarrer la livraison.')
+      }
     } finally {
       setScanLoading(false)
       isScanningRef.current = false
@@ -391,6 +519,27 @@ export default function DeliveriesPage() {
             )
           })}
         </div>
+
+        <div className="mt-3 flex items-center gap-2" role="group" aria-label="Tri des missions">
+          {[
+            { value: 'age', label: 'Plus anciennes' },
+            { value: 'near', label: 'Proximité' },
+          ].map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => chooseSort(option.value)}
+              aria-pressed={sortMode === option.value}
+              className={`flex items-center gap-1 whitespace-nowrap px-3 py-2 rounded-full text-xs font-bold ${
+                sortMode === option.value ? 'bg-[#6aa200] text-white' : 'bg-neutral-100 text-neutral-700'
+              }`}
+            >
+              {option.value === 'near' ? <Crosshair size={14} /> : null}
+              {option.label}
+            </button>
+          ))}
+          {positionError && sortMode === 'near' ? <span className="text-xs font-semibold text-red-600">{positionError}</span> : null}
+        </div>
       </div>
 
       {error ? (
@@ -407,7 +556,27 @@ export default function DeliveriesPage() {
           <p className="text-neutral-600 font-semibold">{q ? 'Aucune mission ne correspond.' : 'Aucune mission pour le moment.'}</p>
         </div>
       ) : (
-        visibleGroups.map((group) => {
+        <>
+        {showCollections && (collectionGroups.length > 0 || activeTab.value === 'collect') ? (
+          <section className="space-y-3">
+            <h2 className="px-1 text-sm font-black uppercase tracking-wider text-neutral-500">
+              Collectes boutique → entrepôt <span className="text-neutral-400">({collectionGroups.length} boutique{collectionGroups.length > 1 ? 's' : ''})</span>
+            </h2>
+            {collectionGroups.length === 0 ? (
+              <p className="px-1 text-sm text-neutral-500">Aucune collecte à faire.</p>
+            ) : (
+              collectionGroups.map((group) => (
+                <PartnerCollectionCard
+                  key={group.partnerId}
+                  group={group}
+                  distance={distanceTo(group.partner)}
+                  onOpen={() => navigate(`/deliveries/collect/${encodeURIComponent(group.partnerId)}`)}
+                />
+              ))
+            )}
+          </section>
+        ) : null}
+        {visibleGroups.map((group) => {
           const list = grouped[group.key]
           if (list.length === 0 && (!activeTab.value || group.key === 'available')) return null
           return (
@@ -425,6 +594,7 @@ export default function DeliveriesPage() {
                     group={group.key}
                     pending={pendingIds.has(`${shipment?.id}`)}
                     maxAttempts={maxAttempts}
+                    distance={group.key === 'available' ? null : distanceTo(customerPoint(shipment))}
                     onOpen={() =>
                       group.key === 'available'
                         ? setScanOpen(true)
@@ -435,7 +605,8 @@ export default function DeliveriesPage() {
               )}
             </section>
           )
-        })
+        })}
+        </>
       )}
 
       {scanOpen && (

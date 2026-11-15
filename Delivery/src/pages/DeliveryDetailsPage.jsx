@@ -545,6 +545,17 @@ export default function DeliveryDetailsPage() {
             <MapPin size={18} className="mt-1 shrink-0 text-neutral-600" />
             <span className="break-words">{detail?.customerAddress || 'Adresse non renseignée'}</span>
           </div>
+          {/* Grille par zone : zone de livraison du client et livraison facturee au client pour ce colis */}
+          {detail?.shippingZoneName || detail?.billedShippingAmount != null ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              {detail?.shippingZoneName ? (
+                <span className="rounded-full bg-orange-100 px-3 py-1 font-bold text-orange-800">{detail.shippingZoneName}</span>
+              ) : null}
+              {detail?.billedShippingAmount != null ? (
+                <span className="text-neutral-600">Livraison facturée au client : {formatMoney(detail.billedShippingAmount, detail?.currency)}</span>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="mt-4 grid grid-cols-4 gap-2">
             <ContactButton href={telLink(phone)} label="Appeler" icon={Phone} className="bg-green-600 text-white" />

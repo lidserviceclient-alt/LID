@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
-import { getCourierDay, getDeliveryBootstrap, getShipmentDetailsCollection } from '../services/logistics'
+import { getCourierDay, getDeliveryBootstrap, getMyCollections, getShipmentDetailsCollection } from '../services/logistics'
 import { isRealtimeConnected, subscribeDeliveryRealtime } from '../services/realtime'
 import { QUEUE_FLUSHED_EVENT } from '../services/offlineQueue'
 
@@ -88,9 +88,11 @@ export function LogisticsResolverProvider({ children }) {
     courierDayWantedRef.current = true
     if (courierDayInflightRef.current) return courierDayInflightRef.current
     setCourierDay((prev) => ({ ...prev, isLoading: true }))
-    const request = getCourierDay()
-      .then((data) => {
-        setCourierDay({ data: data || null, error: '', isLoading: false, loaded: true, updatedAt: Date.now() })
+    // Livraisons et collectes (option B) en parallèle ; une collecte indisponible n'empêche pas les livraisons
+    const request = Promise.all([getCourierDay(), getMyCollections().catch(() => null)])
+      .then(([day, collections]) => {
+        const data = day ? { ...day, collections: collections || null } : null
+        setCourierDay({ data, error: '', isLoading: false, loaded: true, updatedAt: Date.now() })
         return data
       })
       .catch((err) => {

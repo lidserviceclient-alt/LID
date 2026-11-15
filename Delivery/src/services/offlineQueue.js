@@ -1,7 +1,8 @@
-import { confirmDelivery, markArrived, updateShipmentStatus } from './logistics'
+import { confirmDelivery, depositCollection, markArrived, pickupCollection, updateShipmentStatus } from './logistics'
 
 /**
- * File d'actions du livreur à rejouer quand le réseau revient (arrivée, échec, remise avec code).
+ * File d'actions du livreur à rejouer quand le réseau revient (arrivée, échec, remise avec code, retrait de collecte
+ * chez le partenaire, dépôt à l'entrepôt). Pour un retrait, `shipmentId` porte le code du colis scanné.
  * Le serveur accepte les rejeux sans effet de bord : une action déjà appliquée renvoie un succès.
  */
 const STORAGE_KEY = 'lid_delivery_pending_actions'
@@ -16,6 +17,8 @@ const EXECUTORS = {
       customerFacingComment: action.payload?.customerFacingComment,
     }),
   deliver: (action) => confirmDelivery(action.shipmentId, action.payload?.code),
+  collect: (action) => pickupCollection(action.payload?.qr || action.shipmentId, action.payload?.proof || 'SCAN'),
+  deposit: (action) => depositCollection(action.shipmentId),
 }
 
 const listeners = new Set()

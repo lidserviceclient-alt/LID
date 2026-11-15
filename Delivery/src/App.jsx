@@ -11,6 +11,7 @@ const ExplorePage = lazy(() => import('./pages/ExplorePage.jsx'))
 const LoginPage = lazy(() => import('./pages/LoginPage.jsx'))
 const DeliveriesPage = lazy(() => import('./pages/DeliveriesPage.jsx'))
 const DeliveryDetailsPage = lazy(() => import('./pages/DeliveryDetailsPage.jsx'))
+const CollectionRoutePage = lazy(() => import('./pages/CollectionRoutePage.jsx'))
 const MapPage = lazy(() => import('./pages/MapPage.jsx'))
 const HistoryPage = lazy(() => import('./pages/HistoryPage.jsx'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage.jsx'))
@@ -57,6 +58,7 @@ function App() {
               <Route path="/home" element={<HomePage />} />
               <Route path="/deliveries" element={<DeliveriesPage />} />
               <Route path="/deliveries/:shipmentId" element={<DeliveryDetailsPage />} />
+              <Route path="/deliveries/collect/:partnerId" element={<CollectionRoutePage />} />
               <Route path="/map" element={<MapPage />} />
               <Route path="/history" element={<HistoryPage />} />
             </Route>
