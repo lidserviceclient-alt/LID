@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import OrderShippingDetail from "@/components/tracking/OrderShippingDetail";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -31,6 +32,7 @@ import {
   ORDER_EVENT_LABEL,
   TONE_DOT,
   computeReturnDeadline,
+  DEFECT_REPORT_HOURS,
   formatDate,
   formatMoney,
   getOrderHeadline,
@@ -479,6 +481,14 @@ export default function OrderTracking() {
                 </p>
               ) : null}
 
+              {(order.status === "DELIVERED" && order.deliveredAt) ? (
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                  {Date.now() <= new Date(order.deliveredAt).getTime() + DEFECT_REPORT_HOURS * 3600 * 1000
+                    ? <>Produit défectueux ou non conforme ? Signalement possible jusqu'au <strong className="font-semibold text-neutral-900 dark:text-white">{formatDate(new Date(new Date(order.deliveredAt).getTime() + DEFECT_REPORT_HOURS * 3600 * 1000), { long: true })}</strong> ({DEFECT_REPORT_HOURS} h après la réception), via la page Retours.</>
+                    : <>Le délai de signalement d'une anomalie ({DEFECT_REPORT_HOURS} h après la réception) est écoulé ; vous pouvez encore demander un retour dans le délai ci-dessus.</>}
+                </p>
+              ) : null}
+
               {actions.length > 0 && (
                 <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center print:hidden">
                   {primaryAction && <ActionButton action={primaryAction} primary />}
@@ -563,6 +573,7 @@ export default function OrderTracking() {
                       </>
                     )}
                   </dl>
+                  <OrderShippingDetail reference={order.orderNumber} currency={order.currency} />
                   {!multiShipment && !deliveryCompleted && singleDeliveryCode ? <div className="mt-3"><DeliveryCode code={singleDeliveryCode} seller={singleShipment?.sellerName} /></div> : null}
                   {singleShipment?.comment && (singleShipment.status === "EN_COURS" || singleShipment.status === "ECHEC") ? (
                     <p className="mt-3 rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-200">{singleShipment.comment}</p>

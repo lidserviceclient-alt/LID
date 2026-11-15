@@ -73,6 +73,9 @@ export const isCustomerCancellable = (status) => ["PENDING", "PAID"].includes(no
 export const hasReceipt = (status) => !["PENDING", "CANCELED"].includes(normalizeOrderStatus(status));
 
 /** Fin de la fenetre de retour (meme regle que ReturnPolicyService : depart a la date de livraison). */
+/** Délai de signalement d'une anomalie (produit défectueux ou non conforme) après la réception : 48 h (CGV art. 6). */
+export const DEFECT_REPORT_HOURS = 48;
+
 export const computeReturnDeadline = ({ status, deliveryDate, createdAt }, returnWindow) => {
   if (normalizeOrderStatus(status) !== "DELIVERED") return null;
   const start = new Date(deliveryDate || createdAt || "");

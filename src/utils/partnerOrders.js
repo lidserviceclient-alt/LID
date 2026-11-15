@@ -107,5 +107,12 @@ export const normalizeShipments = (shipments) =>
       // Regle R4 : A = remise directe au livreur, B = collecte vers l'entrepot LID (null = colis anterieur = A)
       logisticsMode: s?.logisticsMode || "DIRECT_FROM_PARTNER",
       warehouseReceivedAt: s?.warehouseReceivedAt || null,
+      // Option B : trajet de collecte (null en A)
+      collectionStatus: s?.collectionStatus || null,
+      collectionCourierName: s?.collectionCourierName || "",
+      collectionAssignedAt: s?.collectionAssignedAt || null,
+      collectedAt: s?.collectedAt || null,
+      receiptCheck: s?.receiptCheck || null,
+      receiptNote: s?.receiptNote || "",
     };
   });

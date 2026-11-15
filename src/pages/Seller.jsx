@@ -273,7 +273,7 @@ const CONTRACT_VERSION = "Contrat Partenaire Vendeur v1.0";
 const buildContractSections = (commissionPercent) => [
   { title: "1. Objet du contrat", body: "Le présent contrat a pour objet de définir les conditions dans lesquelles le Vendeur propose ses produits sur la plateforme Life Distribution (LID)." },
   { title: "2. Obligations du Vendeur", body: "Le Vendeur s'engage à proposer des produits conformes, à respecter les délais de livraison indiqués et à fournir un service client de qualité. Toute contrefaçon est strictement interdite." },
-  { title: "3. Commission et Paiement", body: `LID prélève une commission de ${commissionPercent}% sur chaque vente réalisée. Les sommes dues sont reversées dans un délai de 14 jours ouvrés après confirmation de la livraison, déduction faite de la commission et des frais de transaction Mobile Money ou bancaire, sur le compte fourni par le Vendeur.` },
+  { title: "3. Commission et Paiement", body: `LID prélève une commission de ${commissionPercent}% sur chaque vente réalisée, calculée sur le prix TTC des articles ; la TVA applicable à la commission est facturée en supplément. Les sommes dues sont reversées dans un délai de 14 jours ouvrés après confirmation de la livraison, déduction faite de la commission (TVA incluse) et des frais de paiement (encaissement et reversement) Mobile Money ou bancaire, à la charge du Vendeur, sur le compte fourni par le Vendeur.` },
   { title: "4. Résiliation", body: "Chaque partie peut résilier le contrat avec un préavis de 30 jours. En cas de manquement grave, LID se réserve le droit de suspendre le compte immédiatement." },
   { title: "5. Confidentialité", body: "Les parties s'engagent à garder confidentielles toutes les informations commerciales échangées." },
 ];

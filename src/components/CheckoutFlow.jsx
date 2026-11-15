@@ -15,6 +15,8 @@ import { isValidInternationalPhone, isValidMobileMoneyPhone } from '@/utils/phon
 import { findMatchingAddress, formatAddressSummary, normalizeCustomerAddress, normalizeCustomerAddresses, pickPreferredAddress, splitFullName, toCustomerAddressPayload } from '@/utils/customerAddress';
 import { locateCurrentAddress } from '@/utils/geolocation';
 import { friendlyErrorMessage } from '@/utils/errorMessages';
+import { guessZoneCode, readStoredZone, storeZone, useShippingZones } from '@/services/shippingZoneService';
+import { ShippingBreakdown, ShippingZoneSelect } from '@/components/shipping/ShippingZone';
 
 const formatMoney = (value) => {
   const num = Number(value);
@@ -76,6 +78,15 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
   const customerSession = useCustomerSession();
   const [isResolvingCurrentAddress, setIsResolvingCurrentAddress] = useState(false);
   const [shippingCoordinates, setShippingCoordinates] = useState(null);
+  // Grille par zone : commune de livraison obligatoire (Abidjan) ; hors Abidjan = livraison estimee
+  const { groups: zoneGroups } = useShippingZones();
+  const [shippingZoneCode, setShippingZoneCodeState] = useState(() => readStoredZone());
+  const zoneTouchedRef = useRef(false);
+  const setShippingZoneCode = (code) => {
+    zoneTouchedRef.current = true;
+    setShippingZoneCodeState(code);
+    storeZone(code);
+  };
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [mobilePhoneTouched, setMobilePhoneTouched] = useState(false);
   const { data: appConfig } = useAppConfig();
@@ -256,12 +267,27 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
     if (address) applySavedAddress(address, accountPhone);
   };
 
-  // Recalcule les frais de livraison quand l'adresse (ou ses coordonnees) change
+  // Pre-selection de la commune d'apres l'adresse saisie (le client peut la changer ; jamais ecrasee apres un choix)
+  useEffect(() => {
+    if (!isOpen || zoneTouchedRef.current || zoneGroups.length === 0) return;
+    const known = zoneGroups.some((g) => g.options.some((o) => o.value === shippingZoneCode));
+    if (known) return;
+    const guessed = guessZoneCode(zoneGroups, formData.city, formData.address, line2);
+    if (guessed) {
+      setShippingZoneCodeState(guessed);
+      storeZone(guessed);
+    } else if (shippingZoneCode) {
+      setShippingZoneCodeState('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, zoneGroups, formData.city, formData.address, line2]);
+
+  // Recalcule les frais de livraison quand la commune, l'adresse (ou ses coordonnees) change
   useEffect(() => {
     if (!isOpen) return undefined;
     const address = `${formData.address || ''}`.trim();
     const hasCoords = Boolean(shippingCoordinates);
-    if (!address && !hasCoords) {
+    if (!address && !hasCoords && !shippingZoneCode) {
       setLiveQuote(null);
       return undefined;
     }
@@ -276,6 +302,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
           shippingAddress: `${address}, ${formData.city || ''}`.trim(),
           shippingLatitude: shippingCoordinates?.latitude ?? null,
           shippingLongitude: shippingCoordinates?.longitude ?? null,
+          shippingZoneCode: shippingZoneCode || undefined,
           shippingMethodCode,
           promoCode: `${promoCode || ''}`.trim() || undefined,
           items
@@ -287,7 +314,7 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
     }, 600);
     return () => { cancelled = true; clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, formData.address, formData.city, shippingCoordinates, shippingMethodCode, promoCode]);
+  }, [isOpen, formData.address, formData.city, shippingCoordinates, shippingZoneCode, shippingMethodCode, promoCode]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -393,6 +420,14 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
       toast.error("Saisis un numéro de téléphone valide.");
       return;
     }
+    if (!shippingZoneCode) {
+      toast.error("Choisissez votre commune de livraison.");
+      return;
+    }
+    if (liveQuote && liveQuote.shippingAvailable === false) {
+      toast.error(liveQuote.shippingUnavailableReason || "Livraison non disponible pour cette adresse.");
+      return;
+    }
     setStep(2);
   };
 
@@ -417,6 +452,10 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
       toast.error(`Le montant minimum de commande est de ${MINIMUM_ORDER_AMOUNT} FCFA.`);
       return;
     }
+    if (liveQuote && liveQuote.shippingAvailable === false) {
+      toast.error(liveQuote.shippingUnavailableReason || "Livraison non disponible pour cette adresse.");
+      return;
+    }
 
     setStep(3);
     setLoadingStep(1);
@@ -432,8 +471,11 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
         email: formData.email,
         phone: checkoutPhone,
         shippingAddress: `${formData.address}, ${line2.trim() ? `${line2.trim()}, ` : ''}${formData.city} ${formData.zip}`,
+        // Pays de livraison (absent = Côte d'Ivoire) : détermine la fenêtre de retour (7 jours, 2 à 3 semaines à l'international)
+        shippingCountry: `${selectedAddress?.country || accountCustomer?.country || ''}`.trim() || undefined,
         shippingLatitude: shippingCoordinates?.latitude ?? null,
         shippingLongitude: shippingCoordinates?.longitude ?? null,
+        shippingZoneCode: shippingZoneCode || undefined,
         shippingMethodCode,
         shippingMethodLabel,
         promoCode: `${promoCode || ''}`.trim() || undefined,
@@ -566,9 +608,10 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
                 <div className="flex justify-between text-sm text-neutral-500">
                   <span>Livraison</span>
                   <span className="font-medium text-neutral-800 dark:text-neutral-200">
-                    {normalizedShippingCost === 0 ? 'Gratuit' : `${formatMoney(normalizedShippingCost)} FCFA`}{liveQuote?.shippingDistanceEstimated ? ' (estimation)' : ''}
+                    {normalizedShippingCost === 0 ? 'Gratuit' : `${formatMoney(normalizedShippingCost)} FCFA`}{liveQuote?.shippingEstimate || liveQuote?.shippingDistanceEstimated ? ' (estimation)' : ''}
                   </span>
                 </div>
+                <ShippingBreakdown quote={liveQuote} />
                 <div className="flex justify-between items-baseline pt-3 border-t border-neutral-100 dark:border-neutral-800">
                   <span className="font-black text-sm">Total</span>
                   <div className="text-right">
@@ -724,6 +767,16 @@ export default function CheckoutFlow({ isOpen, onClose, product, quantity, cartI
                         ) : (
                           <p className="mt-1.5 text-xs text-neutral-400">Saisissez l'adresse ou utilisez votre position GPS.</p>
                         )}
+                      </div>
+
+                      <div>
+                        <label htmlFor="checkout-shipping-zone" className={labelCls}>Commune de livraison</label>
+                        <ShippingZoneSelect id="checkout-shipping-zone" groups={zoneGroups} value={shippingZoneCode}
+                          onChange={setShippingZoneCode} required className={inputCls} />
+                        <p className="mt-1.5 text-xs text-neutral-400">
+                          Abidjan : tarif de la zone de votre commune, par colis. Hors Abidjan : livraison estimée selon la distance.
+                        </p>
+                        {liveQuote ? <div className="mt-2"><ShippingBreakdown quote={liveQuote} compact /></div> : null}
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">

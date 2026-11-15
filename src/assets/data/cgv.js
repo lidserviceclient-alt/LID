@@ -9,7 +9,7 @@ export const LEGAL_INFO = {
   adresse: "Cocody, Attoban - Abidjan",
   telephone: "+225 07 11 246 145",
   mail:"lid.service.client@gmail.com",
-  updateDate: "3 juillet 2026",
+  updateDate: "3 juillet 2026", // à actualiser à la mise en ligne de la version relue par le juriste
   delaiReversementJours: "14",
 };
 
@@ -62,7 +62,7 @@ export const FOOTNOTES = [
 //  - un tableau de segments (chaîne | { fn: <id note> }) quand un appel de
 //    note de bas de page doit être inséré au milieu du texte.
 // ---------------------------------------------------------------------------
-export const buildArticles = ({ legalEmail, legal, returnWindowLabel = "sept (7) jours calendaires" }) => [
+export const buildArticles = ({ legalEmail, legal, returnWindowLabel = "sept (7) jours calendaires", internationalReturnWindowLabel = "vingt et un (21) jours calendaires" }) => [
   {
     title: "Article 1 : Objet et champ d'application",
     paragraphs: [
@@ -122,7 +122,15 @@ export const buildArticles = ({ legalEmail, legal, returnWindowLabel = "sept (7)
     title: "Article 6 : Livraison",
     paragraphs: [
       "Les délais et zones de livraison (Abidjan, intérieur de la Côte d'Ivoire, sous-région UEMOA le cas échéant) sont précisés sur la fiche de chaque produit ou service au moment de la commande et peuvent varier selon le vendeur (Éditeur ou Vendeur tiers) et le prestataire logistique choisi.",
-      "La livraison est réputée effectuée dès remise du produit à l'Acheteur ou à toute personne habilitée par lui à l'adresse indiquée lors de la commande. L'Acheteur est invité à vérifier l'état du colis à réception et à signaler toute anomalie (colis endommagé, produit manquant ou non conforme) dans un délai de quarante-huit (48) heures auprès du service client de la Plateforme.",
+      "Pour les Ventes Marketplace, la livraison s'effectue selon l'une des deux options suivantes, la Plateforme déterminant l'option applicable en fonction des caractéristiques du produit, des exigences de contrôle et de l'organisation logistique :",
+    ],
+    list: [
+      "Option A, livraison directe (mode par défaut) : le livreur récupère la commande directement chez le Vendeur tiers et la livre à l'Acheteur, sans passage par l'entrepôt de la Plateforme. Les frais de livraison sont entièrement à la charge de l'Acheteur ; le Vendeur tiers ne supporte aucun frais de ramassage ;",
+      "Option B, livraison en deux étapes via l'entrepôt de la Plateforme (Cocody Riviera 3) : le livreur récupère la commande chez le Vendeur tiers et la transporte jusqu'à l'entrepôt, où la Plateforme la réceptionne et, si nécessaire, la vérifie ou la regroupe, puis un second trajet est organisé vers l'Acheteur. Les frais de ramassage entre le point de vente du Vendeur tiers et l'entrepôt sont à la charge du Vendeur tiers ; les frais de livraison entre l'entrepôt (Cocody Riviera 3) et l'adresse de l'Acheteur sont à la charge de l'Acheteur.",
+    ],
+    paragraphsAfterList: [
+      "Un même trajet n'est jamais facturé à la fois à l'Acheteur et au Vendeur tiers. Pour les Ventes Directes, la livraison part de l'entrepôt de la Plateforme et les frais de livraison sont à la charge de l'Acheteur. Dans tous les cas, les frais de livraison applicables sont communiqués à l'Acheteur avant la validation de sa commande.",
+      "La livraison est réputée effectuée dès remise du produit à l'Acheteur ou à toute personne habilitée par lui à l'adresse indiquée lors de la commande. L'Acheteur est invité à vérifier l'état du colis à réception et à signaler toute anomalie (colis endommagé, produit manquant, non conforme ou défectueux) dans un délai de quarante-huit (48) heures à compter de la réception, auprès du service client de la Plateforme.",
       "En cas de retard de livraison significatif imputable au vendeur ou au transporteur, l'Acheteur peut solliciter l'annulation de sa commande et le remboursement intégral via le service client de la Plateforme.",
     ],
   },
@@ -134,6 +142,7 @@ export const buildArticles = ({ legalEmail, legal, returnWindowLabel = "sept (7)
         { fn: 4 },
         " et aux usages applicables au commerce électronique en Côte d'Ivoire, sauf exception légale (produits personnalisés, denrées périssables, produits descellés pour des raisons d'hygiène, services pleinement exécutés avec l'accord de l'Acheteur), l'Acheteur consommateur dispose d'un délai de " + returnWindowLabel + " à compter de la réception du produit pour exercer son droit de rétractation, sans avoir à justifier de motif, que le produit soit vendu par l'Éditeur ou par un Vendeur tiers.",
       ],
+      "Pour les commandes livrées en dehors de la Côte d'Ivoire, ce délai est porté à " + internationalReturnWindowLabel + " à compter de la réception du produit.",
       "Pour exercer ce droit, l'Acheteur doit contacter le service client de la Plateforme et retourner le produit dans son état d'origine, complet et non utilisé. Les frais de retour sont à la charge de l'Acheteur, sauf si le produit est non conforme ou défectueux, auquel cas ils sont pris en charge par le vendeur concerné (Éditeur ou Vendeur tiers).",
       "Le remboursement intervient dans un délai maximum de quatorze (14) jours ouvrés à compter de la réception et de la vérification du produit retourné, par le même moyen de paiement que celui utilisé lors de l'achat (recrédit Mobile Money, carte bancaire) ou par tout autre moyen convenu avec l'Acheteur. Pour les Ventes Marketplace, ce remboursement est avancé par la Plateforme via le compte séquestre puis, le cas échéant, répercuté sur les sommes dues au Vendeur tiers.",
     ],
@@ -160,13 +169,13 @@ export const buildArticles = ({ legalEmail, legal, returnWindowLabel = "sept (7)
   {
     title: "Article 11 : Reversement des fonds aux Vendeurs tiers",
     paragraphs: [
-      `Les sommes payées par les Acheteurs au titre des Ventes Marketplace sont reversées aux Vendeurs tiers, déduction faite de la commission de la Plateforme et des éventuels frais de transaction Mobile Money ou bancaire, dans un délai de ${legal.delaiReversementJours} jours ouvrés après confirmation de la livraison, sur le compte Mobile Money ou bancaire renseigné par le Vendeur tiers lors de son inscription.`,
+      `Les sommes payées par les Acheteurs au titre des Ventes Marketplace sont reversées aux Vendeurs tiers, déduction faite de la commission de la Plateforme et des frais de paiement (encaissement et reversement) Mobile Money ou bancaire, à la charge du Vendeur tiers, dans un délai de ${legal.delaiReversementJours} jours ouvrés après confirmation de la livraison, sur le compte Mobile Money ou bancaire renseigné par le Vendeur tiers lors de son inscription.`,
     ],
   },
   {
     title: "Article 12 : Annulation de commande",
     paragraphs: [
-      "L'Acheteur peut annuler sa commande tant que celle-ci n'a pas été préparée ou expédiée, via son espace personnel ou le service client. Le vendeur concerné (Éditeur ou Vendeur tiers) peut également annuler une commande en cas d'indisponibilité du produit, auquel cas l'Acheteur est intégralement remboursé dans un délai de sept (7) jours ouvrés.",
+      "L'Acheteur peut annuler sa commande tant que celle-ci n'a pas été préparée ou expédiée, via son espace personnel ou le service client. Le vendeur concerné (Éditeur ou Vendeur tiers) peut également annuler une commande en cas d'indisponibilité du produit, auquel cas l'Acheteur est intégralement remboursé : le remboursement est engagé dans un délai de quarante-huit (48) heures à compter de l'annulation et intervient au plus tard dans un délai de quatorze (14) jours ouvrés.",
     ],
   },
   {

@@ -3,7 +3,7 @@ import PageSEO from "@/components/PageSEO";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Plus, Minus } from "lucide-react";
 import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
-import { getReturnWindow } from "@/utils/policy.js";
+import { getReturnWindow, getInternationalReturnWindow } from "@/utils/policy.js";
 
 const FAQItem = ({ question, answer }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -43,6 +43,7 @@ export default function FAQ() {
   const { data: appConfig } = useAppConfig();
   const hubCity = appConfig?.city || "Abidjan";
   const returnWindow = getReturnWindow(appConfig).label;
+  const internationalReturnWindow = getInternationalReturnWindow(appConfig).label;
 
   const faqs = [
     {
@@ -51,6 +52,10 @@ export default function FAQ() {
         {
           question: "Quels sont les délais de livraison ?",
           answer: `Nous livrons généralement sous 2 à 5 jours ouvrables à ${hubCity} et ses environs. Pour l'intérieur du pays, comptez 3 à 7 jours. Les délais peuvent varier en fonction de la disponibilité des produits.`
+        },
+        {
+          question: "Qui paie les frais de livraison ?",
+          answer: "Par défaut (option A), le livreur récupère votre commande chez le vendeur et vous la livre directement : les frais de livraison sont entièrement à votre charge. Selon le produit, LID peut passer par son entrepôt de Cocody Riviera 3 (option B) : le vendeur paie alors le ramassage jusqu'à l'entrepôt et vous ne payez que le trajet entre l'entrepôt et votre adresse. Un même trajet n'est jamais facturé deux fois, et les frais vous sont indiqués avant la validation de votre commande."
         },
         {
           question: "Comment suivre ma commande ?",
@@ -67,11 +72,15 @@ export default function FAQ() {
       items: [
         {
           question: "Quelle est votre politique de retour ?",
-          answer: `Vous disposez de ${returnWindow} après réception pour retourner un article. Il doit être dans son état d'origine, non porté et avec ses étiquettes. Les frais de retour sont à votre charge, sauf produit défectueux ou non conforme.`
+          answer: `Vous disposez de ${returnWindow} après réception pour retourner un article. Il doit être dans son état d'origine, non porté et avec ses étiquettes. Les frais de retour sont à votre charge, sauf produit défectueux ou non conforme. Pour une livraison hors Côte d'Ivoire, le délai est de ${internationalReturnWindow}.`
         },
         {
           question: "Quand serai-je remboursé ?",
-          answer: "Le remboursement est effectué dans un délai maximum de 14 jours ouvrés après réception et vérification de votre retour, via le même moyen de paiement utilisé lors de l'achat."
+          answer: "Le remboursement est effectué dans un délai maximum de 14 jours ouvrés après réception et vérification de votre retour, via le même moyen de paiement utilisé lors de l'achat. Si le vendeur annule votre commande, le remboursement est engagé sous 48 heures, et au plus tard sous 14 jours ouvrés."
+        },
+        {
+          question: "Mon produit est défectueux ou non conforme, que faire ?",
+          answer: "Signalez l'anomalie au service client dans les 48 heures suivant la réception de votre commande. Les frais de retour sont alors pris en charge par le vendeur."
         }
       ]
     },

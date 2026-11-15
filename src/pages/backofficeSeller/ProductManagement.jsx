@@ -32,6 +32,12 @@ export default function ProductManagement() {
   const fileInputRef = useRef(null);
   const productImageInputRef = useRef(null);
   const [productImageUrl, setProductImageUrl] = useState("");
+  // Poids du produit (kg) : frais de livraison par tranche de poids et estimation des frais de ramassage (option B)
+  const [weightKg, setWeightKg] = useState("");
+  const weightGramsFromKg = (value) => {
+    const n = Number(`${value ?? ""}`.replace(",", "."));
+    return Number.isFinite(n) && n > 0 ? Math.round(n * 1000) : undefined;
+  };
   const [uploadingProductImage, setUploadingProductImage] = useState(false);
   const categoryOptions = useMemo(() => {
     const list = Array.isArray(bootstrap?.categoriesCollection?.categories)
@@ -102,7 +108,8 @@ export default function ProductManagement() {
         categoryId: `${p.categoryId || ""}`.trim(),
         categorySlug: `${p.categorySlug || ""}`.trim(),
         category: `${p.category || categoryById.get(`${p.categoryId || ""}`) || ""}`.trim(),
-        image: p.mainImageUrl || ""
+        image: p.mainImageUrl || "",
+        weightGrams: Number(p.weightGrams) > 0 ? Number(p.weightGrams) : null
       }));
       setProducts(normalized);
     } finally {
@@ -129,7 +136,8 @@ export default function ProductManagement() {
         categoryId: `${p.categoryId || ""}`.trim(),
         categorySlug: `${p.categorySlug || ""}`.trim(),
         category: `${p.category || categoryById.get(`${p.categoryId || ""}`) || ""}`.trim(),
-        image: p.mainImageUrl || ""
+        image: p.mainImageUrl || "",
+        weightGrams: Number(p.weightGrams) > 0 ? Number(p.weightGrams) : null
       }));
       setProducts(normalized);
       setLoading(false);
@@ -147,6 +155,7 @@ export default function ProductManagement() {
 
   const handleEdit = (product) => {
     setCurrentProduct(product);
+    setWeightKg(product?.weightGrams ? `${Number(product.weightGrams) / 1000}` : "");
     setAutoSku(`${product?.sku || ""}`.trim());
     setProductImageUrl(`${product?.image || ""}`.trim());
     setIsModalOpen(true);
@@ -184,6 +193,8 @@ export default function ProductManagement() {
       categorySlug: categorySlugById.get(newProduct.categoryId) || null,
       img: productImageUrl || null,
       mainImageUrl: productImageUrl || null,
+      // Vide = inchange (poids par defaut de LID pour un produit sans poids)
+      weightGrams: weightGramsFromKg(weightKg),
       status: "ACTIF"
     };
 
@@ -197,6 +208,7 @@ export default function ProductManagement() {
     setCurrentProduct(null);
     setAutoSku("");
     setProductImageUrl("");
+    setWeightKg("");
   };
 
   const handleProductImageUpload = async (file) => {
@@ -350,6 +362,7 @@ export default function ProductManagement() {
               setCurrentProduct(null);
               setAutoSku(generateAutoSku());
               setProductImageUrl("");
+              setWeightKg("");
               setIsModalOpen(true);
             }}
             className="flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
@@ -680,7 +693,25 @@ export default function ProductManagement() {
                 </div>
 
                 {/* Regle R4 : mode de livraison et frais annonces avant la mise en vente (accuse non bloquant) */}
-                <PartnerLogisticsNotice articleId={currentProduct?.id} weightGrams={currentProduct?.weightGrams} />
+                <div>
+                  <label htmlFor="partner-product-weight" className="block text-sm font-medium text-gray-700 mb-1">Poids du colis (kg)</label>
+                  <input
+                    id="partner-product-weight"
+                    name="weightKg"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={weightKg}
+                    onChange={(e) => setWeightKg(e.target.value)}
+                    className="w-full bg-gray-50 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/5"
+                    placeholder="Ex : 1,5"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Emballage compris. Sert au tarif de livraison (jusqu'à 5 kg, 5 à 20 kg, plus de 20 kg) et aux frais de ramassage estimés ci-dessous.
+                  </p>
+                </div>
+
+                <PartnerLogisticsNotice articleId={currentProduct?.id} weightGrams={weightGramsFromKg(weightKg) ?? currentProduct?.weightGrams} />
 
                 <div className="pt-4 flex gap-3">
                   <button 

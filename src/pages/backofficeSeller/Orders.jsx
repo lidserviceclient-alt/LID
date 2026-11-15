@@ -93,11 +93,34 @@ const confirmCopy = (action, mode) => {
 const parcelHandoffText = (sh) => {
   if (sh.status === "LIVREE" || sh.status === "DELIVERED") return "Colis remis au client.";
   if (sh.logisticsMode === VIA_WAREHOUSE) {
-    return sh.warehouseReceivedAt
-      ? "Option B : colis reçu à l'entrepôt LID, livraison au client en cours d'organisation."
-      : "Option B : à remettre au livreur LID qui le collecte pour l'entrepôt LID (pas de livraison directe au client).";
+    if (sh.warehouseReceivedAt) return "Option B : colis reçu à l'entrepôt LID, livraison au client en cours d'organisation.";
+    return "Option B : à remettre au livreur LID qui le collecte pour l'entrepôt LID (pas de livraison directe au client).";
   }
   return "Option A : à présenter au livreur, qui livre directement le client.";
+};
+
+const formatCollectionTime = (value) => {
+  if (!value) return "";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+};
+
+/** Option B : etat de la collecte du colis (prevue, en cours, recue a l'entrepot, anomalie) ; null en A. */
+const collectionState = (sh) => {
+  if (sh.logisticsMode !== VIA_WAREHOUSE) return null;
+  const courier = sh.collectionCourierName ? ` par ${sh.collectionCourierName}` : "";
+  switch (sh.collectionStatus) {
+    case "AFFECTEE":
+      return { tone: "border-amber-200 bg-amber-50 text-amber-900", title: "Collecte prévue", text: `Un livreur LID${courier} va passer récupérer le colis. Remettez-le contre le scan de son code.` };
+    case "COLLECTEE":
+      return { tone: "border-blue-200 bg-blue-50 text-blue-900", title: "Collecte en cours", text: `Colis retiré${courier}${sh.collectedAt ? ` le ${formatCollectionTime(sh.collectedAt)}` : ""}, en route vers l'entrepôt LID.` };
+    case "RECUE_ENTREPOT":
+      return { tone: "border-green-200 bg-green-50 text-green-900", title: "Reçu à l'entrepôt LID", text: `Contrôlé à l'entrepôt${sh.warehouseReceivedAt ? ` le ${formatCollectionTime(sh.warehouseReceivedAt)}` : ""} : la livraison au client est organisée par LID.` };
+    case "ANOMALIE":
+      return { tone: "border-red-200 bg-red-50 text-red-900", title: "Anomalie à la réception", text: `LID a relevé une anomalie${sh.receiptNote ? ` : ${sh.receiptNote}` : ""}. La livraison est suspendue : LID vous contacte.` };
+    default:
+      return { tone: "border-gray-200 bg-gray-50 text-gray-700", title: "Collecte à planifier", text: "Le colis est prêt : LID organise sa collecte vers l'entrepôt." };
+  }
 };
 
 /** Pourquoi aucune action n'est proposee (null si des actions existent). */
@@ -161,6 +184,11 @@ const buildDetail = (base, detail) => {
     commissionTotal: toNumber(detail?.partnerCommissionTotal),
     commissionVatPercent: toNumber(detail?.partnerCommissionVatPercent),
     paymentFee: toNumber(detail?.partnerPaymentFee),
+    // Grille par zone : zone du client (livraison payee par le client) et ramassage option B deduit du reversement
+    shippingZoneName: detail?.shippingZoneName || "",
+    collectionFee: (toNumber(detail?.partnerCollectionFee) ?? 0) + (toNumber(detail?.partnerCollectionFeeVat) ?? 0),
+    collectionFeeStatus: detail?.collectionFeeStatus || "NONE",
+    collectionZoneFallback: Boolean(detail?.collectionZoneFallback),
     settlement: settlementLabel(detail?.settlementStatus, detail?.settlementEligibleAt) || base.settlement,
     status: statusGroup(rawStatus),
     rawStatus,
@@ -600,6 +628,12 @@ export default function Orders() {
                           <p className="text-xs text-gray-500 text-center">
                             {parcelHandoffText(sh)}
                           </p>
+                          {collectionState(sh) ? (
+                            <div className={`w-full rounded-lg border px-3 py-2 text-xs ${collectionState(sh).tone}`}>
+                              <p className="font-semibold">{collectionState(sh).title}</p>
+                              <p className="mt-0.5">{collectionState(sh).text}</p>
+                            </div>
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -667,9 +701,33 @@ export default function Orders() {
                     ) : null}
                   </div>
                 ) : null}
+                {selectedOrder.collectionFeeStatus !== "NONE" || selectedOrder.shippingZoneName ? (
+                  <div className="mb-2 space-y-0.5 text-xs text-gray-600">
+                    {selectedOrder.shippingZoneName ? (
+                      <div className="flex justify-between">
+                        <span>Zone de livraison du client</span>
+                        <span className="whitespace-nowrap pl-2">{selectedOrder.shippingZoneName}</span>
+                      </div>
+                    ) : null}
+                    {selectedOrder.collectionFeeStatus !== "NONE" ? (
+                      <div className="flex justify-between">
+                        <span>
+                          Ramassage (votre adresse → entrepôt LID)
+                          {selectedOrder.collectionFeeStatus === "WAIVED_NOT_COLLECTED" ? " — annulé avant collecte, aucun frais" : ""}
+                          {selectedOrder.collectionFeeStatus === "PLANNED" ? " — prévu" : ""}
+                        </span>
+                        <span className="whitespace-nowrap pl-2">- {money(selectedOrder.collectionFee)}</span>
+                      </div>
+                    ) : null}
+                    {selectedOrder.collectionZoneFallback ? (
+                      <p className="text-amber-700">Votre zone de retrait n'est pas renseignée : frais calculés sur la zone par défaut. Complétez-la dans Paramètres › Livraison.</p>
+                    ) : null}
+                    <p className="text-gray-500">La livraison au client est payée par le client : elle n'est jamais déduite de vos ventes.</p>
+                  </div>
+                ) : null}
                 {selectedOrder.net !== null ? (
                   <div className="flex justify-between items-center mb-4 text-sm font-medium text-gray-700">
-                    <span>À percevoir (net après commission, frais et livraison)</span>
+                    <span>À percevoir (net après commission, frais et ramassage éventuel)</span>
                     <span className="whitespace-nowrap pl-2">{money(selectedOrder.net)}</span>
                   </div>
                 ) : <div className="mb-4" />}

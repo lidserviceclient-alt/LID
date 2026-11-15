@@ -167,6 +167,22 @@ export default function Delivery() {
               ))}
           </div>
 
+          {/* Options de livraison : qui paie quel trajet */}
+          <div className="grid md:grid-cols-2 gap-6">
+              <div className="p-8 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
+                  <h3 className="text-xl font-bold mb-2">Option A : livraison directe</h3>
+                  <p className="text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                      Mode par défaut. Le livreur récupère votre commande chez le vendeur et vous la livre directement. Les frais de livraison sont entièrement à votre charge ; le vendeur ne paie aucun ramassage.
+                  </p>
+              </div>
+              <div className="p-8 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
+                  <h3 className="text-xl font-bold mb-2">Option B : via l'entrepôt LID</h3>
+                  <p className="text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                      Selon le produit, la commande passe par notre entrepôt de Cocody Riviera 3. Le vendeur paie le ramassage jusqu'à l'entrepôt ; vous payez la livraison entre l'entrepôt et votre adresse. Un même trajet n'est jamais facturé deux fois et les frais vous sont communiqués avant la validation de votre commande.
+                  </p>
+              </div>
+          </div>
+
           {/* Coverage Section */}
           <div className="grid md:grid-cols-2 gap-12 items-center">
               <div className="space-y-8">

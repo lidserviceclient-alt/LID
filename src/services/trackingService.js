@@ -13,3 +13,11 @@ export async function trackOrder(reference) {
   const { data } = await api.get(`/api/v1/public/orders/tracking/${encodeURIComponent(cleaned)}`);
   return data;
 }
+
+/** Livraison de la commande : zone tarifaire et un tarif par colis (un colis par vendeur). Memes droits que le suivi. */
+export async function getOrderShipping(reference) {
+  const cleaned = `${reference || ""}`.trim().replace(/^#/, "").replace(/^LID-/i, "");
+  if (!cleaned) return null;
+  const { data } = await api.get(`/api/v1/public/orders/tracking/${encodeURIComponent(cleaned)}/shipping`);
+  return data;
+}

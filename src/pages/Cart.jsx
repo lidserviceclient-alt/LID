@@ -15,6 +15,8 @@ import { getCatalogProductsPage, getFeaturedCatalogProducts } from "@/services/p
 import { resolveBackendAssetUrl } from "@/services/categoryService";
 import { useAppConfig } from "@/features/appConfig/useAppConfig";
 import { friendlyErrorMessage } from '@/utils/errorMessages';
+import { readStoredZone, storeZone, useShippingZones } from '@/services/shippingZoneService';
+import { ShippingBreakdown, ShippingZoneSelect } from '@/components/shipping/ShippingZone';
 
 const normalizeVatRate = (raw) => {
   const value = Number(raw);
@@ -50,6 +52,15 @@ export default function Cart() {
   const [shippingMethod, setShippingMethod] = useState("STANDARD");
   // Totaux renvoyés par le devis du serveur, par couple (mode de livraison, code promo) : le serveur fait foi.
   const [quotedTotals, setQuotedTotals] = useState({});
+  // Devis complet (livraison par colis et par zone) par couple (mode, promo, commune)
+  const [quotedShipping, setQuotedShipping] = useState({});
+  // Grille par zone : la livraison depend de la commune (meme choix que dans le tunnel de commande)
+  const { groups: zoneGroups } = useShippingZones();
+  const [shippingZoneCode, setShippingZoneCodeState] = useState(() => readStoredZone());
+  const setShippingZoneCode = (code) => {
+    setShippingZoneCodeState(code);
+    storeZone(code);
+  };
   const [showCheckout, setShowCheckout] = useState(false);
   const [recommendations, setRecommendations] = useState([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
@@ -92,11 +103,12 @@ export default function Cart() {
       ? 0
       : selectedBaseCost;
   
-  const quoteKey = (method, promo) => `${`${method || ""}`.toUpperCase()}|${`${promo || ""}`.toUpperCase()}`;
-  const rememberQuotedTotal = (method, promo, total) => {
+  const quoteKey = (method, promo) => `${`${method || ""}`.toUpperCase()}|${`${promo || ""}`.toUpperCase()}|${shippingZoneCode || ""}`;
+  const rememberQuotedTotal = (method, promo, total, quote) => {
     const n = Number(total);
     if (total === null || total === undefined || total === "" || !Number.isFinite(n) || n < 0) return;
     setQuotedTotals((prev) => ({ ...prev, [quoteKey(method, promo)]: n }));
+    if (quote) setQuotedShipping((prev) => ({ ...prev, [quoteKey(method, promo)]: quote }));
   };
 
   const handleIncreaseQuantity = (item) => {
@@ -174,9 +186,10 @@ export default function Cart() {
         promoCode: code,
         shippingMethodCode: selectedShippingMethod?.code || shippingMethod || "STANDARD",
         shippingMethodLabel: selectedShippingMethod?.label || undefined,
+        shippingZoneCode: shippingZoneCode || undefined,
         items
       });
-      rememberQuotedTotal(selectedShippingMethod?.code || shippingMethod, res?.promoApplied ? (res?.promoCode || code) : "", res?.total);
+      rememberQuotedTotal(selectedShippingMethod?.code || shippingMethod, res?.promoApplied ? (res?.promoCode || code) : "", res?.total, res);
 
       if (!res?.promoApplied) {
         setAppliedPromo(null);
@@ -198,7 +211,12 @@ export default function Cart() {
   const loyaltyDiscountAmount = appliedPromo ? 0 : (Number(loyaltyPricing?.discountAmount) || 0);
   const vatRate = normalizeVatRate(appConfig?.vatPercent);
   const vatPercentLabel = Math.round(vatRate * 100);
-  const localTotal = Math.max(0, roundAmount(cartTotal - discountAmount - loyaltyDiscountAmount + shippingCost));
+  const currentQuote = quotedShipping[quoteKey(selectedShippingMethod?.code || shippingMethod, appliedPromo?.code || "")]
+    || quotedShipping[quoteKey(selectedShippingMethod?.code || shippingMethod, "")] || null;
+  // Livraison du devis serveur (zone de la commune, un tarif par colis) ; a defaut, tarif de la modalite
+  const quotedShippingCost = Number(currentQuote?.shippingCost);
+  const effectiveShippingCost = currentQuote && Number.isFinite(quotedShippingCost) ? quotedShippingCost : shippingCost;
+  const localTotal = Math.max(0, roundAmount(cartTotal - discountAmount - loyaltyDiscountAmount + effectiveShippingCost));
   const serverTotal = quotedTotals[quoteKey(selectedShippingMethod?.code || shippingMethod, appliedPromo?.code || "")];
   // Le total du devis serveur (livraison comprise) prime sur le calcul local lorsqu'il est disponible.
   const finalTotal = Number.isFinite(serverTotal) ? serverTotal : localTotal;
@@ -302,10 +320,11 @@ export default function Cart() {
           promoCode: null,
           shippingMethodCode: selectedShippingMethod?.code || shippingMethod || "STANDARD",
           shippingMethodLabel: selectedShippingMethod?.label || undefined,
+          shippingZoneCode: shippingZoneCode || undefined,
           items
         });
         if (cancelled) return;
-        rememberQuotedTotal(selectedShippingMethod?.code || shippingMethod, "", res?.total);
+        rememberQuotedTotal(selectedShippingMethod?.code || shippingMethod, "", res?.total, res);
         setLoyaltyPricing({
           applied: Boolean(res?.loyaltyApplied),
           tier: res?.loyaltyTier || "",
@@ -321,7 +340,7 @@ export default function Cart() {
       cancelled = true;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartItems, appliedPromo, selectedShippingMethod?.code]);
+  }, [cartItems, appliedPromo, selectedShippingMethod?.code, shippingZoneCode]);
 
   const recommendedProducts = useMemo(() => {
     const cartIdSet = new Set((cartItems || []).map((item) => `${item?.id || ""}`));
@@ -655,6 +674,12 @@ export default function Cart() {
 
                 {/* Shipping Selection */}
                 <div className="py-4 border-y border-neutral-100 dark:border-neutral-800 space-y-3">
+                  <label htmlFor="cart-shipping-zone" className="text-sm font-medium text-neutral-900 dark:text-white block">Commune de livraison</label>
+                  <ShippingZoneSelect id="cart-shipping-zone" groups={zoneGroups} value={shippingZoneCode} onChange={setShippingZoneCode}
+                    className="w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm" />
+                  {!shippingZoneCode ? (
+                    <p className="text-xs text-neutral-500">Choisissez votre commune pour connaître les frais de livraison exacts.</p>
+                  ) : null}
                   <span className="text-sm font-medium text-neutral-900 dark:text-white block mb-2">Mode de livraison</span>
                   
                   {shippingMethods.map((m) => {
@@ -663,7 +688,12 @@ export default function Cart() {
                     const baseCost = Number(m?.costAmount);
                     const cost = Number.isFinite(baseCost) && baseCost >= 0 ? baseCost : 0;
                     const isStandard = code === "STANDARD";
-                    const displayCost = isStandard && isFreeShippingEnabled && cartTotal >= freeShippingThreshold ? "Gratuit" : `${cost.toLocaleString()} FCFA`;
+                    const zoneCost = checked && currentQuote && Number.isFinite(quotedShippingCost) ? quotedShippingCost : null;
+                    const displayCost = zoneCost !== null
+                      ? (zoneCost === 0 ? "Gratuit" : `${zoneCost.toLocaleString()} FCFA${currentQuote?.shippingEstimate ? " (estimation)" : ""}`)
+                      : shippingZoneCode || !checked
+                        ? (isStandard && isFreeShippingEnabled && cartTotal >= freeShippingThreshold ? "Gratuit" : "Selon la zone")
+                        : (isStandard && isFreeShippingEnabled && cartTotal >= freeShippingThreshold ? "Gratuit" : `${cost.toLocaleString()} FCFA`);
                     return (
                       <label
                         key={code}
@@ -687,6 +717,7 @@ export default function Cart() {
                       </label>
                     );
                   })}
+                  <ShippingBreakdown quote={currentQuote} />
                 </div>
               </div>
 
@@ -731,7 +762,7 @@ export default function Cart() {
         onClose={() => setShowCheckout(false)}
         cartItems={cartItems}
         onSuccess={handlePaymentSuccess}
-        shippingCost={shippingCost}
+        shippingCost={effectiveShippingCost}
         shippingMethodCode={selectedShippingMethod?.code || "STANDARD"}
         shippingMethodLabel={selectedShippingMethod?.label || "Standard"}
         discountAmount={discountAmount}

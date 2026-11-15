@@ -17,7 +17,7 @@ const features = [
   {
     image: "https://i.pinimg.com/736x/d9/38/31/d938311c78e6423fa5027aa29c7da6fc.jpg", // Return/Box
     title: "Retours Gratuits",
-    description: "Satisfait ou remboursé. 30 jours pour changer d'avis."
+    description: "Satisfait ou remboursé. 7 jours pour changer d'avis."
   },
   {
     image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80&auto=format&fit=crop", // Support person

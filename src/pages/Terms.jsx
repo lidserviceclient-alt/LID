@@ -3,7 +3,7 @@ import PageSEO from "@/components/PageSEO";
 import { motion, useReducedMotion } from "framer-motion";
 import { useAppConfig } from "@/features/appConfig/useAppConfig.js";
 import { LEGAL_INFO, FOOTNOTES, buildArticles } from "@/assets/data/cgv.js";
-import { returnWindowLegalLabel } from "@/utils/policy.js";
+import { returnWindowLegalLabel, internationalReturnWindowLegalLabel } from "@/utils/policy.js";
 
 const FONTS_HREF ="";
 
@@ -95,9 +95,10 @@ export default function Terms() {
   const prefersReducedMotion = useReducedMotion();
 
   const returnWindowLabel = returnWindowLegalLabel(appConfig);
+  const internationalReturnWindowLabel = internationalReturnWindowLegalLabel(appConfig);
   const articles = useMemo(
-    () => buildArticles({ legalEmail, legal: LEGAL_INFO, returnWindowLabel }),
-    [legalEmail, returnWindowLabel]
+    () => buildArticles({ legalEmail, legal: LEGAL_INFO, returnWindowLabel, internationalReturnWindowLabel }),
+    [legalEmail, returnWindowLabel, internationalReturnWindowLabel]
   );
 
   const sectionRefs = useRef(new Map());

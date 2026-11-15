@@ -37,7 +37,9 @@ function FeeLine({ data }) {
           <span>non disponibles pour l'instant</span>
         )}
         {data.collectionFeeTierCode ? ` (tranche ${data.collectionFeeTierCode})` : ""}
+        {data.collectionZoneName ? ` · ${data.collectionZoneName}` : ""}
       </p>
+      <p>Ramassage (votre adresse → entrepôt LID) à votre charge, déduit de votre reversement par colis collecté.</p>
       {data.collectionFeeNote ? <p className="opacity-80">{data.collectionFeeNote}</p> : null}
     </div>
   );
@@ -213,6 +215,12 @@ export function PartnerLogisticsPanel() {
               </tbody>
             </table>
           ) : null}
+          {data.collectionZoneName ? (
+            <p className="text-xs text-gray-600">
+              Zone retenue : <span className="font-semibold">{data.collectionZoneName}</span>
+              {data.collectionZoneFallback ? " (zone par défaut : renseignez la zone de votre adresse de retrait)" : ""}
+            </p>
+          ) : null}
           <p className="text-xs text-gray-500">{data.collectionFeeNote}</p>
         </div>
       ) : null}
@@ -222,7 +230,8 @@ export function PartnerLogisticsPanel() {
           <MapPin size={16} /> Adresse de retrait
         </div>
         <p className="text-xs text-gray-500">
-          Lieu où le livreur LID récupère vos colis. Les coordonnées servent au calcul de la distance (et des frais de collecte en option B).
+          Lieu où le livreur LID récupère vos colis. En option B, la commune (zone) de cette adresse fixe les frais de ramassage
+          jusqu'à l'entrepôt LID (Cocody Riviera 3) ; sans zone, LID applique la zone par défaut (Zone 2 — Intermédiaire).
         </p>
         <div className="space-y-2">
           <label htmlFor="pickup-address" className="text-sm font-medium text-gray-700">Adresse</label>

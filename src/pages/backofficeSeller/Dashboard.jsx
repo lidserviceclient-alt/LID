@@ -68,6 +68,7 @@ export default function Dashboard() {
       payoutDue: toNumber(statsRes?.payoutDue),
       payoutPending: toNumber(statsRes?.payoutPending),
       payoutPaid: toNumber(statsRes?.payoutPaid),
+      collectionFeesTotal: toNumber(statsRes?.collectionFeesTotal),
       topProducts: Array.isArray(statsRes?.topProducts) ? statsRes.topProducts : null,
     });
     setOrders(ordersRes);
@@ -83,10 +84,13 @@ export default function Dashboard() {
       { label: "Ventes (votre part)", value: money(stats.revenue), icon: DollarSign, color: "bg-green-100 text-green-600" },
     ];
     if (stats.payoutDue !== null || stats.payoutPending !== null) {
-      list.push({ label: "À percevoir (net)", value: money((stats.payoutDue ?? 0) + (stats.payoutPending ?? 0)), icon: DollarSign, color: "bg-emerald-100 text-emerald-700", hint: `Net après commission, frais et livraison. Dont à verser : ${money(stats.payoutDue ?? 0)}` });
+      list.push({ label: "À percevoir (net)", value: money((stats.payoutDue ?? 0) + (stats.payoutPending ?? 0)), icon: DollarSign, color: "bg-emerald-100 text-emerald-700", hint: `Net après commission, frais et ramassage éventuel (la livraison client n'est jamais déduite). Dont à verser : ${money(stats.payoutDue ?? 0)}` });
     }
     if (stats.payoutPaid !== null) {
       list.push({ label: "Déjà versé", value: money(stats.payoutPaid), icon: DollarSign, color: "bg-teal-100 text-teal-700" });
+    }
+    if (stats.collectionFeesTotal > 0) {
+      list.push({ label: "Frais de ramassage (option B)", value: money(stats.collectionFeesTotal), icon: DollarSign, color: "bg-amber-100 text-amber-700", hint: "Collecte de vos colis jusqu'à l'entrepôt LID, selon la zone de votre adresse de retrait : déduite de vos reversements." });
     }
     list.push(
       { label: "Commandes", value: `${stats.orders}`, icon: ShoppingBag, color: "bg-blue-100 text-blue-600" },
@@ -94,7 +98,7 @@ export default function Dashboard() {
       { label: "Panier moyen", value: money(avgBasket), icon: TrendingUp, color: "bg-orange-100 text-orange-600" },
     );
     return list;
-  }, [avgBasket, stats.payoutDue, stats.payoutPending, stats.payoutPaid, stats.orders, stats.products, stats.revenue]);
+  }, [avgBasket, stats.payoutDue, stats.payoutPending, stats.payoutPaid, stats.collectionFeesTotal, stats.orders, stats.products, stats.revenue]);
 
   const recentOrders = useMemo(() => {
     return orders.slice(0, 5).map((o) => {

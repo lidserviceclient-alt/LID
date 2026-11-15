@@ -197,6 +197,7 @@ export const buildArticles = ({ legalEmail, dpoEmail = legalEmail, legal }) => [
         { fn: 5 },
         " relative aux plateformes de commerce en ligne, la Taxe sur la Valeur Ajoutée (TVA), actuellement fixée à 18 %, est applicable aux opérations réalisées via la Plateforme dès lors que la livraison ou la consommation du service a lieu sur le territoire ivoirien, y compris pour les opérateurs non résidents.",
       ],
+      "Pour les Ventes Marketplace payées en ligne, les fonds de tiers collectés par l'Éditeur sont conservés sur un compte séquestre technique en attente de leur répartition entre le Vendeur tiers et la Plateforme, conformément aux CGV.",
       "Chaque Vendeur tiers demeure seul responsable de son identification fiscale, de la collecte et du reversement de la TVA due sur ses propres ventes, ainsi que du respect de ses autres obligations fiscales et sociales.",
     ],
   },

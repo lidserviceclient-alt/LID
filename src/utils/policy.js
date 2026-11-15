@@ -3,7 +3,7 @@
 
 const NUMBER_WORDS = {
   1: "un", 2: "deux", 3: "trois", 4: "quatre", 5: "cinq", 6: "six", 7: "sept", 8: "huit", 9: "neuf", 10: "dix",
-  14: "quatorze", 15: "quinze", 30: "trente",
+  14: "quatorze", 15: "quinze", 21: "vingt et un", 30: "trente",
 };
 
 /** Fenetre de retour : { count, unit: "DAYS"|"HOURS", label: "7 jours" } (7 jours par defaut, comme l'API). */
@@ -13,6 +13,21 @@ export function getReturnWindow(appConfig) {
   const count = Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : 7;
   const noun = unit === "HOURS" ? `heure${count > 1 ? "s" : ""}` : `jour${count > 1 ? "s" : ""}`;
   return { count, unit, label: `${count} ${noun}` };
+}
+
+/** Fenetre de retour internationale (livraison hors Cote d'Ivoire), en jours : 21 par defaut (2 a 3 semaines). */
+export function getInternationalReturnWindow(appConfig) {
+  const parsed = Number(appConfig?.internationalReturnWindowDays);
+  const count = Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : 21;
+  return { count, label: `${count} jour${count > 1 ? "s" : ""}` };
+}
+
+/** « vingt et un (21) jours calendaires » : forme juridique de la fenetre internationale. */
+export function internationalReturnWindowLegalLabel(appConfig) {
+  const { count } = getInternationalReturnWindow(appConfig);
+  const word = NUMBER_WORDS[count];
+  const noun = `jour${count > 1 ? "s" : ""} calendaire${count > 1 ? "s" : ""}`;
+  return word ? `${word} (${count}) ${noun}` : `${count} ${noun}`;
 }
 
 /** « sept (7) jours calendaires » : forme juridique utilisee dans les CGV. */

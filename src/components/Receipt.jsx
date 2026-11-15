@@ -185,7 +185,7 @@ export default function Receipt({ order }) {
             </div>
             {net !== null && (
               <div className="flex justify-between font-semibold text-base pt-1">
-                <span>À percevoir (net après commission, frais et livraison)</span>
+                <span>À percevoir (net après commission, frais et ramassage éventuel)</span>
                 <span>{money(net)}</span>
               </div>
             )}
