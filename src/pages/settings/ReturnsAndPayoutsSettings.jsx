@@ -84,6 +84,22 @@ export default function ReturnsAndPayoutsSettings() {
               disabled={disabled}
             />
           </SettingsField>
+          <SettingsField
+            id="return-international"
+            label="Délai de retour international (jours)"
+            hint="Appliqué aux commandes livrées hors Côte d'Ivoire (2 à 3 semaines : 21 par défaut). Les CGV et la FAQ du site suivent ce réglage."
+          >
+            <Input
+              id="return-international"
+              placeholder="21"
+              type="number"
+              min="1"
+              step="1"
+              value={shopForm.internationalReturnWindowDays}
+              onChange={(e) => setField("internationalReturnWindowDays")(e.target.value)}
+              disabled={disabled}
+            />
+          </SettingsField>
           <SettingsField id="return-refund-mode" label="Mode de remboursement client" className="md:col-span-2">
             <Select
               id="return-refund-mode"
@@ -136,11 +152,11 @@ export default function ReturnsAndPayoutsSettings() {
           <SettingsField
             id="payment-fee"
             label="Frais de transaction déduits du partenaire (%)"
-            hint="Saisir 5 pour 5 %."
+            hint="Saisir 3 pour 3 % (tarif Paiement Pro négocié : encaissement 3 %, reversement 2,5 %)."
           >
             <Input
               id="payment-fee"
-              placeholder="5"
+              placeholder="3"
               type="number"
               min="0"
               step="0.1"

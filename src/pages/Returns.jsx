@@ -7,6 +7,7 @@ import Button from "../components/ui/Button.jsx";
 import Input from "../components/ui/Input.jsx";
 import Select from "../components/ui/Select.jsx";
 import Modal from "../components/ui/Modal.jsx";
+import RefundSlaPanel from "../components/orders/RefundSlaPanel.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import { backofficeApi } from "../services/api.js";
 import { reloadReturnsResolver, useReturnsResolver } from "../resolvers/returnsResolver.js";
@@ -201,6 +202,8 @@ export default function Returns() {
           </div>
         }
       />
+
+      <RefundSlaPanel reloadKey={data} />
 
       <Card className="p-4 space-y-4">
         <div className="grid gap-4 md:grid-cols-3">

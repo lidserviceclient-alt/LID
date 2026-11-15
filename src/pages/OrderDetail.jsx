@@ -18,6 +18,7 @@ import Card from "../components/ui/Card.jsx";
 import Button from "../components/ui/Button.jsx";
 import NotFoundState, { isNotFoundMessage } from "../components/ui/NotFoundState.jsx";
 import OrderActionModal from "../components/orders/OrderActionModal.jsx";
+import OrderShippingParcels from "../components/orders/OrderShippingParcels.jsx";
 import {
   PaymentBadge,
   Pill,
@@ -669,6 +670,7 @@ export default function OrderDetail() {
                 <p className="font-medium">{detail.shipping?.address || "-"}</p>
               </div>
             </div>
+            <OrderShippingParcels orderId={detail.id} shippingCost={detail.amounts?.shipping} />
             {(detail.shipments || []).length === 0 ? (
               <p className="text-sm text-muted-foreground">Aucun colis pour l'instant : les colis (un par vendeur) sont créés quand vous indiquez « Colis prêt pour le livreur ».</p>
             ) : (

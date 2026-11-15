@@ -10,9 +10,12 @@ import { backofficeApi } from "../../services/api.js";
 
 const fmt = (n) => (n === null || n === undefined || n === "" ? "—" : Number(n).toLocaleString("fr-FR"));
 const num = (v) => (`${v ?? ""}`.trim() === "" ? null : Number(`${v}`.replace(",", ".")));
-const GRID_STRATEGIES = ["ZONE_WEIGHT", "ZONE_VOLUMETRIC"];
 
-/** Paramètres > Livraison : stratégie de calcul, paramètres, simulateur, historique, grille et adresses de retrait. */
+/**
+ * Paramètres > Livraison, organisé autour de la grille PAR ZONE (décision métier) : tarifs des 4 zones d'Abidjan ×
+ * tranches de poids, rattachement commune → zone, traitement « hors Abidjan », simulateur ; puis les réglages avancés
+ * (stratégie, calcul par distance, adresses de retrait, grille complète / CSV, rapport facturé vs coût réel).
+ */
 export default function ShippingPricingSettings() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -42,17 +45,337 @@ export default function ShippingPricingSettings() {
   };
   return (
     <>
-      <StrategyCard data={data} reload={load} onError={setError} onSuccess={notify} error={error} success={success} />
-      <ParametersCard data={data} reload={load} onError={setError} onSuccess={notify} />
+      <ZoneGridCard data={data} reload={load} onError={setError} onSuccess={notify} error={error} success={success} />
+      <ZoneRulesCard data={data} reload={load} onError={setError} onSuccess={notify} />
       <SimulatorCard data={data} />
-      <HistoryCard />
-      <PickupsCard onError={setError} onSuccess={notify} />
+      <PickupsCard data={data} onError={setError} onSuccess={notify} />
+      <StrategyCard data={data} reload={load} onError={setError} onSuccess={notify} />
+      <ParametersCard data={data} reload={load} onError={setError} onSuccess={notify} />
       <GridCard data={data} reload={load} onError={setError} onSuccess={notify} />
+      <HistoryCard />
     </>
   );
 }
 
-function StrategyCard({ data, reload, onError, onSuccess, error, success }) {
+
+/** Toutes les valeurs du réglage (le serveur remplace plafonds et dépôt par ce qui est envoyé). */
+function fullSettings(s, patch = {}) {
+  return {
+    defaultWeightGrams: s.defaultWeightGrams,
+    volumetricDivisor: s.volumetricDivisor,
+    expressSurchargeAmount: s.expressSurchargeAmount,
+    freeShippingCapAmount: s.freeShippingCapAmount ?? null,
+    distanceFixedFee: s.distanceFixedFee,
+    distanceCoefficientPerKm: s.distanceCoefficientPerKm,
+    distanceFloorAmount: s.distanceFloorAmount,
+    distanceCapAmount: s.distanceCapAmount ?? null,
+    roadFactor: s.roadFactor,
+    weightSurchargeEnabled: s.weightSurchargeEnabled,
+    depotAddress: s.depotAddress ?? "",
+    depotLatitude: s.depotLatitude ?? null,
+    depotLongitude: s.depotLongitude ?? null,
+    outsideZoneMode: s.outsideZoneMode,
+    outsideZoneFlatAmount: s.outsideZoneFlatAmount ?? null,
+    collectionFallbackZoneCode: s.collectionFallbackZoneCode,
+    collectionFeeVatEnabled: s.collectionFeeVatEnabled,
+    ...patch
+  };
+}
+
+const activeTiers = (data) => (data.tiers || []).filter((t) => t.active !== false);
+const tierRange = (t) => `${Number(t.minKg)}–${t.maxKg == null ? "∞" : Number(t.maxKg)} kg`;
+const OUTSIDE_LABELS = {
+  DISTANCE: "Calcul par la distance (Google Maps ou vol d’oiseau × facteur routier), affiché « estimation »",
+  FLAT: "Tarif forfaitaire par colis (+ supplément de poids)",
+  DISABLED: "Livraison désactivée hors des zones (commande refusée)"
+};
+
+/** Grille par zone : 4 zones × tranches, suppléments de poids, communes rattachées. */
+function ZoneGridCard({ data, reload, onError, onSuccess, error, success }) {
+  const zones = data.tariffZones || [];
+  const tiers = activeTiers(data);
+  const base = tiers[0];
+  const [draft, setDraft] = useState({});
+  const [saving, setSaving] = useState(false);
+  const communes = (data.zones || []).filter((z) => z.level === "COMMUNE" && `${z.parentCode || ""}`.startsWith("CI-ABJ"));
+  const cellKey = (z, t) => `${z}|${t}`;
+  const amountOf = (z, t) => z.amounts?.find((a) => a.tierCode === t.code);
+  const dirty = Object.keys(draft);
+
+  async function saveRates() {
+    try {
+      setSaving(true);
+      const payload = dirty.map((k) => {
+        const [zoneCode, tierCode] = k.split("|");
+        return { zoneCode, tierCode, mode: "STANDARD", amount: num(draft[k]) };
+      });
+      if (payload.some((r) => base && r.tierCode === base.code && r.amount == null)) {
+        onError("Le tarif de base d’une zone (première tranche) est obligatoire : sans lui, la zone serait traitée « hors zones ».");
+        return;
+      }
+      const r = await backofficeApi.shippingPricingSaveRates(payload);
+      setDraft({});
+      onSuccess(`${r.imported} tarif(s) enregistré(s), ${r.deleted} remis par défaut${r.errors?.length ? ` · ${r.errors.length} erreur(s)` : ""}.`);
+      await reload();
+    } catch (err) {
+      onError(err?.message || "Enregistrement impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function saveSurcharge(t, v) {
+    try {
+      await backofficeApi.shippingPricingSaveTier(t.code, { ...t, surchargeAmount: num(v) ?? 0 });
+      onSuccess(`Supplément « ${t.label} » enregistré.`);
+      await reload();
+    } catch (err) {
+      onError(err?.message || "Enregistrement impossible.");
+    }
+  }
+  async function moveCommune(c, zoneCode) {
+    if (!zoneCode || zoneCode === c.parentCode) return;
+    try {
+      await backofficeApi.shippingPricingSaveZone(c.code, { ...c, parentCode: zoneCode });
+      onSuccess(`${c.name} rattachée à ${zones.find((z) => z.code === zoneCode)?.name || zoneCode}.`);
+      await reload();
+    } catch (err) {
+      onError(err?.message || "Rattachement impossible.");
+    }
+  }
+
+  return (
+    <SettingsCard
+      title="Tarifs de livraison par zone"
+      description="Le client paie le tarif de SA zone pour chaque colis (un colis par vendeur), plus le supplément de poids du colis. Le découpage par défaut suit la distance au dépôt de Cocody Riviera 3 et reste modifiable."
+    >
+      <SettingsStatus error={error} success={success} />
+      {data.settings.activeStrategy !== "ZONE_WEIGHT" && data.settings.activeStrategy !== "ZONE_VOLUMETRIC" ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          La stratégie active est « {data.settings.activeStrategy} » : cette grille n’est pas utilisée pour la livraison client
+          (elle reste utilisée pour les frais de collecte de l’option B). Activez « Zone et poids » dans « Stratégie de calcul ».
+        </p>
+      ) : null}
+      {zones.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Aucune zone tarifaire (niveau TARIFF_ZONE) : créez-les dans la grille complète ci-dessous.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-muted-foreground">
+                <th className="py-1 pr-3">Zone</th>
+                {tiers.map((t) => (
+                  <th key={t.code} className="pr-2">{t.label}<div className="font-normal">{tierRange(t)}</div></th>
+                ))}
+                <th className="pr-2">Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {zones.map((z) => {
+                const baseAmount = amountOf(z, base || {});
+                return (
+                  <tr key={z.code} className="border-t border-border align-top">
+                    <td className="py-2 pr-3">
+                      <div className="font-medium whitespace-nowrap">{z.name}</div>
+                      <div className="text-xs text-muted-foreground">{(z.communes || []).map((c) => c.name).join(", ") || "Aucune commune"}</div>
+                    </td>
+                    {tiers.map((t, i) => {
+                      const a = amountOf(z, t);
+                      const k = cellKey(z.code, t.code);
+                      return (
+                        <td key={t.code} className="py-2 pr-2">
+                          <Input
+                            aria-label={`${z.name} ${t.label}`}
+                            className="h-8 w-24"
+                            inputMode="decimal"
+                            placeholder={a?.amount != null ? `${fmt(a.amount)}` : "—"}
+                            value={draft[k] ?? (a?.explicit ? a.amount : "")}
+                            onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
+                          />
+                          {i > 0 && !a?.explicit ? (
+                            <div className="mt-0.5 text-[11px] text-muted-foreground">base + {fmt(t.surchargeAmount)}</div>
+                          ) : null}
+                        </td>
+                      );
+                    })}
+                    <td className="py-2 pr-2">
+                      {baseAmount?.statusNote ? (
+                        <Badge label={baseAmount.statusNote} variant={baseAmount.statusNote.startsWith("Validé") ? "success" : "outline"} />
+                      ) : baseAmount?.explicit ? (
+                        <Badge label="Saisi dans le back-office" variant="outline" />
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr className="border-t border-border">
+                <td className="py-2 pr-3 text-xs text-muted-foreground">Supplément de poids par colis (indicatif)</td>
+                {tiers.map((t, i) => (
+                  <td key={t.code} className="py-2 pr-2">
+                    <Input
+                      aria-label={`Supplément ${t.label}`}
+                      className="h-8 w-24"
+                      inputMode="decimal"
+                      defaultValue={t.surchargeAmount ?? 0}
+                      disabled={i === 0}
+                      title={i === 0 ? "Première tranche : tarif de base de la zone" : undefined}
+                      onBlur={(e) => i > 0 && `${e.target.value}` !== `${t.surchargeAmount ?? 0}` && saveSurcharge(t, e.target.value)}
+                    />
+                  </td>
+                ))}
+                <td />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">
+          Case vide = tarif de base de la zone + supplément de la tranche. Vider une case saisie la remet par défaut. {dirty.length} modification(s) non enregistrée(s).
+        </span>
+        <Button size="sm" onClick={saveRates} disabled={dirty.length === 0 || saving}>{saving ? "Enregistrement…" : "Enregistrer les tarifs"}</Button>
+      </div>
+
+      <div className="text-sm font-medium">Commune → zone</div>
+      <p className="text-xs text-muted-foreground">
+        Une commune rattachée directement à « Abidjan » (sans zone) est traitée comme « hors zones » (voir ci-dessous).
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {communes.map((c) => (
+          <label key={c.code} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm">
+            <span>{c.name}</span>
+            <Select
+              aria-label={`Zone de ${c.name}`}
+              className="h-8 w-48"
+              value={c.parentCode || ""}
+              onChange={(e) => moveCommune(c, e.target.value)}
+              options={[
+                ...(zones.some((z) => z.code === c.parentCode) ? [] : [{ value: c.parentCode || "", label: "Sans zone (hors zones)" }]),
+                ...zones.map((z) => ({ value: z.code, label: z.name }))
+              ]}
+            />
+          </label>
+        ))}
+      </div>
+    </SettingsCard>
+  );
+}
+
+/** Hors Abidjan, frais de collecte option B, gratuité et poids par défaut. */
+function ZoneRulesCard({ data, reload, onError, onSuccess }) {
+  const s = data.settings;
+  const initial = useMemo(
+    () => ({
+      outsideZoneMode: s.outsideZoneMode || "DISTANCE",
+      outsideZoneFlatAmount: s.outsideZoneFlatAmount ?? "",
+      collectionFallbackZoneCode: s.collectionFallbackZoneCode || "CI-ABJ-Z2",
+      collectionFeeVatEnabled: Boolean(s.collectionFeeVatEnabled),
+      defaultWeightGrams: s.defaultWeightGrams ?? "",
+      freeShippingCapAmount: s.freeShippingCapAmount ?? "",
+      expressSurchargeAmount: s.expressSurchargeAmount ?? ""
+    }),
+    [s]
+  );
+  const [form, setForm] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => setForm(initial), [initial]);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const zones = data.tariffZones || [];
+
+  async function submit(e) {
+    e.preventDefault();
+    if (form.collectionFeeVatEnabled && !s.collectionFeeVatEnabled) {
+      const ok = window.confirm("Appliquer la TVA sur les frais de collecte déduits des reversements ?\n\nÀ activer seulement après validation de l’expert-comptable.");
+      if (!ok) return;
+    }
+    try {
+      setSaving(true);
+      await backofficeApi.shippingPricingSaveSettings(
+        fullSettings(s, {
+          outsideZoneMode: form.outsideZoneMode,
+          outsideZoneFlatAmount: num(form.outsideZoneFlatAmount),
+          collectionFallbackZoneCode: form.collectionFallbackZoneCode,
+          collectionFeeVatEnabled: form.collectionFeeVatEnabled,
+          defaultWeightGrams: num(form.defaultWeightGrams),
+          freeShippingCapAmount: num(form.freeShippingCapAmount),
+          expressSurchargeAmount: num(form.expressSurchargeAmount)
+        })
+      );
+      onSuccess("Règles de livraison enregistrées (modification journalisée).");
+      await reload();
+    } catch (err) {
+      onError(err?.message || "Enregistrement impossible.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <form onSubmit={submit}>
+      <SettingsCard
+        title="Hors Abidjan, collecte (option B) et règles communes"
+        description="Adresse hors des zones tarifées (villes de l’intérieur, UEMOA, commune non rattachée) ; frais de ramassage facturés au partenaire en option B."
+      >
+        <SettingsField id="zr-outside" label="Hors des zones tarifées" hint="Le devis du client affiche « estimation » en mode distance.">
+          <Select
+            id="zr-outside"
+            value={form.outsideZoneMode}
+            onChange={set("outsideZoneMode")}
+            options={Object.entries(OUTSIDE_LABELS).map(([value, label]) => ({ value, label }))}
+          />
+        </SettingsField>
+        {form.outsideZoneMode === "FLAT" ? (
+          <SettingsField id="zr-flat" label="Forfait hors zones par colis (FCFA)" hint="Le supplément de poids de la tranche s’ajoute.">
+            <Input id="zr-flat" inputMode="decimal" value={form.outsideZoneFlatAmount} onChange={set("outsideZoneFlatAmount")} required />
+          </SettingsField>
+        ) : null}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SettingsField
+            id="zr-fallback"
+            label="Zone de collecte par défaut (option B)"
+            hint="Utilisée pour les frais de ramassage quand la zone de retrait du partenaire est inconnue (signalé sur la commande)."
+          >
+            <Select
+              id="zr-fallback"
+              value={form.collectionFallbackZoneCode}
+              onChange={set("collectionFallbackZoneCode")}
+              options={zones.map((z) => ({ value: z.code, label: z.name }))}
+            />
+          </SettingsField>
+          <SettingsField id="zr-weight" label="Poids par défaut d’un article (g)" hint="Articles sans poids renseigné.">
+            <Input id="zr-weight" inputMode="numeric" value={form.defaultWeightGrams} onChange={set("defaultWeightGrams")} />
+          </SettingsField>
+          <SettingsField
+            id="zr-cap"
+            label="Plafond de prise en charge (FCFA)"
+            hint="Seuil de livraison offerte atteint (sous-total articles) : LID prend en charge la livraison de TOUTE la commande (tous colis), dans la limite de ce montant ; vide = entièrement offerte."
+          >
+            <Input id="zr-cap" inputMode="decimal" value={form.freeShippingCapAmount} onChange={set("freeShippingCapAmount")} />
+          </SettingsField>
+          <SettingsField id="zr-express" label="Supplément express par colis (FCFA)">
+            <Input id="zr-express" inputMode="decimal" value={form.expressSurchargeAmount} onChange={set("expressSurchargeAmount")} />
+          </SettingsField>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Option B : le partenaire paie le ramassage (son adresse → entrepôt LID) au tarif de collecte de sa zone de retrait (à défaut,
+          tarif de livraison de cette zone pour la même tranche de poids), par colis, déduit de son reversement en ligne séparée ; rien
+          si la commande est annulée avant la collecte. Option A : aucun frais pour le partenaire.
+        </p>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.collectionFeeVatEnabled}
+            onChange={(e) => setForm((f) => ({ ...f, collectionFeeVatEnabled: e.target.checked }))}
+          />
+          Appliquer la TVA (taux de la commission) sur les frais de collecte — à activer seulement après validation de l’expert-comptable
+        </label>
+        <div className="flex justify-end">
+          <Button type="submit" disabled={saving}>{saving ? "Enregistrement…" : "Enregistrer"}</Button>
+        </div>
+      </SettingsCard>
+    </form>
+  );
+}
+
+function StrategyCard({ data, reload, onError, onSuccess }) {
   const active = data.settings.activeStrategy;
   const [busy, setBusy] = useState("");
   async function change(s) {
@@ -74,14 +397,14 @@ function StrategyCard({ data, reload, onError, onSuccess, error, success }) {
   }
   return (
     <SettingsCard
-      title="Calcul de la livraison"
-      description="Stratégie utilisée pour calculer les frais de livraison facturés au client. Le seuil de livraison gratuite ci-dessous reste appliqué quelle que soit la stratégie."
+      title="Stratégie de calcul (avancé)"
+      description="Par défaut « Zone et poids » (grille par zone validée par le métier). Les autres stratégies restent disponibles ; le seuil de livraison offerte s’applique quelle que soit la stratégie."
     >
-      <SettingsStatus error={error} success={success} />
       {data.hasIndicativeRates ? (
         <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-          INDICATIF – à calibrer avec vos coûts réels : les montants fournis au départ (grille zone × poids, frais de collecte,
-          paramètres de la stratégie par distance) sont des estimations, pas des tarifs de transporteurs.
+          Les tarifs des 4 zones d’Abidjan sont validés par le métier (grille proposée). Les autres montants fournis au départ
+          (suppléments de poids, villes de l’intérieur, UEMOA, frais de collecte explicites, paramètres de la distance) restent
+          INDICATIFS – à calibrer avec vos coûts réels.
         </p>
       ) : null}
       <div className="grid gap-3 md:grid-cols-2">
@@ -91,15 +414,10 @@ function StrategyCard({ data, reload, onError, onSuccess, error, success }) {
               <div className="flex items-center gap-2">
                 <span className="font-medium">{s.label}</span>
                 {s.code === active ? <Badge label="ACTIVE" variant="success" /> : null}
-                {s.code === "DISTANCE_COEFFICIENT" ? <Badge label="BASE" variant="outline" /> : null}
-                {GRID_STRATEGIES.includes(s.code) ? <Badge label="OPTION" variant="outline" /> : null}
+                {s.code === "ZONE_WEIGHT" ? <Badge label="PAR DÉFAUT" variant="outline" /> : null}
+                {s.code === "DISTANCE_COEFFICIENT" ? <Badge label="REPLI HORS ABIDJAN" variant="outline" /> : null}
               </div>
               <p className="mt-1 text-sm text-muted-foreground">{s.description}</p>
-              {GRID_STRATEGIES.includes(s.code) ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Nécessite une zone de livraison côté client (non proposée par la boutique pour l’instant) : sans zone, le tarif fixe s’applique.
-                </p>
-              ) : null}
             </div>
             <Button variant="outline" size="sm" disabled={s.code === active || busy === s.code} onClick={() => change(s)}>
               {s.code === active ? "Stratégie active" : busy === s.code ? "Bascule…" : "Activer"}
@@ -188,8 +506,8 @@ function ParametersCard({ data, reload, onError, onSuccess }) {
   return (
     <form onSubmit={submit}>
       <SettingsCard
-        title="Paramètres du calcul par distance"
-        description="Coût d’un colis = arrondi( frais fixes + coefficient × distance routière ), borné par le plancher et le plafond, plus le supplément express."
+        title="Paramètres du calcul par distance (hors Abidjan)"
+        description="Utilisés hors des zones tarifées (mode « distance ») ou si la stratégie distance est active. Coût d’un colis = arrondi( frais fixes + coefficient × distance routière ), borné par le plancher et le plafond, plus le supplément express."
       >
         <p className="text-xs text-muted-foreground">
           Valeurs de départ INDICATIVES – à calibrer avec vos coûts réels. Google Maps :{" "}
@@ -211,7 +529,7 @@ function ParametersCard({ data, reload, onError, onSuccess }) {
           Majoration par tranche de poids (montants dans le tableau « Tranches de poids » ci-dessous)
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
-          <SettingsField id="sp-depot" label="Adresse du dépôt / entrepôt LID" hint="Départ des articles LID et de la livraison finale en option B.">
+          <SettingsField id="sp-depot" label="Adresse du dépôt / entrepôt LID" hint="Cocody Riviera 3 (coordonnées approximatives à confirmer). Départ des articles LID et de la livraison finale en option B.">
             <SettingsTextarea id="sp-depot" value={form.depotAddress} onChange={set("depotAddress")} />
           </SettingsField>
           <div className="grid gap-3">
@@ -244,7 +562,9 @@ function SimulatorCard({ data }) {
     weightGrams: "1000",
     methodCode: "STANDARD",
     zoneCode: "",
-    subTotal: "0"
+    subTotal: "0",
+    viaWarehouse: false,
+    pickupZoneCode: ""
   });
   const [result, setResult] = useState(null);
   const [err, setErr] = useState("");
@@ -261,7 +581,9 @@ function SimulatorCard({ data }) {
           zoneCode: form.zoneCode || undefined,
           weightGrams: num(form.weightGrams),
           methodCode: form.methodCode,
-          subTotal: num(form.subTotal)
+          subTotal: num(form.subTotal),
+          viaWarehouse: form.viaWarehouse || undefined,
+          pickupZoneCode: form.viaWarehouse ? form.pickupZoneCode || undefined : undefined
         })
       );
     } catch (e2) {
@@ -274,7 +596,7 @@ function SimulatorCard({ data }) {
     <form onSubmit={run}>
       <SettingsCard
         title="Simulateur"
-        description="Adresse de départ (vide = dépôt LID) et d’arrivée → distance et coût, avec la stratégie choisie. Aucune commande n’est créée."
+        description="Choisissez la commune du client et le poids du colis (grille par zone) ; pour la distance, les adresses de départ (vide = dépôt LID) et d’arrivée. Aucune commande n’est créée."
       >
         <SettingsStatus error={err} />
         <div className="grid gap-3 sm:grid-cols-2">
@@ -309,7 +631,7 @@ function SimulatorCard({ data }) {
               options={[{ value: "", label: "Stratégie active" }, ...data.strategies.map((s) => ({ value: s.code, label: s.label }))]}
             />
           </SettingsField>
-          <SettingsField id="sim-zone" label="Zone (stratégies zone × poids)">
+          <SettingsField id="sim-zone" label="Commune / zone du client">
             <Select
               id="sim-zone"
               value={form.zoneCode}
@@ -317,6 +639,20 @@ function SimulatorCard({ data }) {
               options={[{ value: "", label: "—" }, ...data.zones.map((z) => ({ value: z.code, label: `${z.name} (${z.code})` }))]}
             />
           </SettingsField>
+          <div className="grid gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.viaWarehouse} onChange={(e) => setForm((f) => ({ ...f, viaWarehouse: e.target.checked }))} />
+              Option B (collecte partenaire → entrepôt)
+            </label>
+            {form.viaWarehouse ? (
+              <Select
+                aria-label="Zone de retrait du partenaire"
+                value={form.pickupZoneCode}
+                onChange={set("pickupZoneCode")}
+                options={[{ value: "", label: "Zone de retrait inconnue (repli)" }, ...data.zones.map((z) => ({ value: z.code, label: z.name }))]}
+              />
+            ) : null}
+          </div>
         </div>
         <div className="flex justify-end">
           <Button type="submit">Calculer</Button>
@@ -327,8 +663,18 @@ function SimulatorCard({ data }) {
               Coût pour le client : {fmt(result.cost)} FCFA{" "}
               {result.freeShippingApplied ? <Badge label="LIVRAISON OFFERTE (seuil)" variant="success" /> : null}
               {result.fallback ? <Badge label="REPLI TARIF FIXE" variant="outline" /> : null}
-              {result.distanceEstimated ? <Badge label="ESTIMATION" variant="outline" /> : null}
+              {result.estimate || result.distanceEstimated ? <Badge label="ESTIMATION" variant="outline" /> : null}
+              {result.outsideZone ? <Badge label="HORS ZONES" variant="outline" /> : null}
+              {result.available === false ? <Badge label="LIVRAISON DÉSACTIVÉE" variant="outline" /> : null}
             </div>
+            {result.tariffZoneName ? <div className="mt-1">Zone : {result.tariffZoneName}</div> : null}
+            {result.unavailableReason ? <div className="mt-1 text-rose-700">{result.unavailableReason}</div> : null}
+            {p?.collectionCost != null ? (
+              <div className="mt-1">
+                Ramassage facturé au partenaire : {fmt(p.collectionCost)} FCFA (zone {p.collectionZoneCode || "—"})
+                {p.collectionZoneFallback ? " — zone de retrait inconnue : zone par défaut" : ""}
+              </div>
+            ) : null}
             <div className="mt-1 text-muted-foreground">
               Stratégie : {result.strategyCode} · avant gratuité : {fmt(result.grossCost)} FCFA · pris en charge LID : {fmt(result.coveredByLid)} FCFA
               {p?.distanceKm != null ? ` · distance : ${p.distanceKm} km` : ""}
@@ -365,7 +711,7 @@ function HistoryCard() {
   );
 }
 
-function PickupsCard({ onError, onSuccess }) {
+function PickupsCard({ data, onError, onSuccess }) {
   const [rows, setRows] = useState([]);
   const [drafts, setDrafts] = useState({});
   const load = useCallback(() => {
@@ -379,7 +725,8 @@ function PickupsCard({ onError, onSuccess }) {
       await backofficeApi.shippingPricingSavePartnerPickup(r.partnerId, {
         pickupAddress: val(r, "pickupAddress"),
         pickupLatitude: num(val(r, "pickupLatitude")),
-        pickupLongitude: num(val(r, "pickupLongitude"))
+        pickupLongitude: num(val(r, "pickupLongitude")),
+        pickupZoneCode: val(r, "pickupZoneCode")
       });
       onSuccess("Adresse de retrait enregistrée.");
       setDrafts((d) => ({ ...d, [r.partnerId]: undefined }));
@@ -399,19 +746,28 @@ function PickupsCard({ onError, onSuccess }) {
   return (
     <SettingsCard
       title="Adresses de retrait des partenaires"
-      description="Point de départ des colis en option A (le livreur récupère chez le partenaire) et de la collecte en option B. Sans coordonnées ni adresse, le tarif fixe s’applique."
+      description="Point de départ des colis en option A et de la collecte en option B. La zone de retrait fixe les frais de ramassage de l’option B ; sans zone, la zone de collecte par défaut s’applique (signalé)."
     >
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">Aucun partenaire.</p>
       ) : (
         <div className="space-y-3">
           {rows.map((r) => (
-            <div key={r.partnerId} className="grid gap-2 rounded-md border border-border p-3 md:grid-cols-[1fr_2fr_8rem_8rem_auto]">
+            <div key={r.partnerId} className="grid gap-2 rounded-md border border-border p-3 md:grid-cols-[1fr_2fr_10rem_7rem_7rem_auto]">
               <div className="text-sm">
                 <div className="font-medium">{r.partnerName}</div>
                 <div className="text-xs text-muted-foreground">{r.logisticsMode === "VIA_WAREHOUSE" ? "Option B (entrepôt)" : "Option A (direct)"}</div>
+                {r.logisticsMode === "VIA_WAREHOUSE" && !r.pickupZoneCode ? (
+                  <div className="text-xs text-amber-700">Zone de retrait inconnue : ramassage facturé sur la zone par défaut</div>
+                ) : null}
               </div>
               <Input aria-label="Adresse de retrait" placeholder="Adresse de retrait" value={val(r, "pickupAddress")} onChange={edit(r, "pickupAddress")} />
+              <Select
+                aria-label="Zone de retrait"
+                value={val(r, "pickupZoneCode")}
+                onChange={edit(r, "pickupZoneCode")}
+                options={[{ value: "", label: "Zone inconnue" }, ...(data?.zones || []).filter((z) => z.level === "COMMUNE").map((z) => ({ value: z.code, label: z.name }))]}
+              />
               <Input aria-label="Latitude" placeholder="Latitude" value={val(r, "pickupLatitude")} onChange={edit(r, "pickupLatitude")} />
               <Input aria-label="Longitude" placeholder="Longitude" value={val(r, "pickupLongitude")} onChange={edit(r, "pickupLongitude")} />
               <div className="flex gap-2">
@@ -430,7 +786,7 @@ function GridCard({ data, reload, onError, onSuccess }) {
   const [csv, setCsv] = useState("");
   const [cell, setCell] = useState({});
   const [report, setReport] = useState(null);
-  const tiers = data.tiers;
+  const tiers = activeTiers(data);
   const rateOf = (z, t) => data.rates.find((r) => r.zoneCode === z && r.tierCode === t && r.mode === "STANDARD");
   const value = (z, t) => cell[`${z}|${t}`] ?? rateOf(z, t)?.amount ?? "";
   const dirty = Object.keys(cell);
@@ -477,10 +833,10 @@ function GridCard({ data, reload, onError, onSuccess }) {
   }
   return (
     <SettingsCard
-      title="Zones, tranches de poids et grille (stratégies zone × poids)"
-      description="Grille INDICATIVE à calibrer avec vos coûts réels. Utilisée seulement par ZONE_WEIGHT / ZONE_VOLUMETRIC. Tarifs STANDARD ; l’express ajoute le supplément fixe."
+      title="Grille complète, import CSV et rapport (avancé)"
+      description="Toutes les zones (pays, villes, communes, zones tarifaires) × tranches actives, tarifs STANDARD ; l’express ajoute le supplément fixe. Une case vide hérite de la zone parente (base + supplément). Les montants hors des 4 zones d’Abidjan sont INDICATIFS."
     >
-      <div className="text-sm font-medium">Tranches de poids (majoration utilisée par la stratégie par distance)</div>
+      <div className="text-sm font-medium">Tranches de poids actives (supplément par colis : grille par zone, forfait hors zones, et distance si la majoration est activée)</div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -521,7 +877,7 @@ function GridCard({ data, reload, onError, onSuccess }) {
               <tr key={z.code} className="border-t border-border">
                 <td className="py-1 pr-3 whitespace-nowrap">{z.parentCode ? "↳ " : ""}{z.name}</td>
                 {tiers.map((t) => (
-                  <td key={t.code} className="pr-2">
+                  <td key={t.code} className="pr-2" title={rateOf(z.code, t.code)?.statusNote || undefined}>
                     <Input
                       aria-label={`${z.name} ${t.code}`}
                       className="h-8 w-24"
@@ -545,9 +901,9 @@ function GridCard({ data, reload, onError, onSuccess }) {
       <SettingsField
         id="grid-csv"
         label="Import CSV"
-        hint="Une ligne par tarif : zone_code;tranche_code;mode;montant (ex. CI-ABJ;T1;STANDARD;1500). En-tête optionnel ; montant vide = suppression."
+        hint="Une ligne par tarif : zone_code;tranche_code;mode;montant (ex. CI-ABJ-Z2;P1;STANDARD;1500). En-tête optionnel ; montant vide = suppression."
       >
-        <SettingsTextarea id="grid-csv" value={csv} onChange={(e) => setCsv(e.target.value)} placeholder={"zone_code;tier_code;mode;amount\nCI-ABJ;T1;STANDARD;1500"} />
+        <SettingsTextarea id="grid-csv" value={csv} onChange={(e) => setCsv(e.target.value)} placeholder={"zone_code;tier_code;mode;amount\nCI-ABJ-Z2;P1;STANDARD;1500"} />
       </SettingsField>
       <div className="flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={loadReport}>Coût facturé vs coût réel</Button>
@@ -555,7 +911,7 @@ function GridCard({ data, reload, onError, onSuccess }) {
       </div>
       {report ? (
         report.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucune commande payée.</p>
+          <p className="text-sm text-muted-foreground">Aucune commande payée. Le coût réel se saisit par colis dans la page Livraison (fiche colis).</p>
         ) : (
           <table className="w-full text-sm">
             <thead>

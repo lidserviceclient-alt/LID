@@ -8,6 +8,7 @@ import Input from "../components/ui/Input.jsx";
 import Select from "../components/ui/Select.jsx";
 import { Table, THead, TRow, TCell } from "../components/ui/Table.jsx";
 import CreateOrderModal from "../components/orders/CreateOrderModal.jsx";
+import RefundSlaPanel from "../components/orders/RefundSlaPanel.jsx";
 import {
   ORDER_STATUSES,
   PaymentBadge,
@@ -116,6 +117,8 @@ export default function Orders() {
           </>
         }
       />
+
+      <RefundSlaPanel reloadKey={reloadKey} />
 
       <Card className="space-y-4 p-3 sm:p-4">
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">

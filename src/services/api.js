@@ -685,6 +685,8 @@ export const backofficeApi = {
   // Relance du remboursement automatique : { success, status, message, refund } (success=false : nouvel échec, message explicatif)
   retryRefund: (refundId) =>
     request(`/api/v1/refunds/${encodeURIComponent(refundId)}/retry`, { method: "POST" }),
+  // Remboursements à traiter avec ancienneté et niveau d'alerte (OK / WARNING > 48 h / CRITICAL > 10 j)
+  refundSla: () => request("/api/v1/refunds/sla"),
   createOrder: (payload) =>
     request("/api/v1/backoffice/orders", {
       method: "POST",
@@ -729,9 +731,50 @@ export const backofficeApi = {
     return request(`/api/v1/backoffice/logistics/board/shipments?${params.toString()}`);
   },
   shipmentTimeline: (id) => request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/timeline`),
-  // Option B (R4) : reception a l'entrepot LID d'un colis partenaire collecte (idempotent)
-  receiveShipmentAtWarehouse: (id) =>
-    request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/warehouse-receipt`, { method: "POST" }),
+  // Option B (R4) : reception a l'entrepot LID d'un colis partenaire collecte (idempotent).
+  // `check` : CONFORME (defaut) | ANOMALIE (note obligatoire) ; `photoUrl` : photo deja televersee (optionnelle)
+  receiveShipmentAtWarehouse: (id, { check, note, photoUrl } = {}) =>
+    request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/warehouse-receipt`, {
+      method: "POST",
+      ...(check || note || photoUrl ? { body: JSON.stringify({ check: check || "CONFORME", note: note || null, photoUrl: photoUrl || null }) } : {})
+    }),
+  // Trajets (option B) : collectes partenaire -> entrepot, affectation par trajet, fiche colis
+  collectionSummary: ({ waitAlertHours, transitAlertHours } = {}) => {
+    const params = new URLSearchParams();
+    if (waitAlertHours) params.set("waitAlertHours", `${waitAlertHours}`);
+    if (transitAlertHours) params.set("transitAlertHours", `${transitAlertHours}`);
+    const query = params.toString();
+    return request(`/api/v1/backoffice/logistics/collections/summary${query ? `?${query}` : ""}`);
+  },
+  collections: ({ stage, courier, partnerId, late, q, sort, history, page = 0, size = 25, waitAlertHours, transitAlertHours } = {}) => {
+    const params = new URLSearchParams();
+    if (stage) params.set("stage", stage);
+    if (courier) params.set("courier", courier);
+    if (partnerId) params.set("partnerId", partnerId);
+    if (late) params.set("late", "true");
+    if (q) params.set("q", q);
+    if (sort) params.set("sort", sort);
+    if (history) params.set("history", "true");
+    if (waitAlertHours) params.set("waitAlertHours", `${waitAlertHours}`);
+    if (transitAlertHours) params.set("transitAlertHours", `${transitAlertHours}`);
+    params.set("page", `${page}`);
+    params.set("size", `${size}`);
+    return request(`/api/v1/backoffice/logistics/collections?${params.toString()}`);
+  },
+  lookupCollection: (qr) =>
+    request(`/api/v1/backoffice/logistics/collections/lookup?qr=${encodeURIComponent(qr)}`, { skipDedupe: true }),
+  assignCollectionCourier: (id, { courierUser, courierName, courierPhone }) =>
+    request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/collection/courier`, {
+      method: "PUT",
+      body: JSON.stringify({ courierUser, courierName, courierPhone })
+    }),
+  // Affectation en masse d'un trajet (legType COLLECTE | LIVRAISON), 200 colis max par appel
+  bulkAssignLeg: ({ legType, shipmentIds, courierUser, courierName, courierPhone }) =>
+    request("/api/v1/backoffice/logistics/legs/bulk-assign", {
+      method: "POST",
+      body: JSON.stringify({ legType, shipmentIds, courierUser, courierName, courierPhone })
+    }),
+  shipmentLegs: (id) => request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/legs`, { skipDedupe: true }),
   returnShipmentToDepot: (id, reason) =>
     request(`/api/v1/backoffice/logistics/shipments/${encodeURIComponent(id)}/return-to-depot`, {
       method: "POST",
@@ -984,6 +1027,14 @@ export const backofficeApi = {
   shippingPricingSavePartnerPickup: (partnerId, payload) =>
     request(`/api/v1/backoffice/shipping-pricing/partners/${encodeURIComponent(partnerId)}/pickup`, { method: "PUT", body: JSON.stringify(payload) }),
   shippingPricingCostReport: () => request("/api/v1/backoffice/shipping-pricing/cost-report"),
+  // Grille par zone : detail par colis d'une commande (zone, tarif, collecte option B) et cout reel du trajet
+  shippingPricingOrderParcels: (orderId) =>
+    request(`/api/v1/backoffice/shipping-pricing/orders/${encodeURIComponent(orderId)}/parcels`),
+  shippingPricingSaveShipmentCost: (shipmentId, cost) =>
+    request(`/api/v1/backoffice/shipping-pricing/shipments/${encodeURIComponent(shipmentId)}/cost`, {
+      method: "PUT",
+      body: JSON.stringify({ cost })
+    }),
   createFreeShippingRule: (payload) =>
     request("/api/v1/backoffice/free-shipping-rules", {
       method: "POST",

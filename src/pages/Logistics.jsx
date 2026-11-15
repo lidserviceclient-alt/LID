@@ -19,6 +19,9 @@ import {
 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 import ShippingLabel from "../components/ShippingLabel.jsx";
+import CollectionBoard from "../components/logistics/CollectionBoard.jsx";
+import ShipmentLegsPanel from "../components/logistics/ShipmentLegsPanel.jsx";
+import ShipmentShippingCost from "../components/logistics/ShipmentShippingCost.jsx";
 import Card from "../components/ui/Card.jsx";
 import SectionHeader from "../components/ui/SectionHeader.jsx";
 import Button from "../components/ui/Button.jsx";
@@ -37,7 +40,8 @@ const DEFAULT_CARRIERS = ["DHL Express", "La Poste", "Jumia Force"];
 const POLL_MS = 60_000;
 const SEARCH_DEBOUNCE_MS = 350;
 const COLUMN_PREVIEW = 10;
-const BULK_MAX = 50;
+const BULK_MAX = 200;
+const LEG_STORAGE_KEY = "lid.backoffice.logistics.leg";
 const PAGE_SIZES = [10, 20, 50, 100];
 // Export : toutes les lignes du filtre courant, par pages de 500 (taille maximale de l'API)
 const EXPORT_PAGE_SIZE = 500;
@@ -58,7 +62,8 @@ const LANE_BADGE = {
   TO_PICKUP: { label: "À récupérer", cls: "bg-slate-500/15 text-slate-700 dark:text-slate-300" },
   IN_TRANSIT: { label: "En livraison", cls: "bg-blue-500/15 text-blue-700" },
   FAILED: { label: "Échec", cls: "bg-rose-500/15 text-rose-700" },
-  DELIVERED: { label: "Livré", cls: "bg-emerald-500/15 text-emerald-700" }
+  DELIVERED: { label: "Livré", cls: "bg-emerald-500/15 text-emerald-700" },
+  IN_COLLECTION: { label: "En collecte (B)", cls: "bg-amber-500/15 text-amber-700" }
 };
 
 // Un seul libellé par statut, repris par les colonnes, les badges, le panneau et l'historique
@@ -222,7 +227,18 @@ function Tile({ label, value, active, alert, onClick, icon: Icon }) {
   );
 }
 
+function loadLeg() {
+  try {
+    return localStorage.getItem(LEG_STORAGE_KEY) === "COLLECTE" ? "COLLECTE" : "LIVRAISON";
+  } catch {
+    return "LIVRAISON";
+  }
+}
+
 export default function Logistics() {
+  // Type de trajet suivi : LIVRAISON (vers le client, options A et B) ou COLLECTE (option B, partenaire -> entrepôt)
+  const [leg, setLeg] = useState(() => loadLeg());
+  const [collectionCounts, setCollectionCounts] = useState(null);
   // Synthèse du suivi (compteurs, charge des livreurs) et indicateurs historiques (délai, coût, dernières livraisons)
   const [summary, setSummary] = useState(null);
   const [summaryError, setSummaryError] = useState("");
@@ -340,6 +356,11 @@ export default function Logistics() {
     } catch (err) {
       setSummaryError(err?.message || "Impossible de charger le suivi des livraisons.");
     }
+    // Compteurs des collectes (option B) : visibles depuis le suivi des livraisons
+    backofficeApi
+      .collectionSummary()
+      .then((data) => setCollectionCounts(data?.counts || null))
+      .catch(() => {});
   }, [prepHours, transitHours]);
 
   // Indicateurs sur 30 jours, profil boutique (impression) et 10 dernières livraisons clôturées
@@ -654,26 +675,29 @@ export default function Logistics() {
     });
   }
 
-  // Aucune API de lot : appels séquentiels (un à la fois), résumé réussite/échec
+  // Une seule requête pour toute la sélection (200 colis max) ; chaque refus est rapporté
   async function bulkAssign() {
     const courier = activeCouriers.find((c) => c.email === bulkCourier);
     if (!courier || checked.size === 0 || bulk?.running) return;
     const entries = [...checked.entries()];
-    const failures = [];
-    let ok = 0;
     setBulk({ running: true, done: 0, total: entries.length, ok: 0, failures: [], courier: courierLabel(courier) });
-    for (let i = 0; i < entries.length; i += 1) {
-      const [id, ref] = entries[i];
-      try {
-        await assignRequest(id, courier);
-        ok += 1;
-      } catch (err) {
-        failures.push({ id, ref, message: err?.message || "Échec" });
-      }
-      setBulk({ running: true, done: i + 1, total: entries.length, ok, failures: [...failures], courier: courierLabel(courier) });
+    let failures = [];
+    let ok = 0;
+    try {
+      const result = await backofficeApi.bulkAssignLeg({
+        legType: "LIVRAISON",
+        shipmentIds: entries.map(([id]) => id),
+        courierUser: courier.email,
+        courierName: courierLabel(courier),
+        courierPhone: courier.phoneNumber || undefined
+      });
+      ok = result?.assigned?.length || 0;
+      failures = (result?.failures || []).map((f) => ({ id: f.shipmentId, ref: f.reference || checked.get(f.shipmentId) || `#${f.shipmentId}`, message: f.message }));
+    } catch (err) {
+      failures = entries.map(([id, ref]) => ({ id, ref, message: err?.message || "Échec" }));
     }
     setBulk({ running: false, done: entries.length, total: entries.length, ok, failures, courier: courierLabel(courier) });
-    setChecked(new Map(failures.map((f) => [f.id, f.ref])));
+    setChecked(new Map(failures.filter((f) => f.id != null).map((f) => [f.id, f.ref])));
     refreshRef.current();
   }
 
@@ -877,6 +901,50 @@ export default function Logistics() {
         </div>
       ) : null}
 
+      {/* Type de trajet : livraison au client (A et B) ou collecte partenaire -> entrepôt (B) */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 rounded-lg border border-border p-1" role="tablist" aria-label="Type de trajet">
+          {[
+            { key: "LIVRAISON", label: "Livraison au client" },
+            { key: "COLLECTE", label: "Collecte → entrepôt (option B)" }
+          ].map((t) => (
+            <Button
+              key={t.key}
+              role="tab"
+              aria-selected={leg === t.key}
+              variant={leg === t.key ? "primary" : "ghost"}
+              size="sm"
+              onClick={() => {
+                setLeg(t.key);
+                try {
+                  localStorage.setItem(LEG_STORAGE_KEY, t.key);
+                } catch {
+                  // préférence non mémorisée
+                }
+              }}
+            >
+              {t.label}
+              {t.key === "COLLECTE" && collectionCounts ? (
+                <span className="ml-1.5 rounded-full bg-background/80 px-1.5 text-[11px] text-foreground">
+                  {nf.format(
+                    (Number(collectionCounts.toCollect) || 0) + (Number(collectionCounts.assigned) || 0) +
+                      (Number(collectionCounts.inTransit) || 0) + (Number(collectionCounts.deposited) || 0) +
+                      (Number(collectionCounts.anomalies) || 0)
+                  )}
+                </span>
+              ) : null}
+            </Button>
+          ))}
+        </div>
+        {leg === "LIVRAISON" && collectionCounts && Number(collectionCounts.atWarehouseUnassigned) > 0 ? (
+          <span className="text-xs font-medium text-amber-700">
+            {nf.format(Number(collectionCounts.atWarehouseUnassigned))} colis reçu(s) à l'entrepôt sans livreur (voir « À affecter »)
+          </span>
+        ) : null}
+      </div>
+
+      {leg === "COLLECTE" ? <CollectionBoard couriers={couriers} /> : (
+      <>
       {/* Compteurs cliquables = onglets de la liste */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
         <Tile label="Tous" value={nf.format(totalOpen)} active={!history && tab === ""} onClick={() => showTab("")} />
@@ -1429,6 +1497,9 @@ export default function Logistics() {
         </button>
       </Card>
 
+      </>
+      )}
+
       {/* Composant d'impression (masqué) */}
       <div style={{ display: "none" }}>
         <ShippingLabel ref={labelRef} order={printOrder} company={companyInfo} />
@@ -1531,7 +1602,7 @@ export default function Logistics() {
               ) : null}
             </dl>
 
-            {s.status !== "LIVREE" ? (
+            {s.status !== "LIVREE" && !s.awaitsWarehouseReceipt ? (
               <div className="space-y-2 rounded-lg border border-border p-3">
                 <p className="font-semibold">{s.courierUser ? "Réaffecter" : "Affecter un livreur"}</p>
                 <div className="flex gap-2">
@@ -1569,17 +1640,29 @@ export default function Logistics() {
               <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50/60 p-3 dark:bg-amber-500/5">
                 <p className="font-semibold">Option B : collecte vers l'entrepôt LID</p>
                 <p className="text-xs text-muted-foreground">
-                  Ce colis partenaire doit être déposé et réceptionné à l'entrepôt avant la livraison au client. Tant qu'il
-                  n'est pas réceptionné, le scan de livraison est refusé.
+                  La livraison au client s'affecte après la réception à l'entrepôt. Affectez la collecte, suivez le retrait et
+                  réceptionnez le colis (avec contrôle) depuis l'onglet « Collecte → entrepôt ».
                 </p>
                 <Button
                   size="sm"
-                  disabled={Boolean(actionBusy)}
-                  isLoading={actionBusy === "warehouse"}
-                  onClick={() => runAction("warehouse", () => backofficeApi.receiveShipmentAtWarehouse(s.id), "Colis réceptionné à l'entrepôt LID.")}
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedId(null);
+                    setLeg("COLLECTE");
+                  }}
                 >
-                  Réceptionner à l'entrepôt
+                  Ouvrir les collectes
                 </Button>
+              </div>
+            ) : null}
+
+            {/* Grille par zone : zone du client, livraison facturee et cout reel du trajet */}
+            {s.id ? <ShipmentShippingCost shipmentId={s.id} cost={s.cost} onSaved={() => refreshRef.current()} /> : null}
+
+            {s.logisticsMode === "VIA_WAREHOUSE" ? (
+              <div className="space-y-2">
+                <p className="font-semibold">Trajets du colis</p>
+                <ShipmentLegsPanel shipmentId={s.id} refreshKey={updatedAt ? updatedAt.getTime() : 0} />
               </div>
             ) : null}
 

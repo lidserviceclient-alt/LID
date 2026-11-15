@@ -17,11 +17,12 @@ const INITIAL_SHOP_FORM = {
   returnWindowUnit: "DAYS",
   returnWindowMin: "7",
   returnWindowMax: "7",
+  internationalReturnWindowDays: "21",
   customerRefundMode: "FULL_WITH_SHIPPING",
   partnerSettlementMode: "DEDUCT_SHIPPING_AND_RETURN_COST",
   returnShippingCostAmount: "0",
   partnerMarginPercent: "10",
-  paymentFeePercent: "5",
+  paymentFeePercent: "3",
   partnerPayoutWithdrawMode: "",
   returnPolicyText: "",
   legalName: "",
@@ -46,11 +47,12 @@ const toShopForm = (cfg) => ({
   returnWindowUnit: cfg?.returnWindowUnit || "DAYS",
   returnWindowMin: `${cfg?.returnWindowMin ?? 7}`,
   returnWindowMax: `${cfg?.returnWindowMax ?? 7}`,
+  internationalReturnWindowDays: `${cfg?.internationalReturnWindowDays ?? 21}`,
   customerRefundMode: cfg?.customerRefundMode || "FULL_WITH_SHIPPING",
   partnerSettlementMode: cfg?.partnerSettlementMode || "DEDUCT_SHIPPING_AND_RETURN_COST",
   returnShippingCostAmount: `${cfg?.returnShippingCostAmount ?? 0}`,
   partnerMarginPercent: toPercentInput(cfg?.partnerMarginPercent, "10"),
-  paymentFeePercent: toPercentInput(cfg?.paymentFeePercent, "5"),
+  paymentFeePercent: toPercentInput(cfg?.paymentFeePercent, "3"),
   partnerPayoutWithdrawMode: cfg?.partnerPayoutWithdrawMode || "",
   returnPolicyText: cfg?.returnPolicyText || "",
   legalName: cfg?.legalName || "",
@@ -110,6 +112,7 @@ export function useShopProfile() {
       }
       const returnWindowMin = Number.parseInt(`${shopForm.returnWindowMin || ""}`.trim(), 10);
       const returnWindowMax = Number.parseInt(`${shopForm.returnWindowMax || ""}`.trim(), 10);
+      const internationalReturnWindowDays = Number.parseInt(`${shopForm.internationalReturnWindowDays || ""}`.trim(), 10);
       const returnShippingCostAmount = Number(`${shopForm.returnShippingCostAmount || ""}`.trim().replace(",", "."));
       const partnerMarginPercent = Number(`${shopForm.partnerMarginPercent || ""}`.trim().replace(",", "."));
       const paymentFeePercent = Number(`${shopForm.paymentFeePercent || ""}`.trim().replace(",", "."));
@@ -118,6 +121,9 @@ export function useShopProfile() {
       }
       if (!Number.isInteger(returnWindowMax) || returnWindowMax < returnWindowMin) {
         throw new Error("Intervalle retour max invalide.");
+      }
+      if (!Number.isInteger(internationalReturnWindowDays) || internationalReturnWindowDays <= 0) {
+        throw new Error("Délai de retour international invalide.");
       }
       if (!Number.isFinite(returnShippingCostAmount) || returnShippingCostAmount < 0) {
         throw new Error("Coût de retour invalide.");
@@ -141,6 +147,7 @@ export function useShopProfile() {
         returnWindowUnit: shopForm.returnWindowUnit || "DAYS",
         returnWindowMin,
         returnWindowMax,
+        internationalReturnWindowDays,
         customerRefundMode: shopForm.customerRefundMode || "FULL_WITH_SHIPPING",
         partnerSettlementMode: shopForm.partnerSettlementMode || "DEDUCT_SHIPPING_AND_RETURN_COST",
         returnShippingCostAmount,

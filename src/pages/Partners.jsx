@@ -49,11 +49,22 @@ const formatMoney = (value) => {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XOF", maximumFractionDigits: 0 }).format(amount);
 };
 
+/**
+ * Deduction « livraison » du reversement : depuis la grille par zone, seuls les frais de ramassage option B (partenaire ->
+ * entrepot, + TVA si validee) sont deduits ; shippingAllocation (ancienne part de livraison) reste affichee pour l'historique.
+ */
+const collectionFee = (row) => {
+  const fee = Number(row?.collectionFeeAmount);
+  const vat = Number(row?.collectionFeeVatAmount);
+  const legacy = Number(row?.shippingAllocation);
+  return (Number.isFinite(fee) ? fee : 0) + (Number.isFinite(vat) ? vat : 0) + (Number.isFinite(legacy) ? legacy : 0);
+};
+
 const computePartnerPayoutAmount = (row) => {
   const netAmount = Number(row?.netAmount);
   if (Number.isFinite(netAmount)) return netAmount;
   const grossAmount = Number(row?.grossAmount);
-  const shipping = Number(row?.shippingAllocation);
+  const shipping = collectionFee(row);
   const returnCost = Number(row?.returnCostAllocation);
   const margin = commissionTtc(row);
   if (!Number.isFinite(grossAmount)) return null;
@@ -267,14 +278,14 @@ export default function Partners() {
   const exportTransactionsCsv = () => {
     if (!paymentPartnerId || transactionRows.length === 0) return;
     const csvRows = [
-      ["Commande", "Date commande", "Paiement prevu", "Montant commande", "Montant article", "Livraison", "Retour", "Commission LID HT", "TVA sur commission", "Commission TTC", "Frais de paiement partenaire", "Frais de paiement pris en charge par LID", "A verser", "Statut"],
+      ["Commande", "Date commande", "Paiement prevu", "Montant commande", "Montant article", "Ramassage option B", "Retour", "Commission LID HT", "TVA sur commission", "Commission TTC", "Frais de paiement partenaire", "Frais de paiement pris en charge par LID", "A verser", "Statut"],
       ...transactionRows.map((row) => [
         row.orderNumber || (row.orderId ? `ORD-${row.orderId}` : "-"),
         formatDate(row.orderCreatedAt),
         formatDate(row.scheduledAt || row.eligibleAt),
         formatMoney(row.orderAmount),
         formatMoney(row.grossAmount),
-        formatMoney(row.shippingAllocation),
+        formatMoney(collectionFee(row)),
         formatMoney(row.returnCostAllocation),
         formatMoney(row.marginAmount),
         formatMoney(row.commissionVatAmount),
@@ -723,7 +734,7 @@ export default function Partners() {
               <TCell>Paiement prévu</TCell>
               <TCell>Montant commande</TCell>
               <TCell>Montant article</TCell>
-              <TCell>Livraison</TCell>
+              <TCell title="Frais de ramassage partenaire → entrepôt (option B), déduits du reversement. La livraison payée par le client n'est jamais déduite.">Ramassage (opt. B)</TCell>
               <TCell>Retour</TCell>
               <TCell>Commission LID HT</TCell>
               <TCell>TVA sur commission ({vatPercentLabel(transactionRows[0])})</TCell>
@@ -785,7 +796,7 @@ export default function Partners() {
                   <TCell>{formatDate(row.scheduledAt || row.eligibleAt)}</TCell>
                   <TCell>{formatMoney(row.orderAmount)}</TCell>
                   <TCell>{formatMoney(row.grossAmount)}</TCell>
-                  <TCell>{formatMoney(row.shippingAllocation)}</TCell>
+                  <TCell>{formatMoney(collectionFee(row))}</TCell>
                   <TCell>{formatMoney(row.returnCostAllocation)}</TCell>
                   <TCell>{formatMoney(row.marginAmount)}</TCell>
                   <TCell>{formatMoney(row.commissionVatAmount)}</TCell>
